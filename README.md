@@ -11,7 +11,7 @@ A professional-grade QR code scanning and decoding tool with industrial-strength
 - 📷 **Real-time Camera Scanning** - Scan QR codes using your device camera in real-time
 - 🖼️ **Smart Image Upload** - AI-powered region detection processes only QR code areas, not entire images
 - 🎯 **Edge Density Detection** - Automatically locates QR codes using edge concentration analysis
-- ⚡ **Ultra-Fast Processing** - 10-50x faster by focusing on detected regions (95% fewer pixels)
+- ⚡ **Region-Focused Processing** - Focuses decoding work on detected QR regions instead of scanning every full-resolution pixel first
 - 📱 **Multi-Camera Support** - Automatically detect and switch between front/back cameras
 - 🔗 **Smart Link Recognition** - Automatically identify URLs and provide quick access
 - 📋 **One-Click Copy** - Easily copy decoded results to clipboard
@@ -46,15 +46,15 @@ Inspired by region-focused scanning strategies used in modern mobile QR scanners
    - Example: 4000×3000 photo → 500×500 QR area
    - Reduces processing from 12M to 250K pixels
 
-3. **Targeted Processing** (10-50x faster)
+3. **Targeted Processing**
    - Auto contrast stretching
    - Simple threshold tests (115, 140, 165)
    - Fallback to full image if detection fails
 
 **Performance:**
-- 📊 **Clear QR codes**: <1 second (90% of cases)
-- 📊 **Normal photos**: 2-3 seconds (8% of cases)
-- 📊 **Difficult cases**: 3-5 seconds (2% of cases)
+- 📊 Current upload-mode benchmark: 12/16 fixtures decoded successfully
+- 📊 Average elapsed time: 0.08s on the local benchmark machine
+- 📊 See [docs/benchmark.md](docs/benchmark.md) for setup, categories, timings, and failure cases
 
 ## 🛠️ Tech Stack
 
@@ -182,9 +182,9 @@ When you upload an image, the decoder uses a smart two-phase approach:
    - Parallel processing where beneficial
 
 **Why It's Fast:**
-- Traditional approach: Process full 4000×3000 = 12M pixels
-- Our approach: Detect + process 500×500 = 250K pixels
-- **Speed gain**: 10-50x faster ⚡
+- Full-image decoding can require processing every pixel in a large image
+- Scanly first estimates a likely QR region, then applies decoding attempts to that smaller crop
+- See [docs/benchmark.md](docs/benchmark.md) for the current measured baseline
 
 ## 🔧 Configuration
 
@@ -232,7 +232,7 @@ Unlike many basic QR code readers, this tool uses region-focused detection inspi
 
 **Key Advantages:**
 - 🎯 **Smart Detection**: Finds QR codes automatically using edge density analysis
-- ⚡ **Lightning Fast**: Processes only relevant regions (10-50x faster)
+- ⚡ **Targeted Processing**: Processes likely QR regions before falling back to broader scans
 - 🎨 **Region-Focused Performance**: Designed for fast targeted decoding rather than full-image brute-force scanning
 - 🔬 **Scientific Approach**: Grid-based edge detection, not brute force
 - 💪 **Robust**: Handles low-contrast, blurry, and screen-captured images
