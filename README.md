@@ -1,4 +1,4 @@
-# QR Code Decoder
+# Scanly — Fast QR Code Scanner & Decoder
 
 A professional-grade QR code scanning and decoding tool with industrial-strength image processing, built with Next.js.
 
@@ -70,8 +70,8 @@ This tool can successfully decode challenging QR codes that many other tools str
 Clone the repository and install dependencies:
 
 ```bash
-git clone https://github.com/Yangjunjie-Lin/qr_decoder.git
-cd qr_decoder
+git clone https://github.com/Yangjunjie-Lin/Scanly.git
+cd Scanly
 npm install
 ```
 
@@ -133,7 +133,7 @@ npm start
 ## 📁 Project Structure
 
 ```
-qr_decoder/
+Scanly/
 ├── app/
 │   ├── globals.css      # Global styles
 │   ├── layout.tsx       # Root layout component
