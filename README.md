@@ -1,6 +1,6 @@
 # Scanly — Fast QR Code Scanner & Decoder
 
-A professional-grade QR code scanning and decoding tool with industrial-strength image processing, built with Next.js.
+A Next.js-based QR code scanning and decoding tool that uses region-focused image preprocessing and multi-layer decoder fallbacks.
 
 ![Next.js](https://img.shields.io/badge/Next.js-14.2.5-black)
 ![React](https://img.shields.io/badge/React-18.3.1-blue)
