@@ -11,13 +11,13 @@ A professional-grade QR code scanning and decoding tool with industrial-strength
 - 📷 **Real-time Camera Scanning** - Scan QR codes using your device camera in real-time
 - 🖼️ **Smart Image Upload** - AI-powered region detection processes only QR code areas, not entire images
 - 🎯 **Edge Density Detection** - Automatically locates QR codes using edge concentration analysis
-- ⚡ **Region-Focused Processing** - Focuses decoding work on detected QR regions instead of scanning every full-resolution pixel first
+- ⚡ **Region-Focused Processing** - Reduces unnecessary full-image processing by cropping to likely QR regions
 - 📱 **Multi-Camera Support** - Automatically detect and switch between front/back cameras
 - 🔗 **Smart Link Recognition** - Automatically identify URLs and provide quick access
 - 📋 **One-Click Copy** - Easily copy decoded results to clipboard
 - 💫 **Haptic Feedback** - Vibration feedback on successful scan (supported devices)
 - 🎨 **Modern UI** - Clean and beautiful user interface with real-time processing status
-- 🚀 **Region-Focused Processing** - Designed for fast QR decoding by focusing on detected regions instead of full-image brute-force scanning
+- 🚀 **Targeted Upload Decoding** - Applies contrast and threshold fallbacks to likely QR regions before broader scans
 - 🔄 **Multi-Layer Fallback** - Combines jsQR and ZXing with intelligent fallback strategies
 
 ## 🎯 Advanced Decoding Capabilities
@@ -36,25 +36,27 @@ This tool can successfully decode challenging QR codes that many other tools str
 
 Inspired by region-focused scanning strategies used in modern mobile QR scanners, this tool avoids wastefully processing entire images:
 
-1. **Fast QR Location** (400px preview, <50ms)
+1. **QR Location Preview** (400px preview)
    - Divides image into 20×20 grid
    - Analyzes edge density in each 5×5 cell area
    - Identifies high-density regions (QR codes have many edges)
 
-2. **Precision Cropping** (95% pixel reduction)
+2. **Precision Cropping**
    - Extracts only the detected QR region
    - Example: 4000×3000 photo → 500×500 QR area
-   - Reduces processing from 12M to 250K pixels
+   - Reduces unnecessary full-image processing by focusing on a smaller candidate area
 
 3. **Targeted Processing**
    - Auto contrast stretching
    - Simple threshold tests (115, 140, 165)
    - Fallback to full image if detection fails
 
-**Performance:**
-- 📊 Current upload-mode benchmark: 12/16 fixtures decoded successfully
-- 📊 Average elapsed time: 0.08s on the local benchmark machine
-- 📊 See [docs/benchmark.md](docs/benchmark.md) for setup, categories, timings, and failure cases
+**Benchmark:**
+- Current fixture benchmark: 16 upload-mode images
+- Success rate: 12/16 = 75.0%
+- Average elapsed time: 0.08s
+- Median elapsed time: 0.06s
+- See [docs/benchmark.md](docs/benchmark.md) for per-image results and failure analysis.
 
 ## 🛠️ Tech Stack
 
@@ -116,7 +118,7 @@ npm start
    - Crops to the relevant region
    - Applies optimized decoding methods
 4. Real-time status shows current processing stage
-5. The result will be displayed once decoding succeeds (typically <3 seconds)
+5. The result will be displayed once decoding succeeds
 
 **Pro Tips for Best Results:**
 - ✅ For low-contrast QR codes, use upload mode instead of camera
@@ -151,7 +153,7 @@ Scanly/
 
 When you upload an image, the decoder uses a smart two-phase approach:
 
-#### Phase 1: Fast QR Location Detection (<50ms)
+#### Phase 1: QR Location Detection
 
 1. **Downscale to 400px** preview for speed
 2. **Grid Analysis**: Divide into 20×20 cells
@@ -161,11 +163,11 @@ When you upload an image, the decoder uses a smart two-phase approach:
    - Find 5×5 area with maximum density
 4. **QR Region Extraction**: Crop detected area with padding
 
-#### Phase 2: Targeted Decoding (2-5 seconds)
+#### Phase 2: Targeted Decoding
 
 1. **Crop to Region** (800px max, preserves quality)
    - Process only detected QR area
-   - 95% pixel reduction vs full image
+   - Reduces unnecessary full-image processing
    - Example: 4000×3000 → 500×500
 
 2. **Fast Decoding Attempts**:
@@ -233,7 +235,7 @@ Unlike many basic QR code readers, this tool uses region-focused detection inspi
 **Key Advantages:**
 - 🎯 **Smart Detection**: Finds QR codes automatically using edge density analysis
 - ⚡ **Targeted Processing**: Processes likely QR regions before falling back to broader scans
-- 🎨 **Region-Focused Performance**: Designed for fast targeted decoding rather than full-image brute-force scanning
+- 🎨 **Region-Focused Design**: Designed to reduce unnecessary full-image processing by cropping to likely QR regions
 - 🔬 **Scientific Approach**: Grid-based edge detection, not brute force
 - 💪 **Robust**: Handles low-contrast, blurry, and screen-captured images
 
