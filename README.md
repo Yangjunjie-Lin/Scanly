@@ -17,7 +17,7 @@ A professional-grade QR code scanning and decoding tool with industrial-strength
 - 📋 **One-Click Copy** - Easily copy decoded results to clipboard
 - 💫 **Haptic Feedback** - Vibration feedback on successful scan (supported devices)
 - 🎨 **Modern UI** - Clean and beautiful user interface with real-time processing status
-- 🚀 **WeChat-Level Speed** - Matches commercial app performance (<1s for clear codes, 2-3s for difficult ones)
+- 🚀 **Region-Focused Processing** - Designed for fast QR decoding by focusing on detected regions instead of full-image brute-force scanning
 - 🔄 **Multi-Layer Fallback** - Combines jsQR and ZXing with intelligent fallback strategies
 
 ## 🎯 Advanced Decoding Capabilities
@@ -34,7 +34,7 @@ This tool can successfully decode challenging QR codes that many other tools str
 
 ### 🚀 Smart Region Detection Technology
 
-**Inspired by WeChat's approach**, this tool doesn't wastefully process entire images:
+Inspired by region-focused scanning strategies used in modern mobile QR scanners, this tool avoids wastefully processing entire images:
 
 1. **Fast QR Location** (400px preview, <50ms)
    - Divides image into 20×20 grid
@@ -63,7 +63,7 @@ This tool can successfully decode challenging QR codes that many other tools str
 - **Language**: [TypeScript](https://www.typescriptlang.org/)
 - **Primary Decoder**: [jsQR](https://github.com/cozmo/jsQR) - Optimized for static image decoding
 - **Backup Decoder**: [@zxing/browser](https://github.com/zxing-js/browser) - Real-time camera scanning
-- **Image Processing**: Custom algorithms including Otsu threshold, adaptive binarization, and convolution filters
+- **Image Processing**: Edge-density region detection, contrast stretching, thresholding, and targeted decoding
 
 ## 📦 Installation
 
@@ -228,12 +228,12 @@ Yangjunjie Lin
 
 ## 🌟 Why This Tool?
 
-Unlike many basic QR code readers, this tool implements **commercial-grade region detection** similar to WeChat and Alipay. Instead of blindly processing entire images, it intelligently locates and focuses on QR code areas.
+Unlike many basic QR code readers, this tool uses region-focused detection inspired by modern mobile QR scanners. Instead of blindly processing entire images, it intelligently locates and focuses on QR code areas.
 
 **Key Advantages:**
 - 🎯 **Smart Detection**: Finds QR codes automatically using edge density analysis
 - ⚡ **Lightning Fast**: Processes only relevant regions (10-50x faster)
-- 🎨 **WeChat-Level Performance**: Matches or exceeds commercial apps
+- 🎨 **Region-Focused Performance**: Designed for fast targeted decoding rather than full-image brute-force scanning
 - 🔬 **Scientific Approach**: Grid-based edge detection, not brute force
 - 💪 **Robust**: Handles low-contrast, blurry, and screen-captured images
 
