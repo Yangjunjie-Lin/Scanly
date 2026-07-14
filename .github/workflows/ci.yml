@@ -9,8 +9,9 @@ on:
 
 jobs:
   verify:
-    name: Build and lint
+    name: Lint, typecheck, test, build, e2e, smoke benchmark
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
       - name: Check out repository
@@ -23,10 +24,40 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
-      - name: Build
-        run: npm run build
+      - name: Generate fixtures
+        run: npm run fixtures:generate
 
       - name: Lint
         run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Coverage
+        run: npm run test:coverage
+
+      - name: Production build
+        run: npm run build
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Playwright smoke E2E
+        run: npm run test:e2e
+
+      - name: Benchmark smoke (regression gate)
+        run: npm run benchmark:smoke
+
+      - name: Upload smoke benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-smoke
+          path: |
+            benchmark-results/latest.json
+            benchmark-results/latest.csv

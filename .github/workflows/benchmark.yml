@@ -1,0 +1,51 @@
+name: Full Benchmark
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "lib/qr/**"
+      - "fixtures/**"
+      - "scripts/run-benchmark.ts"
+      - "scripts/generate-fixtures.ts"
+      - "components/QRTool.tsx"
+      - "package.json"
+      - "package-lock.json"
+
+jobs:
+  full-benchmark:
+    name: Full fixture benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate fixtures
+        run: npm run fixtures:generate
+
+      - name: Run full benchmark with regression gate
+        run: npx tsx scripts/run-benchmark.ts --gate
+
+      - name: Upload benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-full
+          path: |
+            benchmark-results/latest.json
+            benchmark-results/latest.csv
+            docs/benchmark.md

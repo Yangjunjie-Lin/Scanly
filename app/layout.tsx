@@ -2,8 +2,9 @@ import "./globals.css";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "QR Decoder",
-  description: "Decode QR codes via camera or upload, runs fully in-browser."
+  title: "Scanly — Browser QR Decoder",
+  description:
+    "Decode QR codes with camera or image upload. Heuristic image preprocessing runs fully in your browser — no uploads, no accounts.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

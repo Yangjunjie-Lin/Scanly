@@ -2,54 +2,74 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { BrowserQRCodeReader, IScannerControls } from "@zxing/browser";
-import jsQR from "jsqr";
+import { decodeUploadedFile } from "@/lib/qr/decode-upload";
+import { looksLikeUrl } from "@/lib/qr/result-normalizer";
+import type { DecodedCode, DecodeErrorReason } from "@/lib/qr/types";
 
 type Mode = "camera" | "upload";
 
-function looksLikeUrl(s: string) {
-  try {
-    const u = new URL(s);
-    return u.protocol === "http:" || u.protocol === "https:";
-  } catch {
-    return false;
+function friendlyCameraError(e: unknown): { reason: DecodeErrorReason; message: string } {
+  const msg = String(e instanceof Error ? e.message : e);
+  if (/NotAllowedError|Permission denied|permission/i.test(msg)) {
+    return {
+      reason: "camera_permission_denied",
+      message: "Camera permission denied. Allow camera access in the browser settings and try again.",
+    };
   }
+  if (/NotFoundError|DevicesNotFound|Requested device not found|no.*device/i.test(msg)) {
+    return {
+      reason: "no_camera",
+      message: "No camera device found on this device.",
+    };
+  }
+  return { reason: "no_camera", message: msg };
 }
 
 export default function QRTool() {
   const [mode, setMode] = useState<Mode>("camera");
   const [status, setStatus] = useState<string>("Idle");
-  const [decoded, setDecoded] = useState<string>("");
+  const [results, setResults] = useState<DecodedCode[]>([]);
   const [lastError, setLastError] = useState<string>("");
+  const [errorReason, setErrorReason] = useState<DecodeErrorReason | "">("");
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
-  const [deviceId, setDeviceId] = useState<string>(""); // selected camera
-  const [isScanning, setIsScanning] = useState<boolean>(false);
+  const [deviceId, setDeviceId] = useState<string>("");
+  const [isScanning, setIsScanning] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const controlsRef = useRef<IScannerControls | null>(null);
+  const uploadAbortRef = useRef<AbortController | null>(null);
+  const uploadSeqRef = useRef(0);
 
   const reader = useMemo(() => new BrowserQRCodeReader(), []);
 
-  // list cameras
+  const primary = results[0]?.payload ?? "";
+  const isUrl = primary ? looksLikeUrl(primary) : false;
+
   useEffect(() => {
     let cancelled = false;
     async function loadDevices() {
       try {
         setLastError("");
+        setErrorReason("");
         setStatus("Loading camera devices… (you may need to allow permission first)");
         const list = await BrowserQRCodeReader.listVideoInputDevices();
         if (cancelled) return;
         setDevices(list);
-
-        // try to pick a back camera by label if present
         const back = list.find((d) => /back|rear|environment/i.test(d.label));
         const pick = back?.deviceId || list[0]?.deviceId || "";
         setDeviceId((prev) => prev || pick);
-
-        setStatus("Ready");
-      } catch (e: any) {
+        setStatus(list.length ? "Ready" : "Ready (no camera detected)");
+        if (list.length === 0) {
+          setErrorReason("no_camera");
+          setLastError("No camera device found.");
+        }
+      } catch (e) {
         if (cancelled) return;
+        const friendly = friendlyCameraError(e);
         setStatus("Ready (camera devices not available yet)");
-        setLastError(String(e?.message || e));
+        setErrorReason(friendly.reason);
+        setLastError(friendly.message);
       }
     }
     loadDevices();
@@ -58,23 +78,25 @@ export default function QRTool() {
     };
   }, []);
 
-  // stop camera on unmount
   useEffect(() => {
     return () => {
       stopScan();
+      uploadAbortRef.current?.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function startScan() {
     setLastError("");
-    setDecoded("");
+    setErrorReason("");
+    setResults([]);
 
     if (!videoRef.current) {
       setLastError("Video element not ready.");
       return;
     }
     if (!deviceId && devices.length === 0) {
+      setErrorReason("no_camera");
       setLastError("No camera device found.");
       return;
     }
@@ -83,378 +105,162 @@ export default function QRTool() {
       setStatus("Requesting camera permission…");
       setIsScanning(true);
 
-      // decodeFromVideoDevice will manage getUserMedia and decoding loop
       const controls = await reader.decodeFromVideoDevice(
-        deviceId || undefined, // undefined lets it pick default camera
+        deviceId || undefined,
         videoRef.current,
-        (result, error, controls) => {
-          // result appears whenever decoded
+        (result, _error, ctrl) => {
           if (result) {
             const text = result.getText();
-            setDecoded(text);
-            setStatus("Decoded ✅");
+            setResults([
+              {
+                payload: text,
+                decoder: "zxing",
+                preprocessing: "original",
+                candidateIndex: 0,
+                scale: "original",
+                rotation: 0,
+                cropPadding: "full",
+                attemptIndex: 0,
+              },
+            ]);
+            setStatus("Decoded");
             navigator.vibrate?.(50);
-
-            // stop after first decode; you can remove this to keep continuous scanning
-            controls.stop();
+            ctrl.stop();
             controlsRef.current = null;
             setIsScanning(false);
-          } else if (error) {
-            // ignore frequent decode errors while scanning; only show if needed
           }
         }
       );
 
       controlsRef.current = controls;
       setStatus("Scanning… point the QR code inside the frame");
-    } catch (e: any) {
+    } catch (e) {
       setIsScanning(false);
       setStatus("Ready");
-      setLastError(String(e?.message || e));
+      const friendly = friendlyCameraError(e);
+      setErrorReason(friendly.reason);
+      setLastError(friendly.message);
     }
   }
 
   function stopScan() {
     try {
       controlsRef.current?.stop();
-    } catch {}
+    } catch {
+      /* ignore */
+    }
+    // Stop any leftover media tracks
+    const video = videoRef.current;
+    const stream = video?.srcObject;
+    if (video && stream instanceof MediaStream) {
+      for (const track of stream.getTracks()) track.stop();
+      video.srcObject = null;
+    }
     controlsRef.current = null;
     setIsScanning(false);
     setStatus("Stopped");
   }
 
-  async function onUpload(file: File | null) {
+  function resetUpload() {
+    uploadAbortRef.current?.abort();
+    uploadAbortRef.current = null;
+    setIsProcessing(false);
+    setResults([]);
     setLastError("");
-    setDecoded("");
+    setErrorReason("");
+    setStatus("Ready");
+  }
 
+  async function onUpload(file: File | null) {
     if (!file) return;
 
-    // Validate file type
-    if (!file.type.startsWith("image/")) {
-      setStatus("Failed to decode image");
-      setLastError("Please select a valid image file");
-      return;
-    }
+    uploadAbortRef.current?.abort();
+    const seq = ++uploadSeqRef.current;
+    const controller = new AbortController();
+    uploadAbortRef.current = controller;
 
-    try {
-      setStatus("Loading image…");
-      
-      // Create an image element to load the file
-      const img = new Image();
-      const url = URL.createObjectURL(file);
-      
-      // Wait for image to load
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = () => reject(new Error("Failed to load image"));
-        img.src = url;
-      });
+    setLastError("");
+    setErrorReason("");
+    setResults([]);
+    setIsProcessing(true);
 
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d");
-      
-      if (!ctx) {
-        throw new Error("Canvas not supported");
-      }
+    const outcome = await decodeUploadedFile(file, {
+      signal: controller.signal,
+      onStage: (stage) => {
+        if (seq === uploadSeqRef.current) setStatus(stage);
+      },
+      config: { findMultiple: true, maxMultipleResults: 6 },
+    });
 
-      // Step 1: Create a small preview for fast QR detection
-      const previewSize = 400; // Very small for speed
-      const scale = previewSize / Math.max(img.width, img.height);
-      const previewWidth = Math.floor(img.width * scale);
-      const previewHeight = Math.floor(img.height * scale);
-      
-      canvas.width = previewWidth;
-      canvas.height = previewHeight;
-      ctx.drawImage(img, 0, 0, previewWidth, previewHeight);
-      const previewData = ctx.getImageData(0, 0, previewWidth, previewHeight);
+    if (seq !== uploadSeqRef.current) return;
 
-      // Fast QR region detection using edge density
-      const detectQRRegion = (imageData: ImageData): { x: number, y: number, width: number, height: number } | null => {
-        const data = imageData.data;
-        const width = imageData.width;
-        const height = imageData.height;
-        const gridSize = 20; // Divide into 20x20 grid
-        const cellWidth = Math.floor(width / gridSize);
-        const cellHeight = Math.floor(height / gridSize);
-        
-        let maxDensity = 0;
-        let bestX = 0, bestY = 0;
-        
-        // Find area with highest edge density (likely QR code)
-        for (let gy = 0; gy < gridSize - 4; gy++) {
-          for (let gx = 0; gx < gridSize - 4; gx++) {
-            let density = 0;
-            
-            // Check 5x5 cell area
-            for (let dy = 0; dy < 5; dy++) {
-              for (let dx = 0; dx < 5; dx++) {
-                const cx = (gx + dx) * cellWidth;
-                const cy = (gy + dy) * cellHeight;
-                
-                // Sample center of cell
-                const px = Math.min(cx + cellWidth / 2, width - 1);
-                const py = Math.min(cy + cellHeight / 2, height - 1);
-                const idx = (py * width + px) * 4;
-                
-                const gray = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
-                
-                // Check horizontal edge
-                if (px < width - 1) {
-                  const rightIdx = (py * width + px + 1) * 4;
-                  const rightGray = (data[rightIdx] + data[rightIdx + 1] + data[rightIdx + 2]) / 3;
-                  density += Math.abs(gray - rightGray);
-                }
-                
-                // Check vertical edge
-                if (py < height - 1) {
-                  const downIdx = ((py + 1) * width + px) * 4;
-                  const downGray = (data[downIdx] + data[downIdx + 1] + data[downIdx + 2]) / 3;
-                  density += Math.abs(gray - downGray);
-                }
-              }
-            }
-            
-            if (density > maxDensity) {
-              maxDensity = density;
-              bestX = gx;
-              bestY = gy;
-            }
-          }
-        }
-        
-        // If found high-density area, return it with padding
-        if (maxDensity > 1000) {
-          const padding = 1; // Add 1 cell padding
-          return {
-            x: Math.max(0, (bestX - padding) * cellWidth),
-            y: Math.max(0, (bestY - padding) * cellHeight),
-            width: Math.min((5 + padding * 2) * cellWidth, width),
-            height: Math.min((5 + padding * 2) * cellHeight, height)
-          };
-        }
-        
-        return null;
-      };
-
-      setStatus("Detecting QR region…");
-      const region = detectQRRegion(previewData);
-      
-      let targetWidth, targetHeight, targetX = 0, targetY = 0;
-      
-      if (region) {
-        // Scale region back to original image coordinates
-        const scaleBack = 1 / scale;
-        targetX = Math.floor(region.x * scaleBack);
-        targetY = Math.floor(region.y * scaleBack);
-        targetWidth = Math.floor(region.width * scaleBack);
-        targetHeight = Math.floor(region.height * scaleBack);
-        
-        console.log(`🎯 QR region detected: ${targetWidth}x${targetHeight} at (${targetX}, ${targetY})`);
-      } else {
-        // No region detected, use center crop
-        const size = Math.min(img.width, img.height);
-        targetX = (img.width - size) / 2;
-        targetY = (img.height - size) / 2;
-        targetWidth = size;
-        targetHeight = size;
-        
-        console.log("📍 Using center crop");
-      }
-
-      // Step 2: Process only the detected region at good resolution
-      const maxRegionSize = 800;
-      const regionScale = Math.min(1, maxRegionSize / Math.max(targetWidth, targetHeight));
-      const finalWidth = Math.floor(targetWidth * regionScale);
-      const finalHeight = Math.floor(targetHeight * regionScale);
-      
-      canvas.width = finalWidth;
-      canvas.height = finalHeight;
-      ctx.drawImage(img, targetX, targetY, targetWidth, targetHeight, 0, 0, finalWidth, finalHeight);
-      const croppedData = ctx.getImageData(0, 0, finalWidth, finalHeight);
-
-      setStatus("Decoding region…");
-
-      // Fast decode helper
-      const tryDecode = (imageData: ImageData, label: string): string | null => {
-        try {
-          const code = jsQR(imageData.data, imageData.width, imageData.height, {
-            inversionAttempts: "attemptBoth",
-          });
-          if (code) {
-            console.log(`✅ Decoded with ${label}`);
-            return code.data;
-          }
-        } catch (e) {
-          console.warn(`Failed ${label}:`, e);
-        }
-        return null;
-      };
-
-      // Fast contrast stretch
-      const autoContrast = (imageData: ImageData): ImageData => {
-        const data = new Uint8ClampedArray(imageData.data);
-        let min = 255, max = 0;
-        
-        for (let i = 0; i < data.length; i += 4) {
-          const gray = (data[i] + data[i + 1] + data[i + 2]) / 3;
-          if (gray < min) min = gray;
-          if (gray > max) max = gray;
-        }
-        
-        const range = max - min;
-        if (range > 10) {
-          const scale = 255 / range;
-          for (let i = 0; i < data.length; i += 4) {
-            const gray = (data[i] + data[i + 1] + data[i + 2]) / 3;
-            const stretched = Math.round((gray - min) * scale);
-            data[i] = data[i + 1] = data[i + 2] = stretched;
-          }
-        }
-        
-        return new ImageData(data, imageData.width, imageData.height);
-      };
-
-      // Simple threshold
-      const simpleThreshold = (imageData: ImageData, threshold: number): ImageData => {
-        const data = new Uint8ClampedArray(imageData.data);
-        for (let i = 0; i < data.length; i += 4) {
-          const gray = (data[i] + data[i + 1] + data[i + 2]) / 3;
-          const value = gray > threshold ? 255 : 0;
-          data[i] = data[i + 1] = data[i + 2] = value;
-        }
-        return new ImageData(data, imageData.width, imageData.height);
-      };
-
-      // Try original
-      let result = tryDecode(croppedData, "cropped-original");
-      if (result) {
-        setDecoded(result);
-        setStatus("Decoded ✅");
-        navigator.vibrate?.(50);
-        URL.revokeObjectURL(url);
-        return;
-      }
-
-      // Try auto contrast
-      result = tryDecode(autoContrast(croppedData), "cropped-contrast");
-      if (result) {
-        setDecoded(result);
-        setStatus("Decoded ✅");
-        navigator.vibrate?.(50);
-        URL.revokeObjectURL(url);
-        return;
-      }
-
-      // Try thresholds
-      for (const threshold of [115, 140, 165]) {
-        result = tryDecode(simpleThreshold(croppedData, threshold), `threshold-${threshold}`);
-        if (result) {
-          setDecoded(result);
-          setStatus("Decoded ✅");
-          navigator.vibrate?.(50);
-          URL.revokeObjectURL(url);
-          return;
-        }
-      }
-
-      // If region detection failed, try full image as fallback
-      if (!region) {
-        setStatus("Trying full image…");
-        const fullSize = 600;
-        const fullScale = fullSize / Math.max(img.width, img.height);
-        const fullWidth = Math.floor(img.width * fullScale);
-        const fullHeight = Math.floor(img.height * fullScale);
-        
-        canvas.width = fullWidth;
-        canvas.height = fullHeight;
-        ctx.drawImage(img, 0, 0, fullWidth, fullHeight);
-        const fullData = ctx.getImageData(0, 0, fullWidth, fullHeight);
-        
-        result = tryDecode(fullData, "full-image");
-        if (result) {
-          setDecoded(result);
-          setStatus("Decoded ✅");
-          navigator.vibrate?.(50);
-          URL.revokeObjectURL(url);
-          return;
-        }
-        
-        result = tryDecode(autoContrast(fullData), "full-contrast");
-        if (result) {
-          setDecoded(result);
-          setStatus("Decoded ✅");
-          navigator.vibrate?.(50);
-          URL.revokeObjectURL(url);
-          return;
-        }
-      }
-
-      // Last resort: ZXing
-      setStatus("Backup decoder…");
-      try {
-        const zxingResult = await reader.decodeFromImageElement(img);
-        setDecoded(zxingResult.getText());
-        setStatus("Decoded ✅");
-        navigator.vibrate?.(50);
-        URL.revokeObjectURL(url);
-        return;
-      } catch (e) {
-        console.warn("ZXing failed:", e);
-      }
-
-      URL.revokeObjectURL(url);
-      throw new Error("Could not decode QR code. Try: 1) Crop closer to QR code, 2) Ensure QR code is clearly visible, 3) Check if QR code is damaged");
-      
-    } catch (e: any) {
-      setStatus("Failed to decode image");
-      setLastError(String(e?.message || e));
+    setIsProcessing(false);
+    if (outcome.ok) {
+      setResults(outcome.results);
+      setStatus(
+        outcome.results.length > 1
+          ? `Decoded ${outcome.results.length} codes`
+          : "Decoded"
+      );
+      navigator.vibrate?.(50);
+    } else {
+      setResults([]);
+      setErrorReason(outcome.reason);
+      setLastError(outcome.message);
+      setStatus(outcome.cancelled ? "Cancelled" : "Failed to decode image");
     }
   }
 
-  async function copyResult() {
+  async function copyResult(text = primary) {
+    if (!text) return;
     try {
-      await navigator.clipboard.writeText(decoded);
-      setStatus("Copied to clipboard ✅");
+      await navigator.clipboard.writeText(text);
+      setStatus("Copied to clipboard");
     } catch {
       setStatus("Copy failed (clipboard permission)");
     }
   }
 
-  function openIfUrl() {
-    if (!looksLikeUrl(decoded)) return;
-    window.open(decoded, "_blank", "noopener,noreferrer");
+  function openIfUrl(text = primary) {
+    if (!looksLikeUrl(text)) return;
+    window.open(text, "_blank", "noopener,noreferrer");
   }
 
-  const isUrl = decoded ? looksLikeUrl(decoded) : false;
-
   return (
-    <section className="card">
+    <section className="card" aria-label="QR code scanner">
       <div className="row" style={{ alignItems: "center", justifyContent: "space-between" }}>
-        <div className="tabs">
+        <div className="tabs" role="tablist" aria-label="Scan mode">
           <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "camera"}
             className={`tab ${mode === "camera" ? "active" : ""}`}
             onClick={() => {
               setMode("camera");
-              setLastError("");
-              setDecoded("");
+              resetUpload();
             }}
           >
             Camera
           </button>
           <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "upload"}
             className={`tab ${mode === "upload" ? "active" : ""}`}
             onClick={() => {
               stopScan();
               setMode("upload");
               setLastError("");
-              setDecoded("");
+              setErrorReason("");
+              setResults([]);
+              setStatus("Ready");
             }}
           >
             Upload
           </button>
         </div>
 
-        <div className="badge">
+        <div className="badge" aria-live="polite">
           <span className="mono">{status}</span>
         </div>
       </div>
@@ -464,17 +270,29 @@ export default function QRTool() {
       {mode === "camera" && (
         <>
           <div className="videoWrap">
-            <video ref={videoRef} muted playsInline />
-            <div className="overlay">
+            <video ref={videoRef} muted playsInline aria-label="Camera preview" />
+            <div className="overlay" aria-hidden="true">
               <div className="scanBox" />
             </div>
           </div>
 
           <div className="row" style={{ marginTop: 12, alignItems: "center" }}>
-            <button className="btn primary" onClick={startScan} disabled={isScanning}>
+            <button
+              type="button"
+              className="btn primary"
+              onClick={startScan}
+              disabled={isScanning}
+              aria-label="Start camera scan"
+            >
               {isScanning ? "Scanning…" : "Start Scan"}
             </button>
-            <button className="btn" onClick={stopScan} disabled={!isScanning}>
+            <button
+              type="button"
+              className="btn"
+              onClick={stopScan}
+              disabled={!isScanning}
+              aria-label="Stop camera scan"
+            >
               Stop
             </button>
 
@@ -485,12 +303,13 @@ export default function QRTool() {
               <select
                 value={deviceId}
                 onChange={(e) => setDeviceId(e.target.value)}
+                aria-label="Select camera"
                 style={{
                   padding: "10px 12px",
                   borderRadius: 12,
                   border: "1px solid rgba(255,255,255,0.14)",
                   background: "rgba(255,255,255,0.06)",
-                  color: "#eaf0ff"
+                  color: "#eaf0ff",
                 }}
                 disabled={isScanning}
               >
@@ -519,6 +338,8 @@ export default function QRTool() {
             <input
               type="file"
               accept="image/*"
+              aria-label="Upload QR code image"
+              data-testid="upload-input"
               onChange={(e) => onUpload(e.target.files?.[0] ?? null)}
               style={{
                 width: "100%",
@@ -527,18 +348,26 @@ export default function QRTool() {
                 border: "1px dashed rgba(255,255,255,0.25)",
                 background: "rgba(255,255,255,0.05)",
                 color: "#eaf0ff",
-                cursor: "pointer"
+                cursor: "pointer",
               }}
             />
           </div>
+          <div className="row" style={{ marginTop: 10 }}>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => uploadAbortRef.current?.abort()}
+              disabled={!isProcessing}
+              aria-label="Cancel decoding"
+            >
+              Cancel
+            </button>
+            <button type="button" className="btn" onClick={resetUpload} aria-label="Reset upload result">
+              Reset
+            </button>
+          </div>
           <div className="small" style={{ marginTop: 10, lineHeight: "1.6" }}>
-            <strong>Tips for better results:</strong>
-            <ul style={{ marginTop: 6, marginLeft: 20, marginBottom: 0 }}>
-              <li>Use clear, well-lit images</li>
-              <li>Crop close to the QR code area</li>
-              <li>Ensure the QR code is not blurry or distorted</li>
-              <li>Avoid glare or shadows on the QR code</li>
-            </ul>
+            Images are processed entirely in your browser. They are not uploaded to a server and are not saved.
           </div>
         </>
       )}
@@ -548,15 +377,30 @@ export default function QRTool() {
       <div className="row" style={{ alignItems: "center", justifyContent: "space-between" }}>
         <div className="badge">
           <span>Result</span>
-          {decoded && <span className="mono">{isUrl ? "URL" : "TEXT"}</span>}
+          {primary && <span className="mono">{isUrl ? "URL" : "TEXT"}</span>}
+          {results.length > 1 && <span className="mono">{results.length} codes</span>}
         </div>
 
         <div className="row">
-          <button className="btn" onClick={copyResult} disabled={!decoded}>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => copyResult()}
+            disabled={!primary}
+            aria-label="Copy decoded result"
+            data-testid="copy-button"
+          >
             Copy
           </button>
-          <button className="btn primary" onClick={openIfUrl} disabled={!decoded || !isUrl}>
-            Open URL
+          <button
+            type="button"
+            className="btn primary"
+            onClick={() => openIfUrl()}
+            disabled={!primary || !isUrl}
+            aria-label="Open decoded URL"
+            data-testid="open-link-button"
+          >
+            Open Link
           </button>
         </div>
       </div>
@@ -565,14 +409,45 @@ export default function QRTool() {
         <textarea
           className="mono"
           placeholder="Decoded QR content will appear here…"
-          value={decoded}
+          value={primary}
           readOnly
+          aria-label="Decoded QR content"
+          data-testid="decoded-output"
         />
       </div>
 
+      {results.length > 1 && (
+        <ul className="small" style={{ marginTop: 10, paddingLeft: 18 }} data-testid="multi-results">
+          {results.map((r, i) => (
+            <li key={`${r.payload}-${i}`} style={{ marginBottom: 6 }}>
+              <span className="mono">{r.payload}</span>{" "}
+              <button type="button" className="btn" style={{ padding: "4px 8px" }} onClick={() => copyResult(r.payload)}>
+                Copy
+              </button>
+              {looksLikeUrl(r.payload) && (
+                <button
+                  type="button"
+                  className="btn primary"
+                  style={{ padding: "4px 8px", marginLeft: 6 }}
+                  onClick={() => openIfUrl(r.payload)}
+                >
+                  Open Link
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
       {lastError && (
-        <div className="small" style={{ marginTop: 10, color: "rgba(255,200,200,0.95)" }}>
-          Error: <span className="mono">{lastError}</span>
+        <div
+          className="small"
+          style={{ marginTop: 10, color: "rgba(255,200,200,0.95)" }}
+          role="alert"
+          data-testid="error-message"
+          data-error-reason={errorReason || undefined}
+        >
+          Error{errorReason ? ` (${errorReason})` : ""}: <span className="mono">{lastError}</span>
         </div>
       )}
     </section>

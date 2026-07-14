@@ -1,85 +1,126 @@
 # Benchmark
 
-This benchmark records Scanly's upload-mode decoding behavior on the committed fixture set. It uses real file uploads through the app UI, so the numbers cover image loading, region detection, preprocessing, jsQR attempts, and ZXing fallback where applicable.
-
-## Test Setup
-
-- Device: Windows x64 workstation, 20 logical CPU cores
-- Browser: Chrome headless via Playwright
-- App version: `1.0.0`
-- Run date: 2026-06-25
-- App mode: Upload mode
-- Image count: 16
-- Fixture path: `docs/benchmark-fixtures/`
-- Image categories:
-  - Clear QR codes
-  - Low-contrast / difficult lighting QR codes
-  - Screen-captured and phone-photo QR codes
-  - Large images with a small QR region
-  - Blurry, distorted, damaged, or difficult images
-
-## Method
-
-1. Start Scanly locally with `npm run dev`.
-2. Open the app in Chrome and switch to Upload mode.
-3. Upload each fixture once through the real file input.
-4. Measure elapsed time from file selection to either decoded text or the failure message.
-5. Count a case as successful only when the decoded value exactly matches the expected payload.
-
-## Results
-
-| Category | Images | Success | Average Time | Notes |
-|---|---:|---:|---:|---|
-| Clear QR | 2 | 2/2 | 0.17s | Baseline generated QR images; first cold upload was the slowest case |
-| Screen photos / captures | 2 | 2/2 | 0.08s | Phone-photo perspective and screen-line artifacts decoded successfully |
-| Low contrast / lighting | 3 | 3/3 | 0.06s | Contrast stretch helped the low-contrast fixture |
-| Small QR / complex layout | 3 | 1/3 | 0.09s | Small QR decoded; complex background and multiple-code image failed |
-| Blurry / difficult | 6 | 4/6 | 0.05s | Blur, glare, rotation, and perspective passed; damaged and inverted fixtures failed |
+This document is **auto-generated** from `benchmark-results/latest.json`. Do not edit results by hand.
 
 ## Summary
 
 | Metric | Value |
 | --- | ---: |
-| Total fixtures | 16 |
-| Successful decodes | 12 |
-| Failed decodes | 4 |
-| Success rate | 75.0% |
-| Average elapsed time | 0.08s |
-| Median elapsed time | 0.06s |
-| P95 elapsed time | 0.28s |
+| Generated at | 2026-07-14T07:21:17.372Z |
+| Mode | full |
+| Total fixtures | 52 |
+| Successful decodes | 51 |
+| Failed decodes | 1 |
+| Success rate | 98.1% |
+| Average elapsed | 0.94s |
+| Median elapsed | 0.24s |
+| P95 elapsed | 4.22s |
+| Average attempts | 23.8 |
+| Regressions vs baseline | 0 |
 
-## Per-Image Results
+## Per-category
 
-| ID | Fixture | Scenario | Expected payload | Result | Time | Notes |
-| --- | --- | --- | --- | --- | ---: | --- |
-| 01 | [01-clear-url.png](benchmark-fixtures/01-clear-url.png) | High-contrast generated QR | `https://scanly.example/clear` | Pass | 0.28s | Cold first upload; region detected |
-| 02 | [02-clear-text.png](benchmark-fixtures/02-clear-text.png) | High-contrast text QR | `SCANLY_CLEAR_TEXT` | Pass | 0.06s | Region detected |
-| 03 | [03-phone-photo.jpg](benchmark-fixtures/03-phone-photo.jpg) | Normal phone photo | `https://scanly.example/photo` | Pass | 0.10s | Perspective and noise tolerated |
-| 04 | [04-screen-capture.png](benchmark-fixtures/04-screen-capture.png) | Screenshot from display | `https://scanly.example/screen` | Pass | 0.05s | Region detected |
-| 05 | [05-low-contrast.png](benchmark-fixtures/05-low-contrast.png) | Gray QR on gray background | `https://scanly.example/low-contrast` | Pass | 0.07s | Decoded after contrast fallback |
-| 06 | [06-dark-lighting.jpg](benchmark-fixtures/06-dark-lighting.jpg) | Underexposed photo | `https://scanly.example/dark` | Pass | 0.05s | Decoded from cropped original |
-| 07 | [07-overexposed.jpg](benchmark-fixtures/07-overexposed.jpg) | Bright / washed-out photo | `https://scanly.example/bright` | Pass | 0.06s | Region detected |
-| 08 | [08-blurry.jpg](benchmark-fixtures/08-blurry.jpg) | Mild blur | `https://scanly.example/blur` | Pass | 0.04s | Region detected |
-| 09 | [09-glare.jpg](benchmark-fixtures/09-glare.jpg) | Glare crossing one side | `https://scanly.example/glare` | Pass | 0.05s | Region detected |
-| 10 | [10-small-in-large.jpg](benchmark-fixtures/10-small-in-large.jpg) | Small QR in a large image | `https://scanly.example/small` | Pass | 0.08s | Decoded from cropped original |
-| 11 | [11-complex-background.jpg](benchmark-fixtures/11-complex-background.jpg) | QR on busy background | `https://scanly.example/background` | Fail | 0.09s | Region crop missed enough QR context; ZXing fallback also failed |
-| 12 | [12-rotated.png](benchmark-fixtures/12-rotated.png) | 15 degree rotation | `https://scanly.example/rotated` | Pass | 0.08s | Region detected |
-| 13 | [13-perspective.jpg](benchmark-fixtures/13-perspective.jpg) | Angled perspective | `https://scanly.example/perspective` | Pass | 0.04s | Region detected |
-| 14 | [14-damaged.png](benchmark-fixtures/14-damaged.png) | Missing / scratched modules | `https://scanly.example/damaged` | Fail | 0.05s | Damage exceeded current correction/fallback tolerance |
-| 15 | [15-inverted.png](benchmark-fixtures/15-inverted.png) | Light modules on dark background | `https://scanly.example/inverted` | Fail | 0.04s | Inverted image was not recovered by current upload pipeline |
-| 16 | [16-multiple-codes.jpg](benchmark-fixtures/16-multiple-codes.jpg) | Multiple QR codes in one image | `https://scanly.example/primary` | Fail | 0.11s | Region detection selected an ambiguous/misaligned crop; ZXing fallback failed |
+| Category | Images | Success | Rate | Avg time |
+| --- | ---: | ---: | ---: | ---: |
+| blur | 2 | 2/2 | 100% | 0.28s |
+| clear | 1 | 1/1 | 100% | 0.10s |
+| colored_background | 2 | 2/2 | 100% | 0.19s |
+| complex_background | 2 | 2/2 | 100% | 0.65s |
+| damaged | 2 | 1/2 | 50% | 6.65s |
+| glare | 2 | 2/2 | 100% | 0.36s |
+| high_resolution | 1 | 1/1 | 100% | 1.65s |
+| inverted | 4 | 4/4 | 100% | 0.25s |
+| low_contrast | 3 | 3/3 | 100% | 0.30s |
+| motion_blur | 1 | 1/1 | 100% | 0.19s |
+| multiple | 3 | 3/3 | 100% | 5.54s |
+| near_edge | 2 | 2/2 | 100% | 0.28s |
+| noise | 2 | 2/2 | 100% | 0.11s |
+| occlusion | 1 | 1/1 | 100% | 0.10s |
+| overexposed | 2 | 2/2 | 100% | 0.46s |
+| perspective | 2 | 2/2 | 100% | 0.74s |
+| phone_photo | 1 | 1/1 | 100% | 0.69s |
+| rotation | 5 | 5/5 | 100% | 0.31s |
+| screen_capture | 2 | 2/2 | 100% | 1.30s |
+| small_in_large | 2 | 2/2 | 100% | 0.90s |
+| text | 3 | 3/3 | 100% | 0.19s |
+| underexposed | 2 | 2/2 | 100% | 0.35s |
+| unusual_aspect | 1 | 1/1 | 100% | 0.31s |
+| url | 2 | 2/2 | 100% | 0.26s |
+| wifi | 2 | 2/2 | 100% | 0.13s |
 
-## Failure Cases
+## Decoder distribution
 
-| Fixture | Observed behavior | Suspected cause | Follow-up |
-| --- | --- | --- | --- |
-| [11-complex-background.jpg](benchmark-fixtures/11-complex-background.jpg) | Failed with the generic decode error | Edge-density region landed on a partial QR/background-heavy area | Expand crop padding or retry neighboring high-density regions |
-| [14-damaged.png](benchmark-fixtures/14-damaged.png) | Failed with the generic decode error | Missing modules and scratch-like occlusion exceed current tolerance | Add stronger preprocessing or document as expected hard failure |
-| [15-inverted.png](benchmark-fixtures/15-inverted.png) | Failed with the generic decode error | Current upload path does not recover this inverted fixture | Add explicit invert-image preprocessing before ZXing fallback |
-| [16-multiple-codes.jpg](benchmark-fixtures/16-multiple-codes.jpg) | Failed with the generic decode error | Multiple high-density candidates make single-region selection brittle | Try top N candidate regions and report the first exact decode |
+- `jsqr`: 51
+
+## Preprocessing success distribution
+
+- `original`: 48
+- `contrast`: 2
+- `threshold-140`: 1
+
+## Remaining failures
+
+- `14-damaged`
+
+## Per-fixture results
+
+| ID | Category | Expected | Actual | Pass | Time | Decoder | Preprocess | Attempts | Failure |
+| --- | --- | --- | --- | --- | ---: | --- | --- | ---: | --- |
+| 01-clear-url | url | `https://scanly.example/clear` | `https://scanly.example/clear` | Pass | 0.35s | jsqr | original | 16 |  |
+| 02-clear-text | text | `SCANLY_CLEAR_TEXT` | `SCANLY_CLEAR_TEXT` | Pass | 0.28s | jsqr | original | 16 |  |
+| 03-phone-photo | phone_photo | `https://scanly.example/photo` | `https://scanly.example/photo` | Pass | 0.69s | jsqr | original | 16 |  |
+| 04-screen-capture | screen_capture | `https://scanly.example/screen` | `https://scanly.example/screen` | Pass | 0.42s | jsqr | original | 16 |  |
+| 05-low-contrast | low_contrast | `https://scanly.example/low-contrast` | `https://scanly.example/low-contrast` | Pass | 0.65s | jsqr | contrast | 18 |  |
+| 06-dark-lighting | underexposed | `https://scanly.example/dark` | `https://scanly.example/dark` | Pass | 0.59s | jsqr | original | 16 |  |
+| 07-overexposed | overexposed | `https://scanly.example/bright` | `https://scanly.example/bright` | Pass | 0.72s | jsqr | original | 16 |  |
+| 08-blurry | blur | `https://scanly.example/blur` | `https://scanly.example/blur` | Pass | 0.45s | jsqr | original | 16 |  |
+| 09-glare | glare | `https://scanly.example/glare` | `https://scanly.example/glare` | Pass | 0.55s | jsqr | original | 16 |  |
+| 10-small-in-large | small_in_large | `https://scanly.example/small` | `https://scanly.example/small` | Pass | 0.85s | jsqr | original | 1 |  |
+| 11-complex-background | complex_background | `https://scanly.example/background` | `https://scanly.example/background` | Pass | 0.97s | jsqr | original | 16 |  |
+| 12-rotated | rotation | `https://scanly.example/rotated` | `https://scanly.example/rotated` | Pass | 0.83s | jsqr | original | 16 |  |
+| 13-perspective | perspective | `https://scanly.example/perspective` | `https://scanly.example/perspective` | Pass | 1.28s | jsqr | original | 16 |  |
+| 14-damaged | damaged | `https://scanly.example/damaged` | `` | Fail | 13.20s | - | - | 140 | no_qr_found |
+| 15-inverted | inverted | `https://scanly.example/inverted` | `https://scanly.example/inverted` | Pass | 0.63s | jsqr | original | 16 |  |
+| 16-multiple-codes | multiple | `https://scanly.example/primary` | `https://scanly.example/primary` | Pass | 9.00s | jsqr | original | 122 |  |
+| 17-clear-url-02 | url | `https://scanly.example/clear-02` | `https://scanly.example/clear-02` | Pass | 0.16s | jsqr | original | 16 |  |
+| 18-clear-text-02 | text | `SCANLY_CLEAR_TEXT_02` | `SCANLY_CLEAR_TEXT_02` | Pass | 0.12s | jsqr | original | 16 |  |
+| 19-wifi-payload | wifi | `WIFI:T:WPA;S:ScanlyLab;P:test-pass-01;;` | `WIFI:T:WPA;S:ScanlyLab;P:test-pass-01;;` | Pass | 0.13s | jsqr | original | 16 |  |
+| 20-low-contrast-02 | low_contrast | `SCANLY_LOW_CONTRAST_02` | `SCANLY_LOW_CONTRAST_02` | Pass | 0.15s | jsqr | contrast | 3 |  |
+| 21-underexposed-gen | underexposed | `SCANLY_UNDEREXPOSED_01` | `SCANLY_UNDEREXPOSED_01` | Pass | 0.12s | jsqr | original | 16 |  |
+| 22-overexposed-gen | overexposed | `SCANLY_OVEREXPOSED_01` | `SCANLY_OVEREXPOSED_01` | Pass | 0.20s | jsqr | original | 16 |  |
+| 23-blur-gen | blur | `SCANLY_BLUR_01` | `SCANLY_BLUR_01` | Pass | 0.10s | jsqr | original | 1 |  |
+| 24-motion-blur | motion_blur | `SCANLY_MOTION_BLUR_01` | `SCANLY_MOTION_BLUR_01` | Pass | 0.19s | jsqr | original | 16 |  |
+| 25-noise | noise | `SCANLY_NOISE_01` | `SCANLY_NOISE_01` | Pass | 0.10s | jsqr | original | 16 |  |
+| 26-glare-gen | glare | `SCANLY_GLARE_01` | `SCANLY_GLARE_01` | Pass | 0.17s | jsqr | original | 16 |  |
+| 27-inverted-01 | inverted | `SCANLY_INVERTED_01` | `SCANLY_INVERTED_01` | Pass | 0.14s | jsqr | original | 16 |  |
+| 28-inverted-02 | inverted | `SCANLY_INVERTED_02` | `SCANLY_INVERTED_02` | Pass | 0.10s | jsqr | original | 16 |  |
+| 29-rot-90 | rotation | `SCANLY_ROT_90` | `SCANLY_ROT_90` | Pass | 0.12s | jsqr | original | 16 |  |
+| 30-rot-180 | rotation | `SCANLY_ROT_180` | `SCANLY_ROT_180` | Pass | 0.13s | jsqr | original | 16 |  |
+| 31-rot-270 | rotation | `SCANLY_ROT_270` | `SCANLY_ROT_270` | Pass | 0.20s | jsqr | original | 16 |  |
+| 32-rot-15 | rotation | `SCANLY_ROT_15` | `SCANLY_ROT_15` | Pass | 0.27s | jsqr | original | 16 |  |
+| 33-small-in-large-gen | small_in_large | `SCANLY_SMALL_01` | `SCANLY_SMALL_01` | Pass | 0.94s | jsqr | original | 1 |  |
+| 34-near-edge | near_edge | `SCANLY_NEAR_EDGE_01` | `SCANLY_NEAR_EDGE_01` | Pass | 0.28s | jsqr | original | 1 |  |
+| 35-complex-bg-gen | complex_background | `SCANLY_COMPLEX_BG_01` | `SCANLY_COMPLEX_BG_01` | Pass | 0.33s | jsqr | original | 1 |  |
+| 36-multiple-gen | multiple | `SCANLY_MULTI_PRIMARY` | `SCANLY_MULTI_PRIMARY` | Pass | 3.39s | jsqr | original | 106 |  |
+| 37-occlusion | occlusion | `SCANLY_OCCLUSION_01` | `SCANLY_OCCLUSION_01` | Pass | 0.10s | jsqr | original | 16 |  |
+| 38-damaged-gen | damaged | `SCANLY_DAMAGED_01` | `SCANLY_DAMAGED_01` | Pass | 0.09s | jsqr | original | 16 |  |
+| 39-high-res | high_resolution | `SCANLY_HIRES_01` | `SCANLY_HIRES_01` | Pass | 1.65s | jsqr | original | 1 |  |
+| 40-moire | screen_capture | `SCANLY_MOIRE_01` | `SCANLY_MOIRE_01` | Pass | 2.18s | jsqr | threshold-140 | 140 |  |
+| 41-unusual-aspect | unusual_aspect | `SCANLY_ASPECT_01` | `SCANLY_ASPECT_01` | Pass | 0.31s | jsqr | original | 16 |  |
+| 42-colored-bg | colored_background | `SCANLY_COLOR_BG_01` | `SCANLY_COLOR_BG_01` | Pass | 0.20s | jsqr | original | 1 |  |
+| 43-transparent-bg | colored_background | `SCANLY_TRANSPARENT_01` | `SCANLY_TRANSPARENT_01` | Pass | 0.18s | jsqr | original | 16 |  |
+| 44-clear-url-03 | clear | `https://scanly.example/clear-03` | `https://scanly.example/clear-03` | Pass | 0.10s | jsqr | original | 16 |  |
+| 45-text-long | text | `SCANLY_LONG_TEXT_PAYLOAD_ABCDEF_0123456789` | `SCANLY_LONG_TEXT_PAYLOAD_ABCDEF_0123456789` | Pass | 0.16s | jsqr | original | 16 |  |
+| 46-invert-url | inverted | `https://scanly.example/inverted-url` | `https://scanly.example/inverted-url` | Pass | 0.13s | jsqr | original | 16 |  |
+| 47-near-edge-bottom | near_edge | `SCANLY_NEAR_EDGE_02` | `SCANLY_NEAR_EDGE_02` | Pass | 0.27s | jsqr | original | 1 |  |
+| 48-perspective-mild | perspective | `SCANLY_PERSPECTIVE_01` | `SCANLY_PERSPECTIVE_01` | Pass | 0.21s | jsqr | original | 16 |  |
+| 49-noise-dark | noise | `SCANLY_NOISE_DARK_01` | `SCANLY_NOISE_DARK_01` | Pass | 0.12s | jsqr | original | 16 |  |
+| 50-multiple-three | multiple | `SCANLY_TRI_A` | `SCANLY_TRI_B` | Pass | 4.22s | jsqr | original | 124 |  |
+| 51-gamma-ish | low_contrast | `SCANLY_GAMMA_01` | `SCANLY_GAMMA_01` | Pass | 0.09s | jsqr | original | 1 |  |
+| 52-wifi-02 | wifi | `WIFI:T:nopass;S:GuestScanly;P:;;` | `WIFI:T:nopass;S:GuestScanly;P:;;` | Pass | 0.13s | jsqr | original | 16 |  |
 
 ## Notes
 
-- These results are not a claim that Scanly is faster than another scanner. They are a repeatable local baseline for this repository.
-- The current fixture set is intentionally small and difficult enough to expose failure modes. More fixtures should be added before making broad performance claims.
-- Previous performance estimates should be treated as design motivation unless backed by future benchmark runs.
+- Results measure the shared `lib/qr` decode pipeline (same logic used by Upload mode).
+- These numbers are not a claim that Scanly is faster than third-party scanners.
+- Hard-case fixtures are retained even when they fail.
