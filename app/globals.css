@@ -46,6 +46,17 @@ a {
   border-radius: 12px;
   cursor: pointer;
   font-weight: 600;
+  min-height: 44px;
+}
+
+.btn:focus-visible,
+.tab:focus-visible,
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline: 3px solid #9bc2ff;
+  outline-offset: 2px;
 }
 
 .btn:disabled {
@@ -82,6 +93,8 @@ a {
   background: rgba(255, 255, 255, 0.06);
   cursor: pointer;
   font-weight: 700;
+  min-height: 44px;
+  color: #eaf0ff;
 }
 
 .tab.active {
@@ -141,4 +154,15 @@ hr {
   border: none;
   border-top: 1px solid rgba(255, 255, 255, 0.12);
   margin: 16px 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

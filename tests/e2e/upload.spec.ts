@@ -1,12 +1,15 @@
 import { test, expect } from "@playwright/test";
 import path from "node:path";
 import fs from "node:fs";
+import QRCode from "qrcode";
 
 const ROOT = path.resolve(__dirname, "../..");
 const fixtures = path.join(ROOT, "fixtures");
 
 function fixture(name: string) {
-  return path.join(fixtures, name);
+  const file = path.join(fixtures, name);
+  expect(fs.existsSync(file), `Missing canonical fixture: ${file}`).toBe(true);
+  return file;
 }
 
 test.beforeEach(async ({ page }) => {
@@ -20,12 +23,24 @@ test.afterEach(async ({ page }) => {
   expect((page as typeof page & { __scanlyPageErrors?: string[] }).__scanlyPageErrors ?? []).toEqual([]);
 });
 
-test("home page loads with Scanly branding", async ({ page }) => {
+test("home page loads with Scanly branding @smoke", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toContainText(/Scanly/i);
   await expect(page.getByRole("tab", { name: "Upload" })).toBeVisible();
   await page.getByRole("tab", { name: "Upload" }).click();
   await expect(page.getByTestId("processing-status")).toContainText("Ready");
   await expect(page.getByTestId("upload-input")).toBeEnabled();
+});
+
+test("upload clear QR through a real worker @smoke", async ({ page }) => {
+  await page.getByRole("tab", { name: "Upload" }).click();
+  await page.getByTestId("upload-input").setInputFiles(fixture("02-clear-text.png"));
+  await expect(page.getByTestId("decoded-output")).toHaveValue("SCANLY_CLEAR_TEXT", {
+    timeout: 30_000,
+  });
+  const state = await page.evaluate(() => window.__SCANLY_WORKER_DEBUG__);
+  expect(state?.lastPath).toBe("worker");
+  expect(state?.created).toBeGreaterThanOrEqual(1);
+  expect(state?.decodePosted).toBeGreaterThanOrEqual(1);
 });
 
 test("upload clear QR shows exact payload and copy works", async ({ page, context }) => {
@@ -71,22 +86,18 @@ test("second upload is not overwritten by first async result", async ({ page }) 
   await expect(page.getByTestId("error-message")).toHaveCount(0);
 });
 
-test("inverted QR decodes exact payload", async ({ page }) => {
+test("inverted QR decodes exact payload @smoke", async ({ page }) => {
   await page.getByRole("tab", { name: "Upload" }).click();
-  const inv = fs.existsSync(fixture("27-inverted-01.png"))
-    ? fixture("27-inverted-01.png")
-    : fixture("15-inverted.png");
-  const expected = inv.includes("27-inverted") ? "SCANLY_INVERTED_01" : "https://scanly.example/inverted";
+  const inv = fixture("27-inverted-01.png");
+  const expected = "SCANLY_INVERTED_01";
   await page.getByTestId("upload-input").setInputFiles(inv);
   await expect(page.getByTestId("decoded-output")).toHaveValue(expected, { timeout: 45_000 });
 });
 
 test("small QR in large image decodes exact payload", async ({ page }) => {
   await page.getByRole("tab", { name: "Upload" }).click();
-  const file = fs.existsSync(fixture("33-small-in-large-gen.png"))
-    ? fixture("33-small-in-large-gen.png")
-    : fixture("10-small-in-large.jpg");
-  const expected = file.includes("33-small") ? "SCANLY_SMALL_01" : "https://scanly.example/small";
+  const file = fixture("33-small-in-large-gen.png");
+  const expected = "SCANLY_SMALL_01";
   await page.getByTestId("upload-input").setInputFiles(file);
   await expect(page.getByTestId("decoded-output")).toHaveValue(expected, { timeout: 45_000 });
 });
@@ -94,18 +105,14 @@ test("small QR in large image decodes exact payload", async ({ page }) => {
 test("dual multiple-code fixture returns complete payload set and independent copy controls", async ({ page, context }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.getByRole("tab", { name: "Upload" }).click();
-  const file = fs.existsSync(fixture("36-multiple-gen.png"))
-    ? fixture("36-multiple-gen.png")
-    : fixture("16-multiple-codes.jpg");
+  const file = fixture("36-multiple-gen.png");
   await page.getByTestId("upload-input").setInputFiles(file);
   await expect(page.getByTestId("multi-results")).toBeVisible({ timeout: 60_000 });
 
   const payloads = await page.getByTestId("decoded-result-item").evaluateAll((els) =>
     els.map((el) => el.getAttribute("data-payload"))
   );
-  const expected = file.includes("36-multiple")
-    ? ["SCANLY_MULTI_PRIMARY", "SCANLY_MULTI_SECONDARY"]
-    : ["https://scanly.example/primary", "https://scanly.example/secondary"];
+  const expected = ["SCANLY_MULTI_PRIMARY", "SCANLY_MULTI_SECONDARY"];
   for (const p of expected) {
     expect(payloads).toContain(p);
     const item = page.getByTestId("decoded-result-item").filter({ hasText: p });
@@ -127,7 +134,7 @@ test("multiple URL results expose Open Link only on URL items", async ({ page })
   }
 });
 
-test("three-code fixture returns complete payload set", async ({ page }) => {
+test("three-code fixture returns complete payload set @smoke", async ({ page }) => {
   await page.getByRole("tab", { name: "Upload" }).click();
   await page.getByTestId("upload-input").setInputFiles(fixture("50-multiple-three.png"));
   await expect(page.getByTestId("multi-results")).toBeVisible({ timeout: 60_000 });
@@ -140,7 +147,7 @@ test("three-code fixture returns complete payload set", async ({ page }) => {
   await expect(page.getByTestId("decoded-output")).toHaveValue(payloads[0] ?? "");
 });
 
-test("in-flight cancel on hard fixture responds within 2 seconds", async ({ page }) => {
+test("in-flight cancel on hard fixture responds within 2 seconds @smoke", async ({ page }) => {
   await page.getByRole("tab", { name: "Upload" }).click();
   await page.getByTestId("upload-input").setInputFiles(fixture("14-damaged.png"));
   await expect(page.getByTestId("processing-status")).toContainText(
@@ -160,7 +167,7 @@ test("in-flight cancel on hard fixture responds within 2 seconds", async ({ page
   await expect(page.getByTestId("upload-input")).toBeEnabled();
 });
 
-test("upload after cancellation decodes clear fixture exactly", async ({ page }) => {
+test("upload after cancellation decodes clear fixture exactly @smoke", async ({ page }) => {
   await page.getByRole("tab", { name: "Upload" }).click();
   await page.getByTestId("upload-input").setInputFiles(fixture("14-damaged.png"));
   await expect(page.getByTestId("processing-status")).toContainText(
@@ -232,4 +239,67 @@ test("no camera device state", async ({ page }) => {
   await page.getByRole("tab", { name: "Camera" }).click();
   await page.getByRole("button", { name: "Start camera scan" }).click();
   await expect(page.getByTestId("error-message")).toBeVisible({ timeout: 10_000 });
+});
+
+test("unsafe URL schemes and plain text never enable Open Link", async ({ page }) => {
+  await page.getByRole("tab", { name: "Upload" }).click();
+  for (const payload of ["javascript:alert(1)", "data:text/html,<h1>x</h1>", "ordinary text"]) {
+    const png = await QRCode.toBuffer(payload, { type: "png", width: 280 });
+    await page.getByTestId("upload-input").setInputFiles({
+      name: "protocol-test.png",
+      mimeType: "image/png",
+      buffer: png,
+    });
+    await expect(page.getByTestId("decoded-output")).toHaveValue(payload, { timeout: 30_000 });
+    await expect(page.getByTestId("open-link-button")).toBeDisabled();
+  }
+});
+
+test("HTTP and HTTPS payloads enable Open Link", async ({ page }) => {
+  await page.getByRole("tab", { name: "Upload" }).click();
+  for (const payload of ["http://scanly.example/http", "https://scanly.example/https"]) {
+    const png = await QRCode.toBuffer(payload, { type: "png", width: 280 });
+    await page.getByTestId("upload-input").setInputFiles({
+      name: "safe-url.png",
+      mimeType: "image/png",
+      buffer: png,
+    });
+    await expect(page.getByTestId("decoded-output")).toHaveValue(payload, { timeout: 30_000 });
+    await expect(page.getByTestId("open-link-button")).toBeEnabled();
+  }
+});
+
+test("oversized upload fails early with a clear reason", async ({ page }) => {
+  await page.getByRole("tab", { name: "Upload" }).click();
+  await page.getByTestId("upload-input").setInputFiles({
+    name: "oversized.png",
+    mimeType: "image/png",
+    buffer: Buffer.alloc(25 * 1024 * 1024 + 1),
+  });
+  await expect(page.getByTestId("error-message")).toHaveAttribute(
+    "data-error-reason",
+    "image_too_large"
+  );
+  await expect(page.getByTestId("error-message")).toContainText("25 MiB");
+});
+
+test("ten cancel cycles leave the next worker decode healthy", async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.getByRole("tab", { name: "Upload" }).click();
+  for (let i = 0; i < 10; i += 1) {
+    await page.getByTestId("upload-input").setInputFiles([]);
+    await page.getByTestId("upload-input").setInputFiles(fixture("14-damaged.png"));
+    await expect(page.getByTestId("processing-status")).toContainText(
+      /Detecting|Decoding|Trying|Backup/,
+      { timeout: 10_000 }
+    );
+    await page.getByTestId("cancel-button").click();
+    await expect(page.getByTestId("processing-status")).toContainText("Cancelled");
+  }
+  await page.getByTestId("upload-input").setInputFiles(fixture("02-clear-text.png"));
+  await expect(page.getByTestId("decoded-output")).toHaveValue("SCANLY_CLEAR_TEXT", {
+    timeout: 30_000,
+  });
+  const state = await page.evaluate(() => window.__SCANLY_WORKER_DEBUG__);
+  expect(state?.terminated).toBeGreaterThanOrEqual(10);
 });

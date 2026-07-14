@@ -22,7 +22,7 @@ describe("cancellation contract", () => {
 
   it("returns cancelled when aborted mid-decode", async () => {
     const file = path.join(FIXTURES, "14-damaged.png");
-    if (!fs.existsSync(file)) return;
+    expect(fs.existsSync(file), `Missing canonical fixture: ${file}`).toBe(true);
     const buffer = await loadPixelBufferFromPath(file);
     const controller = new AbortController();
     const promise = decodePixelBuffer(buffer, {
@@ -69,7 +69,7 @@ describe("cancellation contract", () => {
 
   it("multiple fixture returns all required payloads", async () => {
     const file = path.join(FIXTURES, "36-multiple-gen.png");
-    if (!fs.existsSync(file)) return;
+    expect(fs.existsSync(file), `Missing canonical fixture: ${file}`).toBe(true);
     const buffer = await loadPixelBufferFromPath(file);
     const out = await decodePixelBuffer(buffer, {
       config: {

@@ -10,6 +10,7 @@ import type {
   PipelineConfig,
   PreprocessMethod,
   PhaseTiming,
+  NonEmptyArray,
   RotationDegrees,
 } from "./types";
 import { DEFAULT_PIPELINE_CONFIG } from "./types";
@@ -90,6 +91,9 @@ type AttemptContext = {
 function shouldStopMultiple(ctx: AttemptContext): boolean {
   const payloads = ctx.found.map((r) => r.payload);
   const { config } = ctx;
+
+  // A stall can end collection only after at least one real decode.
+  if (payloads.length === 0) return false;
 
   if (config.requiredPayloads?.length) {
     // Known completeness contracts must not stop on a heuristic stall.
@@ -459,17 +463,21 @@ export async function decodePixelBuffer(
   }
 }
 
-function successOutcome(
+export function successOutcome(
   results: DecodedCode[],
   attempts: DecodeAttempt[],
   start: number,
   cancelled: boolean,
   phaseTiming: PhaseTiming
 ): DecodeSuccess {
+  if (results.length === 0) {
+    throw new Error("Decode success invariant violated: results must be non-empty.");
+  }
+  const nonEmptyResults = results as NonEmptyArray<DecodedCode>;
   return {
     ok: true,
-    results,
-    primary: results[0],
+    results: nonEmptyResults,
+    primary: nonEmptyResults[0],
     attempts,
     attemptCount: attempts.length,
     elapsedMs: Date.now() - start,

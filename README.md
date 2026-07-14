@@ -1,20 +1,28 @@
-# Scanly — Browser QR Code Scanner
+# Scanly — private browser QR scanner
 
-Scanly decodes QR codes from your camera or uploaded photos entirely in the browser. It uses region detection, ordered image preprocessing, and jsQR + ZXing fallbacks — **heuristic computer vision**, not an ML model.
+Scanly is a feature-complete, privacy-first QR scanner for camera and uploaded images. Its layered, heuristic computer-vision pipeline runs locally in the browser; it is not an ML model and has no upload backend.
 
-![Next.js](https://img.shields.io/badge/Next.js-14.2.5-black)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.5.3-blue)
-![License](https://img.shields.io/badge/License-MIT-green)
+![Next.js 14](https://img.shields.io/badge/Next.js-14-black)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
+![Benchmark](https://img.shields.io/badge/internal%20benchmark-51%2F52-brightgreen)
+![License](https://img.shields.io/badge/license-MIT-green)
 
-## Live demo
-
-**Production:** [https://qr-decoder-theta.vercel.app](https://qr-decoder-theta.vercel.app)
+**Live demo:** [https://qr-decoder-theta.vercel.app](https://qr-decoder-theta.vercel.app)
 
 ![Scanly upload decode](docs/screenshot.png)
 
-## Internal fixture benchmark (canonical)
+## Why Scanly
 
-These numbers come from `benchmark-results/latest.json` via `npm run benchmark`. They measure **Scanly's internal regression fixture suite** — not a claim about all real-world QR images, not a fair comparison to third-party scanners, and not an industry-leading claim.
+- Web Worker upload decoding with transferable pixel buffers and termination-based cancellation
+- Job ownership checks that prevent stale results from overwriting a newer upload
+- Top-N regions, deduplication, multi-scale crops, preprocessing, rotations, jsQR, and ZXing fallback
+- Multiple-code completeness contracts rather than “one code found” success
+- Canonical benchmark reports, regression/performance gates, coverage, and cross-browser Playwright checks
+- Local-only privacy: no image upload API, storage, account, analytics, or tracking
+
+## Internal fixture benchmark
+
+This is Scanly's internal regression suite—not universal accuracy, a third-party comparison, or an ML evaluation. Hard failures stay in the denominator.
 
 <!-- BENCHMARK_SUMMARY_START -->
 | Metric | Value |
@@ -29,25 +37,28 @@ These numbers come from `benchmark-results/latest.json` via `npm run benchmark`.
 | Canonical JSON | [benchmark-results/latest.json](benchmark-results/latest.json) |
 <!-- BENCHMARK_SUMMARY_END -->
 
-Full tables: [docs/benchmark.md](docs/benchmark.md)
-
-Hard-case fixtures are retained even when they fail. This suite mixes deterministic generated images and project-owned photos — it is **not** an estimate of universal decode success rate.
+See [the full benchmark](docs/benchmark.md) and [fixture methodology](docs/testing.md).
 
 ## Features
 
-- Camera scanning and image upload (upload decoding runs in a **Web Worker** — UI stays responsive)
-- Top-N region candidates with padding / multi-scale retries and deduplication
-- Preprocess fallbacks: contrast, invert, Otsu, thresholds, gamma, sharpen, rotations
-- jsQR primary + ZXing backup adapters with attempt telemetry
-- Multiple unique QR results when present (complete required-payload contract in benchmarks)
-- **In-flight Cancel** terminates the worker within ~2s; stale job results are ignored
-- Local-only processing — images are not uploaded or stored
+- Camera scanning and uploaded image decoding
+- Clear/inverted/small-in-large/damaged/multiple QR fallbacks within bounded attempt and time budgets
+- Real cancel, stale-job protection, and recoverable Worker errors
+- HTTP/HTTPS-only link actions; all other payloads remain plain text
+- 25 MiB and 24-megapixel upload safety limits
 
-## Tech stack
+## Architecture and testing
 
-Next.js 14 · React 18 · TypeScript · jsQR · @zxing/browser + @zxing/library · Web Worker · Sharp (fixtures/benchmarks)
+The Upload tab passes a transferable RGBA buffer to a dedicated Worker; the Worker runs the same core pipeline used by Vitest integration tests and the benchmark. Camera mode uses `@zxing/browser` directly because it owns the live media stream.
+
+- [Architecture](docs/architecture.md)
+- [Decoding pipeline](docs/decoding-pipeline.md)
+- [Testing and benchmark gates](docs/testing.md)
+- [Maintenance policy](docs/maintenance.md)
 
 ## Local development
+
+Verified in CI on Node.js 20 and locally on Node.js 24; the supported maintenance range is Node.js 20–24 with npm 10 or newer.
 
 ```bash
 git clone https://github.com/Yangjunjie-Lin/Scanly.git
@@ -57,46 +68,48 @@ npm run fixtures:generate
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+For production-equivalent verification:
 
 ```bash
-npm run build
-npm start
-```
-
-## Tests & quality gates
-
-```bash
-npm run lint
-npm run typecheck
-npm run test:unit
-npm run test:coverage
+npm run check
 npm run test:e2e
 npm run benchmark:smoke
-npm run benchmark
 ```
 
-Details: [docs/testing.md](docs/testing.md) · Architecture: [docs/architecture.md](docs/architecture.md) · Pipeline: [docs/decoding-pipeline.md](docs/decoding-pipeline.md)
+Run `npm run benchmark` after decoding-pipeline or fixture-contract changes.
 
-Tests may force a decoder with `config.decoders` / `decoderOrder`; production defaults remain jsQR first with ZXing fallback.
+## Browser support
 
-## Privacy
+| Browser | Support |
+| --- | --- |
+| Chrome / Edge | Camera and upload supported |
+| Firefox | Upload supported; camera depends on browser/device permissions |
+| Safari / iOS Safari | Upload and camera supported with HTTPS and platform permission constraints |
 
-- Decoding runs in your browser (upload pipeline in a dedicated Worker thread).
-- Upload images stay on device; there is no image upload API.
-- Camera streams are stopped when scanning ends or the tab changes.
+Automated desktop coverage is not a claim that every browser/device combination has been tested. Camera E2E remains Chromium-only because CI media-device simulation is not stable across all engines.
 
-## Known limitations
+## Privacy and security
 
-- Severely damaged / occluded modules may still fail (`14-damaged` in the fixture set).
-- Extremely large images are capped by pixel and attempt budgets.
-- Camera mode depends on HTTPS (or localhost) and browser permission prompts.
-- Mild perspective skew is handled better than strong 3D warp.
+- Images are processed locally and are never sent to an upload API or stored by Scanly.
+- The project contains no analytics or user-behavior tracking.
+- Camera tracks stop after use or when leaving Camera mode.
+- Clipboard writes require an explicit button action and browser permission.
+- Benchmark images are repository fixtures: deterministic generated cases or project-owned photos.
+- QR payloads render as text; only parsed `http:` and `https:` URLs can enable **Open Link**.
+
+See [SECURITY.md](SECURITY.md) for vulnerability reporting.
+
+## Limitations
+
+- Severely damaged or occluded modules may remain undecodable; `14-damaged` is intentionally retained.
+- Strong 3D perspective warp may exceed the heuristic pipeline.
+- Camera support depends on HTTPS, permissions, browser, and device hardware.
+- File and pixel limits reject unusually large images before full RGBA allocation.
+
+## Project status
+
+**Stable · feature-complete · production deployed · maintenance mode.** Future work is limited to security, browser/API compatibility, dependency support, reproducible decoding improvements, and real bug reports.
 
 ## License
 
-[MIT License](LICENSE)
-
-## Author
-
-[Yangjunjie Lin](https://github.com/Yangjunjie-Lin)
+[MIT](LICENSE) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)

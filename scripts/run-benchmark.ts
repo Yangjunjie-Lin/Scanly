@@ -12,6 +12,10 @@ import {
   evaluateFixture,
   requiredPayloads,
 } from "../lib/benchmark/fixture-contract";
+import {
+  evaluateBenchmarkGates,
+  type BenchmarkBaseline,
+} from "../lib/benchmark/quality-gates";
 
 const ROOT = path.resolve(__dirname, "..");
 const MANIFEST_PATH = path.join(ROOT, "fixtures", "manifest.json");
@@ -237,12 +241,14 @@ function updateReadmeSummary(summary: BenchmarkRunSummary, manifest: ManifestFil
   return fs.promises.writeFile(readmePath, updated);
 }
 
-async function loadBaselineIds(): Promise<Set<string>> {
-  if (!fs.existsSync(BASELINE_PATH)) return new Set();
-  const raw = JSON.parse(await fs.promises.readFile(BASELINE_PATH, "utf8")) as {
+async function loadBaseline(): Promise<{ passedIds: Set<string>; metrics: BenchmarkBaseline }> {
+  if (!fs.existsSync(BASELINE_PATH)) {
+    throw new Error(`Missing required benchmark baseline: ${BASELINE_PATH}`);
+  }
+  const raw = JSON.parse(await fs.promises.readFile(BASELINE_PATH, "utf8")) as BenchmarkBaseline & {
     passedIds?: string[];
   };
-  return new Set(raw.passedIds ?? []);
+  return { passedIds: new Set(raw.passedIds ?? []), metrics: raw };
 }
 
 async function runFixture(fixture: BenchmarkFixture): Promise<BenchmarkFixtureResult> {
@@ -371,7 +377,8 @@ async function main() {
     slot.successRate = slot.total ? slot.passed / slot.total : 0;
   }
 
-  const baselinePassed = await loadBaselineIds();
+  const baseline = await loadBaseline();
+  const baselinePassed = baseline.passedIds;
   let regressionCount = 0;
   if (baselinePassed.size > 0) {
     for (const id of baselinePassed) {
@@ -458,21 +465,9 @@ async function main() {
   console.log(`Wrote ${jsonPath}`);
   console.log(`Wrote ${csvPath}`);
 
-  if (failOnRegression && regressionCount > 0) {
-    console.error(`Regression gate failed: ${regressionCount} previously-passing fixture(s) failed.`);
-    process.exit(1);
-  }
-
-  if (failOnRegression && summary.multipleCompleteness.incomplete.length > 0) {
-    console.error(
-      `Multiple completeness gate failed: ${summary.multipleCompleteness.incomplete.join(", ")}`
-    );
-    process.exit(1);
-  }
-
-  // Canonical full-suite floor: 51/52. Hard cases remain in the denominator.
-  if (failOnRegression && !smoke && summary.passed < 51) {
-    console.error(`Success-rate gate failed: ${summary.passed}/${summary.total}; required at least 51/52.`);
+  const gateFailures = evaluateBenchmarkGates(summary, baseline.metrics, { fullSuite: !smoke });
+  if (failOnRegression && gateFailures.length > 0) {
+    console.error(`Benchmark gate failed:\n- ${gateFailures.join("\n- ")}`);
     process.exit(1);
   }
 }

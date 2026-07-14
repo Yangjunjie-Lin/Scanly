@@ -15,7 +15,7 @@ import {
 } from "../../lib/qr/region-detection";
 import { rotateBuffer } from "../../lib/qr/rotate";
 import { dedupeResults, looksLikeUrl, normalizePayload } from "../../lib/qr/result-normalizer";
-import { buildAttemptPlan, decodePixelBuffer } from "../../lib/qr/decode-pipeline";
+import { buildAttemptPlan, decodePixelBuffer, successOutcome } from "../../lib/qr/decode-pipeline";
 import type { DecodedCode, PixelBuffer, ScoredRegion } from "../../lib/qr/types";
 
 function solid(width: number, height: number, rgb: [number, number, number]): PixelBuffer {
@@ -183,6 +183,11 @@ describe("result normalizer", () => {
 
   it("detects http(s) URLs only", () => {
     expect(looksLikeUrl("https://scanly.example/x")).toBe(true);
+    expect(looksLikeUrl("http://scanly.example/x")).toBe(true);
+    expect(looksLikeUrl("javascript:alert(1)")).toBe(false);
+    expect(looksLikeUrl("data:text/html,<script>alert(1)</script>")).toBe(false);
+    expect(looksLikeUrl("file:///etc/passwd")).toBe(false);
+    expect(looksLikeUrl("vbscript:msgbox(1)")).toBe(false);
     expect(looksLikeUrl("ftp://x")).toBe(false);
     expect(looksLikeUrl("not a url")).toBe(false);
   });
@@ -193,6 +198,18 @@ describe("result normalizer", () => {
 });
 
 describe("pipeline ordering / timeout / cancel", () => {
+  it("rejects an empty success at the constructor boundary", () => {
+    expect(() =>
+      successOutcome([], [], Date.now(), false, {
+        candidateGenerationMs: 0,
+        jsqrMs: 0,
+        zxingMs: 0,
+        preprocessMs: 0,
+        rotationMs: 0,
+      })
+    ).toThrow(/results must be non-empty/);
+  });
+
   it("buildAttemptPlan puts rotation 0 first", () => {
     const plan = buildAttemptPlan(["original", "invert"], [0, 90, 180], 20);
     expect(plan[0]).toEqual({ preprocessing: "original", rotation: 0 });
@@ -232,5 +249,25 @@ describe("pipeline ordering / timeout / cancel", () => {
       config: { maxAttempts: 5, timeoutMs: 10_000, findMultiple: false },
     });
     expect(out.attemptCount).toBeLessThanOrEqual(5);
+  });
+
+  it("multiple mode on a blank image never returns an empty success", async () => {
+    const out = await decodePixelBuffer(solid(160, 160, [255, 255, 255]), {
+      config: {
+        findMultiple: true,
+        stallCandidateLimit: 0,
+        maxAttempts: 20,
+        timeoutMs: 5_000,
+      },
+    });
+    expect(out.ok).toBe(false);
+    if (!out.ok) expect(["no_qr_found", "timeout"]).toContain(out.reason);
+  });
+
+  it("complex non-QR pixels cannot produce ok=true with zero results", async () => {
+    const out = await decodePixelBuffer(gradient(180, 180), {
+      config: { findMultiple: true, stallCandidateLimit: 0, maxAttempts: 24 },
+    });
+    expect(out.ok).toBe(false);
   });
 });

@@ -1,10 +1,19 @@
 import type { PixelBuffer } from "./types";
 import { createPixelBuffer, flattenAlphaOntoWhite } from "./grayscale";
 
+export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+export const MAX_IMAGE_PIXELS = 24_000_000;
+export const MAX_IMAGE_SIDE = 12_000;
+
 /** Load image file bytes into a PixelBuffer via browser createImageBitmap + canvas. */
 export async function loadPixelBufferFromBlob(blob: Blob): Promise<PixelBuffer> {
   if (!blob || blob.size === 0) {
     throw Object.assign(new Error("Empty or missing image file."), { code: "empty_image" as const });
+  }
+  if (blob.size > MAX_UPLOAD_BYTES) {
+    throw Object.assign(new Error("Image is larger than the 25 MiB upload limit."), {
+      code: "image_too_large" as const,
+    });
   }
   if (blob.type && !blob.type.startsWith("image/")) {
     throw Object.assign(new Error("Please select a valid image file."), { code: "invalid_file" as const });
@@ -20,6 +29,18 @@ export async function loadPixelBufferFromBlob(blob: Blob): Promise<PixelBuffer> 
   }
 
   try {
+    if (
+      bitmap.width < 1 ||
+      bitmap.height < 1 ||
+      bitmap.width > MAX_IMAGE_SIDE ||
+      bitmap.height > MAX_IMAGE_SIDE ||
+      bitmap.width * bitmap.height > MAX_IMAGE_PIXELS
+    ) {
+      throw Object.assign(
+        new Error("Image dimensions exceed the 24 megapixel processing limit."),
+        { code: "image_too_large" as const }
+      );
+    }
     const canvas = document.createElement("canvas");
     canvas.width = bitmap.width;
     canvas.height = bitmap.height;

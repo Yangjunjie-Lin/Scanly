@@ -22,9 +22,12 @@ Each attempt stores candidate index/score, padding, scale, rotation, preprocess 
 ## Budgets
 
 - `maxCandidates`, `maxAttempts`, `timeoutMs`, `maxPixels`
+- Browser upload boundary: 25 MiB, 24 megapixels, and 12,000 pixels on either side before canvas RGBA allocation
 - AbortSignal cancellation for direct pipeline callers; browser Upload cancellation terminates the Worker for bounded latency
 - decoder selection for tests (`decoders.jsqr`, `decoders.zxing`, or `decoderOrder`)
 
 ## Multiple QR codes
 
 When `findMultiple` is enabled, unique payloads are collected across candidates (capped). Production uses a no-new-result stall window because it cannot know the true count. Benchmark multiple fixtures declare `requiredPayloads` and pass only when the complete required set is present; `expectedResultCount` is a benchmark stop hint, not a production assumption.
+
+A stall is never success when no result has been found. Successful outcomes use a non-empty tuple, always define `primary`, and are protected by a runtime invariant at their single constructor boundary.

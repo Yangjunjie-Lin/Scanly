@@ -1,0 +1,46 @@
+name: QR decoding failure
+description: Report a reproducible non-sensitive QR image failure
+title: "[Decode]: "
+labels: [decoding]
+body:
+  - type: markdown
+    attributes:
+      value: Never upload a QR image containing credentials, tickets, identity data, private URLs, or other sensitive content to a public issue. Recreate it with a harmless payload when possible.
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and version
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS/device
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Scan mode
+      options: [Upload, Camera]
+    validations:
+      required: true
+  - type: textarea
+    id: characteristics
+    attributes:
+      label: Image characteristics
+      description: Lighting, blur, damage, perspective, dimensions, file type, multiple codes, and crop.
+    validations:
+      required: true
+  - type: dropdown
+    id: elsewhere
+    attributes:
+      label: Does the same QR decode elsewhere?
+      options: [Yes, No, Not tested]
+    validations:
+      required: true
+  - type: textarea
+    id: safe_reproduction
+    attributes:
+      label: Safe reproduction details
+      description: Prefer a newly generated QR with a harmless payload.

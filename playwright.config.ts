@@ -21,5 +21,15 @@ export default defineConfig({
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
     },
+    {
+      name: "firefox",
+      grep: /@smoke/,
+      use: { ...devices["Desktop Firefox"] },
+    },
+    {
+      name: "webkit",
+      grep: /@smoke/,
+      use: { ...devices["Desktop Safari"] },
+    },
   ],
 });

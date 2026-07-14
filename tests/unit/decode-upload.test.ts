@@ -7,12 +7,14 @@ const {
   workerDecode,
   workerCancel,
   workerDispose,
+  markDecodePath,
 } = vi.hoisted(() => ({
   loadPixelBufferFromFile: vi.fn(),
   decodePixelBuffer: vi.fn(),
   workerDecode: vi.fn(),
   workerCancel: vi.fn(),
   workerDispose: vi.fn(),
+  markDecodePath: vi.fn(),
 }));
 
 vi.mock("../../lib/qr/image-loader", () => ({ loadPixelBufferFromFile }));
@@ -20,6 +22,7 @@ vi.mock("../../lib/qr/decode-pipeline", () => ({ decodePixelBuffer }));
 vi.mock("../../lib/qr/worker/worker-client", () => ({
   getDecodeWorkerClient: () => ({ decode: workerDecode, cancel: workerCancel }),
   disposeDecodeWorkerClient: workerDispose,
+  markDecodePath,
 }));
 
 import {
@@ -54,7 +57,7 @@ describe("upload decode wrapper", () => {
     expect(decodePixelBuffer).toHaveBeenCalledWith(buffer, expect.any(Object));
   });
 
-  it.each(["invalid_file", "unsupported_image", "empty_image", "worker_error"] as const)(
+  it.each(["invalid_file", "unsupported_image", "empty_image", "image_too_large", "worker_error"] as const)(
     "preserves the %s application error reason",
     async (code) => {
       loadPixelBufferFromFile.mockRejectedValue(Object.assign(new Error(`failure: ${code}`), { code }));

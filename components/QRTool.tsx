@@ -215,7 +215,12 @@ export default function QRTool() {
     if (seq !== uploadSeqRef.current) return;
 
     setIsProcessing(false);
-    if (outcome.ok) {
+    if (outcome.ok && outcome.results.length === 0) {
+      setResults([]);
+      setErrorReason("worker_error");
+      setLastError("The decoder returned an invalid empty success result. Please try again.");
+      setStatus("Internal decoder error");
+    } else if (outcome.ok) {
       setResults(outcome.results);
       setStatus(
         outcome.results.length > 1
@@ -260,7 +265,36 @@ export default function QRTool() {
 
   function openIfUrl(text = primary) {
     if (!looksLikeUrl(text)) return;
-    window.open(text, "_blank", "noopener,noreferrer");
+    const url = new URL(text);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return;
+    window.open(url.href, "_blank", "noopener,noreferrer");
+  }
+
+  function selectMode(nextMode: Mode) {
+    if (nextMode === "camera") {
+      modeRef.current = "camera";
+      setMode("camera");
+      resetUpload();
+      return;
+    }
+    modeRef.current = "upload";
+    stopScan();
+    void onCancelUpload();
+    setMode("upload");
+    setLastError("");
+    setErrorReason("");
+    setResults([]);
+    setStatus("Ready");
+  }
+
+  function onTabKeyDown(event: React.KeyboardEvent<HTMLButtonElement>, current: Mode) {
+    const forward = event.key === "ArrowRight" || event.key === "ArrowDown";
+    const backward = event.key === "ArrowLeft" || event.key === "ArrowUp";
+    if (!forward && !backward) return;
+    event.preventDefault();
+    const next = current === "camera" ? "upload" : "camera";
+    selectMode(next);
+    document.getElementById(`${next}-tab`)?.focus();
   }
 
   return (
@@ -270,31 +304,26 @@ export default function QRTool() {
           <button
             type="button"
             role="tab"
+            id="camera-tab"
+            aria-controls="camera-panel"
             aria-selected={mode === "camera"}
+            tabIndex={mode === "camera" ? 0 : -1}
             className={`tab ${mode === "camera" ? "active" : ""}`}
-            onClick={() => {
-              modeRef.current = "camera";
-              setMode("camera");
-              resetUpload();
-            }}
+            onKeyDown={(event) => onTabKeyDown(event, "camera")}
+            onClick={() => selectMode("camera")}
           >
             Camera
           </button>
           <button
             type="button"
             role="tab"
+            id="upload-tab"
+            aria-controls="upload-panel"
             aria-selected={mode === "upload"}
+            tabIndex={mode === "upload" ? 0 : -1}
             className={`tab ${mode === "upload" ? "active" : ""}`}
-            onClick={() => {
-              modeRef.current = "upload";
-              stopScan();
-              void onCancelUpload();
-              setMode("upload");
-              setLastError("");
-              setErrorReason("");
-              setResults([]);
-              setStatus("Ready");
-            }}
+            onKeyDown={(event) => onTabKeyDown(event, "upload")}
+            onClick={() => selectMode("upload")}
           >
             Upload
           </button>
@@ -308,7 +337,7 @@ export default function QRTool() {
       <hr />
 
       {mode === "camera" && (
-        <>
+        <div role="tabpanel" id="camera-panel" aria-labelledby="camera-tab">
           <div className="videoWrap">
             <video ref={videoRef} muted playsInline aria-label="Camera preview" />
             <div className="overlay" aria-hidden="true">
@@ -369,13 +398,17 @@ export default function QRTool() {
           <div className="small" style={{ marginTop: 10 }}>
             If permission prompt doesn’t show: on iOS use Safari, ensure the site is HTTPS, and allow camera access.
           </div>
-        </>
+        </div>
       )}
 
       {mode === "upload" && (
-        <>
+        <div role="tabpanel" id="upload-panel" aria-labelledby="upload-tab">
           <div className="row" style={{ alignItems: "center" }}>
+            <label htmlFor="qr-image-upload" className="small">
+              Choose a QR image (up to 25 MiB / 24 MP)
+            </label>
             <input
+              id="qr-image-upload"
               type="file"
               accept="image/*"
               aria-label="Upload QR code image"
@@ -410,7 +443,7 @@ export default function QRTool() {
           <div className="small" style={{ marginTop: 10, lineHeight: "1.6" }}>
             Images are processed entirely in your browser. They are not uploaded to a server and are not saved.
           </div>
-        </>
+        </div>
       )}
 
       <hr />

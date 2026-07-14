@@ -10,7 +10,8 @@ async function decodeViaWorker(
   buffer: Awaited<ReturnType<typeof loadPixelBufferFromFile>>,
   options: DecodePipelineOptions
 ): Promise<DecodeOutcome> {
-  const { getDecodeWorkerClient } = await import("./worker/worker-client");
+  const { getDecodeWorkerClient, markDecodePath } = await import("./worker/worker-client");
+  markDecodePath("worker");
   const client = getDecodeWorkerClient();
 
   if (options.signal) {
@@ -38,6 +39,11 @@ export async function decodeUploadedFile(
       return decodeViaWorker(buffer, options);
     }
 
+    if (typeof window !== "undefined") {
+      const { markDecodePath } = await import("./worker/worker-client");
+      markDecodePath("main-thread");
+    }
+
     return decodePixelBuffer(buffer, options);
   } catch (e) {
     const code =
@@ -49,8 +55,14 @@ export async function decodeUploadedFile(
       code === "invalid_file" ||
       code === "unsupported_image" ||
       code === "empty_image" ||
+      code === "image_too_large" ||
       code === "worker_error"
-        ? (code as "invalid_file" | "unsupported_image" | "empty_image" | "worker_error")
+        ? (code as
+            | "invalid_file"
+            | "unsupported_image"
+            | "empty_image"
+            | "image_too_large"
+            | "worker_error")
         : "unsupported_image";
     return {
       ok: false,

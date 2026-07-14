@@ -37,6 +37,10 @@ export interface BenchmarkFixture {
   expectedOutcome: BenchmarkExpectedOutcome;
   sourceType: BenchmarkSourceType;
   license: string;
+  /** Fixed generator seed for reproducible generated fixtures. */
+  generatedSeed?: number;
+  /** Generator/provenance note describing where transforms are defined. */
+  transformMetadata?: string;
   /** Optional: primary payload when multiple codes (stable contract). */
   primaryPayload?: string;
   /** All payloads that must appear for a full pass (multiple fixtures). */

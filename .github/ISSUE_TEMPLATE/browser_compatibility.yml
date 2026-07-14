@@ -1,0 +1,38 @@
+name: Browser compatibility issue
+description: Report a browser, camera, Worker, or permission compatibility problem
+title: "[Browser]: "
+labels: [browser-compatibility]
+body:
+  - type: markdown
+    attributes:
+      value: Do not attach QR images containing private or credential data.
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and exact version
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS and device
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Mode
+      options: [Upload, Camera, Both]
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Behavior and reproduction
+    validations:
+      required: true
+  - type: textarea
+    id: network
+    attributes:
+      label: Worker/network/console details
+      description: Remove tokens, payloads, and private URLs.

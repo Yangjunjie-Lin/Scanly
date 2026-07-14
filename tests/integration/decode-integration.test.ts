@@ -1,17 +1,21 @@
 import fs from "node:fs";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import QRCode from "qrcode";
 import sharp from "sharp";
+import os from "node:os";
 import { loadPixelBufferFromPath } from "../../lib/qr/image-loader-node";
 import { decodePixelBuffer } from "../../lib/qr/decode-pipeline";
 import { createPixelBuffer } from "../../lib/qr/grayscale";
 
 const ROOT = path.resolve(__dirname, "../..");
 const FIXTURES = path.join(ROOT, "fixtures");
+const TEMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "scanly-tests-"));
+
+afterAll(() => fs.rmSync(TEMP_DIR, { recursive: true, force: true }));
 
 async function ensureTempQr(payload: string, fileName: string, invert = false) {
-  const file = path.join(FIXTURES, fileName);
+  const file = path.join(TEMP_DIR, fileName);
   if (!fs.existsSync(file)) {
     const buf = await QRCode.toBuffer(payload, {
       type: "png",
@@ -21,7 +25,7 @@ async function ensureTempQr(payload: string, fileName: string, invert = false) {
         ? { dark: "#ffffff", light: "#000000" }
         : { dark: "#000000", light: "#ffffff" },
     });
-    fs.mkdirSync(FIXTURES, { recursive: true });
+    fs.mkdirSync(TEMP_DIR, { recursive: true });
     fs.writeFileSync(file, buf);
   }
   return file;
@@ -51,7 +55,7 @@ describe("decoder integration", () => {
   });
 
   it("returns failure for a blank image", async () => {
-    const blank = path.join(FIXTURES, "_tmp-blank.png");
+    const blank = path.join(TEMP_DIR, "blank.png");
     await sharp({
       create: { width: 200, height: 200, channels: 3, background: "#808080" },
     })
@@ -66,14 +70,14 @@ describe("decoder integration", () => {
   });
 
   it("handles corrupted file through loader", async () => {
-    const bad = path.join(FIXTURES, "_tmp-corrupt.bin");
+    const bad = path.join(TEMP_DIR, "corrupt.bin");
     fs.writeFileSync(bad, Buffer.from([0, 1, 2, 3, 4]));
     await expect(loadPixelBufferFromPath(bad)).rejects.toBeTruthy();
   });
 
-  it("decodes fixture 02 if present", async () => {
+  it("decodes required canonical fixture 02", async () => {
     const file = path.join(FIXTURES, "02-clear-text.png");
-    if (!fs.existsSync(file)) return;
+    expect(fs.existsSync(file), `Missing canonical fixture: ${file}`).toBe(true);
     const buffer = await loadPixelBufferFromPath(file);
     const out = await decodePixelBuffer(buffer, { config: { findMultiple: false } });
     expect(out.ok).toBe(true);

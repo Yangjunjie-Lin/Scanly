@@ -5,6 +5,8 @@ export interface PixelBuffer {
   height: number;
 }
 
+export type NonEmptyArray<T> = [T, ...T[]];
+
 export interface Rect {
   x: number;
   y: number;
@@ -45,6 +47,7 @@ export type DecodeErrorReason =
   | "cancelled"
   | "worker_error"
   | "empty_image"
+  | "image_too_large"
   | "camera_permission_denied"
   | "no_camera";
 
@@ -75,7 +78,7 @@ export interface DecodedCode {
 
 export interface DecodeSuccess {
   ok: true;
-  results: DecodedCode[];
+  results: NonEmptyArray<DecodedCode>;
   /** Primary result — first unique successful decode. */
   primary: DecodedCode;
   attempts: DecodeAttempt[];

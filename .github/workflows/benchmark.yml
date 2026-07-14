@@ -49,6 +49,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: benchmark-full
+          if-no-files-found: error
           path: |
             benchmark-results/latest.json
             benchmark-results/latest.csv

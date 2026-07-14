@@ -47,8 +47,8 @@ jobs:
       - name: Production build
         run: npm run build
 
-      - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium firefox webkit
 
       - name: Playwright smoke E2E
         run: npm run test:e2e
@@ -56,11 +56,17 @@ jobs:
       - name: Benchmark smoke (regression gate)
         run: npm run benchmark:smoke
 
+      - name: Verify smoke benchmark artifacts
+        run: |
+          test -f benchmark-results/smoke.json
+          test -f benchmark-results/smoke.csv
+
       - name: Upload smoke benchmark artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: benchmark-smoke
+          if-no-files-found: error
           path: |
-            benchmark-results/latest.json
-            benchmark-results/latest.csv
+            benchmark-results/smoke.json
+            benchmark-results/smoke.csv

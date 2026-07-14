@@ -756,6 +756,14 @@ async function main() {
     manifest.push(entry);
   }
 
+  for (const fixture of manifest) {
+    if (fixture.sourceType === "generated") {
+      fixture.generatedSeed = SEED;
+      fixture.transformMetadata =
+        `Deterministic ${fixture.category} transform defined in scripts/generate-fixtures.ts`;
+    }
+  }
+
   // checksum stamp
   const hash = crypto.createHash("sha256").update(SEED.toString()).digest("hex").slice(0, 12);
   const manifestPath = path.join(FIXTURES_DIR, "manifest.json");

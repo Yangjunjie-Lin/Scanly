@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import { decodeWithZXing } from "../../lib/qr/zxing-decoder";
 import { decodePixelBuffer } from "../../lib/qr/decode-pipeline";
 import { loadPixelBufferFromPath } from "../../lib/qr/image-loader-node";
@@ -7,12 +7,16 @@ import QRCode from "qrcode";
 import fs from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
+import os from "node:os";
 
 const FIXTURES = path.resolve(__dirname, "../../fixtures");
+const TEMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "scanly-zxing-tests-"));
+
+afterAll(() => fs.rmSync(TEMP_DIR, { recursive: true, force: true }));
 
 describe("ZXing forced tests", () => {
   it("decodeWithZXing returns exact payload on clear generated QR", async () => {
-    const file = path.join(FIXTURES, "_tmp-zxing-adapter.png");
+    const file = path.join(TEMP_DIR, "zxing-adapter.png");
     if (!fs.existsSync(file)) {
       const buf = await QRCode.toBuffer("SCANLY_ZXING_ADAPTER", {
         type: "png",
@@ -32,7 +36,7 @@ describe("ZXing forced tests", () => {
   });
 
   it("decodeWithZXing returns null for a real blank image", async () => {
-    const file = path.join(FIXTURES, "_tmp-zxing-blank.png");
+    const file = path.join(TEMP_DIR, "zxing-blank.png");
     await sharp({ create: { width: 200, height: 200, channels: 3, background: "#ffffff" } })
       .png()
       .toFile(file);
@@ -41,7 +45,7 @@ describe("ZXing forced tests", () => {
 
   it("ZXing-only pipeline decodes clear fixture with zxing decoder", async () => {
     const file = path.join(FIXTURES, "02-clear-text.png");
-    if (!fs.existsSync(file)) return;
+    expect(fs.existsSync(file), `Missing canonical fixture: ${file}`).toBe(true);
     const buffer = await loadPixelBufferFromPath(file);
     const out = await decodePixelBuffer(buffer, {
       config: {
@@ -58,7 +62,7 @@ describe("ZXing forced tests", () => {
 
   it("jsQR-only pipeline still works", async () => {
     const file = path.join(FIXTURES, "02-clear-text.png");
-    if (!fs.existsSync(file)) return;
+    expect(fs.existsSync(file), `Missing canonical fixture: ${file}`).toBe(true);
     const buffer = await loadPixelBufferFromPath(file);
     const out = await decodePixelBuffer(buffer, {
       config: {

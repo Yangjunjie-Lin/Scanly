@@ -7,8 +7,17 @@ const ROOT = path.resolve(__dirname, "..");
 const read = (file: string) => fs.readFileSync(path.join(ROOT, file), "utf8");
 const fail = (message: string): never => { throw new Error(message); };
 
-const pkg = JSON.parse(read("package.json")) as { license?: string };
+const pkg = JSON.parse(read("package.json")) as {
+  license?: string;
+  name?: string;
+  version?: string;
+  engines?: { node?: string; npm?: string };
+};
 if (pkg.license !== "MIT") fail("package.json license must be MIT");
+if (pkg.name !== "scanly" || pkg.version !== "1.3.0") fail("package metadata must identify Scanly v1.3.0");
+  if (pkg.engines?.node !== ">=20 <25" || pkg.engines?.npm !== ">=10") {
+  fail("package engines must pin the verified Node/npm maintenance range");
+}
 
 const license = read("LICENSE").replace(/\r\n/g, "\n");
 if (!license.startsWith("MIT License\n") || !license.includes("Copyright (c) 2026 Yangjunjie Lin")) {
@@ -25,8 +34,21 @@ const manifest = JSON.parse(read("fixtures/manifest.json")) as {
     requiredPayloads?: string[];
     expectedResultCount?: number;
     sourceType: "generated" | "project-photo";
+    file: string;
+    license: string;
+    generatedSeed?: number;
+    transformMetadata?: string;
   }>;
 };
+for (const fixture of manifest.fixtures) {
+  if (!fs.existsSync(path.join(ROOT, fixture.file))) fail(`Missing canonical fixture: ${fixture.file}`);
+  if (fixture.sourceType === "project-photo" && fixture.license !== "project-owned") {
+    fail(`${fixture.id} project photo must be marked project-owned`);
+  }
+  if (fixture.sourceType === "generated" && (!fixture.generatedSeed || !fixture.transformMetadata)) {
+    fail(`${fixture.id} is missing generated seed/transform provenance`);
+  }
+}
 for (const fixture of manifest.fixtures.filter((item) => item.category === "multiple")) {
   if (!fixture.requiredPayloads?.length) fail(`${fixture.id} has no requiredPayloads contract`);
   if (fixture.expectedResultCount !== fixture.requiredPayloads.length) {
@@ -56,7 +78,7 @@ const tracked = execFileSync("git", ["ls-files", "-z"], { cwd: ROOT })
   .split("\0")
   .filter(Boolean);
 const forbiddenPaths = tracked.filter((file) =>
-  /(^|\/)\.vercel(\/|$)|(^|\/)\.env(\.|$)|fixtures\/(?:_tmp-|_e2e-)/.test(file)
+  /(^|\/)\.vercel(\/|$)|(^|\/)\.env(\.|$)|fixtures\/(?:_tmp-|_e2e-)|benchmark-results\/smoke\.(?:json|csv)$/.test(file)
 );
 if (forbiddenPaths.length) fail(`Forbidden tracked paths: ${forbiddenPaths.join(", ")}`);
 
@@ -70,6 +92,25 @@ for (const file of tracked) {
   if (/^(?:VERCEL_TOKEN|OPENAI_API_KEY|AWS_SECRET_ACCESS_KEY|GITHUB_TOKEN)\s*=\s*\S+/m.test(content)) {
     fail(`Possible secret assignment found in tracked file: ${file}`);
   }
+  if (content.includes("dangerously" + "SetInnerHTML")) {
+    fail(`QR payloads must never be rendered as HTML: ${file}`);
+  }
 }
 
-console.log("Quality gates passed: license, benchmark summary, multiple contracts, tracked files, secret scan.");
+for (const required of [
+  "README.md",
+  "LICENSE",
+  "SECURITY.md",
+  "CONTRIBUTING.md",
+  "CHANGELOG.md",
+  "docs/maintenance.md",
+  ".github/dependabot.yml",
+  ".github/pull_request_template.md",
+  ".github/ISSUE_TEMPLATE/bug_report.yml",
+  ".github/ISSUE_TEMPLATE/browser_compatibility.yml",
+  ".github/ISSUE_TEMPLATE/decoding_failure.yml",
+]) {
+  if (!fs.existsSync(path.join(ROOT, required))) fail(`Missing repository maintenance file: ${required}`);
+}
+
+console.log("Quality gates passed: metadata, license, fixtures, benchmark sync, repository files, payload safety, tracked files, secret scan.");

@@ -30,7 +30,37 @@ type PendingJob = {
 
 let singleton: DecodeWorkerClient | null = null;
 
+type WorkerDebugState = {
+  created: number;
+  terminated: number;
+  decodePosted: number;
+  lastPath: "worker" | "main-thread" | null;
+};
+
+declare global {
+  interface Window {
+    __SCANLY_WORKER_DEBUG__?: WorkerDebugState;
+  }
+}
+
+function debugState(): WorkerDebugState | null {
+  if (typeof window === "undefined" || !navigator.webdriver) return null;
+  return (window.__SCANLY_WORKER_DEBUG__ ??= {
+    created: 0,
+    terminated: 0,
+    decodePosted: 0,
+    lastPath: null,
+  });
+}
+
+export function markDecodePath(path: WorkerDebugState["lastPath"]): void {
+  const state = debugState();
+  if (state) state.lastPath = path;
+}
+
 function defaultWorkerFactory(): DecodeWorkerLike {
+  const state = debugState();
+  if (state) state.created += 1;
   return new Worker(new URL("./decode-worker.ts", import.meta.url), {
     type: "module",
   }) as DecodeWorkerLike;
@@ -167,10 +197,15 @@ export class DecodeWorkerClient {
   }
 
   private restartWorker(): void {
+    const hadWorker = Boolean(this.worker);
     try {
       this.worker?.terminate();
     } catch {
       // A crashed worker may already be terminated.
+    }
+    if (hadWorker) {
+      const state = debugState();
+      if (state) state.terminated += 1;
     }
     this.worker = null;
   }
@@ -211,6 +246,8 @@ export class DecodeWorkerClient {
       this.pending = job;
 
       try {
+        const state = debugState();
+        if (state) state.decodePosted += 1;
         worker.postMessage(
           { type: "decode", jobId, pixels: serialized, config: options.config },
           transfer
