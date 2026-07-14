@@ -1,7 +1,8 @@
 {
   "name": "scanly",
   "private": true,
-  "version": "1.1.0",
+  "version": "1.2.0",
+  "license": "MIT",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -14,7 +15,8 @@
     "test:e2e": "playwright test",
     "benchmark": "tsx scripts/run-benchmark.ts",
     "benchmark:smoke": "tsx scripts/run-benchmark.ts --smoke --gate",
-    "fixtures:generate": "tsx scripts/generate-fixtures.ts"
+    "fixtures:generate": "tsx scripts/generate-fixtures.ts",
+    "quality:gates": "tsx scripts/verify-quality-gates.ts"
   },
   "dependencies": {
     "@zxing/browser": "^0.1.5",

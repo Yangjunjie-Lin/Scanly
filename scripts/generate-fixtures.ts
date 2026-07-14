@@ -195,10 +195,16 @@ const legacyFixtures: BenchmarkFixture[] = [
     category: "multiple",
     expectedPayload: "https://scanly.example/primary",
     primaryPayload: "https://scanly.example/primary",
+    requiredPayloads: [
+      "https://scanly.example/primary",
+      "https://scanly.example/secondary",
+    ],
+    expectedResultCount: 2,
+    allowExtraPayloads: true,
     expectedOutcome: "decode",
     sourceType: "project-photo",
     license: "project-owned",
-    notes: "Primary contract: https://scanly.example/primary must appear among decoded results",
+    notes: "Both primary and secondary payloads must appear in decoded results",
   },
 ];
 
@@ -735,11 +741,17 @@ async function main() {
     };
     if (g.id === "36-multiple-gen") {
       entry.primaryPayload = "SCANLY_MULTI_PRIMARY";
-      entry.notes = "Must include SCANLY_MULTI_PRIMARY among results";
+      entry.requiredPayloads = ["SCANLY_MULTI_PRIMARY", "SCANLY_MULTI_SECONDARY"];
+      entry.expectedResultCount = 2;
+      entry.allowExtraPayloads = true;
+      entry.notes = "Both SCANLY_MULTI_PRIMARY and SCANLY_MULTI_SECONDARY required";
     }
     if (g.id === "50-multiple-three") {
       entry.primaryPayload = "SCANLY_TRI_A";
-      entry.notes = "Must include SCANLY_TRI_A among results";
+      entry.requiredPayloads = ["SCANLY_TRI_A", "SCANLY_TRI_B", "SCANLY_TRI_C"];
+      entry.expectedResultCount = 3;
+      entry.allowExtraPayloads = true;
+      entry.notes = "All three TRI payloads required";
     }
     manifest.push(entry);
   }

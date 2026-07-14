@@ -7,11 +7,16 @@ import path from "node:path";
 import { loadPixelBufferFromPath } from "../lib/qr/image-loader-node";
 import { decodePixelBuffer } from "../lib/qr/decode-pipeline";
 import type { BenchmarkFixture, BenchmarkFixtureResult, BenchmarkRunSummary } from "../lib/qr/benchmark-types";
+import { toCsvRow } from "../lib/benchmark/csv";
+import {
+  evaluateFixture,
+  requiredPayloads,
+} from "../lib/benchmark/fixture-contract";
 
 const ROOT = path.resolve(__dirname, "..");
 const MANIFEST_PATH = path.join(ROOT, "fixtures", "manifest.json");
 const OUT_DIR = path.join(ROOT, "benchmark-results");
-const BASELINE_PATH = path.join(OUT_DIR, "baseline-pre-upgrade.json");
+const BASELINE_PATH = path.join(OUT_DIR, "baseline-pre-polish.json");
 
 interface ManifestFile {
   seed: number;
@@ -31,25 +36,13 @@ function median(values: number[]): number {
   return s.length % 2 === 0 ? (s[mid - 1] + s[mid]) / 2 : s[mid];
 }
 
-function expectedList(fixture: BenchmarkFixture): string[] {
-  return Array.isArray(fixture.expectedPayload)
-    ? fixture.expectedPayload
-    : [fixture.expectedPayload];
-}
-
-function isPass(fixture: BenchmarkFixture, payloads: string[], ok: boolean): boolean {
-  if (fixture.expectedOutcome === "fail") {
-    return !ok || payloads.length === 0;
-  }
-  if (!ok || payloads.length === 0) return false;
-  const expected = expectedList(fixture);
-  // Multiple: require expected (or primaryPayload) appears among results
-  if (fixture.category === "multiple" || fixture.primaryPayload) {
-    const target = fixture.primaryPayload ?? expected[0];
-    return payloads.includes(target);
-  }
-  // Standard: primary (first) must match, or any result matches expected
-  return expected.some((e) => payloads[0] === e || payloads.includes(e));
+function distribution(values: number[]) {
+  const sorted = [...values].sort((a, b) => a - b);
+  return {
+    average: values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0,
+    median: median(values),
+    p95: percentile(sorted, 95),
+  };
 }
 
 function toCsv(results: BenchmarkFixtureResult[]): string {
@@ -58,6 +51,7 @@ function toCsv(results: BenchmarkFixtureResult[]): string {
     "category",
     "expectedPayload",
     "actualPayload",
+    "allPayloads",
     "pass",
     "elapsedMs",
     "successfulDecoder",
@@ -65,13 +59,23 @@ function toCsv(results: BenchmarkFixtureResult[]): string {
     "candidateIndex",
     "attemptCount",
     "failureReason",
+    "missingPayloads",
+    "unexpectedPayloads",
+    "requiredPayloadCount",
+    "decodedPayloadCount",
+    "candidateGenerationMs",
+    "jsqrMs",
+    "zxingMs",
+    "preprocessMs",
+    "rotationMs",
   ];
   const rows = results.map((r) =>
-    [
+    toCsvRow([
       r.id,
       r.category,
-      JSON.stringify(r.expectedPayload),
-      JSON.stringify(r.actualPayload ?? ""),
+      Array.isArray(r.expectedPayload) ? r.expectedPayload.join("|") : r.expectedPayload,
+      r.actualPayload ?? "",
+      r.allPayloads.join("|"),
       r.pass ? "pass" : "fail",
       r.elapsedMs.toFixed(1),
       r.successfulDecoder ?? "",
@@ -79,7 +83,16 @@ function toCsv(results: BenchmarkFixtureResult[]): string {
       r.candidateIndex ?? "",
       r.attemptCount,
       r.failureReason ?? "",
-    ].join(",")
+      (r.missingPayloads ?? []).join("|"),
+      (r.unexpectedPayloads ?? []).join("|"),
+      r.requiredPayloadCount ?? "",
+      r.decodedPayloadCount ?? "",
+      r.phaseTiming?.candidateGenerationMs ?? "",
+      r.phaseTiming?.jsqrMs ?? "",
+      r.phaseTiming?.zxingMs ?? "",
+      r.phaseTiming?.preprocessMs ?? "",
+      r.phaseTiming?.rotationMs ?? "",
+    ])
   );
   return [header.join(","), ...rows].join("\n");
 }
@@ -106,7 +119,35 @@ function renderMarkdown(summary: BenchmarkRunSummary, smoke: boolean): string {
   lines.push(`| Median elapsed | ${(summary.medianMs / 1000).toFixed(2)}s |`);
   lines.push(`| P95 elapsed | ${(summary.p95Ms / 1000).toFixed(2)}s |`);
   lines.push(`| Average attempts | ${summary.averageAttempts.toFixed(1)} |`);
+  lines.push(`| Median attempts | ${summary.medianAttempts.toFixed(1)} |`);
+  lines.push(`| P95 attempts | ${summary.p95Attempts.toFixed(1)} |`);
   lines.push(`| Regressions vs baseline | ${summary.regressionCount} |`);
+  lines.push("");
+  lines.push(`## Phase timing distribution`);
+  lines.push("");
+  lines.push(`| Phase | Average | Median | P95 |`);
+  lines.push(`| --- | ---: | ---: | ---: |`);
+  for (const [phase, stats] of Object.entries(summary.phaseTiming)) {
+    lines.push(`| ${phase} | ${stats.average.toFixed(1)}ms | ${stats.median.toFixed(1)}ms | ${stats.p95.toFixed(1)}ms |`);
+  }
+  lines.push("");
+  lines.push(`## Multiple QR completeness`);
+  lines.push("");
+  lines.push(`| Metric | Value |`);
+  lines.push(`| --- | ---: |`);
+  lines.push(`| Multiple fixtures | ${summary.multipleCompleteness.total} |`);
+  lines.push(`| Complete (all required payloads) | ${summary.multipleCompleteness.complete} |`);
+  if (summary.multipleCompleteness.incomplete.length) {
+    lines.push(`| Incomplete | ${summary.multipleCompleteness.incomplete.join(", ")} |`);
+  }
+  lines.push("");
+  lines.push(`## Worst fixtures (by elapsed time)`);
+  lines.push("");
+  for (const w of summary.worstFixtures) {
+    lines.push(
+      `- \`${w.id}\`: ${(w.elapsedMs / 1000).toFixed(2)}s, ${w.attemptCount} attempts, ${w.pass ? "pass" : "fail"}`
+    );
+  }
   lines.push("");
   lines.push(`## Per-category`);
   lines.push("");
@@ -164,6 +205,38 @@ function renderMarkdown(summary: BenchmarkRunSummary, smoke: boolean): string {
   return lines.join("\n");
 }
 
+function updateReadmeSummary(summary: BenchmarkRunSummary, manifest: ManifestFile): Promise<void> {
+  const readmePath = path.join(ROOT, "README.md");
+  const generated = manifest.fixtures.filter((fixture) => fixture.sourceType === "generated").length;
+  const projectPhotos = manifest.fixtures.filter((fixture) => fixture.sourceType === "project-photo").length;
+  const failures = summary.remainingFailures.length
+    ? summary.remainingFailures.map((id) => `\`${id}\``).join(", ")
+    : "None";
+  const block = [
+    "<!-- BENCHMARK_SUMMARY_START -->",
+    "| Metric | Value |",
+    "| --- | ---: |",
+    `| Internal fixtures | ${summary.total} |`,
+    `| Generated fixtures | ${generated} |`,
+    `| Project-owned photos | ${projectPhotos} |`,
+    `| Success on fixture suite | **${summary.passed}/${summary.total} (${(summary.successRate * 100).toFixed(1)}%)** on the current ${summary.total}-case project fixture suite |`,
+    `| Remaining failure | ${failures} |`,
+    `| Benchmark date | ${summary.generatedAt.slice(0, 10)} |`,
+    "| Manifest | [fixtures/manifest.json](fixtures/manifest.json) |",
+    "| Canonical JSON | [benchmark-results/latest.json](benchmark-results/latest.json) |",
+    "<!-- BENCHMARK_SUMMARY_END -->",
+  ].join("\n");
+  const current = fs.readFileSync(readmePath, "utf8");
+  const updated = current.replace(
+    /<!-- BENCHMARK_SUMMARY_START -->[\s\S]*?<!-- BENCHMARK_SUMMARY_END -->/,
+    block
+  );
+  if (updated === current && !current.includes("<!-- BENCHMARK_SUMMARY_START -->")) {
+    throw new Error("README benchmark summary markers are missing.");
+  }
+  return fs.promises.writeFile(readmePath, updated);
+}
+
 async function loadBaselineIds(): Promise<Set<string>> {
   if (!fs.existsSync(BASELINE_PATH)) return new Set();
   const raw = JSON.parse(await fs.promises.readFile(BASELINE_PATH, "utf8")) as {
@@ -179,28 +252,36 @@ async function runFixture(fixture: BenchmarkFixture): Promise<BenchmarkFixtureRe
     const buffer = await loadPixelBufferFromPath(filePath);
     const outcome = await decodePixelBuffer(buffer, {
       config: {
-        findMultiple: fixture.category === "multiple",
-        maxMultipleResults: 8,
+        findMultiple: fixture.category === "multiple" || Boolean(fixture.requiredPayloads?.length),
+        maxMultipleResults: fixture.expectedResultCount ?? fixture.requiredPayloads?.length ?? 8,
+        requiredPayloads: fixture.requiredPayloads,
+        expectedResultCount: fixture.expectedResultCount,
         timeoutMs: 15_000,
       },
     });
     const payloads = outcome.ok ? outcome.results.map((r) => r.payload) : [];
     const primary = outcome.ok ? outcome.primary : null;
-    const pass = isPass(fixture, payloads, outcome.ok);
+    const evalResult = evaluateFixture(fixture, payloads, outcome.ok);
+    const required = requiredPayloads(fixture);
     return {
       id: fixture.id,
       category: fixture.category,
       expectedPayload: fixture.expectedPayload,
       actualPayload: primary?.payload ?? null,
       allPayloads: payloads,
-      pass,
+      pass: evalResult.pass,
       elapsedMs: Date.now() - t0,
       successfulDecoder: primary?.decoder ?? null,
       preprocessingPath: primary?.preprocessing ?? null,
       candidateIndex: primary?.candidateIndex ?? null,
       attemptCount: outcome.attemptCount,
-      failureReason: outcome.ok ? null : outcome.reason,
+      failureReason: outcome.ok ? (evalResult.pass ? null : "incomplete_multiple") : outcome.reason,
       expectedOutcome: fixture.expectedOutcome,
+      missingPayloads: evalResult.missingPayloads,
+      unexpectedPayloads: evalResult.unexpectedPayloads,
+      requiredPayloadCount: required.length || undefined,
+      decodedPayloadCount: payloads.length,
+      phaseTiming: outcome.phaseTiming,
     };
   } catch (e) {
     return {
@@ -299,6 +380,27 @@ async function main() {
     }
   }
 
+  const attemptCounts = results.map((r) => r.attemptCount);
+  const sortedAttempts = [...attemptCounts].sort((a, b) => a - b);
+
+  const multipleResults = results.filter((r) => r.category === "multiple");
+  const multipleComplete = multipleResults.filter(
+    (r) => r.pass && !(r.missingPayloads?.length ?? 0)
+  );
+
+  const worstFixtures = [...results]
+    .sort((a, b) => b.elapsedMs - a.elapsedMs)
+    .slice(0, 5)
+    .map((r) => ({ id: r.id, elapsedMs: r.elapsedMs, attemptCount: r.attemptCount, pass: r.pass }));
+
+  const phaseValues = {
+    candidateGenerationMs: results.map((r) => r.phaseTiming?.candidateGenerationMs ?? 0),
+    jsqrMs: results.map((r) => r.phaseTiming?.jsqrMs ?? 0),
+    zxingMs: results.map((r) => r.phaseTiming?.zxingMs ?? 0),
+    preprocessMs: results.map((r) => r.phaseTiming?.preprocessMs ?? 0),
+    rotationMs: results.map((r) => r.phaseTiming?.rotationMs ?? 0),
+  };
+
   const summary: BenchmarkRunSummary = {
     generatedAt: new Date().toISOString(),
     total: results.length,
@@ -308,12 +410,27 @@ async function main() {
     averageMs: times.length ? times.reduce((a, b) => a + b, 0) / times.length : 0,
     medianMs: median(times),
     p95Ms: percentile(sortedTimes, 95),
-    averageAttempts: results.length
-      ? results.reduce((a, r) => a + r.attemptCount, 0) / results.length
+    averageAttempts: attemptCounts.length
+      ? attemptCounts.reduce((a, b) => a + b, 0) / attemptCounts.length
       : 0,
+    medianAttempts: median(attemptCounts),
+    p95Attempts: percentile(sortedAttempts, 95),
     decoderDistribution,
     preprocessingDistribution,
+    phaseTiming: {
+      candidateGenerationMs: distribution(phaseValues.candidateGenerationMs),
+      jsqrMs: distribution(phaseValues.jsqrMs),
+      zxingMs: distribution(phaseValues.zxingMs),
+      preprocessMs: distribution(phaseValues.preprocessMs),
+      rotationMs: distribution(phaseValues.rotationMs),
+    },
     perCategory,
+    multipleCompleteness: {
+      total: multipleResults.length,
+      complete: multipleComplete.length,
+      incomplete: multipleResults.filter((r) => !r.pass || (r.missingPayloads?.length ?? 0) > 0).map((r) => r.id),
+    },
+    worstFixtures,
     regressionCount,
     remainingFailures: failed.map((f) => f.id),
     results,
@@ -328,11 +445,15 @@ async function main() {
   if (!smoke) {
     const md = renderMarkdown(summary, false);
     await fs.promises.writeFile(path.join(ROOT, "docs", "benchmark.md"), md);
+    await updateReadmeSummary(summary, manifest);
   }
 
   console.log("");
   console.log(
     `Result: ${summary.passed}/${summary.total} = ${(summary.successRate * 100).toFixed(1)}% | avg ${(summary.averageMs / 1000).toFixed(2)}s | median ${(summary.medianMs / 1000).toFixed(2)}s | p95 ${(summary.p95Ms / 1000).toFixed(2)}s`
+  );
+  console.log(
+    `Attempts: avg ${summary.averageAttempts.toFixed(1)} | median ${summary.medianAttempts.toFixed(1)} | p95 ${summary.p95Attempts.toFixed(1)}`
   );
   console.log(`Wrote ${jsonPath}`);
   console.log(`Wrote ${csvPath}`);
@@ -342,9 +463,16 @@ async function main() {
     process.exit(1);
   }
 
-  // Full gate: require >= 90% when running full suite with --gate
-  if (failOnRegression && !smoke && summary.successRate < 0.9) {
-    console.error(`Success-rate gate failed: ${(summary.successRate * 100).toFixed(1)}% < 90%`);
+  if (failOnRegression && summary.multipleCompleteness.incomplete.length > 0) {
+    console.error(
+      `Multiple completeness gate failed: ${summary.multipleCompleteness.incomplete.join(", ")}`
+    );
+    process.exit(1);
+  }
+
+  // Canonical full-suite floor: 51/52. Hard cases remain in the denominator.
+  if (failOnRegression && !smoke && summary.passed < 51) {
+    console.error(`Success-rate gate failed: ${summary.passed}/${summary.total}; required at least 51/52.`);
     process.exit(1);
   }
 }

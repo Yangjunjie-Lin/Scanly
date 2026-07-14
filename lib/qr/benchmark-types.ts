@@ -39,6 +39,12 @@ export interface BenchmarkFixture {
   license: string;
   /** Optional: primary payload when multiple codes (stable contract). */
   primaryPayload?: string;
+  /** All payloads that must appear for a full pass (multiple fixtures). */
+  requiredPayloads?: string[];
+  /** Expected unique decode count (benchmark stop hint). */
+  expectedResultCount?: number;
+  /** Allow extra payloads beyond required set. */
+  allowExtraPayloads?: boolean;
   notes?: string;
 }
 
@@ -56,6 +62,23 @@ export interface BenchmarkFixtureResult {
   attemptCount: number;
   failureReason: string | null;
   expectedOutcome: BenchmarkExpectedOutcome;
+  missingPayloads?: string[];
+  unexpectedPayloads?: string[];
+  requiredPayloadCount?: number;
+  decodedPayloadCount?: number;
+  phaseTiming?: {
+    candidateGenerationMs: number;
+    jsqrMs: number;
+    zxingMs: number;
+    preprocessMs: number;
+    rotationMs: number;
+  };
+}
+
+export interface BenchmarkDistribution {
+  average: number;
+  median: number;
+  p95: number;
 }
 
 export interface BenchmarkRunSummary {
@@ -68,12 +91,27 @@ export interface BenchmarkRunSummary {
   medianMs: number;
   p95Ms: number;
   averageAttempts: number;
+  medianAttempts: number;
+  p95Attempts: number;
   decoderDistribution: Record<string, number>;
   preprocessingDistribution: Record<string, number>;
+  phaseTiming: {
+    candidateGenerationMs: BenchmarkDistribution;
+    jsqrMs: BenchmarkDistribution;
+    zxingMs: BenchmarkDistribution;
+    preprocessMs: BenchmarkDistribution;
+    rotationMs: BenchmarkDistribution;
+  };
   perCategory: Record<
     string,
     { total: number; passed: number; successRate: number; averageMs: number }
   >;
+  multipleCompleteness: {
+    total: number;
+    complete: number;
+    incomplete: string[];
+  };
+  worstFixtures: Array<{ id: string; elapsedMs: number; attemptCount: number; pass: boolean }>;
   regressionCount: number;
   remainingFailures: string[];
   results: BenchmarkFixtureResult[];

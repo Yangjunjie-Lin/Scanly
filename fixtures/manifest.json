@@ -144,10 +144,16 @@
       "category": "multiple",
       "expectedPayload": "https://scanly.example/primary",
       "primaryPayload": "https://scanly.example/primary",
+      "requiredPayloads": [
+        "https://scanly.example/primary",
+        "https://scanly.example/secondary"
+      ],
+      "expectedResultCount": 2,
+      "allowExtraPayloads": true,
       "expectedOutcome": "decode",
       "sourceType": "project-photo",
       "license": "project-owned",
-      "notes": "Primary contract: https://scanly.example/primary must appear among decoded results"
+      "notes": "Both primary and secondary payloads must appear in decoded results"
     },
     {
       "id": "17-clear-url-02",
@@ -329,7 +335,13 @@
       "sourceType": "generated",
       "license": "project-generated",
       "primaryPayload": "SCANLY_MULTI_PRIMARY",
-      "notes": "Must include SCANLY_MULTI_PRIMARY among results"
+      "requiredPayloads": [
+        "SCANLY_MULTI_PRIMARY",
+        "SCANLY_MULTI_SECONDARY"
+      ],
+      "expectedResultCount": 2,
+      "allowExtraPayloads": true,
+      "notes": "Both SCANLY_MULTI_PRIMARY and SCANLY_MULTI_SECONDARY required"
     },
     {
       "id": "37-occlusion",
@@ -457,7 +469,14 @@
       "sourceType": "generated",
       "license": "project-generated",
       "primaryPayload": "SCANLY_TRI_A",
-      "notes": "Must include SCANLY_TRI_A among results"
+      "requiredPayloads": [
+        "SCANLY_TRI_A",
+        "SCANLY_TRI_B",
+        "SCANLY_TRI_C"
+      ],
+      "expectedResultCount": 3,
+      "allowExtraPayloads": true,
+      "notes": "All three TRI payloads required"
     },
     {
       "id": "51-gamma-ish",

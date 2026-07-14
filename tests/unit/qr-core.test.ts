@@ -220,10 +220,17 @@ describe("pipeline ordering / timeout / cancel", () => {
     const out = await decodePixelBuffer(noisy, {
       config: { timeoutMs: 1, maxAttempts: 500, findMultiple: false },
     });
-    // Either timeout or no_qr_found depending on scheduling; both acceptable failure paths
     expect(out.ok).toBe(false);
     if (!out.ok) {
-      expect(["timeout", "no_qr_found"]).toContain(out.reason);
+      expect(out.reason).toBe("timeout");
+      expect(out.cancelled).toBe(false);
     }
+  });
+
+  it("honors the maximum attempt budget", async () => {
+    const out = await decodePixelBuffer(gradient(300, 300), {
+      config: { maxAttempts: 5, timeoutMs: 10_000, findMultiple: false },
+    });
+    expect(out.attemptCount).toBeLessThanOrEqual(5);
   });
 });

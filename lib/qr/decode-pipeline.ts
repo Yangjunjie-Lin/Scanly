@@ -5,12 +5,15 @@ import type {
   DecodePipelineOptions,
   DecodeSuccess,
   DecodedCode,
+  DecoderName,
   PixelBuffer,
   PipelineConfig,
   PreprocessMethod,
+  PhaseTiming,
   RotationDegrees,
 } from "./types";
 import { DEFAULT_PIPELINE_CONFIG } from "./types";
+import { dedupeCandidates } from "./candidate-dedupe";
 import { generateCandidates, type CandidateImage } from "./candidate-generation";
 import { applyPreprocess } from "./preprocess";
 import { rotateBuffer } from "./rotate";
@@ -34,10 +37,24 @@ function timedOut(start: number, timeoutMs: number): boolean {
   return Date.now() - start >= timeoutMs;
 }
 
-/**
- * Attempt plan helpers for tests / documentation.
- * Rotation 0 preprocess methods come first; other rotations follow with a reduced set.
- */
+/** Yield to the event loop so AbortSignal and UI can run between attempts. */
+async function cooperativeYield(signal?: AbortSignal): Promise<void> {
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  throwIfAborted(signal);
+}
+
+function decoderEnabled(config: PipelineConfig, name: DecoderName): boolean {
+  const d = config.decoders;
+  if (d?.decoderOrder?.length) return d.decoderOrder.includes(name);
+  if (name === "jsqr") return d?.jsqr !== false;
+  return d?.zxing !== false;
+}
+
+function allRequiredFound(payloads: string[], required?: string[]): boolean {
+  if (!required?.length) return false;
+  return required.every((p) => payloads.includes(p));
+}
+
 export function buildAttemptPlan(
   preprocessOrder: PreprocessMethod[],
   rotations: RotationDegrees[],
@@ -64,22 +81,54 @@ type AttemptContext = {
   attempts: DecodeAttempt[];
   found: DecodedCode[];
   onStage?: (stage: string) => void;
+  onProgress?: DecodePipelineOptions["onProgress"];
+  phaseTiming: PhaseTiming;
+  candidatesSinceNew: number;
+  failFast: boolean;
 };
 
+function shouldStopMultiple(ctx: AttemptContext): boolean {
+  const payloads = ctx.found.map((r) => r.payload);
+  const { config } = ctx;
+
+  if (config.requiredPayloads?.length) {
+    // Known completeness contracts must not stop on a heuristic stall.
+    return allRequiredFound(payloads, config.requiredPayloads);
+  }
+  if (config.expectedResultCount && payloads.length >= config.expectedResultCount) {
+    return true;
+  }
+  if (!config.findMultiple) return false;
+  if (payloads.length >= config.maxMultipleResults) return true;
+  if (payloads.length >= 2 && ctx.candidatesSinceNew >= (config.stallCandidateLimit ?? 8)) return true;
+  if (payloads.length >= 3) return true;
+  if (ctx.candidatesSinceNew >= (config.stallCandidateLimit ?? 8) + 4) return true;
+  return false;
+}
+
 function pushResult(ctx: AttemptContext, code: DecodedCode): DecodeSuccess | null {
+  const prevSize = ctx.found.length;
   ctx.found.push(code);
   const unique = dedupeResults(ctx.found);
-  // Prefer stable spatial order: lower candidate index first (left/top splits use 100+)
   unique.sort((a, b) => a.candidateIndex - b.candidateIndex);
   ctx.found.length = 0;
   ctx.found.push(...unique);
-  if (!ctx.config.findMultiple) {
-    return successOutcome(unique, ctx.attempts, ctx.start, false);
+
+  if (unique.length > prevSize) {
+    ctx.candidatesSinceNew = 0;
   }
-  if (unique.length >= ctx.config.maxMultipleResults) {
-    return successOutcome(unique, ctx.attempts, ctx.start, false);
+
+  if (!ctx.config.findMultiple) {
+    return successOutcome(unique, ctx.attempts, ctx.start, false, ctx.phaseTiming);
+  }
+  if (shouldStopMultiple(ctx)) {
+    return successOutcome(unique, ctx.attempts, ctx.start, false, ctx.phaseTiming);
   }
   return null;
+}
+
+function onCandidateDone(ctx: AttemptContext, hadNewResult: boolean): void {
+  if (!hadNewResult) ctx.candidatesSinceNew += 1;
 }
 
 function tryJsQR(
@@ -90,16 +139,24 @@ function tryJsQR(
   inversionAttempts: "dontInvert" | "onlyInvert" | "attemptBoth" | "invertFirst" = "attemptBoth"
 ): DecodeSuccess | null {
   throwIfAborted(ctx.signal);
-  if (timedOut(ctx.start, ctx.config.timeoutMs)) {
-    return null;
-  }
+  if (timedOut(ctx.start, ctx.config.timeoutMs)) return null;
   if (ctx.attempts.length >= ctx.config.maxAttempts) return null;
+  if (!decoderEnabled(ctx.config, "jsqr")) return null;
 
   const t0 = Date.now();
   let processed = applyPreprocess(candidate.buffer, preprocessing);
-  if (rotation !== 0) processed = rotateBuffer(processed, rotation);
+  ctx.phaseTiming.preprocessMs += Date.now() - t0;
 
+  if (rotation !== 0) {
+    const tr = Date.now();
+    processed = rotateBuffer(processed, rotation);
+    ctx.phaseTiming.rotationMs += Date.now() - tr;
+  }
+
+  const t1 = Date.now();
   const decoded = decodeWithJsQR(processed, inversionAttempts);
+  ctx.phaseTiming.jsqrMs += Date.now() - t1;
+
   ctx.attempts.push({
     candidateIndex: candidate.candidateIndex,
     candidateScore: candidate.candidateScore,
@@ -113,6 +170,7 @@ function tryJsQR(
     success: Boolean(decoded?.payload),
     payload: decoded?.payload,
   });
+  ctx.onProgress?.({ attemptCount: ctx.attempts.length });
 
   if (!decoded?.payload) return null;
   const payload = normalizePayload(decoded.payload);
@@ -138,10 +196,17 @@ function tryZXing(
   throwIfAborted(ctx.signal);
   if (timedOut(ctx.start, ctx.config.timeoutMs)) return null;
   if (ctx.attempts.length >= ctx.config.maxAttempts) return null;
+  if (!decoderEnabled(ctx.config, "zxing")) return null;
 
   const t0 = Date.now();
+  const pt = Date.now();
   const processed = applyPreprocess(candidate.buffer, preprocessing);
+  ctx.phaseTiming.preprocessMs += Date.now() - pt;
+
+  const t1 = Date.now();
   const decoded = decodeWithZXing(processed);
+  ctx.phaseTiming.zxingMs += Date.now() - t1;
+
   ctx.attempts.push({
     candidateIndex: candidate.candidateIndex,
     candidateScore: candidate.candidateScore,
@@ -155,6 +220,7 @@ function tryZXing(
     success: Boolean(decoded?.payload),
     payload: decoded?.payload,
   });
+  ctx.onProgress?.({ attemptCount: ctx.attempts.length });
 
   if (!decoded?.payload) return null;
   const payload = normalizePayload(decoded.payload);
@@ -172,12 +238,18 @@ function tryZXing(
   });
 }
 
+function orderCandidates(candidates: CandidateImage[], findMultiple: boolean): CandidateImage[] {
+  const earlyFull = candidates.filter((c) => c.cropPadding === "full");
+  const splits = candidates.filter((c) => c.candidateIndex >= 100);
+  const crops = candidates.filter((c) => c.cropPadding !== "full" && c.candidateIndex < 100);
+
+  return findMultiple
+    ? [...crops.slice(0, 2), ...splits, ...earlyFull.slice(0, 1), ...crops.slice(2), ...earlyFull.slice(1)]
+    : [...crops.slice(0, 3), ...earlyFull.slice(0, 1), ...crops.slice(3), ...earlyFull.slice(1)];
+}
+
 /**
- * Breadth-first decode pipeline:
- * 1) cheap preprocess across candidates
- * 2) deeper preprocess on top candidates
- * 3) rotations
- * 4) ZXing final fallback
+ * Breadth-first decode pipeline with dedupe, adaptive multiple stop, and fail-fast.
  */
 export async function decodePixelBuffer(
   image: PixelBuffer,
@@ -188,6 +260,13 @@ export async function decodePixelBuffer(
   const attempts: DecodeAttempt[] = [];
   const found: DecodedCode[] = [];
   const signal = options.signal;
+  const phaseTiming: PhaseTiming = {
+    candidateGenerationMs: 0,
+    jsqrMs: 0,
+    zxingMs: 0,
+    preprocessMs: 0,
+    rotationMs: 0,
+  };
 
   const fail = (reason: DecodeFailure["reason"], message: string, cancelled = false): DecodeFailure => ({
     ok: false,
@@ -197,6 +276,7 @@ export async function decodePixelBuffer(
     attemptCount: attempts.length,
     elapsedMs: Date.now() - start,
     cancelled,
+    phaseTiming,
   });
 
   const ctx: AttemptContext = {
@@ -206,6 +286,10 @@ export async function decodePixelBuffer(
     attempts,
     found,
     onStage: options.onStage,
+    onProgress: options.onProgress,
+    phaseTiming,
+    candidatesSinceNew: 0,
+    failFast: false,
   };
 
   try {
@@ -216,95 +300,130 @@ export async function decodePixelBuffer(
     }
 
     options.onStage?.("Detecting candidate regions…");
-    const candidates = generateCandidates(image, {
+    const cgStart = Date.now();
+    const rawCandidates = generateCandidates(image, {
       previewSize: config.previewSize,
       maxCandidates: config.maxCandidates,
       paddings: config.paddings,
       scales: config.scales,
       maxPixels: config.maxPixels,
     });
+    const candidates = dedupeCandidates(rawCandidates);
+    phaseTiming.candidateGenerationMs = Date.now() - cgStart;
 
-    // Prefer trying a full-image candidate early (after first few crops).
-    // Split halves (index >= 100) are scheduled early when findMultiple is on.
-    const earlyFull = candidates.filter((c) => c.cropPadding === "full");
-    const splits = candidates.filter((c) => c.candidateIndex >= 100);
-    const crops = candidates.filter((c) => c.cropPadding !== "full" && c.candidateIndex < 100);
-    const ordered: CandidateImage[] = config.findMultiple
-      ? [...crops.slice(0, 2), ...splits, ...earlyFull.slice(0, 1), ...crops.slice(2), ...earlyFull.slice(1)]
-      : [...crops.slice(0, 3), ...earlyFull.slice(0, 1), ...crops.slice(3), ...earlyFull.slice(1)];
-
+    const ordered = orderCandidates(candidates, config.findMultiple);
     const cheap: PreprocessMethod[] = ["original", "contrast", "invert"];
     const deep: PreprocessMethod[] = config.preprocessOrder.filter((m) => !cheap.includes(m));
+    const cheapTargets = config.findMultiple ? ordered : ordered.slice(0, 12);
 
-    // Phase 1 — cheap pass over all ordered candidates
-    for (const candidate of ordered) {
+    // Phase 1 — cheap pass
+    for (const candidate of cheapTargets) {
+      await cooperativeYield(signal);
       throwIfAborted(signal);
       if (timedOut(start, config.timeoutMs)) {
-        if (found.length) return successOutcome(dedupeResults(found), attempts, start, false);
-        return fail("timeout", "Decode timed out before a QR code was found.");
+        if (signal?.aborted) {
+          if (found.length) return successOutcome(dedupeResults(found), attempts, start, true, phaseTiming);
+          return fail("cancelled", "Decode cancelled.", true);
+        }
+        if (found.length) return successOutcome(dedupeResults(found), attempts, start, false, phaseTiming);
+        return fail(
+          "timeout",
+          "Decode timed out. Try cropping closer to the QR code, using a clearer image, or reducing image size."
+        );
       }
+      if (shouldStopMultiple(ctx)) {
+        return successOutcome(dedupeResults(found), attempts, start, false, phaseTiming);
+      }
+
       options.onStage?.(
         candidate.cropPadding === "full"
           ? "Trying full image…"
           : `Decoding candidate ${Math.max(0, candidate.candidateIndex) + 1}…`
       );
 
+      const before = found.length;
       for (const preprocessing of cheap) {
         const hit = tryJsQR(ctx, candidate, preprocessing, 0, "attemptBoth");
         if (hit) return hit;
-        // Extra inversion probe for inverted codes
-        if (preprocessing === "original") {
-          const inv = tryJsQR(ctx, candidate, preprocessing, 0, "onlyInvert");
-          if (inv) return inv;
-        }
-        if (preprocessing === "invert") {
-          const inv = tryJsQR(ctx, candidate, preprocessing, 0, "dontInvert");
-          if (inv) return inv;
-        }
-        if (config.findMultiple && found.length > 0) break;
+        if (config.findMultiple && shouldStopMultiple(ctx)) break;
       }
+      onCandidateDone(ctx, found.length > before);
+
       if (!config.findMultiple && found.length > 0) {
-        return successOutcome(dedupeResults(found), attempts, start, false);
+        return successOutcome(dedupeResults(found), attempts, start, false, phaseTiming);
+      }
+      if (ctx.failFast) continue;
+      if (attempts.length >= (config.failFastAfterAttempts ?? 48) && found.length === 0) {
+        ctx.failFast = true;
       }
     }
 
-    // Phase 2 — deeper preprocess on top crops + full images
-    const deepTargets = ordered.filter(
-      (c, idx) => c.cropPadding === "full" || idx < 8 || c.scale === "original"
-    );
-    for (const candidate of deepTargets) {
-      throwIfAborted(signal);
-      if (timedOut(start, config.timeoutMs)) {
-        if (found.length) return successOutcome(dedupeResults(found), attempts, start, false);
-        return fail("timeout", "Decode timed out before a QR code was found.");
-      }
-      if (attempts.length >= config.maxAttempts) break;
+    if (found.length > 0 && shouldStopMultiple(ctx)) {
+      return successOutcome(dedupeResults(found), attempts, start, false, phaseTiming);
+    }
 
-      for (const preprocessing of deep) {
-        const hit = tryJsQR(ctx, candidate, preprocessing, 0);
-        if (hit) return hit;
-        if (config.findMultiple && found.length > 0) break;
+    // Phase 2 — deep preprocess (skip if fail-fast with no results)
+    if (!ctx.failFast || found.length > 0) {
+      const deepTargets = ordered.filter(
+        (c, idx) => c.cropPadding === "full" || idx < 6 || c.scale === "original"
+      );
+      for (const candidate of deepTargets) {
+        await cooperativeYield(signal);
+        throwIfAborted(signal);
+        if (timedOut(start, config.timeoutMs)) break;
+        if (attempts.length >= config.maxAttempts) break;
+        if (shouldStopMultiple(ctx)) break;
+
+        const before = found.length;
+        for (const preprocessing of deep) {
+          const hit = tryJsQR(ctx, candidate, preprocessing, 0);
+          if (hit) return hit;
+        }
+        onCandidateDone(ctx, found.length > before);
       }
     }
 
-    // Phase 3 — rotations on best few candidates
-    const rotateTargets = ordered.filter((c) => c.cropPadding !== "full").slice(0, 4);
-    const rotations = config.rotations.filter((r) => r !== 0);
-    for (const candidate of rotateTargets) {
-      for (const rotation of rotations) {
-        for (const preprocessing of ["original", "contrast", "invert", "otsu"] as PreprocessMethod[]) {
-          const hit = tryJsQR(ctx, candidate, preprocessing, rotation);
+    if (found.length > 0 && shouldStopMultiple(ctx)) {
+      return successOutcome(dedupeResults(found), attempts, start, false, phaseTiming);
+    }
+
+    // Return to lower-ranked candidates only after high-value deep preprocessing.
+    if (!config.findMultiple && found.length === 0) {
+      for (const candidate of ordered.slice(cheapTargets.length)) {
+        await cooperativeYield(signal);
+        throwIfAborted(signal);
+        if (timedOut(start, config.timeoutMs) || attempts.length >= config.maxAttempts) break;
+        for (const preprocessing of cheap) {
+          const hit = tryJsQR(ctx, candidate, preprocessing, 0, "attemptBoth");
           if (hit) return hit;
         }
       }
     }
 
+    // Phase 3 — rotations (only if not fail-fast empty)
+    if (!ctx.failFast && found.length === 0) {
+      const rotateTargets = ordered.filter((c) => c.cropPadding !== "full").slice(0, 3);
+      const rotations = config.rotations.filter((r) => r !== 0);
+      for (const candidate of rotateTargets) {
+        if (attempts.length >= config.maxAttempts) break;
+        for (const rotation of rotations) {
+          for (const preprocessing of ["original", "contrast", "invert"] as PreprocessMethod[]) {
+            const hit = tryJsQR(ctx, candidate, preprocessing, rotation);
+            if (hit) return hit;
+          }
+        }
+      }
+    }
+
     // Phase 4 — ZXing fallback
-    if (found.length === 0) {
+    if (found.length === 0 && decoderEnabled(config, "zxing")) {
       options.onStage?.("Backup decoder…");
-      const zxTargets = [...earlyFull.slice(0, 2), ...crops.slice(0, 3)];
+      const zxTargets = ordered.filter((c) => c.cropPadding === "full").slice(0, 2);
+      if (zxTargets.length === 0) {
+        zxTargets.push(...ordered.slice(0, 2));
+      }
       for (const candidate of zxTargets) {
-        for (const preprocessing of ["original", "contrast", "invert", "otsu"] as PreprocessMethod[]) {
+        for (const preprocessing of ["original", "contrast", "invert"] as PreprocessMethod[]) {
           const hit = tryZXing(ctx, candidate, preprocessing);
           if (hit) return hit;
         }
@@ -312,11 +431,17 @@ export async function decodePixelBuffer(
     }
 
     if (found.length > 0) {
-      return successOutcome(dedupeResults(found), attempts, start, false);
+      return successOutcome(dedupeResults(found), attempts, start, false, phaseTiming);
     }
 
     if (timedOut(start, config.timeoutMs)) {
-      return fail("timeout", "Decode timed out before a QR code was found.");
+      if (signal?.aborted) {
+        return fail("cancelled", "Decode cancelled.", true);
+      }
+      return fail(
+        "timeout",
+        "Decode timed out. Try cropping closer to the QR code, using a clearer image, or reducing image size."
+      );
     }
 
     return fail(
@@ -326,7 +451,7 @@ export async function decodePixelBuffer(
   } catch (e) {
     if (e instanceof Error && (e.name === "AbortError" || e.message === "cancelled")) {
       if (found.length > 0) {
-        return successOutcome(dedupeResults(found), attempts, start, true);
+        return successOutcome(dedupeResults(found), attempts, start, true, phaseTiming);
       }
       return fail("cancelled", "Decode cancelled.", true);
     }
@@ -338,7 +463,8 @@ function successOutcome(
   results: DecodedCode[],
   attempts: DecodeAttempt[],
   start: number,
-  cancelled: boolean
+  cancelled: boolean,
+  phaseTiming: PhaseTiming
 ): DecodeSuccess {
   return {
     ok: true,
@@ -348,5 +474,6 @@ function successOutcome(
     attemptCount: attempts.length,
     elapsedMs: Date.now() - start,
     cancelled,
+    phaseTiming,
   };
 }

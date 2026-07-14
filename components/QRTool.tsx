@@ -2,7 +2,11 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { BrowserQRCodeReader, IScannerControls } from "@zxing/browser";
-import { decodeUploadedFile } from "@/lib/qr/decode-upload";
+import {
+  decodeUploadedFile,
+  cancelUploadedDecode,
+  disposeUploadedDecodeWorker,
+} from "@/lib/qr/decode-upload";
 import { looksLikeUrl } from "@/lib/qr/result-normalizer";
 import type { DecodedCode, DecodeErrorReason } from "@/lib/qr/types";
 
@@ -40,6 +44,8 @@ export default function QRTool() {
   const controlsRef = useRef<IScannerControls | null>(null);
   const uploadAbortRef = useRef<AbortController | null>(null);
   const uploadSeqRef = useRef(0);
+  const uploadStageRef = useRef("Preparing image…");
+  const modeRef = useRef<Mode>("camera");
 
   const reader = useMemo(() => new BrowserQRCodeReader(), []);
 
@@ -59,17 +65,21 @@ export default function QRTool() {
         const back = list.find((d) => /back|rear|environment/i.test(d.label));
         const pick = back?.deviceId || list[0]?.deviceId || "";
         setDeviceId((prev) => prev || pick);
-        setStatus(list.length ? "Ready" : "Ready (no camera detected)");
-        if (list.length === 0) {
+        if (modeRef.current === "camera") {
+          setStatus(list.length ? "Ready" : "Ready (no camera detected)");
+        }
+        if (list.length === 0 && modeRef.current === "camera") {
           setErrorReason("no_camera");
           setLastError("No camera device found.");
         }
       } catch (e) {
         if (cancelled) return;
         const friendly = friendlyCameraError(e);
-        setStatus("Ready (camera devices not available yet)");
-        setErrorReason(friendly.reason);
-        setLastError(friendly.message);
+        if (modeRef.current === "camera") {
+          setStatus("Ready (camera devices not available yet)");
+          setErrorReason(friendly.reason);
+          setLastError(friendly.message);
+        }
       }
     }
     loadDevices();
@@ -82,6 +92,7 @@ export default function QRTool() {
     return () => {
       stopScan();
       uploadAbortRef.current?.abort();
+      void disposeUploadedDecodeWorker();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -152,7 +163,7 @@ export default function QRTool() {
     // Stop any leftover media tracks
     const video = videoRef.current;
     const stream = video?.srcObject;
-    if (video && stream instanceof MediaStream) {
+    if (video && typeof MediaStream !== "undefined" && stream instanceof MediaStream) {
       for (const track of stream.getTracks()) track.stop();
       video.srcObject = null;
     }
@@ -164,6 +175,7 @@ export default function QRTool() {
   function resetUpload() {
     uploadAbortRef.current?.abort();
     uploadAbortRef.current = null;
+    void cancelUploadedDecode();
     setIsProcessing(false);
     setResults([]);
     setLastError("");
@@ -175,6 +187,7 @@ export default function QRTool() {
     if (!file) return;
 
     uploadAbortRef.current?.abort();
+    void cancelUploadedDecode();
     const seq = ++uploadSeqRef.current;
     const controller = new AbortController();
     uploadAbortRef.current = controller;
@@ -183,11 +196,18 @@ export default function QRTool() {
     setErrorReason("");
     setResults([]);
     setIsProcessing(true);
+    uploadStageRef.current = "Preparing image…";
 
     const outcome = await decodeUploadedFile(file, {
       signal: controller.signal,
       onStage: (stage) => {
+        uploadStageRef.current = stage;
         if (seq === uploadSeqRef.current) setStatus(stage);
+      },
+      onProgress: ({ attemptCount }) => {
+        if (seq === uploadSeqRef.current) {
+          setStatus(`${uploadStageRef.current} (${attemptCount} attempts)`);
+        }
       },
       config: { findMultiple: true, maxMultipleResults: 6 },
     });
@@ -203,12 +223,29 @@ export default function QRTool() {
           : "Decoded"
       );
       navigator.vibrate?.(50);
+    } else if (outcome.cancelled) {
+      setResults([]);
+      setErrorReason("");
+      setLastError("");
+      setStatus("Cancelled");
     } else {
       setResults([]);
       setErrorReason(outcome.reason);
       setLastError(outcome.message);
-      setStatus(outcome.cancelled ? "Cancelled" : "Failed to decode image");
+      setStatus("Failed to decode image");
     }
+  }
+
+  async function onCancelUpload() {
+    uploadAbortRef.current?.abort();
+    uploadAbortRef.current = null;
+    uploadSeqRef.current += 1;
+    setIsProcessing(false);
+    setResults([]);
+    setLastError("");
+    setErrorReason("");
+    setStatus("Cancelled");
+    await cancelUploadedDecode();
   }
 
   async function copyResult(text = primary) {
@@ -236,6 +273,7 @@ export default function QRTool() {
             aria-selected={mode === "camera"}
             className={`tab ${mode === "camera" ? "active" : ""}`}
             onClick={() => {
+              modeRef.current = "camera";
               setMode("camera");
               resetUpload();
             }}
@@ -248,7 +286,9 @@ export default function QRTool() {
             aria-selected={mode === "upload"}
             className={`tab ${mode === "upload" ? "active" : ""}`}
             onClick={() => {
+              modeRef.current = "upload";
               stopScan();
+              void onCancelUpload();
               setMode("upload");
               setLastError("");
               setErrorReason("");
@@ -260,7 +300,7 @@ export default function QRTool() {
           </button>
         </div>
 
-        <div className="badge" aria-live="polite">
+        <div className="badge" aria-live="polite" data-testid="processing-status">
           <span className="mono">{status}</span>
         </div>
       </div>
@@ -356,9 +396,10 @@ export default function QRTool() {
             <button
               type="button"
               className="btn"
-              onClick={() => uploadAbortRef.current?.abort()}
+              onClick={() => void onCancelUpload()}
               disabled={!isProcessing}
               aria-label="Cancel decoding"
+              data-testid="cancel-button"
             >
               Cancel
             </button>
@@ -419,9 +460,20 @@ export default function QRTool() {
       {results.length > 1 && (
         <ul className="small" style={{ marginTop: 10, paddingLeft: 18 }} data-testid="multi-results">
           {results.map((r, i) => (
-            <li key={`${r.payload}-${i}`} style={{ marginBottom: 6 }}>
+            <li
+              key={`${r.payload}-${i}`}
+              style={{ marginBottom: 6 }}
+              data-testid="decoded-result-item"
+              data-payload={r.payload}
+            >
               <span className="mono">{r.payload}</span>{" "}
-              <button type="button" className="btn" style={{ padding: "4px 8px" }} onClick={() => copyResult(r.payload)}>
+              <button
+                type="button"
+                className="btn"
+                style={{ padding: "4px 8px" }}
+                onClick={() => copyResult(r.payload)}
+                data-testid="result-copy-button"
+              >
                 Copy
               </button>
               {looksLikeUrl(r.payload) && (
@@ -430,6 +482,7 @@ export default function QRTool() {
                   className="btn primary"
                   style={{ padding: "4px 8px", marginLeft: 6 }}
                   onClick={() => openIfUrl(r.payload)}
+                  data-testid="result-open-link-button"
                 >
                   Open Link
                 </button>

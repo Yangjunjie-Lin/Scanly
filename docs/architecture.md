@@ -31,6 +31,12 @@ lib/qr/
 ├── zxing-decoder.ts
 ├── decode-pipeline.ts
 ├── decode-upload.ts
+├── candidate-dedupe.ts
+├── worker/
+│   ├── worker-client.ts     job ownership, stale-message filtering, restart
+│   ├── decode-worker.ts     upload-only pipeline execution
+│   ├── worker-messages.ts   typed decode/stage/progress/result messages
+│   └── transferable-buffer.ts
 ├── result-normalizer.ts
 └── benchmark-types.ts
 ```
@@ -41,7 +47,19 @@ lib/qr/
 - UI owns AbortController, camera tracks, and presentation state.
 - Decoder adapters return normalized payloads; the pipeline records every attempt.
 - Benchmarks and the Upload tab share the same `decodePixelBuffer` implementation.
+- A user cancel or replacement upload terminates the active Worker immediately; the next task lazily creates one Worker, and unmount disposes it.
+- Tests can force `jsqr` or `zxing` through `PipelineConfig.decoders`; production keeps both enabled.
 
 ## Privacy
 
-Upload and camera frames are processed locally. Object URLs / bitmaps are released after decode. There is no analytics SDK and no image upload API route.
+Upload-mode decoding runs in a dedicated Web Worker so the main thread stays responsive. Camera mode continues to use `@zxing/browser` directly.
+
+```text
+components/QRTool.tsx
+  └── lib/qr/decode-upload.ts       Browser file load + worker dispatch
+        └── lib/qr/worker/worker-client.ts   jobId ownership, cancel → terminate
+              └── lib/qr/worker/decode-worker.ts
+                    └── lib/qr/decode-pipeline.ts
+```
+
+Node benchmarks and Vitest call `decodePixelBuffer()` on the main thread via `forceMainThread`.

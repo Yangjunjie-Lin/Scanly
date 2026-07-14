@@ -10,7 +10,7 @@ Upload-mode decoding follows an ordered, budgeted fallback path. It is heuristic
 4. **Scales** — original, downscaled, upscaled (pixel and time budgets enforced).
 5. **Preprocess** — ordered variants: original → contrast → invert → Otsu → fixed thresholds → gamma → sharpen.
 6. **Rotation** — 0° first; 90/180/270 after basic failures (limited on full-image fallback).
-7. **jsQR** — `attemptBoth` inversion; extra `onlyInvert` / `dontInvert` probes for invert cases.
+7. **jsQR** — one `attemptBoth` inversion probe per preprocessing variant; equivalent inverted probes are not repeated.
 8. **Alternative candidates** — continue top-N if the first crop fails or when collecting multiple codes.
 9. **Full-image fallback** — 800 / 600 / 1200 max-side passes.
 10. **ZXing** — final adapter on promising crops.
@@ -22,8 +22,9 @@ Each attempt stores candidate index/score, padding, scale, rotation, preprocess 
 ## Budgets
 
 - `maxCandidates`, `maxAttempts`, `timeoutMs`, `maxPixels`
-- AbortSignal cancellation (Upload Cancel / new file selection)
+- AbortSignal cancellation for direct pipeline callers; browser Upload cancellation terminates the Worker for bounded latency
+- decoder selection for tests (`decoders.jsqr`, `decoders.zxing`, or `decoderOrder`)
 
 ## Multiple QR codes
 
-When `findMultiple` is enabled, unique payloads are collected across candidates (capped). Benchmark fixtures in the `multiple` category pass when the contracted primary payload appears among results.
+When `findMultiple` is enabled, unique payloads are collected across candidates (capped). Production uses a no-new-result stall window because it cannot know the true count. Benchmark multiple fixtures declare `requiredPayloads` and pass only when the complete required set is present; `expectedResultCount` is a benchmark stop hint, not a production assumption.

@@ -20,7 +20,7 @@ npm run benchmark
 
 Cover pure `lib/qr` algorithms: grayscale, contrast, invert, thresholds/Otsu, NMS, crop padding, clamp, attempt order, URL detection, timeout, cancellation, empty buffers.
 
-Target: ≥80% coverage on `lib/qr` core modules.
+Coverage gates: lines/functions/statements ≥85% and branches ≥70% across testable QR, Worker-client, upload-wrapper, and benchmark-contract modules.
 
 ## Integration tests
 
@@ -32,5 +32,5 @@ Starts production `next start`, exercises Upload flow (clear, URL, invert, small
 
 ## Benchmark gates
 
-- `benchmark:smoke` — curated subset + regression vs `benchmark-results/baseline-pre-upgrade.json`
-- full `benchmark` / CI `benchmark.yml` — complete manifest; fails on regressions or &lt;90% success rate when `--gate` is set
+- `benchmark:smoke` — curated subset + regression vs `benchmark-results/baseline-pre-polish.json`
+- full `benchmark` / CI `benchmark.yml` — complete manifest; fails below 51/52, on any previously passing fixture regression, or when any multiple fixture misses a required payload

@@ -8,6 +8,7 @@ on:
       - master
     paths:
       - "lib/qr/**"
+      - "lib/benchmark/**"
       - "fixtures/**"
       - "scripts/run-benchmark.ts"
       - "scripts/generate-fixtures.ts"
@@ -39,6 +40,9 @@ jobs:
 
       - name: Run full benchmark with regression gate
         run: npx tsx scripts/run-benchmark.ts --gate
+
+      - name: Verify canonical benchmark and repository contracts
+        run: npm run quality:gates
 
       - name: Upload benchmark artifacts
         if: always()

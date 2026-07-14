@@ -2,6 +2,30 @@ import { decodePixelBuffer } from "./decode-pipeline";
 import { loadPixelBufferFromFile } from "./image-loader";
 import type { DecodeOutcome, DecodePipelineOptions } from "./types";
 
+function canUseWorker(): boolean {
+  return typeof window !== "undefined" && typeof Worker !== "undefined";
+}
+
+async function decodeViaWorker(
+  buffer: Awaited<ReturnType<typeof loadPixelBufferFromFile>>,
+  options: DecodePipelineOptions
+): Promise<DecodeOutcome> {
+  const { getDecodeWorkerClient } = await import("./worker/worker-client");
+  const client = getDecodeWorkerClient();
+
+  if (options.signal) {
+    const onAbort = () => client.cancel();
+    options.signal.addEventListener("abort", onAbort, { once: true });
+    try {
+      return await client.decode(buffer, options);
+    } finally {
+      options.signal.removeEventListener("abort", onAbort);
+    }
+  }
+
+  return client.decode(buffer, options);
+}
+
 export async function decodeUploadedFile(
   file: File,
   options: DecodePipelineOptions = {}
@@ -9,7 +33,12 @@ export async function decodeUploadedFile(
   try {
     options.onStage?.("Loading image…");
     const buffer = await loadPixelBufferFromFile(file);
-    return await decodePixelBuffer(buffer, options);
+
+    if (canUseWorker() && !options.forceMainThread) {
+      return decodeViaWorker(buffer, options);
+    }
+
+    return decodePixelBuffer(buffer, options);
   } catch (e) {
     const code =
       e && typeof e === "object" && "code" in e
@@ -19,8 +48,9 @@ export async function decodeUploadedFile(
     const reason =
       code === "invalid_file" ||
       code === "unsupported_image" ||
-      code === "empty_image"
-        ? (code as "invalid_file" | "unsupported_image" | "empty_image")
+      code === "empty_image" ||
+      code === "worker_error"
+        ? (code as "invalid_file" | "unsupported_image" | "empty_image" | "worker_error")
         : "unsupported_image";
     return {
       ok: false,
@@ -32,4 +62,18 @@ export async function decodeUploadedFile(
       cancelled: false,
     };
   }
+}
+
+/** Cancel any in-flight worker decode (browser upload mode). */
+export async function cancelUploadedDecode(): Promise<void> {
+  if (!canUseWorker()) return;
+  const { getDecodeWorkerClient } = await import("./worker/worker-client");
+  getDecodeWorkerClient().cancel();
+}
+
+/** Terminate the singleton worker when the upload UI unmounts. */
+export async function disposeUploadedDecodeWorker(): Promise<void> {
+  if (!canUseWorker()) return;
+  const { disposeDecodeWorkerClient } = await import("./worker/worker-client");
+  disposeDecodeWorkerClient();
 }
