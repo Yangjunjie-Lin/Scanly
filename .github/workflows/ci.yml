@@ -29,6 +29,9 @@ jobs:
       - name: Generate fixtures
         run: npm run fixtures:generate
 
+      - name: Generate scenarios
+        run: npm run scenarios:generate
+
       - name: Repository quality contracts
         run: npm run quality:gates
 
@@ -38,14 +41,23 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Documentation links
+        run: npm run docs:check
+
       - name: Unit tests
         run: npm run test:unit
 
       - name: Coverage
         run: npm run test:coverage
 
+      - name: SDK package builds
+        run: npm run build:packages
+
+      - name: Native ESM package import smoke
+        run: npm run packages:smoke
+
       - name: Production build
-        run: npm run build
+        run: npm run build:web
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium firefox webkit

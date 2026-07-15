@@ -2,6 +2,32 @@
 
 All notable changes follow semantic versioning.
 
+## [2.0.0-alpha.1] - 2026-07-15
+
+### Added
+
+- npm workspaces for core, browser, React, parser, scenario-schema, benchmark, and jsQR/ZXing JavaScript engine packages.
+- Normalized frame, typed error/result, engine, operator, task-graph, bounded artifact, Capture Router, and deterministic session contracts.
+- Versioned scenario schema 2.0 with fast, balanced, robust profiles and ablation/resource controls.
+- Semantic parsing separated from raw decoding; browser camera source lifecycle and capability detection.
+- Negative/adversarial fixtures, false-positive/recall metrics, time-to-first-result, report schema/runtime labels, comparison harness, and soak tests.
+- SDK, migration, benchmarking, compatibility, security, extension, and release documentation.
+
+### Changed
+
+- Moved the single QR implementation into `@scanly/core`; moved Worker/file/camera ownership into `@scanly/browser`; migrated the Next.js demo to public SDK outcomes.
+- Package and production builds now verify publishable ESM/declaration output and emitted Worker resolution.
+- Worker requests/responses and direct pipeline configuration/pixel buffers receive runtime validation.
+- Upgraded the reference app to Next.js 15.5.20 and overrode its compatible PostCSS 8.x dependency to 8.5.19; both full and production-only npm audits report zero known vulnerabilities.
+- Emitted workspace modules now use Node-compatible ESM relative specifiers, with a native import smoke gate covering all ten public package entry points.
+- Image results expose decoder-provided raw bytes instead of reconstructed text bytes; text-only camera results omit unavailable bytes.
+- Balanced and robust multi-code execution preserve the 51/52 positive baseline by reserving deep-preprocessing budget and prioritizing the full-frame fallback, while retaining 3/3 multi-code completeness.
+
+### Compatibility
+
+- QR Code Model 2 remains the only implemented/tested symbology. Native/WASM/mobile/.NET/Python bindings are not implemented.
+- This is an alpha preview, not an industrial- or production-readiness claim.
+
 ## [1.3.0] - 2026-07-14
 
 ### Added

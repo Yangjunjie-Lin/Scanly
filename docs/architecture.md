@@ -1,72 +1,71 @@
-# Architecture
+# SDK v2 architecture
 
-Scanly is a Next.js App Router client application. It has no image-processing backend: browser images remain on the device, while Node is used only for local/CI tests, fixture generation, and benchmarks.
+Scanly is now an npm-workspace repository. Framework-independent code lives in packages; the Next.js application is a reference consumer, not the owner of decoding behavior. All current image processing remains local to the caller.
 
-## Upload data flow
-
-```text
-UI thread (QRTool)
-  → browser image loader + resource checks
-  → transferable PixelBuffer (RGBA ArrayBuffer)
-  → Worker client (jobId owner)
-  → decode Worker
-  → candidate generation + deduplication
-  → preprocess / scale / rotate attempt plan
-  → jsQR / ZXing adapters
-  → normalized non-empty result or typed failure
-  → Worker message with jobId
-  → active-owner check (stale IDs ignored)
-  → UI state
-```
-
-Key modules:
+## Data flow
 
 ```text
-components/QRTool.tsx
-lib/qr/image-loader.ts
-lib/qr/decode-upload.ts
-lib/qr/worker/
-  worker-client.ts
-  worker-messages.ts
-  transferable-buffer.ts
-  decode-worker.ts
-lib/qr/decode-pipeline.ts
-lib/qr/candidate-generation.ts
-lib/qr/candidate-dedupe.ts
-lib/qr/preprocess.ts
-lib/qr/jsqr-decoder.ts
-lib/qr/zxing-decoder.ts
-lib/qr/result-normalizer.ts
+NormalizedFrame / browser File / camera stream
+  → BrowserCaptureSession or CaptureSession
+  → CaptureRouter
+  → validated ScenarioDefinition 2.0
+  → bounded frame artifact store
+  → QR pipeline operator
+      → localization and candidate deduplication
+      → crop padding / scaling / split and full-frame fallbacks
+      → cached preprocessing and rotations
+      → jsQR and ZXing JavaScript adapters
+  → payload normalization and duplicate aggregation
+  → validation registry boundary and semantic parsers
+  → non-empty ScanSuccess or typed ScanFailure
 ```
 
-## Why a Worker
+For uploaded browser files, `@scanly/browser` loads and validates image dimensions, transfers the owned RGBA `ArrayBuffer` to a module Worker, and runs the same `@scanly/core` QR pipeline used by Node integration tests and benchmarks. Camera capture is owned by `BrowserCameraSource`; decoded camera text is normalized into the same public result model, while full camera-frame routing remains a documented follow-up.
 
-Image preprocessing and repeated decoder attempts can be CPU intensive. Upload decoding runs in a module Worker so React controls remain responsive. The loader transfers an owned `ArrayBuffer`; it is not cloned into a second full-size pixel allocation. Tests verify the production Worker route and transferable contract.
+## Package dependency direction
 
-Cancellation terminates the Worker rather than waiting for a synchronous decoder call to yield. The active promise settles as `cancelled`, and the next upload lazily creates a fresh Worker. Unmount, replacement upload, and Worker errors also terminate or restart the Worker.
+```text
+scenario-schema   parsers   benchmark
+       \            /          |
+            core              runners
+          /   |   \
+  browser  engines  node tools
+      |
+    react
+      |
+  apps/web-demo
+```
 
-## Job ownership
+`@scanly/core` has no React or Next.js dependency. Engine packages depend on the core engine contract. The browser runtime depends on core and owns Web APIs. React is an adapter over browser lifecycle only.
 
-Each request receives a monotonically unique `jobId`. The client accepts stage, progress, result, and error messages only when the ID matches both the current owner and pending promise. UI sequence ownership adds a second boundary: an older file load or result cannot change the status of a newer upload.
+## Contracts
 
-Every successful core outcome has a non-empty tuple of results and a defined primary result. The stopping heuristic cannot produce success before a decoder has found a payload, and the success constructor enforces this invariant.
+- `NormalizedFrame` identifies a frame, timestamp, dimensions, stride, format, orientation, source, device metadata, ownership, and disposal callback. Tightly packed RGBA can be borrowed without a full-frame copy; RGB/gray require one bounded normalization copy. YUV is represented but returns `unsupported_format` until a converter is registered.
+- `CaptureRouter` validates the frame and scenario, installs deadline/cancellation propagation, scopes a bounded artifact store to one frame, executes the QR operator, parses payloads, and enforces non-empty success.
+- `CaptureSession` has deterministic `idle → initialized → running → stopped/disposed` behavior. The default concurrent policy replaces and cancels the previous owner; `reject` returns `concurrent_call_rejected`.
+- `Operator` descriptors declare accepted/produced types, configuration schema, cost hints, cancellation behavior, deterministic/stateful behavior, and thread-safety. `executeTaskGraph` supports sequential or dependency-ready parallel branches.
+- `DecoderEngine` exposes format capabilities, multi-code behavior, raw-byte/corner availability, version, initialization, typed failures, and disposal.
+- `ScanResult` preserves raw text and optional decoder-provided raw bytes, with optional corners/orientation/quality, engine and preprocessing metadata, frame/track identity, structured payload, validation, warnings, and timings. Text-only sources omit raw bytes instead of synthesizing them.
 
-## Camera versus upload
+## Shared intermediate results and bounds
 
-- **Upload:** browser file loader → transferable buffer → dedicated Worker → shared pipeline.
-- **Camera:** `@zxing/browser` owns the live stream and frame loop on the UI side. Switching away, stopping, or unmounting stops its media tracks.
+Two caches are scoped to one frame and are always disposed:
 
-Camera automation stays Chromium-only because fake media-device behavior differs across browser engines. Upload and Worker smoke tests run in Chromium, Firefox, and WebKit.
+1. `BoundedFrameArtifactStore` shares normalized frame/inter-operator artifacts and rejects retained-entry or byte-budget overflow.
+2. The QR attempt cache reuses identical candidate/preprocess/rotation buffers across decoder attempts. It retains at most the scenario's `maxIntermediateAllocations` and `maxIntermediateBytes`; overflow values are used transiently rather than added to a global cache.
 
-## Benchmark reuse
+Candidate count, attempts, input pixels, retained intermediate bytes, results, execution time, concurrent frames, and Worker lifetime are explicit scenario or boundary budgets. There is no unbounded global image cache.
 
-Vitest integration tests and `scripts/run-benchmark.ts` call `decodePixelBuffer()` directly in Node. This removes Worker scheduling and browser hardware from the algorithm regression signal while preserving the exact candidate, preprocessing, decoder, result, and attempt logic used by Upload mode. Browser E2E separately verifies the Worker boundary.
+## Worker ownership
 
-## Production boundaries
+Every request has a unique job ID. The client accepts only validated messages matching both the pending job and current owner. Cancellation settles the promise, terminates the Worker, and lazily recreates it. Malformed messages fail the active job and restart the Worker. Repeated cancellation/recreation and stale-result rejection are tested.
 
-- No account, database, upload API, history, analytics, remote logging, or paid QR service.
-- Uploads are limited to 25 MiB, 24 MP, and 12,000 pixels per side before canvas allocation.
-- Pipeline pixel, attempt, result, and time budgets cap decoding work.
-- Payloads render only as text; link actions require a parsed HTTP or HTTPS URL.
-- Headers set nosniff, strict referrer policy, camera-only permissions, and framing denial.
-- A strict CSP is intentionally not shipped yet: a CSP must be verified against Next.js runtime chunks and module Workers on production Safari before adoption. An incorrect policy would break the scanner.
+The published Worker URL is resolved with `new URL("./decode-worker.js", import.meta.url)` so ESM bundlers can emit a self-hosted asset. See [Worker deployment](sdk/worker-deployment.md) for CSP and hosting guidance.
+
+## Camera convergence status
+
+Implemented browser camera ownership includes device listing/switching, track cleanup, visibility stop, orientation notification, duplicate windows, and torch/zoom capability APIs. The current live decoder remains ZXing Browser's frame loop and then maps into the SDK result model. Normalized camera-frame ingestion and temporal tracking interfaces exist at the frame/result boundary, but adaptive cadence and full Router processing of live frames are not yet verified on physical devices.
+
+## Extension path
+
+New engines implement `DecoderEngine`; new graph stages implement `Operator`; new capture behavior is expressed in scenario schema/configuration; new industry claims require datasets, validators, benchmark manifests, and compatibility evidence. Native/WASM bindings are not present in this branch and are not claimed.

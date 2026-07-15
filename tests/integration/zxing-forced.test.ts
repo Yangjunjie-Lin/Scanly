@@ -1,8 +1,6 @@
 import { afterAll, describe, expect, it } from "vitest";
-import { decodeWithZXing } from "../../lib/qr/zxing-decoder";
-import { decodePixelBuffer } from "../../lib/qr/decode-pipeline";
-import { loadPixelBufferFromPath } from "../../lib/qr/image-loader-node";
-import { createPixelBuffer } from "../../lib/qr/grayscale";
+import { decodeWithZXing, decodePixelBuffer, createPixelBuffer } from "@scanly/core/qr";
+import { loadPixelBufferFromPath } from "@scanly/core/node";
 import QRCode from "qrcode";
 import fs from "node:fs";
 import path from "node:path";

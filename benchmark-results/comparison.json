@@ -1,0 +1,4051 @@
+{
+  "schemaVersion": "1.0",
+  "generatedAt": "2026-07-15T10:36:25.375Z",
+  "methodology": "All strategies process the same decoded RGBA pixel buffer for each fixture. Timings are Node-only and are not browser-device timings.",
+  "summaries": {
+    "raw-jsqr": {
+      "cases": 54,
+      "positiveCases": 52,
+      "negativeCases": 2,
+      "exact": 45,
+      "multipleComplete": "0/3",
+      "falsePositives": 0,
+      "averageMs": 31.203703703703702,
+      "p95Ms": 111
+    },
+    "raw-zxing-js": {
+      "cases": 54,
+      "positiveCases": 52,
+      "negativeCases": 2,
+      "exact": 40,
+      "multipleComplete": "0/3",
+      "falsePositives": 0,
+      "averageMs": 10.925925925925926,
+      "p95Ms": 28
+    },
+    "scanly-fast": {
+      "cases": 54,
+      "positiveCases": 52,
+      "negativeCases": 2,
+      "exact": 47,
+      "multipleComplete": "0/3",
+      "falsePositives": 0,
+      "averageMs": 89.55555555555556,
+      "p95Ms": 211
+    },
+    "scanly-balanced": {
+      "cases": 54,
+      "positiveCases": 52,
+      "negativeCases": 2,
+      "exact": 51,
+      "multipleComplete": "3/3",
+      "falsePositives": 0,
+      "averageMs": 831.7962962962963,
+      "p95Ms": 1914
+    },
+    "scanly-robust": {
+      "cases": 54,
+      "positiveCases": 52,
+      "negativeCases": 2,
+      "exact": 51,
+      "multipleComplete": "3/3",
+      "falsePositives": 0,
+      "averageMs": 846.3518518518518,
+      "p95Ms": 2103
+    }
+  },
+  "results": [
+    {
+      "fixtureId": "01-clear-url",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/clear"
+      ],
+      "latencyMs": 48,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "01-clear-url",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/clear"
+      ],
+      "latencyMs": 24,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "01-clear-url",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/clear"
+      ],
+      "latencyMs": 107,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "01-clear-url",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/clear"
+      ],
+      "latencyMs": 602,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "01-clear-url",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/clear"
+      ],
+      "latencyMs": 643,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "02-clear-text",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_CLEAR_TEXT"
+      ],
+      "latencyMs": 17,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "02-clear-text",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_CLEAR_TEXT"
+      ],
+      "latencyMs": 12,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "02-clear-text",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_CLEAR_TEXT"
+      ],
+      "latencyMs": 66,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "02-clear-text",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_CLEAR_TEXT"
+      ],
+      "latencyMs": 571,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "02-clear-text",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_CLEAR_TEXT"
+      ],
+      "latencyMs": 689,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "03-phone-photo",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/photo"
+      ],
+      "latencyMs": 47,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "03-phone-photo",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/photo"
+      ],
+      "latencyMs": 28,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "03-phone-photo",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/photo"
+      ],
+      "latencyMs": 231,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "03-phone-photo",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/photo"
+      ],
+      "latencyMs": 1757,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "03-phone-photo",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/photo"
+      ],
+      "latencyMs": 1795,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "04-screen-capture",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/screen"
+      ],
+      "latencyMs": 26,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "04-screen-capture",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/screen"
+      ],
+      "latencyMs": 13,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "04-screen-capture",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/screen"
+      ],
+      "latencyMs": 118,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "04-screen-capture",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/screen"
+      ],
+      "latencyMs": 864,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "04-screen-capture",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/screen"
+      ],
+      "latencyMs": 859,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "05-low-contrast",
+      "strategy": "raw-jsqr",
+      "success": false,
+      "exactPayload": false,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [],
+      "latencyMs": 41,
+      "failureReason": "no_symbol_found",
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "05-low-contrast",
+      "strategy": "raw-zxing-js",
+      "success": false,
+      "exactPayload": false,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [],
+      "latencyMs": 8,
+      "failureReason": "no_symbol_found",
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "05-low-contrast",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/low-contrast"
+      ],
+      "latencyMs": 174,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "05-low-contrast",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/low-contrast"
+      ],
+      "latencyMs": 852,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "05-low-contrast",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/low-contrast"
+      ],
+      "latencyMs": 881,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "06-dark-lighting",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/dark"
+      ],
+      "latencyMs": 26,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "06-dark-lighting",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/dark"
+      ],
+      "latencyMs": 10,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "06-dark-lighting",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/dark"
+      ],
+      "latencyMs": 89,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "06-dark-lighting",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/dark"
+      ],
+      "latencyMs": 904,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "06-dark-lighting",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/dark"
+      ],
+      "latencyMs": 855,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "07-overexposed",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/bright"
+      ],
+      "latencyMs": 25,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "07-overexposed",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/bright"
+      ],
+      "latencyMs": 9,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "07-overexposed",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/bright"
+      ],
+      "latencyMs": 111,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "07-overexposed",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/bright"
+      ],
+      "latencyMs": 837,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "07-overexposed",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/bright"
+      ],
+      "latencyMs": 805,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "08-blurry",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/blur"
+      ],
+      "latencyMs": 26,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "08-blurry",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/blur"
+      ],
+      "latencyMs": 9,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "08-blurry",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/blur"
+      ],
+      "latencyMs": 131,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "08-blurry",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/blur"
+      ],
+      "latencyMs": 884,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "08-blurry",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/blur"
+      ],
+      "latencyMs": 973,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "09-glare",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/glare"
+      ],
+      "latencyMs": 29,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "09-glare",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/glare"
+      ],
+      "latencyMs": 11,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "09-glare",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/glare"
+      ],
+      "latencyMs": 129,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "09-glare",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/glare"
+      ],
+      "latencyMs": 859,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "09-glare",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/glare"
+      ],
+      "latencyMs": 864,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "10-small-in-large",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/small"
+      ],
+      "latencyMs": 162,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "10-small-in-large",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/small"
+      ],
+      "latencyMs": 40,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "10-small-in-large",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/small"
+      ],
+      "latencyMs": 67,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "10-small-in-large",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/small"
+      ],
+      "latencyMs": 1650,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "10-small-in-large",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/small"
+      ],
+      "latencyMs": 1635,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "11-complex-background",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/background"
+      ],
+      "latencyMs": 39,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "11-complex-background",
+      "strategy": "raw-zxing-js",
+      "success": false,
+      "exactPayload": false,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [],
+      "latencyMs": 15,
+      "failureReason": "no_symbol_found",
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "11-complex-background",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/background"
+      ],
+      "latencyMs": 195,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "11-complex-background",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/background"
+      ],
+      "latencyMs": 1498,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "11-complex-background",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/background"
+      ],
+      "latencyMs": 1314,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "12-rotated",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/rotated"
+      ],
+      "latencyMs": 39,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "12-rotated",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/rotated"
+      ],
+      "latencyMs": 13,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "12-rotated",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/rotated"
+      ],
+      "latencyMs": 186,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "12-rotated",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/rotated"
+      ],
+      "latencyMs": 1378,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "12-rotated",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/rotated"
+      ],
+      "latencyMs": 1346,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "13-perspective",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/perspective"
+      ],
+      "latencyMs": 27,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "13-perspective",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/perspective"
+      ],
+      "latencyMs": 9,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "13-perspective",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/perspective"
+      ],
+      "latencyMs": 164,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "13-perspective",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/perspective"
+      ],
+      "latencyMs": 1914,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "13-perspective",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/perspective"
+      ],
+      "latencyMs": 1348,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "14-damaged",
+      "strategy": "raw-jsqr",
+      "success": false,
+      "exactPayload": false,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [],
+      "latencyMs": 40,
+      "failureReason": "no_symbol_found",
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "14-damaged",
+      "strategy": "raw-zxing-js",
+      "success": false,
+      "exactPayload": false,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [],
+      "latencyMs": 13,
+      "failureReason": "no_symbol_found",
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "14-damaged",
+      "strategy": "scanly-fast",
+      "success": false,
+      "exactPayload": false,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [],
+      "latencyMs": 372,
+      "failureReason": "no_qr_found",
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "14-damaged",
+      "strategy": "scanly-balanced",
+      "success": false,
+      "exactPayload": false,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [],
+      "latencyMs": 1426,
+      "failureReason": "no_qr_found",
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "14-damaged",
+      "strategy": "scanly-robust",
+      "success": false,
+      "exactPayload": false,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [],
+      "latencyMs": 2103,
+      "failureReason": "no_qr_found",
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "15-inverted",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/inverted"
+      ],
+      "latencyMs": 40,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "15-inverted",
+      "strategy": "raw-zxing-js",
+      "success": false,
+      "exactPayload": false,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [],
+      "latencyMs": 9,
+      "failureReason": "no_symbol_found",
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "15-inverted",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/inverted"
+      ],
+      "latencyMs": 116,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "15-inverted",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/inverted"
+      ],
+      "latencyMs": 806,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "15-inverted",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/inverted"
+      ],
+      "latencyMs": 723,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "16-multiple-codes",
+      "strategy": "raw-jsqr",
+      "success": false,
+      "exactPayload": false,
+      "multipleCase": true,
+      "multipleComplete": false,
+      "payloads": [],
+      "latencyMs": 86,
+      "failureReason": "no_symbol_found",
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "16-multiple-codes",
+      "strategy": "raw-zxing-js",
+      "success": false,
+      "exactPayload": false,
+      "multipleCase": true,
+      "multipleComplete": false,
+      "payloads": [],
+      "latencyMs": 18,
+      "failureReason": "no_symbol_found",
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "16-multiple-codes",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": false,
+      "multipleCase": true,
+      "multipleComplete": false,
+      "payloads": [
+        "https://scanly.example/secondary"
+      ],
+      "latencyMs": 211,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "16-multiple-codes",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": true,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/primary",
+        "https://scanly.example/secondary"
+      ],
+      "latencyMs": 991,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "16-multiple-codes",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": true,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/primary",
+        "https://scanly.example/secondary"
+      ],
+      "latencyMs": 943,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "17-clear-url-02",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/clear-02"
+      ],
+      "latencyMs": 8,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "17-clear-url-02",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/clear-02"
+      ],
+      "latencyMs": 5,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "17-clear-url-02",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/clear-02"
+      ],
+      "latencyMs": 53,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "17-clear-url-02",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/clear-02"
+      ],
+      "latencyMs": 390,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "17-clear-url-02",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/clear-02"
+      ],
+      "latencyMs": 378,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "18-clear-text-02",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_CLEAR_TEXT_02"
+      ],
+      "latencyMs": 8,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "18-clear-text-02",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_CLEAR_TEXT_02"
+      ],
+      "latencyMs": 13,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "18-clear-text-02",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_CLEAR_TEXT_02"
+      ],
+      "latencyMs": 58,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "18-clear-text-02",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_CLEAR_TEXT_02"
+      ],
+      "latencyMs": 360,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "18-clear-text-02",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_CLEAR_TEXT_02"
+      ],
+      "latencyMs": 391,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "19-wifi-payload",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "WIFI:T:WPA;S:ScanlyLab;P:test-pass-01;;"
+      ],
+      "latencyMs": 9,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "19-wifi-payload",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "WIFI:T:WPA;S:ScanlyLab;P:test-pass-01;;"
+      ],
+      "latencyMs": 9,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "19-wifi-payload",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "WIFI:T:WPA;S:ScanlyLab;P:test-pass-01;;"
+      ],
+      "latencyMs": 52,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "19-wifi-payload",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "WIFI:T:WPA;S:ScanlyLab;P:test-pass-01;;"
+      ],
+      "latencyMs": 410,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "19-wifi-payload",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "WIFI:T:WPA;S:ScanlyLab;P:test-pass-01;;"
+      ],
+      "latencyMs": 356,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "20-low-contrast-02",
+      "strategy": "raw-jsqr",
+      "success": false,
+      "exactPayload": false,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [],
+      "latencyMs": 15,
+      "failureReason": "no_symbol_found",
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "20-low-contrast-02",
+      "strategy": "raw-zxing-js",
+      "success": false,
+      "exactPayload": false,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [],
+      "latencyMs": 2,
+      "failureReason": "no_symbol_found",
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "20-low-contrast-02",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_LOW_CONTRAST_02"
+      ],
+      "latencyMs": 24,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "20-low-contrast-02",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_LOW_CONTRAST_02"
+      ],
+      "latencyMs": 746,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "20-low-contrast-02",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_LOW_CONTRAST_02"
+      ],
+      "latencyMs": 737,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "21-underexposed-gen",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_UNDEREXPOSED_01"
+      ],
+      "latencyMs": 8,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "21-underexposed-gen",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_UNDEREXPOSED_01"
+      ],
+      "latencyMs": 4,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "21-underexposed-gen",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_UNDEREXPOSED_01"
+      ],
+      "latencyMs": 55,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "21-underexposed-gen",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_UNDEREXPOSED_01"
+      ],
+      "latencyMs": 373,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "21-underexposed-gen",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_UNDEREXPOSED_01"
+      ],
+      "latencyMs": 366,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "22-overexposed-gen",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_OVEREXPOSED_01"
+      ],
+      "latencyMs": 8,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "22-overexposed-gen",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_OVEREXPOSED_01"
+      ],
+      "latencyMs": 4,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "22-overexposed-gen",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_OVEREXPOSED_01"
+      ],
+      "latencyMs": 61,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "22-overexposed-gen",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_OVEREXPOSED_01"
+      ],
+      "latencyMs": 425,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "22-overexposed-gen",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_OVEREXPOSED_01"
+      ],
+      "latencyMs": 412,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "23-blur-gen",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_BLUR_01"
+      ],
+      "latencyMs": 9,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "23-blur-gen",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_BLUR_01"
+      ],
+      "latencyMs": 9,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "23-blur-gen",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_BLUR_01"
+      ],
+      "latencyMs": 15,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "23-blur-gen",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_BLUR_01"
+      ],
+      "latencyMs": 805,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "23-blur-gen",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_BLUR_01"
+      ],
+      "latencyMs": 813,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "24-motion-blur",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_MOTION_BLUR_01"
+      ],
+      "latencyMs": 8,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "24-motion-blur",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_MOTION_BLUR_01"
+      ],
+      "latencyMs": 3,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "24-motion-blur",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_MOTION_BLUR_01"
+      ],
+      "latencyMs": 74,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "24-motion-blur",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_MOTION_BLUR_01"
+      ],
+      "latencyMs": 455,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "24-motion-blur",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_MOTION_BLUR_01"
+      ],
+      "latencyMs": 465,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "25-noise",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_NOISE_01"
+      ],
+      "latencyMs": 9,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "25-noise",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_NOISE_01"
+      ],
+      "latencyMs": 2,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "25-noise",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_NOISE_01"
+      ],
+      "latencyMs": 47,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "25-noise",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_NOISE_01"
+      ],
+      "latencyMs": 385,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "25-noise",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_NOISE_01"
+      ],
+      "latencyMs": 392,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "26-glare-gen",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_GLARE_01"
+      ],
+      "latencyMs": 9,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "26-glare-gen",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_GLARE_01"
+      ],
+      "latencyMs": 6,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "26-glare-gen",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_GLARE_01"
+      ],
+      "latencyMs": 51,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "26-glare-gen",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_GLARE_01"
+      ],
+      "latencyMs": 409,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "26-glare-gen",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_GLARE_01"
+      ],
+      "latencyMs": 433,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "27-inverted-01",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_INVERTED_01"
+      ],
+      "latencyMs": 12,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "27-inverted-01",
+      "strategy": "raw-zxing-js",
+      "success": false,
+      "exactPayload": false,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [],
+      "latencyMs": 7,
+      "failureReason": "no_symbol_found",
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "27-inverted-01",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_INVERTED_01"
+      ],
+      "latencyMs": 47,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "27-inverted-01",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_INVERTED_01"
+      ],
+      "latencyMs": 390,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "27-inverted-01",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_INVERTED_01"
+      ],
+      "latencyMs": 408,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "28-inverted-02",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_INVERTED_02"
+      ],
+      "latencyMs": 10,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "28-inverted-02",
+      "strategy": "raw-zxing-js",
+      "success": false,
+      "exactPayload": false,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [],
+      "latencyMs": 10,
+      "failureReason": "no_symbol_found",
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "28-inverted-02",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_INVERTED_02"
+      ],
+      "latencyMs": 54,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "28-inverted-02",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_INVERTED_02"
+      ],
+      "latencyMs": 338,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "28-inverted-02",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_INVERTED_02"
+      ],
+      "latencyMs": 375,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "29-rot-90",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_ROT_90"
+      ],
+      "latencyMs": 7,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "29-rot-90",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_ROT_90"
+      ],
+      "latencyMs": 6,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "29-rot-90",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_ROT_90"
+      ],
+      "latencyMs": 59,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "29-rot-90",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_ROT_90"
+      ],
+      "latencyMs": 372,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "29-rot-90",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_ROT_90"
+      ],
+      "latencyMs": 356,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "30-rot-180",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_ROT_180"
+      ],
+      "latencyMs": 10,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "30-rot-180",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_ROT_180"
+      ],
+      "latencyMs": 7,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "30-rot-180",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_ROT_180"
+      ],
+      "latencyMs": 70,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "30-rot-180",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_ROT_180"
+      ],
+      "latencyMs": 360,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "30-rot-180",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_ROT_180"
+      ],
+      "latencyMs": 384,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "31-rot-270",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_ROT_270"
+      ],
+      "latencyMs": 7,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "31-rot-270",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_ROT_270"
+      ],
+      "latencyMs": 11,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "31-rot-270",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_ROT_270"
+      ],
+      "latencyMs": 48,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "31-rot-270",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_ROT_270"
+      ],
+      "latencyMs": 325,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "31-rot-270",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_ROT_270"
+      ],
+      "latencyMs": 410,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "32-rot-15",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_ROT_15"
+      ],
+      "latencyMs": 10,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "32-rot-15",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_ROT_15"
+      ],
+      "latencyMs": 3,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "32-rot-15",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_ROT_15"
+      ],
+      "latencyMs": 69,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "32-rot-15",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_ROT_15"
+      ],
+      "latencyMs": 462,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "32-rot-15",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_ROT_15"
+      ],
+      "latencyMs": 421,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "33-small-in-large-gen",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_SMALL_01"
+      ],
+      "latencyMs": 111,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "33-small-in-large-gen",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_SMALL_01"
+      ],
+      "latencyMs": 25,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "33-small-in-large-gen",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_SMALL_01"
+      ],
+      "latencyMs": 110,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "33-small-in-large-gen",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_SMALL_01"
+      ],
+      "latencyMs": 3263,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "33-small-in-large-gen",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_SMALL_01"
+      ],
+      "latencyMs": 3337,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "34-near-edge",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_NEAR_EDGE_01"
+      ],
+      "latencyMs": 33,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "34-near-edge",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_NEAR_EDGE_01"
+      ],
+      "latencyMs": 10,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "34-near-edge",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_NEAR_EDGE_01"
+      ],
+      "latencyMs": 26,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "34-near-edge",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_NEAR_EDGE_01"
+      ],
+      "latencyMs": 703,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "34-near-edge",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_NEAR_EDGE_01"
+      ],
+      "latencyMs": 701,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "35-complex-bg-gen",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_COMPLEX_BG_01"
+      ],
+      "latencyMs": 37,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "35-complex-bg-gen",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_COMPLEX_BG_01"
+      ],
+      "latencyMs": 13,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "35-complex-bg-gen",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_COMPLEX_BG_01"
+      ],
+      "latencyMs": 24,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "35-complex-bg-gen",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_COMPLEX_BG_01"
+      ],
+      "latencyMs": 887,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "35-complex-bg-gen",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_COMPLEX_BG_01"
+      ],
+      "latencyMs": 916,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "36-multiple-gen",
+      "strategy": "raw-jsqr",
+      "success": false,
+      "exactPayload": false,
+      "multipleCase": true,
+      "multipleComplete": false,
+      "payloads": [],
+      "latencyMs": 26,
+      "failureReason": "no_symbol_found",
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "36-multiple-gen",
+      "strategy": "raw-zxing-js",
+      "success": false,
+      "exactPayload": false,
+      "multipleCase": true,
+      "multipleComplete": false,
+      "payloads": [],
+      "latencyMs": 9,
+      "failureReason": "no_symbol_found",
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "36-multiple-gen",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": false,
+      "multipleCase": true,
+      "multipleComplete": false,
+      "payloads": [
+        "SCANLY_MULTI_PRIMARY"
+      ],
+      "latencyMs": 193,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "36-multiple-gen",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": true,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_MULTI_PRIMARY",
+        "SCANLY_MULTI_SECONDARY"
+      ],
+      "latencyMs": 505,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "36-multiple-gen",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": true,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_MULTI_PRIMARY",
+        "SCANLY_MULTI_SECONDARY"
+      ],
+      "latencyMs": 445,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "37-occlusion",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_OCCLUSION_01"
+      ],
+      "latencyMs": 8,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "37-occlusion",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_OCCLUSION_01"
+      ],
+      "latencyMs": 12,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "37-occlusion",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_OCCLUSION_01"
+      ],
+      "latencyMs": 66,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "37-occlusion",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_OCCLUSION_01"
+      ],
+      "latencyMs": 423,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "37-occlusion",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_OCCLUSION_01"
+      ],
+      "latencyMs": 377,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "38-damaged-gen",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_DAMAGED_01"
+      ],
+      "latencyMs": 11,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "38-damaged-gen",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_DAMAGED_01"
+      ],
+      "latencyMs": 9,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "38-damaged-gen",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_DAMAGED_01"
+      ],
+      "latencyMs": 51,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "38-damaged-gen",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_DAMAGED_01"
+      ],
+      "latencyMs": 373,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "38-damaged-gen",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_DAMAGED_01"
+      ],
+      "latencyMs": 378,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "39-high-res",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_HIRES_01"
+      ],
+      "latencyMs": 363,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "39-high-res",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_HIRES_01"
+      ],
+      "latencyMs": 81,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "39-high-res",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_HIRES_01"
+      ],
+      "latencyMs": 120,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "39-high-res",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_HIRES_01"
+      ],
+      "latencyMs": 3377,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "39-high-res",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_HIRES_01"
+      ],
+      "latencyMs": 3619,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "40-moire",
+      "strategy": "raw-jsqr",
+      "success": false,
+      "exactPayload": false,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [],
+      "latencyMs": 28,
+      "failureReason": "no_symbol_found",
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "40-moire",
+      "strategy": "raw-zxing-js",
+      "success": false,
+      "exactPayload": false,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [],
+      "latencyMs": 4,
+      "failureReason": "no_symbol_found",
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "40-moire",
+      "strategy": "scanly-fast",
+      "success": false,
+      "exactPayload": false,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [],
+      "latencyMs": 200,
+      "failureReason": "no_qr_found",
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "40-moire",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_MOIRE_01"
+      ],
+      "latencyMs": 635,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "40-moire",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_MOIRE_01"
+      ],
+      "latencyMs": 1006,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "41-unusual-aspect",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_ASPECT_01"
+      ],
+      "latencyMs": 23,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "41-unusual-aspect",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_ASPECT_01"
+      ],
+      "latencyMs": 6,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "41-unusual-aspect",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_ASPECT_01"
+      ],
+      "latencyMs": 92,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "41-unusual-aspect",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_ASPECT_01"
+      ],
+      "latencyMs": 577,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "41-unusual-aspect",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_ASPECT_01"
+      ],
+      "latencyMs": 559,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "42-colored-bg",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_COLOR_BG_01"
+      ],
+      "latencyMs": 18,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "42-colored-bg",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_COLOR_BG_01"
+      ],
+      "latencyMs": 8,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "42-colored-bg",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_COLOR_BG_01"
+      ],
+      "latencyMs": 19,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "42-colored-bg",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_COLOR_BG_01"
+      ],
+      "latencyMs": 1335,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "42-colored-bg",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_COLOR_BG_01"
+      ],
+      "latencyMs": 1349,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "43-transparent-bg",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_TRANSPARENT_01"
+      ],
+      "latencyMs": 9,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "43-transparent-bg",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_TRANSPARENT_01"
+      ],
+      "latencyMs": 6,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "43-transparent-bg",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_TRANSPARENT_01"
+      ],
+      "latencyMs": 67,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "43-transparent-bg",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_TRANSPARENT_01"
+      ],
+      "latencyMs": 506,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "43-transparent-bg",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_TRANSPARENT_01"
+      ],
+      "latencyMs": 424,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "44-clear-url-03",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/clear-03"
+      ],
+      "latencyMs": 7,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "44-clear-url-03",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/clear-03"
+      ],
+      "latencyMs": 7,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "44-clear-url-03",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/clear-03"
+      ],
+      "latencyMs": 44,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "44-clear-url-03",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/clear-03"
+      ],
+      "latencyMs": 400,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "44-clear-url-03",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/clear-03"
+      ],
+      "latencyMs": 397,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "45-text-long",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_LONG_TEXT_PAYLOAD_ABCDEF_0123456789"
+      ],
+      "latencyMs": 10,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "45-text-long",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_LONG_TEXT_PAYLOAD_ABCDEF_0123456789"
+      ],
+      "latencyMs": 4,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "45-text-long",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_LONG_TEXT_PAYLOAD_ABCDEF_0123456789"
+      ],
+      "latencyMs": 65,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "45-text-long",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_LONG_TEXT_PAYLOAD_ABCDEF_0123456789"
+      ],
+      "latencyMs": 469,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "45-text-long",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_LONG_TEXT_PAYLOAD_ABCDEF_0123456789"
+      ],
+      "latencyMs": 510,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "46-invert-url",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/inverted-url"
+      ],
+      "latencyMs": 13,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "46-invert-url",
+      "strategy": "raw-zxing-js",
+      "success": false,
+      "exactPayload": false,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [],
+      "latencyMs": 5,
+      "failureReason": "no_symbol_found",
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "46-invert-url",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/inverted-url"
+      ],
+      "latencyMs": 54,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "46-invert-url",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/inverted-url"
+      ],
+      "latencyMs": 496,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "46-invert-url",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "https://scanly.example/inverted-url"
+      ],
+      "latencyMs": 414,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "47-near-edge-bottom",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_NEAR_EDGE_02"
+      ],
+      "latencyMs": 24,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "47-near-edge-bottom",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_NEAR_EDGE_02"
+      ],
+      "latencyMs": 15,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "47-near-edge-bottom",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_NEAR_EDGE_02"
+      ],
+      "latencyMs": 30,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "47-near-edge-bottom",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_NEAR_EDGE_02"
+      ],
+      "latencyMs": 1757,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "47-near-edge-bottom",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_NEAR_EDGE_02"
+      ],
+      "latencyMs": 1602,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "48-perspective-mild",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_PERSPECTIVE_01"
+      ],
+      "latencyMs": 11,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "48-perspective-mild",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_PERSPECTIVE_01"
+      ],
+      "latencyMs": 5,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "48-perspective-mild",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_PERSPECTIVE_01"
+      ],
+      "latencyMs": 61,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "48-perspective-mild",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_PERSPECTIVE_01"
+      ],
+      "latencyMs": 494,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "48-perspective-mild",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_PERSPECTIVE_01"
+      ],
+      "latencyMs": 470,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "49-noise-dark",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_NOISE_DARK_01"
+      ],
+      "latencyMs": 11,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "49-noise-dark",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_NOISE_DARK_01"
+      ],
+      "latencyMs": 3,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "49-noise-dark",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_NOISE_DARK_01"
+      ],
+      "latencyMs": 56,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "49-noise-dark",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_NOISE_DARK_01"
+      ],
+      "latencyMs": 376,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "49-noise-dark",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_NOISE_DARK_01"
+      ],
+      "latencyMs": 379,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "50-multiple-three",
+      "strategy": "raw-jsqr",
+      "success": false,
+      "exactPayload": false,
+      "multipleCase": true,
+      "multipleComplete": false,
+      "payloads": [],
+      "latencyMs": 42,
+      "failureReason": "no_symbol_found",
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "50-multiple-three",
+      "strategy": "raw-zxing-js",
+      "success": false,
+      "exactPayload": false,
+      "multipleCase": true,
+      "multipleComplete": false,
+      "payloads": [],
+      "latencyMs": 9,
+      "failureReason": "no_symbol_found",
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "50-multiple-three",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": false,
+      "multipleCase": true,
+      "multipleComplete": false,
+      "payloads": [
+        "SCANLY_TRI_B"
+      ],
+      "latencyMs": 15,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "50-multiple-three",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": true,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_TRI_B",
+        "SCANLY_TRI_A",
+        "SCANLY_TRI_C"
+      ],
+      "latencyMs": 621,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "50-multiple-three",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": true,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_TRI_B",
+        "SCANLY_TRI_A",
+        "SCANLY_TRI_C"
+      ],
+      "latencyMs": 586,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "51-gamma-ish",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_GAMMA_01"
+      ],
+      "latencyMs": 7,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "51-gamma-ish",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_GAMMA_01"
+      ],
+      "latencyMs": 5,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "51-gamma-ish",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_GAMMA_01"
+      ],
+      "latencyMs": 9,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "51-gamma-ish",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_GAMMA_01"
+      ],
+      "latencyMs": 666,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "51-gamma-ish",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "SCANLY_GAMMA_01"
+      ],
+      "latencyMs": 666,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "52-wifi-02",
+      "strategy": "raw-jsqr",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "WIFI:T:nopass;S:GuestScanly;P:;;"
+      ],
+      "latencyMs": 7,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "52-wifi-02",
+      "strategy": "raw-zxing-js",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "WIFI:T:nopass;S:GuestScanly;P:;;"
+      ],
+      "latencyMs": 7,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "52-wifi-02",
+      "strategy": "scanly-fast",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "WIFI:T:nopass;S:GuestScanly;P:;;"
+      ],
+      "latencyMs": 45,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "52-wifi-02",
+      "strategy": "scanly-balanced",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "WIFI:T:nopass;S:GuestScanly;P:;;"
+      ],
+      "latencyMs": 401,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "52-wifi-02",
+      "strategy": "scanly-robust",
+      "success": true,
+      "exactPayload": true,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [
+        "WIFI:T:nopass;S:GuestScanly;P:;;"
+      ],
+      "latencyMs": 386,
+      "failureReason": null,
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "53-negative-blank",
+      "strategy": "raw-jsqr",
+      "success": false,
+      "exactPayload": false,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [],
+      "latencyMs": 11,
+      "failureReason": "no_symbol_found",
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "53-negative-blank",
+      "strategy": "raw-zxing-js",
+      "success": false,
+      "exactPayload": false,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [],
+      "latencyMs": 3,
+      "failureReason": "no_symbol_found",
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "53-negative-blank",
+      "strategy": "scanly-fast",
+      "success": false,
+      "exactPayload": false,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [],
+      "latencyMs": 84,
+      "failureReason": "no_qr_found",
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "53-negative-blank",
+      "strategy": "scanly-balanced",
+      "success": false,
+      "exactPayload": false,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [],
+      "latencyMs": 933,
+      "failureReason": "no_qr_found",
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "53-negative-blank",
+      "strategy": "scanly-robust",
+      "success": false,
+      "exactPayload": false,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [],
+      "latencyMs": 1115,
+      "failureReason": "no_qr_found",
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "54-negative-pattern",
+      "strategy": "raw-jsqr",
+      "success": false,
+      "exactPayload": false,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [],
+      "latencyMs": 10,
+      "failureReason": "no_symbol_found",
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "54-negative-pattern",
+      "strategy": "raw-zxing-js",
+      "success": false,
+      "exactPayload": false,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [],
+      "latencyMs": 2,
+      "failureReason": "no_symbol_found",
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "54-negative-pattern",
+      "strategy": "scanly-fast",
+      "success": false,
+      "exactPayload": false,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [],
+      "latencyMs": 101,
+      "failureReason": "no_qr_found",
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "54-negative-pattern",
+      "strategy": "scanly-balanced",
+      "success": false,
+      "exactPayload": false,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [],
+      "latencyMs": 922,
+      "failureReason": "no_qr_found",
+      "unsupportedFormat": false,
+      "falsePositive": false
+    },
+    {
+      "fixtureId": "54-negative-pattern",
+      "strategy": "scanly-robust",
+      "success": false,
+      "exactPayload": false,
+      "multipleCase": false,
+      "multipleComplete": true,
+      "payloads": [],
+      "latencyMs": 1194,
+      "failureReason": "no_qr_found",
+      "unsupportedFormat": false,
+      "falsePositive": false
+    }
+  ]
+}

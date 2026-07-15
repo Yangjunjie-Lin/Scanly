@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { candidateFingerprint, dedupeCandidates } from "../../lib/qr/candidate-dedupe";
-import type { CandidateImage } from "../../lib/qr/candidate-generation";
-import { createPixelBuffer } from "../../lib/qr/grayscale";
+import { candidateFingerprint, dedupeCandidates, createPixelBuffer, type CandidateImage } from "@scanly/core/qr";
 
 function cand(overrides: Partial<CandidateImage> & Pick<CandidateImage, "candidateIndex">): CandidateImage {
   const buf = createPixelBuffer(new Uint8ClampedArray(16), 2, 2);

@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateBenchmarkGates } from "../../lib/benchmark/quality-gates";
-import type { BenchmarkRunSummary } from "../../lib/qr/benchmark-types";
+import { evaluateBenchmarkGates, type BenchmarkRunSummary } from "@scanly/benchmark";
 
 const baseline = {
   total: 52,

@@ -1,6 +1,6 @@
 # Maintenance policy
 
-Scanly is considered feature-complete. Future work should focus on security, browser compatibility, dependency maintenance, and verified decoding improvements rather than unrelated feature expansion.
+Scanly v1 remains a feature-complete browser scanner baseline. SDK v2 is an alpha foundation: future work should prioritize stable contracts, lifecycle safety, external datasets, physical-device evidence, security, optional engines, and verified format expansion rather than unrelated product features.
 
 ## Supported toolchain
 
@@ -30,9 +30,9 @@ Run `npm run benchmark:smoke` for UI-only, documentation, safe dependency patch,
 ## Release checklist
 
 1. Confirm a clean intended diff and update `CHANGELOG.md`.
-2. Run `npm ci` and `npm run fixtures:generate`.
+2. Run `npm ci`, `npm run fixtures:generate`, and `npm run scenarios:generate`.
 3. Run `npm run check` and all three Playwright project commands.
-4. Run smoke and, when required, full benchmark gates.
+4. Run smoke/full benchmark gates and the identical-input comparison harness.
 5. Run `npm audit` and `npm audit --omit=dev`; resolve high/critical production findings.
 6. Confirm canonical benchmark/README synchronization and retain known failures.
 7. Verify the Vercel production deployment, Worker chunk, console/network, representative fixtures, cancel/recovery, camera denial, and mobile viewport.

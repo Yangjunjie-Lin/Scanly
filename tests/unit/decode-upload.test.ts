@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createPixelBuffer } from "../../lib/qr/grayscale";
+import { createPixelBuffer } from "@scanly/core/qr";
 
 const {
   loadPixelBufferFromFile,
@@ -17,9 +17,9 @@ const {
   markDecodePath: vi.fn(),
 }));
 
-vi.mock("../../lib/qr/image-loader", () => ({ loadPixelBufferFromFile }));
-vi.mock("../../lib/qr/decode-pipeline", () => ({ decodePixelBuffer }));
-vi.mock("../../lib/qr/worker/worker-client", () => ({
+vi.mock("../../packages/browser/src/image-loader", () => ({ loadPixelBufferFromFile }));
+vi.mock("@scanly/core/qr", async (importOriginal) => ({ ...(await importOriginal()), decodePixelBuffer }));
+vi.mock("../../packages/browser/src/worker/worker-client", () => ({
   getDecodeWorkerClient: () => ({ decode: workerDecode, cancel: workerCancel }),
   disposeDecodeWorkerClient: workerDispose,
   markDecodePath,
@@ -29,7 +29,7 @@ import {
   cancelUploadedDecode,
   decodeUploadedFile,
   disposeUploadedDecodeWorker,
-} from "../../lib/qr/decode-upload";
+} from "../../packages/browser/src/decode-upload";
 
 const file = {} as File;
 const buffer = createPixelBuffer(new Uint8ClampedArray(16), 2, 2);

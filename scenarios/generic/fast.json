@@ -1,0 +1,79 @@
+{
+  "schemaVersion": "2.0",
+  "id": "fast",
+  "revision": 1,
+  "acceptedFormats": [
+    "qr_code"
+  ],
+  "input": {
+    "preferredPixelFormats": [
+      "rgba8888",
+      "rgb888",
+      "gray8"
+    ],
+    "roi": {
+      "mode": "full-frame"
+    }
+  },
+  "localization": {
+    "strategy": "edge-density",
+    "maxCandidates": 2,
+    "cropPaddings": [
+      "medium"
+    ],
+    "scales": [
+      1
+    ]
+  },
+  "enhancement": {
+    "operators": [
+      "contrast",
+      "invert"
+    ],
+    "rotations": [
+      0
+    ]
+  },
+  "decoders": {
+    "order": [
+      "jsqr",
+      "zxing-js"
+    ],
+    "execution": "sequential"
+  },
+  "multiCode": {
+    "enabled": false,
+    "maxResults": 1
+  },
+  "duplicateSuppression": {
+    "enabled": true,
+    "windowMs": 1500
+  },
+  "budgets": {
+    "maxPixels": 4000000,
+    "maxCandidates": 2,
+    "maxAttempts": 18,
+    "maxIntermediateAllocations": 8,
+    "maxIntermediateBytes": 25165824,
+    "maxExecutionMs": 2000,
+    "maxConcurrentFrames": 1
+  },
+  "validation": [],
+  "semanticParsers": [
+    "url"
+  ],
+  "quality": {},
+  "output": {
+    "includeRawBytes": true,
+    "includeDebugTrace": false,
+    "includeAttempts": false
+  },
+  "ablation": {
+    "localization": true,
+    "multiScale": true,
+    "enhancement": true,
+    "rotations": true,
+    "zxingFallback": true,
+    "splitImageFallback": true
+  }
+}

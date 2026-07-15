@@ -4,18 +4,18 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { loadPixelBufferFromPath } from "../lib/qr/image-loader-node";
-import { decodePixelBuffer } from "../lib/qr/decode-pipeline";
-import type { BenchmarkFixture, BenchmarkFixtureResult, BenchmarkRunSummary } from "../lib/qr/benchmark-types";
-import { toCsvRow } from "../lib/benchmark/csv";
+import { loadPixelBufferFromPath } from "@scanly/core/node";
+import { decodePixelBuffer } from "@scanly/core/qr";
+import type { BenchmarkFixture, BenchmarkFixtureResult, BenchmarkRunSummary } from "@scanly/benchmark";
+import { toCsvRow } from "@scanly/benchmark";
 import {
   evaluateFixture,
   requiredPayloads,
-} from "../lib/benchmark/fixture-contract";
+} from "@scanly/benchmark";
 import {
   evaluateBenchmarkGates,
   type BenchmarkBaseline,
-} from "../lib/benchmark/quality-gates";
+} from "@scanly/benchmark";
 
 const ROOT = path.resolve(__dirname, "..");
 const MANIFEST_PATH = path.join(ROOT, "fixtures", "manifest.json");
@@ -72,6 +72,7 @@ function toCsv(results: BenchmarkFixtureResult[]): string {
     "zxingMs",
     "preprocessMs",
     "rotationMs",
+    "timeToFirstResultMs",
   ];
   const rows = results.map((r) =>
     toCsvRow([
@@ -96,6 +97,7 @@ function toCsv(results: BenchmarkFixtureResult[]): string {
       r.phaseTiming?.zxingMs ?? "",
       r.phaseTiming?.preprocessMs ?? "",
       r.phaseTiming?.rotationMs ?? "",
+      r.timeToFirstResultMs ?? "",
     ])
   );
   return [header.join(","), ...rows].join("\n");
@@ -122,6 +124,9 @@ function renderMarkdown(summary: BenchmarkRunSummary, smoke: boolean): string {
   lines.push(`| Average elapsed | ${(summary.averageMs / 1000).toFixed(2)}s |`);
   lines.push(`| Median elapsed | ${(summary.medianMs / 1000).toFixed(2)}s |`);
   lines.push(`| P95 elapsed | ${(summary.p95Ms / 1000).toFixed(2)}s |`);
+  lines.push(`| P99 elapsed | ${summary.p99Ms === null ? "insufficient sample (<100)" : `${(summary.p99Ms / 1000).toFixed(2)}s`} |`);
+  lines.push(`| Decode recall | ${(summary.decodeRecall * 100).toFixed(1)}% (${summary.positiveCases - summary.results.filter((result) => result.expectedOutcome === "decode" && !result.pass).length}/${summary.positiveCases}) |`);
+  lines.push(`| False positives | ${summary.falsePositiveCount}/${summary.negativeCases} (${(summary.falsePositiveRate * 100).toFixed(1)}%) |`);
   lines.push(`| Average attempts | ${summary.averageAttempts.toFixed(1)} |`);
   lines.push(`| Median attempts | ${summary.medianAttempts.toFixed(1)} |`);
   lines.push(`| P95 attempts | ${summary.p95Attempts.toFixed(1)} |`);
@@ -199,7 +204,7 @@ function renderMarkdown(summary: BenchmarkRunSummary, smoke: boolean): string {
   lines.push(`## Notes`);
   lines.push("");
   lines.push(
-    `- Results measure the shared \`lib/qr\` decode pipeline (same logic used by Upload mode).`
+    `- Results measure the shared \`@scanly/core\` QR pipeline (same logic used by Upload mode).`
   );
   lines.push(
     `- These numbers are not a claim that Scanly is faster than third-party scanners.`
@@ -224,6 +229,8 @@ function updateReadmeSummary(summary: BenchmarkRunSummary, manifest: ManifestFil
     `| Generated fixtures | ${generated} |`,
     `| Project-owned photos | ${projectPhotos} |`,
     `| Success on fixture suite | **${summary.passed}/${summary.total} (${(summary.successRate * 100).toFixed(1)}%)** on the current ${summary.total}-case project fixture suite |`,
+    `| Positive decode recall | **${summary.results.filter((result) => result.expectedOutcome === "decode" && result.pass).length}/${summary.positiveCases} (${(summary.decodeRecall * 100).toFixed(1)}%)** |`,
+    `| Negative false positives | **${summary.falsePositiveCount}/${summary.negativeCases} (${(summary.falsePositiveRate * 100).toFixed(1)}%)** |`,
     `| Remaining failure | ${failures} |`,
     `| Benchmark date | ${summary.generatedAt.slice(0, 10)} |`,
     "| Manifest | [fixtures/manifest.json](fixtures/manifest.json) |",
@@ -288,6 +295,7 @@ async function runFixture(fixture: BenchmarkFixture): Promise<BenchmarkFixtureRe
       requiredPayloadCount: required.length || undefined,
       decodedPayloadCount: payloads.length,
       phaseTiming: outcome.phaseTiming,
+      timeToFirstResultMs: outcome.ok ? outcome.timeToFirstResultMs : undefined,
     };
   } catch (e) {
     return {
@@ -355,6 +363,7 @@ async function main() {
 
   const decoderDistribution: Record<string, number> = {};
   const preprocessingDistribution: Record<string, number> = {};
+  const candidateDistribution: Record<string, number> = {};
   for (const r of passed) {
     if (r.successfulDecoder) {
       decoderDistribution[r.successfulDecoder] = (decoderDistribution[r.successfulDecoder] ?? 0) + 1;
@@ -362,6 +371,10 @@ async function main() {
     if (r.preprocessingPath) {
       preprocessingDistribution[r.preprocessingPath] =
         (preprocessingDistribution[r.preprocessingPath] ?? 0) + 1;
+    }
+    if (r.candidateIndex !== null) {
+      const key = String(r.candidateIndex);
+      candidateDistribution[key] = (candidateDistribution[key] ?? 0) + 1;
     }
   }
 
@@ -407,8 +420,15 @@ async function main() {
     preprocessMs: results.map((r) => r.phaseTiming?.preprocessMs ?? 0),
     rotationMs: results.map((r) => r.phaseTiming?.rotationMs ?? 0),
   };
+  const positive = results.filter((result) => result.expectedOutcome === "decode");
+  const negative = results.filter((result) => result.expectedOutcome === "fail");
+  const positivePasses = positive.filter((result) => result.pass).length;
+  const falsePositiveCount = negative.filter((result) => result.actualPayload !== null).length;
+  const timeToFirstValues = results.flatMap((result) => result.timeToFirstResultMs === undefined ? [] : [result.timeToFirstResultMs]);
 
   const summary: BenchmarkRunSummary = {
+    schemaVersion: "2.0",
+    runtime: { kind: "node", nodeVersion: process.version, platform: process.platform, arch: process.arch },
     generatedAt: new Date().toISOString(),
     total: results.length,
     passed: passed.length,
@@ -417,6 +437,15 @@ async function main() {
     averageMs: times.length ? times.reduce((a, b) => a + b, 0) / times.length : 0,
     medianMs: median(times),
     p95Ms: percentile(sortedTimes, 95),
+    p99Ms: times.length >= 100 ? percentile(sortedTimes, 99) : null,
+    positiveCases: positive.length,
+    decodeRecall: positive.length ? positivePasses / positive.length : 0,
+    exactPayloadAccuracy: positive.length ? positivePasses / positive.length : 0,
+    negativeCases: negative.length,
+    falsePositiveCount,
+    falsePositiveRate: negative.length ? falsePositiveCount / negative.length : 0,
+    timeoutCount: results.filter((result) => result.failureReason === "timeout").length,
+    timeToFirstResult: distribution(timeToFirstValues),
     averageAttempts: attemptCounts.length
       ? attemptCounts.reduce((a, b) => a + b, 0) / attemptCounts.length
       : 0,
@@ -424,6 +453,9 @@ async function main() {
     p95Attempts: percentile(sortedAttempts, 95),
     decoderDistribution,
     preprocessingDistribution,
+    candidateDistribution,
+    perFormatRecall: { qr_code: { total: positive.length, decoded: positivePasses, recall: positive.length ? positivePasses / positive.length : 0 } },
+    memoryObservations: ["Node benchmark does not expose reliable per-case retained-memory measurements; use the local soak utility for heap observation."],
     phaseTiming: {
       candidateGenerationMs: distribution(phaseValues.candidateGenerationMs),
       jsqrMs: distribution(phaseValues.jsqrMs),

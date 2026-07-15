@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateFixture } from "../../lib/benchmark/fixture-contract";
-import type { BenchmarkFixture } from "../../lib/qr/benchmark-types";
+import { evaluateFixture, type BenchmarkFixture } from "@scanly/benchmark";
 
 function fixture(overrides: Partial<BenchmarkFixture> = {}): BenchmarkFixture {
   return {

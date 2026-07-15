@@ -1,0 +1,16 @@
+{
+  "name": "@scanly/react",
+  "version": "2.0.0-alpha.1",
+  "description": "React lifecycle adapter for Scanly browser SDK",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "files": ["dist", "README.md"],
+  "scripts": { "build": "tsc -p tsconfig.build.json" },
+  "dependencies": { "@scanly/browser": "2.0.0-alpha.1" },
+  "peerDependencies": { "react": ">=18 <20" },
+  "devDependencies": { "@types/react": "^18.3.3", "react": "^18.3.1" }
+}

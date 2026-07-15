@@ -4,9 +4,8 @@ import { afterAll, describe, expect, it } from "vitest";
 import QRCode from "qrcode";
 import sharp from "sharp";
 import os from "node:os";
-import { loadPixelBufferFromPath } from "../../lib/qr/image-loader-node";
-import { decodePixelBuffer } from "../../lib/qr/decode-pipeline";
-import { createPixelBuffer } from "../../lib/qr/grayscale";
+import { loadPixelBufferFromPath } from "@scanly/core/node";
+import { decodePixelBuffer, createPixelBuffer } from "@scanly/core/qr";
 
 const ROOT = path.resolve(__dirname, "../..");
 const FIXTURES = path.join(ROOT, "fixtures");

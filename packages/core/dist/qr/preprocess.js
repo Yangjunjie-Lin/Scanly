@@ -1,0 +1,151 @@
+import { cloneBuffer, luminanceAt, toGrayscale } from "./grayscale.js";
+/** Min-max contrast stretch on grayscale luminance. */
+export function contrastStretch(src) {
+    const gray = toGrayscale(src);
+    const data = gray.data;
+    let min = 255;
+    let max = 0;
+    for (let i = 0; i < data.length; i += 4) {
+        const g = data[i];
+        if (g < min)
+            min = g;
+        if (g > max)
+            max = g;
+    }
+    const range = max - min;
+    if (range <= 10)
+        return gray;
+    const scale = 255 / range;
+    for (let i = 0; i < data.length; i += 4) {
+        const stretched = Math.round((data[i] - min) * scale);
+        data[i] = data[i + 1] = data[i + 2] = stretched;
+    }
+    return gray;
+}
+/** Gamma correction on grayscale (gamma < 1 brightens midtones). */
+export function gammaCorrect(src, gamma = 0.7) {
+    const gray = toGrayscale(src);
+    const data = gray.data;
+    const inv = 1 / Math.max(0.01, gamma);
+    const table = new Uint8Array(256);
+    for (let i = 0; i < 256; i++) {
+        table[i] = Math.min(255, Math.round(255 * Math.pow(i / 255, inv)));
+    }
+    for (let i = 0; i < data.length; i += 4) {
+        const v = table[data[i]];
+        data[i] = data[i + 1] = data[i + 2] = v;
+    }
+    return gray;
+}
+/** Invert RGB channels (keeps alpha). */
+export function invertColors(src) {
+    const data = new Uint8ClampedArray(src.data);
+    for (let i = 0; i < data.length; i += 4) {
+        data[i] = 255 - data[i];
+        data[i + 1] = 255 - data[i + 1];
+        data[i + 2] = 255 - data[i + 2];
+    }
+    return { data, width: src.width, height: src.height };
+}
+/** Fixed threshold binarization. */
+export function fixedThreshold(src, threshold) {
+    const gray = toGrayscale(src);
+    const data = gray.data;
+    const t = Math.max(0, Math.min(255, threshold));
+    for (let i = 0; i < data.length; i += 4) {
+        const v = data[i] >= t ? 255 : 0;
+        data[i] = data[i + 1] = data[i + 2] = v;
+    }
+    return gray;
+}
+/** Otsu automatic threshold. Returns threshold value 0–255. */
+export function computeOtsuThreshold(src) {
+    const hist = new Array(256).fill(0);
+    const data = src.data;
+    let total = 0;
+    for (let i = 0; i < data.length; i += 4) {
+        const g = Math.round(luminanceAt(data, i));
+        hist[g]++;
+        total++;
+    }
+    if (total === 0)
+        return 128;
+    let sum = 0;
+    for (let i = 0; i < 256; i++)
+        sum += i * hist[i];
+    let sumB = 0;
+    let wB = 0;
+    let maxVar = 0;
+    let threshold = 128;
+    for (let t = 0; t < 256; t++) {
+        wB += hist[t];
+        if (wB === 0)
+            continue;
+        const wF = total - wB;
+        if (wF === 0)
+            break;
+        sumB += t * hist[t];
+        const mB = sumB / wB;
+        const mF = (sum - sumB) / wF;
+        const between = wB * wF * (mB - mF) * (mB - mF);
+        if (between > maxVar) {
+            maxVar = between;
+            threshold = t;
+        }
+    }
+    return threshold;
+}
+export function otsuThreshold(src) {
+    return fixedThreshold(src, computeOtsuThreshold(src));
+}
+/** Lightweight 3x3 sharpen kernel on grayscale. */
+export function sharpen(src) {
+    const gray = toGrayscale(src);
+    const { width, height } = gray;
+    const srcData = gray.data;
+    const out = new Uint8ClampedArray(srcData);
+    // Kernel: 0 -1 0 / -1 5 -1 / 0 -1 0
+    for (let y = 1; y < height - 1; y++) {
+        for (let x = 1; x < width - 1; x++) {
+            const i = (y * width + x) * 4;
+            const c = srcData[i];
+            const n = srcData[((y - 1) * width + x) * 4];
+            const s = srcData[((y + 1) * width + x) * 4];
+            const w = srcData[(y * width + (x - 1)) * 4];
+            const e = srcData[(y * width + (x + 1)) * 4];
+            const v = Math.max(0, Math.min(255, 5 * c - n - s - w - e));
+            out[i] = out[i + 1] = out[i + 2] = v;
+        }
+    }
+    return { data: out, width, height };
+}
+/** Apply a named preprocessing method. */
+export function applyPreprocess(src, method) {
+    switch (method) {
+        case "original":
+            return cloneBuffer(src);
+        case "grayscale":
+            return toGrayscale(src);
+        case "contrast":
+            return contrastStretch(src);
+        case "gamma":
+            return gammaCorrect(src, 0.7);
+        case "invert":
+            return invertColors(src);
+        case "threshold-115":
+            return fixedThreshold(src, 115);
+        case "threshold-140":
+            return fixedThreshold(src, 140);
+        case "threshold-165":
+            return fixedThreshold(src, 165);
+        case "otsu":
+            return otsuThreshold(src);
+        case "sharpen":
+            return sharpen(src);
+        default: {
+            const _exhaustive = method;
+            return _exhaustive;
+        }
+    }
+}
+//# sourceMappingURL=preprocess.js.map

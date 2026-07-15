@@ -1,7 +1,8 @@
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import type { BenchmarkRunSummary } from "../lib/qr/benchmark-types";
+import type { BenchmarkRunSummary } from "@scanly/benchmark";
+import { validateScenario } from "@scanly/scenario-schema";
 
 const ROOT = path.resolve(__dirname, "..");
 const read = (file: string) => fs.readFileSync(path.join(ROOT, file), "utf8");
@@ -14,7 +15,7 @@ const pkg = JSON.parse(read("package.json")) as {
   engines?: { node?: string; npm?: string };
 };
 if (pkg.license !== "MIT") fail("package.json license must be MIT");
-if (pkg.name !== "scanly" || pkg.version !== "1.3.0") fail("package metadata must identify Scanly v1.3.0");
+if (pkg.name !== "scanly" || pkg.version !== "2.0.0-alpha.1") fail("package metadata must identify the Scanly SDK v2 alpha foundation");
   if (pkg.engines?.node !== ">=20 <25" || pkg.engines?.npm !== ">=10") {
   fail("package engines must pin the verified Node/npm maintenance range");
 }
@@ -73,10 +74,16 @@ if (canonical.multipleCompleteness.complete !== canonical.multipleCompleteness.t
   fail(`Multiple completeness is ${canonical.multipleCompleteness.complete}/${canonical.multipleCompleteness.total}`);
 }
 
-const tracked = execFileSync("git", ["ls-files", "-z"], { cwd: ROOT })
+for (const id of ["fast", "balanced", "robust"]) {
+  const scenario = JSON.parse(read(`scenarios/generic/${id}.json`));
+  const validated = validateScenario(scenario);
+  if (!validated.ok) fail(`Invalid built-in scenario ${id}: ${validated.message}`);
+}
+
+const tracked = execFileSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], { cwd: ROOT })
   .toString("utf8")
   .split("\0")
-  .filter(Boolean);
+  .filter((file) => Boolean(file) && fs.existsSync(path.join(ROOT, file)));
 const forbiddenPaths = tracked.filter((file) =>
   /(^|\/)\.vercel(\/|$)|(^|\/)\.env(\.|$)|fixtures\/(?:_tmp-|_e2e-)|benchmark-results\/smoke\.(?:json|csv)$/.test(file)
 );

@@ -278,7 +278,7 @@ test("oversized upload fails early with a clear reason", async ({ page }) => {
   });
   await expect(page.getByTestId("error-message")).toHaveAttribute(
     "data-error-reason",
-    "image_too_large"
+    "resource_limit_exceeded"
   );
   await expect(page.getByTestId("error-message")).toContainText("25 MiB");
 });

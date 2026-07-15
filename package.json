@@ -1,18 +1,30 @@
 {
   "name": "scanly",
   "private": true,
-  "version": "1.3.0",
+  "version": "2.0.0-alpha.1",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "engines/*"
+  ],
   "license": "MIT",
   "engines": {
     "node": ">=20 <25",
     "npm": ">=10"
   },
+  "overrides": {
+    "postcss": "8.5.19"
+  },
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
+    "predev": "npm run build:packages",
+    "dev": "next dev apps/web-demo",
+    "build:web": "next build apps/web-demo",
+    "build": "npm run build:packages && npm run build:web",
+    "start": "next start apps/web-demo",
+    "lint": "eslint apps/web-demo --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
+    "build:packages": "npm run build --workspace=@scanly/scenario-schema && npm run build --workspace=@scanly/parsers && npm run build --workspace=@scanly/benchmark && npm run build --workspace=@scanly/core && npm run build --workspace=@scanly/browser && npm run build --workspace=@scanly/react && npm run build --workspace=@scanly/engine-jsqr && npm run build --workspace=@scanly/engine-zxing-js",
+    "packages:smoke": "node scripts/verify-package-imports.mjs",
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
     "test:coverage": "vitest run --coverage",
@@ -20,18 +32,22 @@
     "test:e2e:chromium": "playwright test --project=chromium",
     "test:e2e:firefox": "playwright test --project=firefox",
     "test:e2e:webkit": "playwright test --project=webkit",
+    "test:memory": "node --expose-gc --import tsx scripts/soak-memory.ts",
     "benchmark": "tsx scripts/run-benchmark.ts",
     "benchmark:smoke": "tsx scripts/run-benchmark.ts --smoke --gate",
+    "benchmark:compare": "tsx scripts/compare-engines.ts",
     "fixtures:generate": "tsx scripts/generate-fixtures.ts",
+    "scenarios:generate": "tsx scripts/export-scenarios.ts",
     "quality:gates": "tsx scripts/verify-quality-gates.ts",
-    "check": "npm run quality:gates && npm run lint && npm run typecheck && npm run test:coverage && npm run build",
+    "docs:check": "tsx scripts/check-doc-links.ts",
+    "check": "npm run quality:gates && npm run docs:check && npm run lint && npm run typecheck && npm run test:coverage && npm run build && npm run packages:smoke",
     "verify": "npm run check && npm run test:e2e && npm run benchmark:smoke"
   },
   "dependencies": {
     "@zxing/browser": "^0.1.5",
     "@zxing/library": "0.21.3",
     "jsqr": "^1.4.0",
-    "next": "14.2.35",
+    "next": "15.5.20",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "sharp": "^0.34.5"
@@ -45,7 +61,7 @@
     "@types/react-dom": "^18.3.0",
     "@vitest/coverage-v8": "^3.2.4",
     "eslint": "^8.57.0",
-    "eslint-config-next": "14.2.35",
+    "eslint-config-next": "15.5.20",
     "playwright": "^1.58.2",
     "qrcode": "^1.5.4",
     "tsx": "^4.21.0",

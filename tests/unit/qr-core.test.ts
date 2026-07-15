@@ -1,22 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { toGrayscale, createPixelBuffer } from "../../lib/qr/grayscale";
+import { toGrayscale, createPixelBuffer } from "@scanly/core/qr";
 import {
   contrastStretch,
   invertColors,
   fixedThreshold,
   computeOtsuThreshold,
   applyPreprocess,
-} from "../../lib/qr/preprocess";
+} from "@scanly/core/qr";
 import {
   clampRect,
   applyCropPadding,
   nonMaximumSuppression,
   iou,
-} from "../../lib/qr/region-detection";
-import { rotateBuffer } from "../../lib/qr/rotate";
-import { dedupeResults, looksLikeUrl, normalizePayload } from "../../lib/qr/result-normalizer";
-import { buildAttemptPlan, decodePixelBuffer, successOutcome } from "../../lib/qr/decode-pipeline";
-import type { DecodedCode, PixelBuffer, ScoredRegion } from "../../lib/qr/types";
+} from "@scanly/core/qr";
+import { rotateBuffer, dedupeResults, looksLikeUrl, normalizePayload, buildAttemptPlan, decodePixelBuffer, successOutcome } from "@scanly/core/qr";
+import type { DecodedCode, PixelBuffer, ScoredRegion } from "@scanly/core/qr";
 
 function solid(width: number, height: number, rgb: [number, number, number]): PixelBuffer {
   const data = new Uint8ClampedArray(width * height * 4);
@@ -242,6 +240,15 @@ describe("pipeline ordering / timeout / cancel", () => {
       expect(out.reason).toBe("timeout");
       expect(out.cancelled).toBe(false);
     }
+  });
+
+  it("returns typed failures for invalid byte length and malformed resource configuration", async () => {
+    const invalidImage = await decodePixelBuffer({ width: 2, height: 2, data: new Uint8ClampedArray(4) });
+    expect(invalidImage.ok).toBe(false);
+    if (!invalidImage.ok) expect(invalidImage.reason).toBe("invalid_image");
+    const invalidConfiguration = await decodePixelBuffer(createPixelBuffer(new Uint8ClampedArray(16), 2, 2), { config: { maxAttempts: 0 } });
+    expect(invalidConfiguration.ok).toBe(false);
+    if (!invalidConfiguration.ok) expect(invalidConfiguration.reason).toBe("invalid_configuration");
   });
 
   it("honors the maximum attempt budget", async () => {

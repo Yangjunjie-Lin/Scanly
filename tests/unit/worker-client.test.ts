@@ -1,8 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { DecodeWorkerClient, type DecodeWorkerLike } from "../../lib/qr/worker/worker-client";
-import { fromTransferable, toTransferable } from "../../lib/qr/worker/transferable-buffer";
-import type { WorkerRequest, WorkerResponse } from "../../lib/qr/worker/worker-messages";
-import { createPixelBuffer } from "../../lib/qr/grayscale";
+import { DecodeWorkerClient, fromTransferable, toTransferable, type DecodeWorkerLike, type WorkerRequest, type WorkerResponse } from "@scanly/browser";
+import { createPixelBuffer } from "@scanly/core/qr";
 
 class FakeWorker implements DecodeWorkerLike {
   onmessage: ((event: MessageEvent<WorkerResponse>) => void) | null = null;
@@ -205,5 +203,28 @@ describe("DecodeWorkerClient ownership and cancellation", () => {
     }
     expect(worker.terminated).toBe(true);
     client.dispose();
+  });
+
+  it("survives 100 termination-based cancellation and recreation cycles", async () => {
+    const workers: FakeWorker[] = [];
+    const client = new DecodeWorkerClient(() => {
+      const worker = new FakeWorker();
+      workers.push(worker);
+      return worker;
+    });
+    for (let index = 0; index < 100; index++) {
+      const pending = client.decode(pixels());
+      client.cancel();
+      const outcome = await pending;
+      expect(outcome.ok, `cycle ${index}`).toBe(false);
+    }
+    expect(workers).toHaveLength(100);
+    expect(workers.every((worker) => worker.terminated)).toBe(true);
+    const recovery = client.decode(pixels());
+    const worker = workers.at(-1);
+    const request = worker?.messages[0];
+    if (!worker || !request || request.type !== "decode") throw new Error("expected recovery request");
+    worker.emit(success(request.jobId, "RECOVERED"));
+    expect((await recovery).ok).toBe(true);
   });
 });

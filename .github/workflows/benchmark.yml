@@ -7,12 +7,14 @@ on:
       - main
       - master
     paths:
-      - "lib/qr/**"
-      - "lib/benchmark/**"
+      - "packages/core/**"
+      - "packages/benchmark/**"
+      - "engines/**"
       - "fixtures/**"
+      - "scenarios/**"
       - "scripts/run-benchmark.ts"
       - "scripts/generate-fixtures.ts"
-      - "components/QRTool.tsx"
+      - "apps/web-demo/**"
       - "package.json"
       - "package-lock.json"
 
@@ -38,11 +40,17 @@ jobs:
       - name: Generate fixtures
         run: npm run fixtures:generate
 
+      - name: Generate scenarios
+        run: npm run scenarios:generate
+
       - name: Run full benchmark with regression gate
         run: npx tsx scripts/run-benchmark.ts --gate
 
       - name: Verify canonical benchmark and repository contracts
         run: npm run quality:gates
+
+      - name: Run internal engine/scenario comparison
+        run: npm run benchmark:compare
 
       - name: Upload benchmark artifacts
         if: always()
@@ -54,3 +62,4 @@ jobs:
             benchmark-results/latest.json
             benchmark-results/latest.csv
             docs/benchmark.md
+            benchmark-results/comparison.json

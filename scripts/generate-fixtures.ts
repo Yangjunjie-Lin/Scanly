@@ -7,7 +7,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import QRCode from "qrcode";
 import sharp from "sharp";
-import type { BenchmarkFixture } from "../lib/qr/benchmark-types";
+import type { BenchmarkFixture } from "@scanly/benchmark";
 
 const ROOT = path.resolve(__dirname, "..");
 const FIXTURES_DIR = path.join(ROOT, "fixtures");
@@ -228,6 +228,7 @@ async function main() {
     category: BenchmarkFixture["category"];
     payload: string;
     build: () => Promise<Buffer>;
+    expectedOutcome?: "decode" | "fail";
   }> = [
     {
       id: "17-clear-url-02",
@@ -725,6 +726,22 @@ async function main() {
       payload: "WIFI:T:nopass;S:GuestScanly;P:;;",
       build: () => qrPng("WIFI:T:nopass;S:GuestScanly;P:;;", 320),
     },
+    {
+      id: "53-negative-blank",
+      file: "fixtures/53-negative-blank.png",
+      category: "negative",
+      payload: "",
+      expectedOutcome: "fail",
+      build: () => sharp({ create: { width: 480, height: 320, channels: 3, background: "#f7f7f7" } }).png().toBuffer(),
+    },
+    {
+      id: "54-negative-pattern",
+      file: "fixtures/54-negative-pattern.png",
+      category: "adversarial",
+      payload: "",
+      expectedOutcome: "fail",
+      build: () => sharp(Buffer.from(`<svg width="480" height="320" xmlns="http://www.w3.org/2000/svg"><rect width="480" height="320" fill="white"/><g fill="#111"><rect x="30" y="30" width="70" height="70"/><rect x="45" y="45" width="40" height="40" fill="white"/><rect x="380" y="30" width="70" height="70"/><rect x="395" y="45" width="40" height="40" fill="white"/><path d="M30 150h420v12H30zm0 35h420v8H30zm0 30h420v15H30zm0 45h420v7H30z"/></g></svg>`)).png().toBuffer(),
+    },
   ];
 
   for (const g of generated) {
@@ -735,7 +752,7 @@ async function main() {
       file: g.file,
       category: g.category,
       expectedPayload: g.payload,
-      expectedOutcome: "decode",
+      expectedOutcome: g.expectedOutcome ?? "decode",
       sourceType: "generated",
       license: "project-generated",
     };
