@@ -1,4 +1,4 @@
-# Scanly — private browser QR scanner
+# Scanly — private-first browser QR scanner
 
 Scanly is a feature-complete, privacy-first QR scanner for camera and uploaded images. Its layered, heuristic computer-vision pipeline runs locally in the browser; it is not an ML model and has no upload backend.
 
