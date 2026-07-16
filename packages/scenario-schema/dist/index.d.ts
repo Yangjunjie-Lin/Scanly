@@ -36,6 +36,7 @@ export interface ScenarioDefinition {
         order: DecoderId[];
         execution: "sequential" | "parallel";
         failurePolicy?: ParallelEngineFailurePolicy;
+        requiredEngineIds?: DecoderId[];
     };
     multiCode: {
         enabled: boolean;

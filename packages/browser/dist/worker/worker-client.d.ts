@@ -10,6 +10,8 @@ export interface DecodeWorkerLike {
 export type DecodeWorkerFactory = () => DecodeWorkerLike;
 export interface WorkerScanOptions {
     signal?: AbortSignal;
+    generation?: number;
+    preserveSourceForFallback?: boolean;
     onStage?: (stage: string) => void;
     onProgress?: (progress: {
         attemptCount: number;
@@ -19,6 +21,10 @@ type WorkerDebugState = {
     created: number;
     terminated: number;
     decodePosted: number;
+    workerDecodeCount: number;
+    mainThreadDecodeCount: number;
+    workerDegraded: boolean;
+    workerRestartCount: number;
     lastPath: "worker" | "main-thread" | null;
 };
 declare global {
@@ -27,6 +33,7 @@ declare global {
     }
 }
 export declare function markDecodePath(path: WorkerDebugState["lastPath"]): void;
+export declare function markWorkerRecovery(degraded: boolean, restarts: number): void;
 export declare function getDecodeWorkerClient(): DecodeWorkerClient;
 export declare function resetDecodeWorkerClientForTests(): void;
 export declare function disposeDecodeWorkerClient(): void;

@@ -20,7 +20,7 @@ interface StrategyRuntime {
   scenario?: ScenarioDefinition;
   router?: CaptureRouter;
   rawEngine?: DecoderEngine;
-  packageSizeBytes: number;
+  installedPackageFootprintBytes: number;
   initializationMs: number;
 }
 
@@ -89,8 +89,11 @@ async function execute(runtime: StrategyRuntime, pixels: PixelBuffer): Promise<{
 }
 
 async function main(): Promise<void> {
-  const allowDirty = process.argv.includes("--allow-dirty-development");
-  if (!allowDirty) assertCleanRepository(root);
+  const canonical = process.argv.includes("--canonical");
+  const ciArtifact = process.argv.includes("--ci-artifact");
+  if (canonical && ciArtifact) throw new Error("Choose exactly one comparison execution mode.");
+  const allowDirty = process.argv.includes("--allow-dirty-development") || (!canonical && !ciArtifact);
+  if (canonical || ciArtifact) assertCleanRepository(root);
   const jsqrSize = packageCost(["jsqr"]);
   const zxingSize = packageCost(["zxing-js"]);
   const definitions: Array<{ id: StrategyId; raw?: DecoderEngine; scenario?: ScenarioDefinition }> = [
@@ -123,7 +126,7 @@ async function main(): Promise<void> {
       scenario: definition.scenario,
       rawEngine: definition.raw,
       router: definition.scenario ? new CaptureRouter({ scenario: definition.scenario, engines: registry }) : undefined,
-      packageSizeBytes: ids.includes("jsqr") && ids.includes("zxing-js") ? jsqrSize + zxingSize : ids.includes("jsqr") ? jsqrSize : zxingSize,
+      installedPackageFootprintBytes: ids.includes("jsqr") && ids.includes("zxing-js") ? jsqrSize + zxingSize : ids.includes("jsqr") ? jsqrSize : zxingSize,
       initializationMs,
     });
   }
@@ -187,7 +190,7 @@ async function main(): Promise<void> {
         }
         return passersByFixture.get(result.fixtureId)?.length === 1;
       }).map((result) => result.fixtureId),
-      packageSizeBytes: runtime.packageSizeBytes,
+      installedPackageFootprintBytes: runtime.installedPackageFootprintBytes,
       initializationMs: runtime.initializationMs,
       averageControlledMemoryPeakBytes: peaks.reduce((sum, value) => sum + value, 0) / Math.max(1, peaks.length),
     };
@@ -203,11 +206,34 @@ async function main(): Promise<void> {
     allowDirty,
   });
   await identityRegistry.disposeAll();
+  const sequential = strategies.find((strategy) => strategy.strategyId === "scanly-multi-sequential")!;
+  const parallel = strategies.find((strategy) => strategy.strategyId === "scanly-multi-parallel")!;
+  const parallelAccepted = parallel.positiveRecall >= sequential.positiveRecall - 0.01
+    && parallel.exactPayloadAccuracy >= sequential.exactPayloadAccuracy - 0.01
+    && parallel.falsePositiveCount <= sequential.falsePositiveCount
+    && parallel.timeoutCount === 0
+    && parallel.initializationFailures === 0
+    && parallel.executionFailures === 0;
   const report: ComparisonReport = {
     schemaVersion: "2.0",
     generatedAt: new Date().toISOString(),
     sdkVersion: SDK_VERSION,
     sourceIdentity,
+    executionPolicy: {
+      mode: canonical ? "canonical" : ciArtifact ? "ci-artifact" : "development",
+      canonical,
+      warmupIterations: 0,
+      measuredIterations: 1,
+      dirtyDevelopmentAllowed: !canonical && !ciArtifact,
+      updatesDocumentation: false,
+    },
+    parallelExecution: {
+      status: parallelAccepted ? "supported" : "experimental",
+      builtInScenarioUsage: false,
+      recallTolerance: 0.01,
+      exactAccuracyTolerance: 0.01,
+      ...(parallelAccepted ? {} : { reason: "Parallel comparison did not meet sequential correctness parity; built-in scenarios remain sequential." }),
+    },
     fixtureCount: manifest.fixtures.length,
     positiveCases: manifest.fixtures.filter((fixture) => fixture.expectedOutcome === "decode").length,
     negativeCases: manifest.fixtures.filter((fixture) => fixture.expectedOutcome !== "decode").length,
@@ -215,7 +241,10 @@ async function main(): Promise<void> {
     strategies,
     perFixture,
   };
-  const output = path.join(root, "benchmark-results", "comparison.json");
+  const output = canonical
+    ? path.join(root, "benchmark-results", "comparison.json")
+    : path.join(root, "benchmark-results", ciArtifact ? "ci" : "development", "comparison.json");
+  await fs.promises.mkdir(path.dirname(output), { recursive: true });
   await fs.promises.writeFile(output, JSON.stringify(report, null, 2));
   console.log(JSON.stringify(strategies, null, 2));
   console.log(`Wrote ${output}`);

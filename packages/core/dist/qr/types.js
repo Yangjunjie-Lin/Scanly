@@ -50,6 +50,14 @@ export function validatePipelineConfig(config) {
         issues.push("decoders.order must contain at least one registered engine id.");
     if (config.decoders.execution !== "sequential" && config.decoders.execution !== "parallel")
         issues.push("decoders.execution must be sequential or parallel.");
+    if (config.multiCodeStallPolicy) {
+        if (!Number.isInteger(config.multiCodeStallPolicy.maximumAttemptsWithoutNewResult) || config.multiCodeStallPolicy.maximumAttemptsWithoutNewResult < 1)
+            issues.push("multiCodeStallPolicy.maximumAttemptsWithoutNewResult must be a positive integer.");
+        if (!Number.isFinite(config.multiCodeStallPolicy.minimumCandidateCoverageBeforeStop) || config.multiCodeStallPolicy.minimumCandidateCoverageBeforeStop < 0 || config.multiCodeStallPolicy.minimumCandidateCoverageBeforeStop > 1)
+            issues.push("multiCodeStallPolicy.minimumCandidateCoverageBeforeStop must be between 0 and 1.");
+        if (typeof config.multiCodeStallPolicy.requireAllPrimaryCandidatesVisited !== "boolean")
+            issues.push("multiCodeStallPolicy.requireAllPrimaryCandidatesVisited must be boolean.");
+    }
     return issues;
 }
 //# sourceMappingURL=types.js.map

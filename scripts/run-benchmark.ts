@@ -7,8 +7,9 @@ import path from "node:path";
 import { SDK_VERSION, createRgbaFrame, type CaptureRouter } from "@scanly/core";
 import { createNodeCaptureRouter, loadPixelBufferFromPath } from "@scanly/node";
 import { getBuiltinScenario, type BuiltinScenarioId } from "@scanly/scenario-schema";
-import type { BenchmarkFixture, BenchmarkFixtureResult, BenchmarkRunSummary } from "@scanly/benchmark";
+import type { BenchmarkExecutionMode, BenchmarkFixture, BenchmarkFixtureResult, BenchmarkRunSummary } from "@scanly/benchmark";
 import { toCsvRow } from "@scanly/benchmark";
+import { summarizeBenchmarkVariance, summarizeIterationCorrectness } from "@scanly/benchmark";
 import {
   evaluateFixture,
   requiredPayloads,
@@ -303,6 +304,7 @@ async function runFixture(router: CaptureRouter, fixture: BenchmarkFixture): Pro
       timeToFirstResultMs: outcome.ok ? outcome.timing.timeToFirstResultMs : undefined,
       heuristicMetrics: outcome.heuristics,
       controlledMemoryPeakBytes: outcome.timing.controlledMemory?.peakControlledBytes,
+      finalControlledMemoryBytes: outcome.timing.controlledMemory?.currentControlledBytes,
       phaseTiming: {
         frameNormalizationMs: outcome.timing.frameNormalizationMs,
         roiMs: outcome.timing.roiMs,
@@ -335,17 +337,25 @@ async function runFixture(router: CaptureRouter, fixture: BenchmarkFixture): Pro
   }
 }
 
-async function runMeasuredFixture(router: CaptureRouter, fixture: BenchmarkFixture, iterations: number, measuredTimes: number[]): Promise<BenchmarkFixtureResult> {
+async function runMeasuredFixture(router: CaptureRouter, fixture: BenchmarkFixture, iterations: number): Promise<BenchmarkFixtureResult> {
   const runs: BenchmarkFixtureResult[] = [];
   for (let iteration = 0; iteration < iterations; iteration++) {
     const result = await runFixture(router, fixture);
     runs.push(result);
-    measuredTimes.push(result.elapsedMs);
   }
   const ordered = [...runs].sort((left, right) => left.elapsedMs - right.elapsedMs);
   const representative = ordered[Math.floor(ordered.length / 2)];
   const failed = runs.find((result) => !result.pass);
-  return { ...(failed ?? representative), elapsedMs: median(runs.map((result) => result.elapsedMs)), attemptCount: Math.round(median(runs.map((result) => result.attemptCount))), pass: runs.every((result) => result.pass) };
+  const correctness = summarizeIterationCorrectness(runs);
+  return {
+    ...(failed ?? representative),
+    elapsedMs: median(runs.map((result) => result.elapsedMs)),
+    attemptCount: Math.round(median(runs.map((result) => result.attemptCount))),
+    ...correctness,
+    runTimingsMs: correctness.runTimingsMs.slice(0, iterations),
+    controlledMemoryPeakBytes: Math.max(0, ...runs.map((result) => result.controlledMemoryPeakBytes ?? 0)),
+    finalControlledMemoryBytes: Math.max(0, ...runs.map((result) => result.finalControlledMemoryBytes ?? 0)),
+  };
 }
 
 async function main() {
@@ -353,9 +363,11 @@ async function main() {
   const failOnRegression = process.argv.includes("--gate");
   const freezeBaseline = process.argv.includes("--freeze-baseline");
   const canonical = process.argv.includes("--canonical") || freezeBaseline;
-  const allowDirtyDevelopment = process.argv.includes("--allow-dirty-development");
+  const ciArtifact = process.argv.includes("--ci-artifact");
+  const allowDirtyDevelopment = process.argv.includes("--allow-dirty-development") || (!canonical && !ciArtifact);
+  if (canonical && ciArtifact) throw new Error("Choose exactly one benchmark execution mode.");
   if (canonical && allowDirtyDevelopment) throw new Error("Canonical and baseline-freeze runs cannot use --allow-dirty-development.");
-  if (!allowDirtyDevelopment) assertCleanRepository(ROOT);
+  if (canonical || ciArtifact) assertCleanRepository(ROOT);
   const baselineId = process.argv.find((argument) => argument.startsWith("--baseline-id="))?.split("=")[1];
   if (freezeBaseline && (!process.argv.includes("--approve-baseline") || !baselineId || !/^v2-alpha3-r\d+$/.test(baselineId))) {
     throw new Error("Baseline freeze requires --approve-baseline and --baseline-id=v2-alpha3-rN.");
@@ -367,6 +379,9 @@ async function main() {
   const warmupIterations = Number(process.argv.find((argument) => argument.startsWith("--warmup-iterations="))?.split("=")[1] ?? (smoke ? 0 : 1));
   if (!Number.isInteger(measuredIterations) || measuredIterations < 1 || measuredIterations > 10) throw new Error("--measured-iterations must be an integer from 1 to 10.");
   if (!Number.isInteger(warmupIterations) || warmupIterations < 0 || warmupIterations > 5) throw new Error("--warmup-iterations must be an integer from 0 to 5.");
+  if (canonical && warmupIterations < 1) throw new Error("Canonical benchmark requires at least one warmup iteration.");
+  if (canonical && measuredIterations < 3) throw new Error("Canonical benchmark requires at least three measured iterations.");
+  const executionMode: BenchmarkExecutionMode = freezeBaseline ? "baseline-freeze" : canonical ? "canonical" : ciArtifact ? "ci-artifact" : "development";
   const selectedScenario = getBuiltinScenario(profile);
   const router = createNodeCaptureRouter({ scenario: selectedScenario });
 
@@ -404,10 +419,9 @@ async function main() {
   console.log(`Running benchmark on ${fixtures.length} fixtures${smoke ? " (smoke)" : ""}; measured iterations=${measuredIterations}…`);
 
   const results: BenchmarkFixtureResult[] = [];
-  const allMeasuredTimes: number[] = [];
   for (const fixture of fixtures) {
     process.stdout.write(`  ${fixture.id}… `);
-    const result = await runMeasuredFixture(router, fixture, measuredIterations, allMeasuredTimes);
+    const result = await runMeasuredFixture(router, fixture, measuredIterations);
     results.push(result);
     console.log(result.pass ? `PASS ${(result.elapsedMs / 1000).toFixed(2)}s` : `FAIL ${(result.elapsedMs / 1000).toFixed(2)}s`);
   }
@@ -522,6 +536,14 @@ async function main() {
     schemaVersion: "2.0",
     runtime: { kind: "node", nodeVersion: process.version, platform: process.platform, arch: process.arch },
     sourceIdentity,
+    executionPolicy: {
+      mode: executionMode,
+      canonical,
+      warmupIterations,
+      measuredIterations,
+      dirtyDevelopmentAllowed: executionMode === "development",
+      updatesDocumentation: canonical && !freezeBaseline && !smoke && profile === "balanced",
+    },
     environment: {
       gitCommit: sourceIdentity.commitSha,
       sdkVersion: SDK_VERSION,
@@ -542,7 +564,7 @@ async function main() {
     medianMs: median(times),
     p95Ms: percentile(sortedTimes, 95),
     p99Ms: times.length >= 100 ? percentile(sortedTimes, 99) : null,
-    runToRunStdDevMs: standardDeviation(allMeasuredTimes),
+    variance: summarizeBenchmarkVariance(results),
     positiveCases: positive.length,
     decodeRecall: positive.length ? positivePasses / positive.length : 0,
     exactPayloadAccuracy: positive.length ? positivePasses / positive.length : 0,
@@ -572,6 +594,7 @@ async function main() {
     perFormatRecall: { qr_code: { total: positive.length, decoded: positivePasses, recall: positive.length ? positivePasses / positive.length : 0 } },
     memoryObservations: ["Controlled peak covers Scanly-accounted frame artifacts, caches, and scratch leases; it does not claim exact decoder or process heap usage."],
     controlledMemoryPeakBytes: Math.max(0, ...results.map((result) => result.controlledMemoryPeakBytes ?? 0)),
+    finalControlledMemoryBytes: Math.max(0, ...results.map((result) => result.finalControlledMemoryBytes ?? 0)),
     phaseTiming: Object.fromEntries(Object.entries(phaseValues).map(([phase, values]) => [phase, distribution(values)])),
     perCategory,
     multipleCompleteness: {
@@ -585,14 +608,15 @@ async function main() {
     results,
   };
 
-  await fs.promises.mkdir(OUT_DIR, { recursive: true });
+  const outputDirectory = canonical ? OUT_DIR : path.join(OUT_DIR, executionMode === "ci-artifact" ? "ci" : "development");
+  await fs.promises.mkdir(outputDirectory, { recursive: true });
   const outputStem = smoke ? `smoke-${profile}` : profile === "balanced" ? "latest" : `latest-${profile}`;
-  const jsonPath = path.join(OUT_DIR, `${outputStem}.json`);
-  const csvPath = path.join(OUT_DIR, `${outputStem}.csv`);
+  const jsonPath = path.join(outputDirectory, `${outputStem}.json`);
+  const csvPath = path.join(outputDirectory, `${outputStem}.csv`);
   await fs.promises.writeFile(jsonPath, JSON.stringify(summary, null, 2));
   await fs.promises.writeFile(csvPath, toCsv(results));
 
-  if (!smoke && profile === "balanced") {
+  if (canonical && !freezeBaseline && !smoke && profile === "balanced") {
     const md = renderMarkdown(summary, false);
     await fs.promises.writeFile(path.join(ROOT, "docs", "benchmark.md"), md);
     await updateReadmeSummary(summary, manifest);
@@ -612,6 +636,10 @@ async function main() {
   if (freezeBaseline) {
     const freezeFailures = [
       ...(sourceIdentity.repositoryDirty ? ["source repository is dirty"] : []),
+      ...(!summary.executionPolicy.canonical ? ["execution policy is not canonical"] : []),
+      ...(summary.executionPolicy.warmupIterations < 1 ? ["canonical warmup is below one"] : []),
+      ...(summary.executionPolicy.measuredIterations < 3 ? ["canonical measured iterations are below three"] : []),
+      ...(summary.finalControlledMemoryBytes !== 0 ? ["controlled memory was retained after benchmark scans"] : []),
       ...(summary.timeoutCount ? ["benchmark contains timeouts"] : []),
       ...(summary.engineInitializationFailures ? ["benchmark contains engine initialization failures"] : []),
       ...(summary.engineExecutionFailures ? ["benchmark contains engine execution failures"] : []),
@@ -636,12 +664,6 @@ async function main() {
     console.error(`Benchmark gate failed:\n- ${gateFailures.join("\n- ")}`);
     process.exitCode = 1;
   }
-}
-
-function standardDeviation(values: number[]): number {
-  if (values.length < 2) return 0;
-  const average = values.reduce((sum, value) => sum + value, 0) / values.length;
-  return Math.sqrt(values.reduce((sum, value) => sum + (value - average) ** 2, 0) / values.length);
 }
 
 main().catch((e) => {

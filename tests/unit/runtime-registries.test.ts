@@ -144,6 +144,7 @@ describe("scenario-compiled Router", () => {
     value.decoders.order = ["required", "fallback"];
     value.decoders.execution = "parallel";
     value.decoders.failurePolicy = failurePolicy;
+    if (failurePolicy === "required-engine-fails") value.decoders.requiredEngineIds = ["required"];
     value.output.includeDebugTrace = true;
     const outcome = await new CaptureRouter({ scenario: value, engines }).scan(createRgbaFrame(new Uint8ClampedArray(64 * 64 * 4).fill(255), 64, 64));
     expect(outcome.ok).toBe(expectedOk);

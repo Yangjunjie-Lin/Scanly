@@ -5,10 +5,19 @@ let singleton = null;
 function debugState() {
     if (typeof window === "undefined" || !navigator.webdriver)
         return null;
-    return (window.__SCANLY_WORKER_DEBUG__ ??= { created: 0, terminated: 0, decodePosted: 0, lastPath: null });
+    return (window.__SCANLY_WORKER_DEBUG__ ??= { created: 0, terminated: 0, decodePosted: 0, workerDecodeCount: 0, mainThreadDecodeCount: 0, workerDegraded: false, workerRestartCount: 0, lastPath: null });
 }
-export function markDecodePath(path) { const state = debugState(); if (state)
-    state.lastPath = path; }
+export function markDecodePath(path) { const state = debugState(); if (state) {
+    state.lastPath = path;
+    if (path === "worker")
+        state.workerDecodeCount += 1;
+    if (path === "main-thread")
+        state.mainThreadDecodeCount += 1;
+} }
+export function markWorkerRecovery(degraded, restarts) { const state = debugState(); if (state) {
+    state.workerDegraded = degraded;
+    state.workerRestartCount = restarts;
+} }
 function defaultWorkerFactory() {
     const state = debugState();
     if (state)
@@ -44,7 +53,7 @@ export class DecodeWorkerClient {
     }
     handleMessage(message) {
         const job = this.pending;
-        if (!job || message.jobId !== job.jobId || message.jobId !== this.currentJobId)
+        if (!job || message.jobId !== job.jobId || message.jobId !== this.currentJobId || message.generation !== job.generation)
             return;
         if (job.transferMs === undefined)
             job.transferMs = Math.max(0, Date.now() - job.postedAt);
@@ -99,6 +108,7 @@ export class DecodeWorkerClient {
             return cancelled(identity);
         this.cancel();
         const jobId = `job-${++this.seq}-${startedAt}`;
+        const generation = options.generation ?? 0;
         let worker;
         let setupMs;
         try {
@@ -107,16 +117,16 @@ export class DecodeWorkerClient {
         catch (error) {
             return workerFailure(identity, error instanceof Error ? error.message : String(error), "worker_initialization_failure");
         }
-        const { serialized, transfer } = toTransferableFrame(frame);
+        const { serialized, transfer } = toTransferableFrame(frame, options.preserveSourceForFallback);
         return new Promise((resolve) => {
-            const job = { jobId, ...identity, postedAt: Date.now(), setupMs, resolve, onStage: options.onStage, onProgress: options.onProgress };
+            const job = { jobId, generation, ...identity, postedAt: Date.now(), setupMs, resolve, onStage: options.onStage, onProgress: options.onProgress };
             this.currentJobId = jobId;
             this.pending = job;
             try {
                 const state = debugState();
                 if (state)
                     state.decodePosted += 1;
-                worker.postMessage({ type: "scan", jobId, frame: serialized, scenario, progress: Boolean(options.onProgress) }, transfer);
+                worker.postMessage({ type: "scan", jobId, generation, frame: serialized, scenario, progress: Boolean(options.onProgress) }, transfer);
             }
             catch (error) {
                 this.finish(job, workerFailure(job, error instanceof Error ? error.message : String(error)));
@@ -132,7 +142,7 @@ export class DecodeWorkerClient {
         this.pending = null;
         this.currentJobId = null;
         try {
-            this.worker?.postMessage({ type: "cancel", jobId });
+            this.worker?.postMessage({ type: "cancel", jobId, generation: job.generation });
         }
         catch { /* termination is authoritative */ }
         this.restartWorker();

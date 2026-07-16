@@ -11,7 +11,7 @@ on:
 
 jobs:
   verify:
-    name: Lint, typecheck, test, build, e2e, smoke benchmark
+    name: CI
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -84,8 +84,11 @@ jobs:
 
       - name: Verify smoke benchmark artifacts
         run: |
-          test -f benchmark-results/smoke-balanced.json
-          test -f benchmark-results/smoke-balanced.csv
+          test -f benchmark-results/development/smoke-balanced.json
+          test -f benchmark-results/development/smoke-balanced.csv
+
+      - name: Bundle cost report
+        run: npm run bundle:analyze
 
       - name: Dependency audit
         run: npm audit --audit-level=high
@@ -97,5 +100,6 @@ jobs:
           name: benchmark-smoke
           if-no-files-found: error
           path: |
-            benchmark-results/smoke-balanced.json
-            benchmark-results/smoke-balanced.csv
+            benchmark-results/development/smoke-balanced.json
+            benchmark-results/development/smoke-balanced.csv
+            benchmark-results/ci/bundle-cost.json

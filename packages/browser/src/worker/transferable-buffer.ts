@@ -12,9 +12,9 @@ export interface SerializedNormalizedFrame {
   buffer: ArrayBuffer;
 }
 
-export function toTransferableFrame(frame: NormalizedFrame): { serialized: SerializedNormalizedFrame; transfer: Transferable[] } {
+export function toTransferableFrame(frame: NormalizedFrame, preserveSource = false): { serialized: SerializedNormalizedFrame; transfer: Transferable[] } {
   const backing = frame.data.buffer;
-  const transferable = backing instanceof ArrayBuffer && frame.data.byteOffset === 0 && frame.data.byteLength === backing.byteLength
+  const transferable = !preserveSource && backing instanceof ArrayBuffer && frame.data.byteOffset === 0 && frame.data.byteLength === backing.byteLength
     ? backing
     : frame.data.slice().buffer;
   return {

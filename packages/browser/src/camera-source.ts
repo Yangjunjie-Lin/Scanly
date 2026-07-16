@@ -9,7 +9,7 @@ import {
 } from "@scanly/core";
 import { getBuiltinScenario, type ScenarioDefinition } from "@scanly/scenario-schema";
 import { createBrowserCaptureRouter } from "./runtime.js";
-import { DecodeWorkerClient, markDecodePath, type DecodeWorkerFactory } from "./worker/worker-client.js";
+import { DecodeWorkerClient, markDecodePath, markWorkerRecovery, type DecodeWorkerFactory } from "./worker/worker-client.js";
 import { CameraEscalationController, type CameraEscalationOptions } from "./camera-strategy.js";
 
 export interface CameraCapabilities { torch: boolean; minZoom?: number; maxZoom?: number; currentZoom?: number; focusModes?: string[]; width?: number; height?: number }
@@ -28,6 +28,8 @@ export interface CameraStartOptions {
   sampleMaxSide?: number;
   forceMainThread?: boolean;
   escalation?: CameraEscalationOptions;
+  maximumConsecutiveWorkerRestarts?: number;
+  workerRestartBaseDelayFrames?: number;
   onResult(outcome: ScanOutcome): void;
   onError?(outcome: ScanFailure): void;
   onStateChange?(state: "starting" | "running" | "stopped"): void;
@@ -69,6 +71,9 @@ export class BrowserCameraSource {
   private stopped = true;
   private workerAvailable = true;
   private workerRetryFrames = 0;
+  private consecutiveWorkerRestarts = 0;
+  private sampledVideoWidth = 0;
+  private sampledVideoHeight = 0;
   private strategy = new CameraEscalationController();
 
   constructor(options: BrowserCameraSourceOptions = {}) {
@@ -194,6 +199,17 @@ export class BrowserCameraSource {
     const video = this.video;
     const canvas = this.canvas;
     if (!video || !canvas || video.videoWidth < 1 || video.videoHeight < 1) { this.schedule(generation); return; }
+    if (this.sampledVideoWidth > 0 && (Math.abs(video.videoWidth - this.sampledVideoWidth) / this.sampledVideoWidth > 0.1 || Math.abs(video.videoHeight - this.sampledVideoHeight) / this.sampledVideoHeight > 0.1)) {
+      this.sampledVideoWidth = video.videoWidth;
+      this.sampledVideoHeight = video.videoHeight;
+      this.strategy.reset();
+      this.worker.cancel();
+      const nextGeneration = ++this.generation;
+      this.schedule(nextGeneration, 0);
+      return;
+    }
+    this.sampledVideoWidth = video.videoWidth;
+    this.sampledVideoHeight = video.videoHeight;
     const context = canvas.getContext("2d", { willReadFrequently: true });
     if (!context) { this.handleSourceError(new Error("Canvas 2D frame adapter is unavailable.")); return; }
     this.activeFrame = true;
@@ -218,11 +234,26 @@ export class BrowserCameraSource {
       const scenario = this.strategy.nextScenario(this.options?.scenario ?? getBuiltinScenario("fast"), { width: frame.width, height: frame.height });
       let outcome: ScanOutcome;
       if (!this.workerAvailable && this.workerRetryFrames > 0) this.workerRetryFrames -= 1;
-      if (!this.workerAvailable && this.workerRetryFrames === 0 && !this.options?.forceMainThread && typeof Worker !== "undefined") this.workerAvailable = true;
+      const maximumRestarts = Math.max(0, Math.min(10, this.options?.maximumConsecutiveWorkerRestarts ?? 3));
+      if (!this.workerAvailable && this.workerRetryFrames === 0 && this.consecutiveWorkerRestarts < maximumRestarts && !this.options?.forceMainThread && typeof Worker !== "undefined") this.workerAvailable = true;
       if (this.workerAvailable) {
         markDecodePath("worker");
-        outcome = await this.worker.scan(frame, scenario);
-        if (!outcome.ok && ["worker_initialization_failure", "engine_execution_failure"].includes(outcome.error.code) && outcome.error.message.startsWith("Image decoder Worker failed:")) { this.workerAvailable = false; this.workerRetryFrames = 2; }
+        outcome = await this.worker.scan(frame, scenario, { generation, preserveSourceForFallback: true });
+        if (!outcome.ok && ["worker_initialization_failure", "engine_execution_failure"].includes(outcome.error.code) && outcome.error.message.startsWith("Image decoder Worker failed:")) {
+          this.workerAvailable = false;
+          this.consecutiveWorkerRestarts += 1;
+          const base = Math.max(1, Math.min(30, this.options?.workerRestartBaseDelayFrames ?? 2));
+          this.workerRetryFrames = this.consecutiveWorkerRestarts >= maximumRestarts ? Number.POSITIVE_INFINITY : Math.min(120, base * (2 ** (this.consecutiveWorkerRestarts - 1)));
+          markWorkerRecovery(true, this.consecutiveWorkerRestarts);
+          if (!this.stopped && generation === this.generation) {
+            markDecodePath("main-thread");
+            this.session.updateConfiguration(scenario);
+            outcome = await this.session.scan(frame);
+          }
+        } else if (outcome.ok) {
+          this.consecutiveWorkerRestarts = 0;
+          markWorkerRecovery(false, 0);
+        }
       } else {
         markDecodePath("main-thread");
         this.session.updateConfiguration(scenario);
@@ -264,7 +295,15 @@ export class BrowserCameraSource {
       document.addEventListener("visibilitychange", this.visibilityHandler);
     }
     if (typeof window !== "undefined") {
-      this.orientationHandler = () => this.options?.onOrientationChange?.();
+      this.orientationHandler = () => {
+        this.strategy.reset();
+        this.worker.cancel();
+        this.stableKey = null;
+        this.stableCount = 0;
+        const nextGeneration = ++this.generation;
+        this.options?.onOrientationChange?.();
+        this.schedule(nextGeneration, 0);
+      };
       window.addEventListener("orientationchange", this.orientationHandler);
     }
   }
@@ -295,6 +334,11 @@ export class BrowserCameraSource {
     this.stableCount = 0;
     this.activeFrame = false;
     this.strategy.reset();
+    this.consecutiveWorkerRestarts = 0;
+    this.workerRetryFrames = 0;
+    this.sampledVideoWidth = 0;
+    this.sampledVideoHeight = 0;
+    markWorkerRecovery(false, 0);
     if (this.canvas) { this.canvas.width = 0; this.canvas.height = 0; }
     this.canvas = null;
     this.video = null;

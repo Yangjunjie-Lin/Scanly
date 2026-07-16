@@ -7,6 +7,8 @@ function objectWithJobId(value) {
 export function isWorkerRequest(value) {
     if (!objectWithJobId(value) || (value.type !== "scan" && value.type !== "cancel"))
         return false;
+    if (!Number.isSafeInteger(value.generation) || value.generation < 0)
+        return false;
     if (value.type === "cancel")
         return true;
     if (typeof value.progress !== "boolean" || !value.frame || typeof value.frame !== "object" || !value.frame.buffer || !(value.frame.buffer instanceof ArrayBuffer))
@@ -18,6 +20,8 @@ export function isWorkerRequest(value) {
 }
 export function isWorkerResponse(value) {
     if (!objectWithJobId(value) || typeof value.type !== "string")
+        return false;
+    if (!Number.isSafeInteger(value.generation) || value.generation < 0)
         return false;
     if (value.type === "stage")
         return typeof value.stage === "string" && value.stage.length <= 256;

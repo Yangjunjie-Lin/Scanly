@@ -4,7 +4,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { afterEach, describe, expect, it } from "vitest";
 import { assertCleanRepository, collectSourceIdentity, computeDatasetHash } from "../../scripts/benchmark-provenance.js";
-import { loadBaselineRegistry, resolveActiveBaseline } from "../../scripts/baseline-registry.js";
+import { loadBaselineRegistry, resolveActiveBaseline, validateBaselineForActivation } from "../../scripts/baseline-registry.js";
 
 const roots: string[] = [];
 afterEach(() => { for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
@@ -53,5 +53,22 @@ describe("baseline registry", () => {
     repo.write("baselines/registry.json", JSON.stringify({ schemaVersion: "1.0", activeBaselines: { "node24-win32-x64": { fast: "base.json", balanced: "base.json", robust: "base.json" } } }));
     expect((await loadBaselineRegistry(path.join(repo.root, "baselines/registry.json"))).schemaVersion).toBe("1.0");
     expect(await resolveActiveBaseline(path.join(repo.root, "baselines/registry.json"), "balanced", "node24-win32-x64")).toBe(path.join(repo.root, "baselines/base.json"));
+  });
+
+  it("accepts only clean canonical Alpha.3-compatible baseline evidence", () => {
+    const expected = { sdkVersion: "2.0.0-alpha.3", fixtureCount: 74, datasetHash: "dataset", profile: "balanced" as const, runtimeFamily: "node24-win32-x64" };
+    const baseline = {
+      runtime: { kind: "node" as const, nodeVersion: "v24.1.0", platform: "win32", arch: "x64" },
+      sourceIdentity: { repositoryDirty: false, datasetHash: "dataset" },
+      environment: { sdkVersion: "2.0.0-alpha.3", fixtureCount: 74, datasetManifestHash: "dataset", scenario: "balanced" },
+      total: 74,
+      executionPolicy: { canonical: true, warmupIterations: 1, measuredIterations: 3 },
+      multipleCompleteness: { complete: 5, total: 5 }, timeoutCount: 0, falsePositiveCount: 0,
+      engineInitializationFailures: 0, engineExecutionFailures: 0, finalControlledMemoryBytes: 0,
+    } as unknown as Parameters<typeof validateBaselineForActivation>[0];
+    expect(validateBaselineForActivation(baseline, expected)).toEqual([]);
+    expect(validateBaselineForActivation({ ...baseline, sourceIdentity: { ...baseline.sourceIdentity!, repositoryDirty: true } }, expected).join(" ")).toContain("dirty");
+    expect(validateBaselineForActivation({ ...baseline, environment: { ...baseline.environment!, sdkVersion: "2.0.0-alpha.2", fixtureCount: 63 } }, expected).join(" ")).toMatch(/SDK version|fixture count/);
+    expect(validateBaselineForActivation({ ...baseline, executionPolicy: { ...baseline.executionPolicy!, canonical: false, warmupIterations: 0, measuredIterations: 1 } }, expected).join(" ")).toMatch(/not canonical|warmup|measured/);
   });
 });

@@ -6,6 +6,7 @@ export interface ExecutionBudgetOptions {
     now?: () => number;
     remainingAttempts?: () => number;
     memory?: FrameMemoryBudget;
+    totalAttempts?: number;
 }
 export declare class ExecutionBudget {
     readonly signal?: AbortSignal;
@@ -13,9 +14,11 @@ export declare class ExecutionBudget {
     readonly memory?: FrameMemoryBudget;
     private readonly clock;
     private readonly attempts;
+    private remaining;
     constructor(options: ExecutionBudgetOptions);
     now(): number;
     remainingAttempts(): number;
+    tryConsumeAttempt(): boolean;
     remainingIntermediateBytes(): number;
     throwIfExceeded(stage: string): void;
 }

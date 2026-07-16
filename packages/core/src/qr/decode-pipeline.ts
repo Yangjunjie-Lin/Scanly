@@ -85,6 +85,9 @@ type AttemptContext = {
   onProgress?: DecodePipelineOptions["onProgress"];
   phaseTiming: PhaseTiming;
   candidatesSinceNew: number;
+  attemptsAtLastNewResult: number;
+  visitedPrimaryCandidates: Set<number>;
+  primaryCandidateCount: number;
   failFast: boolean;
   intermediateCache: AttemptImageCache;
   engineExecutor: PipelineEngineExecutor;
@@ -185,6 +188,13 @@ function shouldStopMultiple(ctx: AttemptContext): boolean {
   }
   if (!config.findMultiple) return false;
   if (payloads.length >= config.maxMultipleResults) return true;
+  if (config.multiCodeStallPolicy) {
+    const policy = config.multiCodeStallPolicy;
+    const attemptsWithoutNew = ctx.attempts.length - ctx.attemptsAtLastNewResult;
+    const coverage = ctx.primaryCandidateCount ? ctx.visitedPrimaryCandidates.size / ctx.primaryCandidateCount : 1;
+    const primaryComplete = !policy.requireAllPrimaryCandidatesVisited || ctx.visitedPrimaryCandidates.size >= ctx.primaryCandidateCount;
+    if (attemptsWithoutNew >= policy.maximumAttemptsWithoutNewResult && coverage >= policy.minimumCandidateCoverageBeforeStop && primaryComplete) return true;
+  }
   const stall = config.stallCandidateLimit ?? 8;
   const scaledStall = stall + Math.max(0, payloads.length - 1) * 3;
   if (ctx.candidatesSinceNew >= scaledStall) return true;
@@ -200,6 +210,7 @@ function pushResult(ctx: AttemptContext, code: DecodedCode): DecodeSuccess | nul
 
   if (unique.length > prevSize) {
     ctx.candidatesSinceNew = 0;
+    ctx.attemptsAtLastNewResult = ctx.attempts.length;
   }
 
   if (!ctx.config.findMultiple) {
@@ -227,6 +238,8 @@ async function tryEngine(
   if (timedOut(ctx.start, ctx.config.timeoutMs, ctx.now)) return null;
   if (ctx.attempts.length >= ctx.config.maxAttempts) return null;
   if (!decoderEnabled(ctx.config, engineId)) return null;
+  if (!ctx.budget.tryConsumeAttempt()) return null;
+  if (candidate.candidateIndex >= 0 && candidate.candidateIndex < 100) ctx.visitedPrimaryCandidates.add(candidate.candidateIndex);
 
   const t0 = ctx.now();
   const processed = processedFor(ctx, candidate, preprocessing, rotation);
@@ -370,6 +383,9 @@ export async function decodePixelBuffer(
     onProgress: options.onProgress,
     phaseTiming,
     candidatesSinceNew: 0,
+    attemptsAtLastNewResult: 0,
+    visitedPrimaryCandidates: new Set<number>(),
+    primaryCandidateCount: 0,
     failFast: false,
     intermediateCache: new AttemptImageCache(
       config.maxIntermediateAllocations ?? 24,
@@ -425,6 +441,7 @@ export async function decodePixelBuffer(
       budget: ctx.budget,
     });
     const candidates = dedupeCandidates(rawCandidates);
+    ctx.primaryCandidateCount = new Set(candidates.filter((candidate) => candidate.candidateIndex >= 0 && candidate.candidateIndex < 100).map((candidate) => candidate.candidateIndex)).size;
     phaseTiming.candidateGenerationMs = now() - cgStart;
 
     const ordered = orderCandidates(candidates, config.findMultiple);

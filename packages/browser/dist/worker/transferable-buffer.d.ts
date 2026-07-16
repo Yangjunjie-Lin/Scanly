@@ -10,7 +10,7 @@ export interface SerializedNormalizedFrame {
     sourceType: NormalizedFrame["sourceType"];
     buffer: ArrayBuffer;
 }
-export declare function toTransferableFrame(frame: NormalizedFrame): {
+export declare function toTransferableFrame(frame: NormalizedFrame, preserveSource?: boolean): {
     serialized: SerializedNormalizedFrame;
     transfer: Transferable[];
 };

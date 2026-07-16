@@ -68,6 +68,11 @@ export interface BenchmarkFixtureResult {
         finalResult: "success" | "not-found" | "failure";
     };
     controlledMemoryPeakBytes?: number;
+    finalControlledMemoryBytes?: number;
+    iterationPassCount?: number;
+    iterationFailureCount?: number;
+    unstablePayload?: boolean;
+    runTimingsMs?: number[];
     phaseTiming?: {
         frameNormalizationMs?: number;
         roiMs?: number;
@@ -96,6 +101,23 @@ export interface BenchmarkSourceIdentity {
     engineCompositionHash: string;
     benchmarkRunnerHash: string;
 }
+export type BenchmarkExecutionMode = "development" | "canonical" | "baseline-freeze" | "ci-artifact";
+export interface BenchmarkExecutionPolicy {
+    mode: BenchmarkExecutionMode;
+    canonical: boolean;
+    warmupIterations: number;
+    measuredIterations: number;
+    dirtyDevelopmentAllowed: boolean;
+    updatesDocumentation: boolean;
+}
+export interface BenchmarkVariance {
+    perFixtureRunStdDevMs: BenchmarkDistribution;
+    fixtureLatencySpreadMs: {
+        standardDeviation: number;
+        medianAbsoluteDeviation: number;
+    };
+    suiteDurationMs: number;
+}
 export interface BenchmarkRunSummary {
     schemaVersion: "2.0";
     runtime: {
@@ -105,6 +127,7 @@ export interface BenchmarkRunSummary {
         arch: string;
     };
     sourceIdentity: BenchmarkSourceIdentity;
+    executionPolicy: BenchmarkExecutionPolicy;
     environment: {
         gitCommit: string;
         sdkVersion: string;
@@ -125,7 +148,7 @@ export interface BenchmarkRunSummary {
     medianMs: number;
     p95Ms: number;
     p99Ms: number | null;
-    runToRunStdDevMs?: number;
+    variance: BenchmarkVariance;
     positiveCases: number;
     decodeRecall: number;
     exactPayloadAccuracy: number;
@@ -157,6 +180,7 @@ export interface BenchmarkRunSummary {
     }>;
     memoryObservations: string[];
     controlledMemoryPeakBytes: number;
+    finalControlledMemoryBytes: number;
     phaseTiming: Record<string, BenchmarkDistribution>;
     perCategory: Record<string, {
         total: number;
@@ -207,7 +231,7 @@ export interface StrategySummary {
     initializationFailures: number;
     executionFailures: number;
     uniqueWins: string[];
-    packageSizeBytes: number;
+    installedPackageFootprintBytes: number;
     initializationMs: number;
     averageControlledMemoryPeakBytes: number;
 }
@@ -237,6 +261,14 @@ export interface ComparisonReport {
     generatedAt: string;
     sdkVersion: string;
     sourceIdentity: BenchmarkSourceIdentity;
+    executionPolicy: BenchmarkExecutionPolicy;
+    parallelExecution: {
+        status: "supported" | "experimental";
+        builtInScenarioUsage: boolean;
+        recallTolerance: number;
+        exactAccuracyTolerance: number;
+        reason?: string;
+    };
     fixtureCount: number;
     positiveCases: number;
     negativeCases: number;
@@ -252,6 +284,23 @@ export interface BrowserBenchmarkMetadata {
     workerAvailable: boolean;
     offscreenCanvasAvailable: boolean;
     imageBitmapAvailable: boolean;
+    videoFrameAvailable: boolean;
+    userAgent: string;
+    testProjectName: string;
+    actualDecodePath: "worker" | "main-thread" | "mixed" | "unknown";
+    workerCreatedCount: number;
+    workerTerminationCount: number;
+    workerDecodeCount: number;
+    mainThreadDecodeCount: number;
+}
+export interface BrowserBenchmarkSourceIdentity {
+    commitSha: string;
+    treeSha: string;
+    sdkVersion: string;
+    datasetHash: string;
+    scenarioHash: string;
+    engineVersions: Record<string, string>;
+    fixtureIds: string[];
 }
 export interface DeviceBenchmarkMetadata {
     deviceModel: string;
@@ -262,8 +311,10 @@ export interface DeviceBenchmarkMetadata {
     powerMode?: string;
 }
 export interface BrowserBenchmarkReport {
-    schemaVersion: "1.0";
+    schemaVersion: "2.0";
+    benchmarkKind: "smoke" | "full";
     generatedAt: string;
+    sourceIdentity: BrowserBenchmarkSourceIdentity;
     metadata: BrowserBenchmarkMetadata;
     fixtureCount: number;
     positiveRecall: number;

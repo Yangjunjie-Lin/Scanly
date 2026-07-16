@@ -11,6 +11,7 @@ export interface InternalTrack {
     missedFrames: number;
 }
 export interface CameraEscalationOptions {
+    escalationScenario?: ScenarioDefinition;
     fastMissThreshold?: number;
     maximumEscalationAttempts?: number;
     roiExpansion?: number;

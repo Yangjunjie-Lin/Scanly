@@ -8,6 +8,6 @@
 - Public `cornerPoints` are upright-frame pixel coordinates.
 - Public symbol `orientation` is engine-derived relative to that upright frame.
 - `sourceToUpright` and its inverse are retained internally; raw-source corners are not a second Alpha.3 public coordinate space.
-- Canvas camera readback is display-oriented (`orientation: 0`). Screen angle is debug device metadata, avoiding a second rotation.
+- Canvas camera readback is already visually upright and therefore uses `frame.orientation: 0`, the pixel-buffer orientation. `frame.device.displayOrientation` separately records screen/device orientation metadata and never requests a second pixel rotation.
 
 Unit and real-router tests cover 0/90/180/270, non-square dimension swaps, inverse mapping, real rotated QR buffers, and Worker metadata transfer.

@@ -5,82 +5,101 @@ on:
   push:
     branches:
       - main
-      - master
-      - architecture/sdk-v2-foundation
       - architecture/sdk-v2-alpha3-industrial-validation
     paths:
-      - "packages/core/**"
-      - "packages/node/**"
-      - "packages/benchmark/**"
-      - "packages/scenario-schema/**"
-      - "packages/parsers/**"
-      - "packages/browser/**"
+      - "packages/**"
       - "engines/**"
       - "fixtures/**"
       - "scenarios/**"
-      - "scripts/run-benchmark.ts"
-      - "scripts/compare-engines.ts"
-      - "scripts/generate-fixtures.ts"
-      - "scripts/export-scenarios.ts"
-      - "apps/web-demo/**"
+      - "scripts/**"
       - "package.json"
       - "package-lock.json"
 
+permissions:
+  contents: read
+
 jobs:
-  full-benchmark:
-    name: Full fixture benchmark
+  prepare:
+    name: Prepare
     runs-on: windows-latest
-    timeout-minutes: 60
-
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Generate fixtures
-        run: npm run fixtures:generate
-
-      - name: Generate scenarios
-        run: npm run scenarios:generate
-
-      - name: Run fast profile benchmark with regression gate
-        run: npx tsx scripts/run-benchmark.ts --profile=fast --gate --allow-dirty-development
-
-      - name: Run balanced profile benchmark with regression gate
-        run: npx tsx scripts/run-benchmark.ts --profile=balanced --gate --allow-dirty-development
-
-      - name: Run robust profile benchmark with regression gate
-        run: npx tsx scripts/run-benchmark.ts --profile=robust --gate --allow-dirty-development
-
-      - name: Verify generated artifact drift
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: npm run fixtures:generate
+      - run: npm run scenarios:generate
+      - name: Verify deterministic fixture and scenario generation
         run: git diff --exit-code -- fixtures scenarios
+      - name: Verify clean checkout
+        run: git status --porcelain --untracked-files=all | Tee-Object -Variable status; if ($status) { throw "prepare checkout is dirty" }
 
-      - name: Run internal engine/scenario comparison
-        run: npm run benchmark:compare -- --allow-dirty-development
-
-      - name: Verify synchronized benchmark and repository contracts
-        run: npm run quality:gates
-
-      - name: Upload benchmark artifacts
-        if: success()
-        uses: actions/upload-artifact@v4
+  profile:
+    needs: prepare
+    name: ${{ matrix.label }}
+    runs-on: windows-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - profile: fast
+            label: Fast
+            report: latest-fast
+          - profile: balanced
+            label: Balanced
+            report: latest
+          - profile: robust
+            label: Robust
+            report: latest-robust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: npx tsx scripts/run-benchmark.ts --ci-artifact --profile=${{ matrix.profile }} --gate --warmup-iterations=1 --measured-iterations=3
+      - uses: actions/upload-artifact@v4
         with:
-          name: benchmark-full
+          name: benchmark-${{ matrix.profile }}
           if-no-files-found: error
           path: |
-            benchmark-results/latest.json
-            benchmark-results/latest.csv
-            benchmark-results/latest-fast.json
-            benchmark-results/latest-fast.csv
-            benchmark-results/latest-robust.json
-            benchmark-results/latest-robust.csv
-            docs/benchmark.md
-            benchmark-results/comparison.json
+            benchmark-results/ci/${{ matrix.report }}.json
+            benchmark-results/ci/${{ matrix.report }}.csv
+
+  comparison:
+    needs: prepare
+    name: Comparison
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: npm run benchmark:compare -- --ci-artifact
+      - uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-comparison
+          if-no-files-found: error
+          path: benchmark-results/ci/comparison.json
+
+  assemble:
+    needs: [profile, comparison]
+    name: Assemble
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: benchmark-*
+          merge-multiple: true
+          path: benchmark-artifacts
+      - run: npx tsx scripts/assemble-benchmark-artifacts.ts --directory=benchmark-artifacts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-assembled
+          if-no-files-found: error
+          path: benchmark-artifacts

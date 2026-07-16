@@ -146,7 +146,7 @@ export class CaptureRouter {
       const deadlineMs = started + validatedScenario.budgets.maxExecutionMs;
       timeoutId = setTimeout(() => { timedOut = true; operationController.abort(); }, validatedScenario.budgets.maxExecutionMs);
       record("frame.accepted", `${frame.pixelFormat} ${frame.width}x${frame.height}`);
-      const budget = new ExecutionBudget({ signal: operationController.signal, deadlineMs, now: this.now, memory: memoryBudget });
+      const budget = new ExecutionBudget({ signal: operationController.signal, deadlineMs, now: this.now, memory: memoryBudget, totalAttempts: validatedScenario.budgets.maxAttempts });
       const context: OperatorContext = { signal: operationController.signal, artifacts, budget, phaseTimings, trace: record };
       await graph.execute(context);
       const outcome = artifacts.get<ScanOutcome>("scan.final");
@@ -173,8 +173,14 @@ export class CaptureRouter {
     } finally {
       if (timeoutId !== undefined) clearTimeout(timeoutId);
       if (onAbort) options.signal?.removeEventListener("abort", onAbort);
-      artifacts?.dispose();
-      if (memoryBudget) Object.assign(memoryObservation, memoryBudget.observation);
+      if (memoryBudget) {
+        const peakControlledBytes = memoryBudget.observation.peakControlledBytes;
+        artifacts?.dispose();
+        memoryBudget.releaseAll();
+        Object.assign(memoryObservation, memoryBudget.observation, { peakControlledBytes });
+      } else {
+        artifacts?.dispose();
+      }
       if (active) this.activeFrames -= 1;
       lease.release();
       this.activeOperations.delete(operationController);

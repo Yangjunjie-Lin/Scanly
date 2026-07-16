@@ -21,11 +21,11 @@ Dependabot opens small monthly npm and GitHub Actions groups. Merge security pat
 - Public issues must not include QR images containing credentials or personal data.
 - New multiple fixtures must declare every required payload and expected result count.
 
-Regenerate deterministic inputs with `npm run fixtures:generate`. Regenerate canonical JSON, CSV, Markdown, and the README benchmark block with `npm run benchmark`.
+Regenerate deterministic inputs with `npm run fixtures:generate`. Ordinary `npm run benchmark` writes ignored development evidence. Regenerate canonical JSON, CSV, Markdown, and the README benchmark block only with `npm run benchmark:canonical` from a clean committed revision.
 
 ## Which benchmark to run
 
-Run `npm run benchmark:smoke` for UI-only, documentation, safe dependency patch, and Worker-client changes that do not alter decoding logic. Run the full `npm run benchmark` for any change to the loader, pixel representation, region/candidate logic, preprocessing, decoder adapters/order, result normalization, fixture manifest/generator, or benchmark contract.
+Run `npm run benchmark:smoke` for UI-only, documentation, safe dependency patch, and Worker-client changes that do not alter decoding logic. Run all development profiles for any change to the loader, pixel representation, region/candidate logic, preprocessing, decoder adapters/order, result normalization, fixture manifest/generator, or benchmark contract; reserve canonical mode for intentional release-evidence regeneration.
 
 ## Release checklist
 
@@ -52,8 +52,13 @@ Accepted future work:
 
 - security vulnerabilities;
 - unsupported dependencies or Next.js/Vercel compatibility;
+
 - browser API changes;
 - reproducible, tested QR decoding improvements;
 - real user-reported bugs.
 
 Out of scope: accounts, cloud uploads, history, databases, analytics, ads, social features, unrelated utilities, AI/ML branding, and feature work intended only to create contribution activity.
+
+## Required merge checks
+
+Branch protection should require the stable check names `CI`, `Full Benchmark / Fast`, `Full Benchmark / Balanced`, `Full Benchmark / Robust`, `Full Benchmark / Comparison`, `Full Benchmark / Assemble`, `Browser Benchmark / Chromium`, `Browser Benchmark / Firefox`, `Browser Benchmark / WebKit`, `Public API`, and `Vercel`. A skipped, missing, or stale check is not a pass. Full Benchmark uses independent clean checkouts and assembles only source-compatible machine-readable reports; browser pull requests use the smoke suite while manual/scheduled runs may select the full suite.

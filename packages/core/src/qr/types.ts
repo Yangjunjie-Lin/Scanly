@@ -174,6 +174,7 @@ export interface PipelineConfig {
   expectedResultCount?: number;
   /** Stop after this many consecutive candidates without a new payload (multiple mode). */
   stallCandidateLimit?: number;
+  multiCodeStallPolicy?: MultiCodeStallPolicy;
   /** After this many failed attempts with no decode, skip heavy phases. */
   failFastAfterAttempts?: number;
   enableLocalization?: boolean;
@@ -200,6 +201,12 @@ export interface DecodePipelineOptions {
   executionBudget?: ExecutionBudget;
   /** Shared logical retained-buffer accounting for this frame. */
   memoryBudget?: FrameMemoryBudget;
+}
+
+export interface MultiCodeStallPolicy {
+  maximumAttemptsWithoutNewResult: number;
+  minimumCandidateCoverageBeforeStop: number;
+  requireAllPrimaryCandidatesVisited: boolean;
 }
 
 export interface PipelineEngineExecutor {
@@ -254,5 +261,10 @@ export function validatePipelineConfig(config: PipelineConfig): string[] {
   if (config.preprocessOrder.length === 0) issues.push("preprocessOrder must not be empty.");
   if (!Array.isArray(config.decoders.order) || config.decoders.order.length === 0) issues.push("decoders.order must contain at least one registered engine id.");
   if (config.decoders.execution !== "sequential" && config.decoders.execution !== "parallel") issues.push("decoders.execution must be sequential or parallel.");
+  if (config.multiCodeStallPolicy) {
+    if (!Number.isInteger(config.multiCodeStallPolicy.maximumAttemptsWithoutNewResult) || config.multiCodeStallPolicy.maximumAttemptsWithoutNewResult < 1) issues.push("multiCodeStallPolicy.maximumAttemptsWithoutNewResult must be a positive integer.");
+    if (!Number.isFinite(config.multiCodeStallPolicy.minimumCandidateCoverageBeforeStop) || config.multiCodeStallPolicy.minimumCandidateCoverageBeforeStop < 0 || config.multiCodeStallPolicy.minimumCandidateCoverageBeforeStop > 1) issues.push("multiCodeStallPolicy.minimumCandidateCoverageBeforeStop must be between 0 and 1.");
+    if (typeof config.multiCodeStallPolicy.requireAllPrimaryCandidatesVisited !== "boolean") issues.push("multiCodeStallPolicy.requireAllPrimaryCandidatesVisited must be boolean.");
+  }
   return issues;
 }

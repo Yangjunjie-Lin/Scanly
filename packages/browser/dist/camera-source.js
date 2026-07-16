@@ -1,7 +1,7 @@
 import { CaptureSession, DuplicateSuppressionPolicy, createRgbaFrame, sdkError, } from "@scanly/core";
 import { getBuiltinScenario } from "@scanly/scenario-schema";
 import { createBrowserCaptureRouter } from "./runtime.js";
-import { DecodeWorkerClient, markDecodePath } from "./worker/worker-client.js";
+import { DecodeWorkerClient, markDecodePath, markWorkerRecovery } from "./worker/worker-client.js";
 import { CameraEscalationController } from "./camera-strategy.js";
 function cameraFailure(frameId, scenarioId, error) {
     const message = (error instanceof Error ? error.message : String(error)).slice(0, 2_048);
@@ -34,6 +34,9 @@ export class BrowserCameraSource {
     stopped = true;
     workerAvailable = true;
     workerRetryFrames = 0;
+    consecutiveWorkerRestarts = 0;
+    sampledVideoWidth = 0;
+    sampledVideoHeight = 0;
     strategy = new CameraEscalationController();
     constructor(options = {}) {
         const router = options.router ?? createBrowserCaptureRouter();
@@ -170,6 +173,17 @@ export class BrowserCameraSource {
             this.schedule(generation);
             return;
         }
+        if (this.sampledVideoWidth > 0 && (Math.abs(video.videoWidth - this.sampledVideoWidth) / this.sampledVideoWidth > 0.1 || Math.abs(video.videoHeight - this.sampledVideoHeight) / this.sampledVideoHeight > 0.1)) {
+            this.sampledVideoWidth = video.videoWidth;
+            this.sampledVideoHeight = video.videoHeight;
+            this.strategy.reset();
+            this.worker.cancel();
+            const nextGeneration = ++this.generation;
+            this.schedule(nextGeneration, 0);
+            return;
+        }
+        this.sampledVideoWidth = video.videoWidth;
+        this.sampledVideoHeight = video.videoHeight;
         const context = canvas.getContext("2d", { willReadFrequently: true });
         if (!context) {
             this.handleSourceError(new Error("Canvas 2D frame adapter is unavailable."));
@@ -198,14 +212,27 @@ export class BrowserCameraSource {
             let outcome;
             if (!this.workerAvailable && this.workerRetryFrames > 0)
                 this.workerRetryFrames -= 1;
-            if (!this.workerAvailable && this.workerRetryFrames === 0 && !this.options?.forceMainThread && typeof Worker !== "undefined")
+            const maximumRestarts = Math.max(0, Math.min(10, this.options?.maximumConsecutiveWorkerRestarts ?? 3));
+            if (!this.workerAvailable && this.workerRetryFrames === 0 && this.consecutiveWorkerRestarts < maximumRestarts && !this.options?.forceMainThread && typeof Worker !== "undefined")
                 this.workerAvailable = true;
             if (this.workerAvailable) {
                 markDecodePath("worker");
-                outcome = await this.worker.scan(frame, scenario);
+                outcome = await this.worker.scan(frame, scenario, { generation, preserveSourceForFallback: true });
                 if (!outcome.ok && ["worker_initialization_failure", "engine_execution_failure"].includes(outcome.error.code) && outcome.error.message.startsWith("Image decoder Worker failed:")) {
                     this.workerAvailable = false;
-                    this.workerRetryFrames = 2;
+                    this.consecutiveWorkerRestarts += 1;
+                    const base = Math.max(1, Math.min(30, this.options?.workerRestartBaseDelayFrames ?? 2));
+                    this.workerRetryFrames = this.consecutiveWorkerRestarts >= maximumRestarts ? Number.POSITIVE_INFINITY : Math.min(120, base * (2 ** (this.consecutiveWorkerRestarts - 1)));
+                    markWorkerRecovery(true, this.consecutiveWorkerRestarts);
+                    if (!this.stopped && generation === this.generation) {
+                        markDecodePath("main-thread");
+                        this.session.updateConfiguration(scenario);
+                        outcome = await this.session.scan(frame);
+                    }
+                }
+                else if (outcome.ok) {
+                    this.consecutiveWorkerRestarts = 0;
+                    markWorkerRecovery(false, 0);
                 }
             }
             else {
@@ -260,7 +287,15 @@ export class BrowserCameraSource {
             document.addEventListener("visibilitychange", this.visibilityHandler);
         }
         if (typeof window !== "undefined") {
-            this.orientationHandler = () => this.options?.onOrientationChange?.();
+            this.orientationHandler = () => {
+                this.strategy.reset();
+                this.worker.cancel();
+                this.stableKey = null;
+                this.stableCount = 0;
+                const nextGeneration = ++this.generation;
+                this.options?.onOrientationChange?.();
+                this.schedule(nextGeneration, 0);
+            };
             window.addEventListener("orientationchange", this.orientationHandler);
         }
     }
@@ -299,6 +334,11 @@ export class BrowserCameraSource {
         this.stableCount = 0;
         this.activeFrame = false;
         this.strategy.reset();
+        this.consecutiveWorkerRestarts = 0;
+        this.workerRetryFrames = 0;
+        this.sampledVideoWidth = 0;
+        this.sampledVideoHeight = 0;
+        markWorkerRecovery(false, 0);
         if (this.canvas) {
             this.canvas.width = 0;
             this.canvas.height = 0;

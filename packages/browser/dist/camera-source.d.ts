@@ -26,6 +26,8 @@ export interface CameraStartOptions {
     sampleMaxSide?: number;
     forceMainThread?: boolean;
     escalation?: CameraEscalationOptions;
+    maximumConsecutiveWorkerRestarts?: number;
+    workerRestartBaseDelayFrames?: number;
     onResult(outcome: ScanOutcome): void;
     onError?(outcome: ScanFailure): void;
     onStateChange?(state: "starting" | "running" | "stopped"): void;
@@ -57,6 +59,9 @@ export declare class BrowserCameraSource {
     private stopped;
     private workerAvailable;
     private workerRetryFrames;
+    private consecutiveWorkerRestarts;
+    private sampledVideoWidth;
+    private sampledVideoHeight;
     private strategy;
     constructor(options?: BrowserCameraSourceOptions);
     static listDevices(): Promise<MediaDeviceInfo[]>;

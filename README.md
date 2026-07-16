@@ -1,10 +1,10 @@
-# Scanly SDK v2 foundation — preview
+# Scanly SDK v2 Alpha.3 — preview
 
 Scanly is a local-first barcode capture SDK foundation with a working browser QR reference application. The v2 alpha has one authoritative capture model: normalized upload, Worker, main-thread, Node, and sampled camera frames converge on a scenario-compiled Router backed by real operator and engine registries. It is not an ML model and has no image-upload backend.
 
 ![Next.js 15](https://img.shields.io/badge/Next.js-15-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
-![SDK](https://img.shields.io/badge/SDK-2.0.0--alpha.1-orange)
+![SDK](https://img.shields.io/badge/SDK-2.0.0--alpha.3-orange)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Live demo:** [https://qr-decoder-theta.vercel.app](https://qr-decoder-theta.vercel.app)
@@ -47,6 +47,10 @@ This is Scanly's internal regression suite—not universal accuracy, a third-par
 <!-- BENCHMARK_SUMMARY_END -->
 
 See [the full benchmark](docs/benchmark.md) and [fixture methodology](docs/testing.md).
+
+Benchmark output is deliberately separated: ordinary local runs write ignored development reports, clean CI jobs write transient CI artifacts, and only `benchmark:canonical` may update committed canonical reports and balanced documentation. Canonical evidence requires at least one warmup, three measured iterations per fixture, and a clean Git repository.
+
+Profile intent is explicit: `fast` is the latency-first camera pass and accepts lower recall; `balanced` is the upload and general-purpose default; `robust` is the highest-cost bounded batch/offline completeness profile. The reference app uses fast for initial camera frames, derived balanced-strength escalation after misses, balanced for uploads, and robust only when explicitly selected.
 
 ## Features
 
@@ -99,9 +103,10 @@ npm run check
 npm run test:e2e
 npm run benchmark:smoke
 npm run benchmark:compare
+npm run bundle:analyze
 ```
 
-Run `npm run benchmark` after decoding-pipeline or fixture-contract changes.
+Run `npm run benchmark` for ignored development evidence after decoding-pipeline or fixture-contract changes. A clean, intentional release-evidence update uses `npm run benchmark:canonical -- --profile=<fast|balanced|robust>`.
 
 ## Browser support
 
@@ -112,6 +117,8 @@ Run `npm run benchmark` after decoding-pipeline or fixture-contract changes.
 | Safari / iOS Safari | Upload and camera supported with HTTPS and platform permission constraints |
 
 Automated desktop coverage is not a claim that every browser/device combination has been tested. Camera E2E remains Chromium-only because CI media-device simulation is not stable across all engines.
+
+The seven-fixture PR job is **Browser Benchmark Smoke**. **Browser Full Benchmark** covers all suitable fixtures only on manual or scheduled runs; neither substitutes for a certified physical-device lab.
 
 ## Privacy and security
 

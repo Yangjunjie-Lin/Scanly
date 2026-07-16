@@ -76,22 +76,27 @@ function rgbaFromFrame(frame: NormalizedFrame, memory: FrameMemoryBudget): { buf
     } };
   }
   const lease = memory.reserveScratch(frame.width * frame.height * 4, "frame-rgba-normalization");
-  const output = new Uint8ClampedArray(frame.width * frame.height * 4);
-  for (let y = 0; y < frame.height; y++) {
-    const row = y * frame.rowStride;
-    for (let x = 0; x < frame.width; x++) {
-      const source = row + x * bpp;
-      const target = (y * frame.width + x) * 4;
-      if (frame.pixelFormat === "gray8") output[target] = output[target + 1] = output[target + 2] = frame.data[source];
-      else {
-        output[target] = frame.data[source];
-        output[target + 1] = frame.data[source + 1];
-        output[target + 2] = frame.data[source + 2];
+  try {
+    const output = new Uint8ClampedArray(frame.width * frame.height * 4);
+    for (let y = 0; y < frame.height; y++) {
+      const row = y * frame.rowStride;
+      for (let x = 0; x < frame.width; x++) {
+        const source = row + x * bpp;
+        const target = (y * frame.width + x) * 4;
+        if (frame.pixelFormat === "gray8") output[target] = output[target + 1] = output[target + 2] = frame.data[source];
+        else {
+          output[target] = frame.data[source];
+          output[target + 1] = frame.data[source + 1];
+          output[target + 2] = frame.data[source + 2];
+        }
+        output[target + 3] = frame.pixelFormat === "rgba8888" ? frame.data[source + 3] : 255;
       }
-      output[target + 3] = frame.pixelFormat === "rgba8888" ? frame.data[source + 3] : 255;
     }
+    return { buffer: { data: output, width: frame.width, height: frame.height }, lease };
+  } catch (error) {
+    lease.release();
+    throw error;
   }
-  return { buffer: { data: output, width: frame.width, height: frame.height }, lease };
 }
 
 function roi(buffer: PixelBuffer, scenario: ScenarioDefinition, memory: FrameMemoryBudget): { buffer: PixelBuffer; transform: CoordinateTransform; lease?: MemoryLease } {
@@ -121,12 +126,18 @@ class FrameNormalizationOperator implements Operator<void, void, RuntimeOperator
     const converted = rgbaFromFrame(frame, context.artifacts.memoryBudget);
     let orientationLease: MemoryLease | undefined;
     if (frame.orientation !== 0) orientationLease = context.artifacts.memoryBudget.reserveScratch(converted.buffer.data.byteLength, "frame-orientation-normalization");
-    const normalized = normalizeRgbaOrientation(converted.buffer, frame.orientation, context.budget);
-    if (orientationLease) converted.lease?.release();
-    const retainedLease = orientationLease ?? converted.lease;
-    context.artifacts.set("frame.rgba", normalized.buffer, retainedLease ? normalized.buffer.data.byteLength : 0, retainedLease);
-    context.artifacts.set("frame.orientation", normalized);
-    context.trace("operator.frame-normalization", `source=${frame.width}x${frame.height}@${frame.orientation};upright=${normalized.buffer.width}x${normalized.buffer.height}`);
+    try {
+      const normalized = normalizeRgbaOrientation(converted.buffer, frame.orientation, context.budget);
+      if (orientationLease) converted.lease?.release();
+      const retainedLease = orientationLease ?? converted.lease;
+      context.artifacts.set("frame.rgba", normalized.buffer, retainedLease ? normalized.buffer.data.byteLength : 0, retainedLease);
+      context.artifacts.set("frame.orientation", normalized);
+      context.trace("operator.frame-normalization", `source=${frame.width}x${frame.height}@${frame.orientation};upright=${normalized.buffer.width}x${normalized.buffer.height}`);
+    } catch (error) {
+      orientationLease?.release();
+      converted.lease?.release();
+      throw error;
+    }
   }
 }
 
@@ -216,7 +227,7 @@ function engineExecutor(registry: EngineRegistry, scenario: ScenarioDefinition):
   };
 }
 
-function mergeParallel(outcomes: DecodeOutcome[], started: number, deduplication: PipelineConfig["resultDeduplication"], failurePolicy: NonNullable<PipelineConfig["decoders"]["failurePolicy"]>): DecodeOutcome {
+function mergeParallel(outcomes: DecodeOutcome[], engineOrder: string[], started: number, deduplication: PipelineConfig["resultDeduplication"], failurePolicy: NonNullable<PipelineConfig["decoders"]["failurePolicy"]>, requiredEngineIds: string[]): DecodeOutcome {
   const attempts = outcomes.flatMap((outcome) => outcome.attempts);
   const engineDiagnostics = outcomes.flatMap((outcome) => outcome.engineDiagnostics ?? []).slice(0, 16);
   const successes = outcomes.filter((outcome): outcome is DecodeSuccess => outcome.ok);
@@ -229,7 +240,12 @@ function mergeParallel(outcomes: DecodeOutcome[], started: number, deduplication
     phaseTiming.rotationMs += phase.rotationMs;
     for (const [id, elapsed] of Object.entries(phase.engineMs ?? {})) phaseTiming.engineMs![id] = (phaseTiming.engineMs![id] ?? 0) + elapsed;
   }
-  const policyFailure = failurePolicy === "any-engine-fails" ? materialFailures[0] : failurePolicy === "required-engine-fails" && !outcomes[0]?.ok ? materialFailures.find((failure) => failure === outcomes[0]) : undefined;
+  const requiredIndexes = new Set(requiredEngineIds.map((id) => engineOrder.indexOf(id)).filter((index) => index >= 0));
+  const policyFailure = failurePolicy === "any-engine-fails"
+    ? materialFailures[0]
+    : failurePolicy === "required-engine-fails"
+      ? outcomes.find((outcome, index): outcome is DecodeFailure => requiredIndexes.has(index) && !outcome.ok && !["no_qr_found", "cancelled"].includes(outcome.reason))
+      : undefined;
   if (successes.length && !policyFailure) {
     const results = dedupeResults(successes.flatMap((outcome) => outcome.results), deduplication);
     const nonEmpty = results as DecodeSuccess["results"];
@@ -260,7 +276,8 @@ class DecoderExecutionOperator implements Operator<void, void, RuntimeOperatorCo
     const started = monotonicNow();
     let outcome: DecodeOutcome;
     if (configuration.scenario.decoders.execution === "parallel" && base.decoders.order.length > 1) {
-      const branchBudget = Math.max(1, Math.floor(base.maxAttempts / base.decoders.order.length));
+      const secondaryPool = Math.max(base.decoders.order.length - 1, 1);
+      const secondaryInitialAttempts = Math.max(1, Math.floor(base.maxAttempts * 0.3 / secondaryPool));
       const controllers = base.decoders.order.map(() => new AbortController());
       const abortAll = () => controllers.forEach((controller) => controller.abort());
       context.signal?.addEventListener("abort", abortAll, { once: true });
@@ -272,7 +289,7 @@ class DecoderExecutionOperator implements Operator<void, void, RuntimeOperatorCo
           engineExecutor: executor,
           executionBudget: context.budget,
           memoryBudget: context.artifacts.memoryBudget,
-          config: { ...base, maxAttempts: branchBudget, decoders: { order: [id], execution: "sequential" } },
+          config: { ...base, maxAttempts: index === 0 ? base.maxAttempts : secondaryInitialAttempts, decoders: { order: [id], execution: "sequential" } },
         }).then((result) => {
           // Preserve declared priority: a single-code success can only make
           // lower-priority branches redundant. Multi-code branches all finish.
@@ -294,7 +311,7 @@ class DecoderExecutionOperator implements Operator<void, void, RuntimeOperatorCo
           }
           return result;
         }));
-        outcome = mergeParallel(await Promise.all(branches), started, base.resultDeduplication, base.decoders.failurePolicy ?? "success-wins");
+        outcome = mergeParallel(await Promise.all(branches), base.decoders.order, started, base.resultDeduplication, base.decoders.failurePolicy ?? "success-wins", configuration.scenario.decoders.requiredEngineIds ?? []);
       } finally {
         context.signal?.removeEventListener("abort", abortAll);
       }

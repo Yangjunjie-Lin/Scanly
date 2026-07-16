@@ -87,7 +87,7 @@ describe("Router camera source", () => {
       terminate = vi.fn();
       postMessage(message: WorkerRequest): void {
         this.posted.push(message);
-        if (message.type === "scan") queueMicrotask(() => this.onmessage?.({ data: { type: "result", jobId: message.jobId, outcome: success(message.frame.id) } } as MessageEvent<WorkerResponse>));
+        if (message.type === "scan") queueMicrotask(() => this.onmessage?.({ data: { type: "result", jobId: message.jobId, generation: message.generation, outcome: success(message.frame.id) } } as MessageEvent<WorkerResponse>));
       }
     }
     const worker = new AutoWorker();

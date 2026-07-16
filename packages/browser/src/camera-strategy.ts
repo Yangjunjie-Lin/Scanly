@@ -14,6 +14,7 @@ export interface InternalTrack {
 }
 
 export interface CameraEscalationOptions {
+  escalationScenario?: ScenarioDefinition;
   fastMissThreshold?: number;
   maximumEscalationAttempts?: number;
   roiExpansion?: number;
@@ -29,7 +30,38 @@ export class CameraEscalationController {
 
   nextScenario(base?: ScenarioDefinition, frame?: { width: number; height: number }, now = Date.now()): ScenarioDefinition {
     if (this.track && now - this.track.lastSeenMs > (this.options.resetTimeoutMs ?? 2_500)) this.track = null;
-    const scenario = this.escalationRemaining > 0 ? getBuiltinScenario("balanced") : JSON.parse(JSON.stringify(base ?? getBuiltinScenario("fast"))) as ScenarioDefinition;
+    const baseScenario = JSON.parse(JSON.stringify(base ?? getBuiltinScenario("fast"))) as ScenarioDefinition;
+    let scenario = baseScenario;
+    if (this.escalationRemaining > 0) {
+      if (this.options.escalationScenario) {
+        scenario = JSON.parse(JSON.stringify(this.options.escalationScenario)) as ScenarioDefinition;
+      } else {
+        const balanced = getBuiltinScenario("balanced");
+        scenario = {
+          ...baseScenario,
+          id: `${baseScenario.id}.camera-escalated`,
+          revision: baseScenario.revision + 1,
+          localization: {
+            ...baseScenario.localization,
+            maxCandidates: Math.max(baseScenario.localization.maxCandidates, balanced.localization.maxCandidates),
+            cropPaddings: [...new Set([...baseScenario.localization.cropPaddings, ...balanced.localization.cropPaddings])],
+            scales: [...new Set([...baseScenario.localization.scales, ...balanced.localization.scales])],
+          },
+          enhancement: {
+            operators: [...new Set([...baseScenario.enhancement.operators, ...balanced.enhancement.operators])],
+            rotations: [...new Set([...baseScenario.enhancement.rotations, ...balanced.enhancement.rotations])],
+          },
+          budgets: {
+            ...baseScenario.budgets,
+            maxCandidates: Math.max(baseScenario.budgets.maxCandidates, balanced.budgets.maxCandidates),
+            maxAttempts: Math.max(baseScenario.budgets.maxAttempts, balanced.budgets.maxAttempts),
+            maxIntermediateAllocations: Math.max(baseScenario.budgets.maxIntermediateAllocations, balanced.budgets.maxIntermediateAllocations),
+            maxIntermediateBytes: Math.max(baseScenario.budgets.maxIntermediateBytes, balanced.budgets.maxIntermediateBytes),
+            maxExecutionMs: Math.max(baseScenario.budgets.maxExecutionMs, balanced.budgets.maxExecutionMs),
+          },
+        };
+      }
+    }
     if (this.track?.corners.length && frame) {
       const xs = this.track.corners.map((point) => point.x);
       const ys = this.track.corners.map((point) => point.y);

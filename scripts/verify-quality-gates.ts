@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { BenchmarkRunSummary, ComparisonReport } from "@scanly/benchmark";
 import { validateScenario } from "@scanly/scenario-schema";
+import { validateBaselineForActivation } from "./baseline-registry.js";
 
 const ROOT = path.resolve(__dirname, "..");
 const read = (file: string) => fs.readFileSync(path.join(ROOT, file), "utf8");
@@ -62,6 +63,22 @@ for (const fixture of manifest.fixtures.filter((item) => item.category === "mult
 }
 
 const canonical = JSON.parse(read("benchmark-results/latest.json")) as BenchmarkRunSummary;
+const canonicalProfiles = (["fast", "balanced", "robust"] as const).map((profile) => ({
+  profile,
+  report: JSON.parse(read(profile === "balanced" ? "benchmark-results/latest.json" : `benchmark-results/latest-${profile}.json`)) as BenchmarkRunSummary,
+}));
+for (const { profile, report } of canonicalProfiles) {
+  if (report.sourceIdentity?.repositoryDirty) fail(`Canonical ${profile} benchmark was generated from a dirty repository.`);
+  if (!report.executionPolicy?.canonical || report.executionPolicy.mode !== "canonical") fail(`Canonical ${profile} artifact was produced from development mode.`);
+  if ((report.executionPolicy?.warmupIterations ?? 0) < 1) fail(`Canonical ${profile} benchmark warmup is below one iteration.`);
+  if ((report.executionPolicy?.measuredIterations ?? 0) < 3) fail(`Canonical ${profile} benchmark measured iterations are below three.`);
+  if (report.environment.sdkVersion !== pkg.version) fail(`Canonical ${profile} SDK version is stale.`);
+  if (report.environment.fixtureCount !== manifest.fixtures.length || report.total !== manifest.fixtures.length) fail(`Canonical ${profile} fixture count is stale.`);
+  if (report.finalControlledMemoryBytes !== 0) fail(`Canonical ${profile} benchmark does not prove zero final controlled bytes.`);
+}
+for (const field of ["commitSha", "treeSha", "datasetHash", "packageLockHash", "engineCompositionHash"] as const) {
+  if (new Set(canonicalProfiles.map(({ report }) => report.sourceIdentity[field])).size !== 1) fail(`Canonical profile source identity mismatch: ${field}.`);
+}
 if (canonical.environment.scenario !== "balanced" || canonical.environment.fixtureCount !== manifest.fixtures.length) fail("Canonical benchmark metadata must describe the balanced Router-path fixture run");
 const readme = read("README.md");
 const rate = `${(canonical.successRate * 100).toFixed(1)}%`;
@@ -81,6 +98,8 @@ if (canonical.multipleCompleteness.complete !== canonical.multipleCompleteness.t
 if (!canonical.sourceIdentity || canonical.sourceIdentity.datasetHash !== canonical.environment.datasetManifestHash) fail("Canonical benchmark source identity is missing or inconsistent");
 const comparison = JSON.parse(read("benchmark-results/comparison.json")) as ComparisonReport;
 if (comparison.schemaVersion !== "2.0") fail("Comparison report schema must be 2.0");
+if (comparison.sourceIdentity?.repositoryDirty) fail("Comparison report was generated from a dirty repository.");
+if (!comparison.executionPolicy?.canonical || comparison.executionPolicy.mode !== "canonical") fail("Comparison report was produced from development mode.");
 for (const [label, actual, expected] of [
   ["datasetHash", comparison.sourceIdentity.datasetHash, canonical.sourceIdentity.datasetHash],
   ["fixtureCount", comparison.fixtureCount, canonical.environment.fixtureCount],
@@ -95,6 +114,32 @@ for (const strategy of ["raw-jsqr", "raw-zxing-js", "scanly-fast", "scanly-balan
 for (const engineStrategy of ["raw-jsqr", "raw-zxing-js"]) {
   const contribution = comparison.strategies.find((entry) => entry.strategyId === engineStrategy)?.uniqueWins.length ?? 0;
   if (contribution < 1) fail(`Production engine strategy '${engineStrategy}' has no unique contribution fixture`);
+}
+
+const registry = JSON.parse(read("benchmark-results/baselines/registry.json")) as { activeBaselines?: Record<string, Record<string, string>> };
+const activeFamily = registry.activeBaselines?.["node24-win32-x64"];
+if (!activeFamily) fail("The Node 24 Windows x64 baseline registry is missing.");
+for (const profile of ["fast", "balanced", "robust"] as const) {
+  const baselineFile = activeFamily?.[profile];
+  if (!baselineFile?.startsWith("v2-alpha3-r")) fail(`Active ${profile} baseline is not Alpha.3.`);
+  const baselinePath = `benchmark-results/baselines/${baselineFile}`;
+  if (!fs.existsSync(path.join(ROOT, baselinePath))) fail(`Active ${profile} baseline file is missing.`);
+  const baseline = JSON.parse(read(baselinePath));
+  const failures = validateBaselineForActivation(baseline, {
+    sdkVersion: pkg.version ?? "",
+    fixtureCount: manifest.fixtures.length,
+    datasetHash: canonical.sourceIdentity.datasetHash,
+    profile,
+    runtimeFamily: "node24-win32-x64",
+  });
+  if (failures.length) fail(`Active ${profile} baseline is incompatible: ${failures.join("; ")}`);
+}
+
+if (!readme.includes("SDK-2.0.0--alpha.3")) fail("README SDK badge does not match 2.0.0-alpha.3.");
+const apiSnapshot = JSON.parse(read("api-snapshots/public-api.json")) as { packages?: Array<{ packageName?: string }> };
+const snapshotNames = new Set(apiSnapshot.packages?.map((entry) => entry.packageName));
+for (const packageName of ["@scanly/core", "@scanly/browser", "@scanly/node", "@scanly/react", "@scanly/scenario-schema", "@scanly/parsers", "@scanly/benchmark", "@scanly/engine-jsqr", "@scanly/engine-zxing-js"]) {
+  if (!snapshotNames.has(packageName)) fail(`Public API snapshot is missing publishable package ${packageName}.`);
 }
 
 for (const id of ["fast", "balanced", "robust"]) {

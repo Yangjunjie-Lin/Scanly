@@ -12,6 +12,7 @@ export interface ExecutionBudgetOptions {
   now?: () => number;
   remainingAttempts?: () => number;
   memory?: FrameMemoryBudget;
+  totalAttempts?: number;
 }
 
 export class ExecutionBudget {
@@ -20,17 +21,25 @@ export class ExecutionBudget {
   readonly memory?: FrameMemoryBudget;
   private readonly clock: () => number;
   private readonly attempts: () => number;
+  private remaining: number | null;
 
   constructor(options: ExecutionBudgetOptions) {
     this.signal = options.signal;
     this.deadlineMs = options.deadlineMs;
     this.clock = options.now ?? monotonicNow;
     this.attempts = options.remainingAttempts ?? (() => Number.POSITIVE_INFINITY);
+    this.remaining = options.totalAttempts === undefined ? null : Math.max(0, Math.floor(options.totalAttempts));
     this.memory = options.memory;
   }
 
   now(): number { return this.clock(); }
-  remainingAttempts(): number { return Math.max(0, this.attempts()); }
+  remainingAttempts(): number { return this.remaining ?? Math.max(0, this.attempts()); }
+  tryConsumeAttempt(): boolean {
+    if (this.remaining === null) return this.attempts() > 0;
+    if (this.remaining <= 0) return false;
+    this.remaining -= 1;
+    return true;
+  }
   remainingIntermediateBytes(): number { return this.memory?.remainingBytes ?? Number.POSITIVE_INFINITY; }
 
   throwIfExceeded(stage: string): void {

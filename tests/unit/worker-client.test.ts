@@ -35,9 +35,9 @@ describe("normalized Worker runtime", () => {
     const request = worker.posted[0];
     expect(request.type).toBe("scan");
     if (request.type !== "scan") throw new Error("expected scan request");
-    worker.emit({ type: "stage", jobId: request.jobId, stage: "Routing normalized frame..." });
-    worker.emit({ type: "progress", jobId: request.jobId, attemptCount: 1 });
-    worker.emit({ type: "result", jobId: request.jobId, outcome: success() });
+    worker.emit({ type: "stage", jobId: request.jobId, generation: request.generation, stage: "Routing normalized frame..." });
+    worker.emit({ type: "progress", jobId: request.jobId, generation: request.generation, attemptCount: 1 });
+    worker.emit({ type: "result", jobId: request.jobId, generation: request.generation, outcome: success() });
     const outcome = await pending;
     expect(outcome.ok).toBe(true);
     expect(stages).toEqual(["Routing normalized frame..."]);
@@ -52,7 +52,7 @@ describe("normalized Worker runtime", () => {
       const pending = client.scan(frame(id), getBuiltinScenario("fast"));
       const request = workers[0].posted.at(-1)!;
       if (request.type !== "scan") throw new Error("expected scan request");
-      workers[0].emit({ type: "result", jobId: request.jobId, outcome: success(id) });
+      workers[0].emit({ type: "result", jobId: request.jobId, generation: request.generation, outcome: success(id) });
       expect((await pending).frameId).toBe(id);
     }
     expect(workers).toHaveLength(1);
@@ -69,8 +69,8 @@ describe("normalized Worker runtime", () => {
     expect((await first).ok).toBe(false);
     const secondRequest = workers[1].posted[0];
     if (firstRequest.type !== "scan" || secondRequest.type !== "scan") throw new Error("expected scan requests");
-    workers[0].emit({ type: "result", jobId: firstRequest.jobId, outcome: success("one") });
-    workers[1].emit({ type: "result", jobId: secondRequest.jobId, outcome: success("two") });
+    workers[0].emit({ type: "result", jobId: firstRequest.jobId, generation: firstRequest.generation, outcome: success("one") });
+    workers[1].emit({ type: "result", jobId: secondRequest.jobId, generation: secondRequest.generation, outcome: success("two") });
     expect((await second).frameId).toBe("two");
   });
 
@@ -83,6 +83,18 @@ describe("normalized Worker runtime", () => {
     expect(outcome.ok).toBe(false);
     if (!outcome.ok) expect(outcome.error.code).toBe("cancelled");
     expect(worker.terminate).toHaveBeenCalledOnce();
+  });
+
+  it("ignores a response from an old source generation", async () => {
+    const worker = new FakeWorker();
+    const client = new DecodeWorkerClient(() => worker);
+    const pending = client.scan(frame(), getBuiltinScenario("fast"), { generation: 4 });
+    const request = worker.posted[0];
+    if (request.type !== "scan") throw new Error("expected scan request");
+    worker.emit({ type: "result", jobId: request.jobId, generation: 3, outcome: success() });
+    expect(await Promise.race([pending.then(() => "settled"), Promise.resolve("pending")])).toBe("pending");
+    worker.emit({ type: "result", jobId: request.jobId, generation: 4, outcome: success() });
+    expect((await pending).ok).toBe(true);
   });
 
   it("maps Worker crashes and malformed responses to typed failures", async () => {
@@ -118,7 +130,7 @@ describe("normalized Worker runtime", () => {
       const worker = workers.at(-1)!;
       const request = worker.posted[0];
       if (request.type !== "scan") throw new Error("expected scan request");
-      worker.emit({ type: "result", jobId: request.jobId, outcome: success(`recover-${index}`) });
+      worker.emit({ type: "result", jobId: request.jobId, generation: request.generation, outcome: success(`recover-${index}`) });
       expect((await recovered).ok).toBe(true);
       client.dispose();
     }

@@ -144,6 +144,14 @@ function shouldStopMultiple(ctx) {
         return false;
     if (payloads.length >= config.maxMultipleResults)
         return true;
+    if (config.multiCodeStallPolicy) {
+        const policy = config.multiCodeStallPolicy;
+        const attemptsWithoutNew = ctx.attempts.length - ctx.attemptsAtLastNewResult;
+        const coverage = ctx.primaryCandidateCount ? ctx.visitedPrimaryCandidates.size / ctx.primaryCandidateCount : 1;
+        const primaryComplete = !policy.requireAllPrimaryCandidatesVisited || ctx.visitedPrimaryCandidates.size >= ctx.primaryCandidateCount;
+        if (attemptsWithoutNew >= policy.maximumAttemptsWithoutNewResult && coverage >= policy.minimumCandidateCoverageBeforeStop && primaryComplete)
+            return true;
+    }
     const stall = config.stallCandidateLimit ?? 8;
     const scaledStall = stall + Math.max(0, payloads.length - 1) * 3;
     if (ctx.candidatesSinceNew >= scaledStall)
@@ -158,6 +166,7 @@ function pushResult(ctx, code) {
     ctx.found.push(...unique);
     if (unique.length > prevSize) {
         ctx.candidatesSinceNew = 0;
+        ctx.attemptsAtLastNewResult = ctx.attempts.length;
     }
     if (!ctx.config.findMultiple) {
         return successOutcome(unique, ctx.attempts, ctx.start, false, ctx.phaseTiming, ctx.diagnostics);
@@ -180,6 +189,10 @@ async function tryEngine(ctx, engineId, candidate, preprocessing, rotation) {
         return null;
     if (!decoderEnabled(ctx.config, engineId))
         return null;
+    if (!ctx.budget.tryConsumeAttempt())
+        return null;
+    if (candidate.candidateIndex >= 0 && candidate.candidateIndex < 100)
+        ctx.visitedPrimaryCandidates.add(candidate.candidateIndex);
     const t0 = ctx.now();
     const processed = processedFor(ctx, candidate, preprocessing, rotation);
     const t1 = ctx.now();
@@ -311,6 +324,9 @@ export async function decodePixelBuffer(image, options = {}) {
         onProgress: options.onProgress,
         phaseTiming,
         candidatesSinceNew: 0,
+        attemptsAtLastNewResult: 0,
+        visitedPrimaryCandidates: new Set(),
+        primaryCandidateCount: 0,
         failFast: false,
         intermediateCache: new AttemptImageCache(config.maxIntermediateAllocations ?? 24, config.maxIntermediateBytes ?? 64 * 1024 * 1024, options.memoryBudget),
         engineExecutor: engineExecutor,
@@ -359,6 +375,7 @@ export async function decodePixelBuffer(image, options = {}) {
             budget: ctx.budget,
         });
         const candidates = dedupeCandidates(rawCandidates);
+        ctx.primaryCandidateCount = new Set(candidates.filter((candidate) => candidate.candidateIndex >= 0 && candidate.candidateIndex < 100).map((candidate) => candidate.candidateIndex)).size;
         phaseTiming.candidateGenerationMs = now() - cgStart;
         const ordered = orderCandidates(candidates, config.findMultiple);
         const primaryEngineId = config.decoders.order[0];

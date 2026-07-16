@@ -132,6 +132,7 @@ export interface PipelineConfig {
     expectedResultCount?: number;
     /** Stop after this many consecutive candidates without a new payload (multiple mode). */
     stallCandidateLimit?: number;
+    multiCodeStallPolicy?: MultiCodeStallPolicy;
     /** After this many failed attempts with no decode, skip heavy phases. */
     failFastAfterAttempts?: number;
     enableLocalization?: boolean;
@@ -157,6 +158,11 @@ export interface DecodePipelineOptions {
     executionBudget?: ExecutionBudget;
     /** Shared logical retained-buffer accounting for this frame. */
     memoryBudget?: FrameMemoryBudget;
+}
+export interface MultiCodeStallPolicy {
+    maximumAttemptsWithoutNewResult: number;
+    minimumCandidateCoverageBeforeStop: number;
+    requireAllPrimaryCandidatesVisited: boolean;
 }
 export interface PipelineEngineExecutor {
     readonly engineIds: readonly string[];

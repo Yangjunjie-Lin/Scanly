@@ -4,6 +4,9 @@ All notable changes follow semantic versioning.
 
 ## [2.0.0-alpha.3] - 2026-07-16
 
+- Separated development, canonical, baseline-freeze, and CI-artifact benchmark output; added true repeated-run variance and per-iteration stability evidence.
+- Added explicit required-engine configuration, a shared global parallel attempt budget, caller-preserving camera escalation, generation-aware Worker recovery, and zero-final-byte memory finalization.
+- Expanded public API snapshots to every publishable workspace and separated installed package footprint from esbuild bundle-cost evidence.
 - Added reproducible source identity, clean-tree enforcement, and a validated active-baseline registry.
 - Added comparison schema 2.0 with raw, single-engine, sequential, and parallel ablations.
 - Normalized frame orientation into canonical upright pixels before ROI and candidate processing.
