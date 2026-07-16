@@ -1,4 +1,5 @@
 import type { CropPadding, PixelBuffer, Rect, ScoredRegion } from "./types.js";
+import type { ExecutionBudget } from "../runtime/execution-budget.js";
 /** Clamp a rectangle to image bounds. */
 export declare function clampRect(rect: Rect, width: number, height: number): Rect;
 /** Expand a rect by relative padding, then clamp to bounds (edge-safe). */
@@ -15,9 +16,10 @@ export declare function detectCandidateRegions(image: PixelBuffer, options?: {
     gridSize?: number;
     windowCells?: number;
     maxRaw?: number;
+    budget?: ExecutionBudget;
 }): ScoredRegion[];
 /** Scale a preview-space rect to original image coordinates. */
 export declare function scaleRectToOriginal(rect: Rect, previewScale: number): Rect;
 /** Crop a region from a pixel buffer. */
-export declare function cropBuffer(src: PixelBuffer, rect: Rect): PixelBuffer;
+export declare function cropBuffer(src: PixelBuffer, rect: Rect, budget?: ExecutionBudget): PixelBuffer;
 //# sourceMappingURL=region-detection.d.ts.map

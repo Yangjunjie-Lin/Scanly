@@ -18,6 +18,7 @@ export class BrowserCameraSource {
     options = null;
     canvas = null;
     timer = null;
+    videoFrameCallbackId = null;
     activeFrame = false;
     sequence = 0;
     generation = 0;
@@ -39,7 +40,7 @@ export class BrowserCameraSource {
     }
     async start(video, options) {
         this.stop();
-        const scenario = options.scenario ?? getBuiltinScenario("balanced");
+        const scenario = options.scenario ?? getBuiltinScenario("fast");
         this.generation += 1;
         const generation = this.generation;
         this.stopped = false;
@@ -63,6 +64,11 @@ export class BrowserCameraSource {
             }
             video.srcObject = stream;
             await video.play();
+            if (generation !== this.generation || this.stopped) {
+                for (const track of stream.getTracks())
+                    track.stop();
+                return;
+            }
             this.canvas = document.createElement("canvas");
             this.installListeners();
             const track = stream.getVideoTracks()[0];
@@ -74,6 +80,8 @@ export class BrowserCameraSource {
             this.schedule(generation, 0);
         }
         catch (error) {
+            if (generation !== this.generation || this.stopped)
+                return;
             const failure = cameraFailure(`camera-frame-${++this.sequence}-${Date.now()}`, scenario.id, error);
             options.onError?.(failure);
             this.internalStop(true);
@@ -116,6 +124,14 @@ export class BrowserCameraSource {
     schedule(generation, delay) {
         if (this.stopped || generation !== this.generation)
             return;
+        const videoWithFrames = this.video;
+        if (videoWithFrames?.requestVideoFrameCallback && delay === undefined) {
+            this.videoFrameCallbackId = videoWithFrames.requestVideoFrameCallback(() => {
+                this.videoFrameCallbackId = null;
+                void this.sample(generation);
+            });
+            return;
+        }
         const cadence = Math.max(50, Math.min(5_000, this.options?.frameCadenceMs ?? 200));
         this.timer = setTimeout(() => void this.sample(generation), delay ?? cadence);
     }
@@ -139,8 +155,10 @@ export class BrowserCameraSource {
         }
         this.activeFrame = true;
         try {
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
+            const maxSide = Math.max(320, Math.min(2_048, this.options?.sampleMaxSide ?? 960));
+            const scale = Math.min(1, maxSide / Math.max(video.videoWidth, video.videoHeight));
+            canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+            canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
             const image = context.getImageData(0, 0, canvas.width, canvas.height);
             const track = this.currentTrack();
@@ -190,7 +208,7 @@ export class BrowserCameraSource {
     }
     handleSourceError(error) {
         const options = this.options;
-        const scenarioId = (options?.scenario ?? getBuiltinScenario("balanced")).id;
+        const scenarioId = (options?.scenario ?? getBuiltinScenario("fast")).id;
         options?.onError?.(cameraFailure(`camera-frame-${++this.sequence}-${Date.now()}`, scenarioId, error));
         this.internalStop(true);
     }
@@ -214,6 +232,10 @@ export class BrowserCameraSource {
         if (this.timer)
             clearTimeout(this.timer);
         this.timer = null;
+        const videoWithFrames = this.video;
+        if (this.videoFrameCallbackId !== null)
+            videoWithFrames?.cancelVideoFrameCallback?.(this.videoFrameCallbackId);
+        this.videoFrameCallbackId = null;
         this.session.stop();
         const track = this.currentTrack();
         if (track && this.trackEndedHandler)

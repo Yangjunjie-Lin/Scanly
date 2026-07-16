@@ -23,7 +23,12 @@ export class ZxingJsEngine implements DecoderEngine {
       const result = this.reader.decode(bitmap, hints);
       const text = result?.getText();
       if (text) decoded = { text, ...(result.getRawBytes()?.byteLength ? { rawBytes: result.getRawBytes() } : {}) };
-    } catch { /* a decoder miss is expected */ }
+    } catch (error) {
+      const name = error instanceof Error ? error.name : "";
+      if (!/NotFound|Checksum|Format/.test(name)) {
+        return { ok: false, category: "execution", message: error instanceof Error ? error.message : "ZXing execution failed.", elapsedMs: Date.now() - started };
+      }
+    }
     const elapsedMs = Date.now() - started;
     return decoded ? { ok: true, results: [{ text: decoded.text, rawBytes: decoded.rawBytes, format: "qr_code", elapsedMs }] } : { ok: false, category: "not-found", message: "No QR code found.", elapsedMs };
   }

@@ -6,6 +6,7 @@ export const DEFAULT_PIPELINE_CONFIG = {
     previewSize: 400,
     findMultiple: true,
     maxMultipleResults: 8,
+    resultDeduplication: "payload-format-spatial",
     scales: [1, 0.7, 1.35],
     paddings: ["medium", "expanded", "tight"],
     rotations: [0, 90, 180, 270],

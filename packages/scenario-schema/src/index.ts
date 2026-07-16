@@ -1,4 +1,4 @@
-export const SCENARIO_SCHEMA_VERSION = "2.0" as const;
+export const SCENARIO_SCHEMA_VERSION = "2.1" as const;
 
 export type BarcodeFormat =
   | "qr_code"
@@ -70,7 +70,11 @@ export interface ScenarioDefinition {
     order: DecoderId[];
     execution: "sequential" | "parallel";
   };
-  multiCode: { enabled: boolean; maxResults: number };
+  multiCode: {
+    enabled: boolean;
+    maxResults: number;
+    deduplication: "payload" | "payload-format" | "payload-format-spatial" | "tracked-instance";
+  };
   duplicateSuppression: { enabled: boolean; windowMs: number };
   budgets: {
     maxPixels: number;
@@ -94,7 +98,7 @@ export interface ScenarioDefinition {
     multiScale: boolean;
     enhancement: boolean;
     rotations: boolean;
-    zxingFallback: boolean;
+    multiEngineFallback: boolean;
     splitImageFallback: boolean;
   };
 }
@@ -177,19 +181,34 @@ export function validateScenario(input: unknown): ScenarioValidationResult {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
     return { ok: false, issues: [{ code: "type", path: "$", message: "Scenario must be an object." }], message: "Scenario must be an object." };
   }
-  const value = input as Partial<ScenarioDefinition>;
+  let candidate = input;
+  const source = input as { schemaVersion?: unknown; ablation?: Record<string, unknown>; multiCode?: Record<string, unknown> };
+  if (source.schemaVersion === "2.0") {
+    if (source.ablation?.multiEngineFallback !== undefined && source.ablation?.zxingFallback !== undefined) {
+      return { ok: false, issues: [{ code: "unsupported-version", path: "ablation", message: "Scenario 2.0 cannot mix zxingFallback with multiEngineFallback." }], message: "ablation: Scenario 2.0 cannot mix zxingFallback with multiEngineFallback." };
+    }
+    if (typeof source.ablation?.zxingFallback === "boolean") {
+      const migrated = JSON.parse(JSON.stringify(input)) as { schemaVersion: string; ablation: Record<string, unknown>; multiCode?: Record<string, unknown> };
+      migrated.schemaVersion = SCENARIO_SCHEMA_VERSION;
+      migrated.ablation.multiEngineFallback = migrated.ablation.zxingFallback;
+      delete migrated.ablation.zxingFallback;
+      if (migrated.multiCode && migrated.multiCode.deduplication === undefined) migrated.multiCode.deduplication = "payload-format-spatial";
+      candidate = migrated;
+    }
+  }
+  const value = candidate as Partial<ScenarioDefinition>;
   unknownKeys(value, "$", ["schemaVersion", "id", "revision", "description", "acceptedFormats", "input", "localization", "enhancement", "decoders", "multiCode", "duplicateSuppression", "budgets", "validation", "semanticParsers", "quality", "output", "ablation"], issues);
   unknownKeys(value.input, "input", ["preferredPixelFormats", "roi"], issues);
   unknownKeys(value.input?.roi, "input.roi", ["mode", "x", "y", "width", "height"], issues);
   unknownKeys(value.localization, "localization", ["strategy", "maxCandidates", "cropPaddings", "scales"], issues);
   unknownKeys(value.enhancement, "enhancement", ["operators", "rotations"], issues);
   unknownKeys(value.decoders, "decoders", ["order", "execution"], issues);
-  unknownKeys(value.multiCode, "multiCode", ["enabled", "maxResults"], issues);
+  unknownKeys(value.multiCode, "multiCode", ["enabled", "maxResults", "deduplication"], issues);
   unknownKeys(value.duplicateSuppression, "duplicateSuppression", ["enabled", "windowMs"], issues);
   unknownKeys(value.budgets, "budgets", ["maxPixels", "maxCandidates", "maxAttempts", "maxIntermediateAllocations", "maxIntermediateBytes", "maxExecutionMs", "maxConcurrentFrames"], issues);
   unknownKeys(value.quality, "quality", ["minimumHeuristicQuality"], issues);
   unknownKeys(value.output, "output", ["includeRawBytes", "includeDebugTrace", "includeAttempts"], issues);
-  unknownKeys(value.ablation, "ablation", ["localization", "multiScale", "enhancement", "rotations", "zxingFallback", "splitImageFallback"], issues);
+  unknownKeys(value.ablation, "ablation", ["localization", "multiScale", "enhancement", "rotations", "multiEngineFallback", "splitImageFallback"], issues);
   if (value.schemaVersion !== SCENARIO_SCHEMA_VERSION) {
     issues.push({ code: "unsupported-version", path: "schemaVersion", message: `Expected scenario schema ${SCENARIO_SCHEMA_VERSION}; received ${String(value.schemaVersion)}.` });
   }
@@ -216,6 +235,9 @@ export function validateScenario(input: unknown): ScenarioValidationResult {
   positiveInteger(value.localization?.maxCandidates, "localization.maxCandidates", issues);
   booleanValue(value.multiCode?.enabled, "multiCode.enabled", issues);
   positiveInteger(value.multiCode?.maxResults, "multiCode.maxResults", issues);
+  if (!["payload", "payload-format", "payload-format-spatial", "tracked-instance"].includes(String(value.multiCode?.deduplication))) {
+    issues.push({ code: "enum", path: "multiCode.deduplication", message: "multiCode.deduplication is not supported." });
+  }
   booleanValue(value.duplicateSuppression?.enabled, "duplicateSuppression.enabled", issues);
   if (!Number.isInteger(value.duplicateSuppression?.windowMs) || (value.duplicateSuppression?.windowMs ?? -1) < 0) issues.push({ code: "range", path: "duplicateSuppression.windowMs", message: "duplicateSuppression.windowMs must be a non-negative integer." });
   positiveInteger(value.budgets?.maxPixels, "budgets.maxPixels", issues);
@@ -251,7 +273,7 @@ export function validateScenario(input: unknown): ScenarioValidationResult {
     issues.push({ code: "range", path: "quality.minimumHeuristicQuality", message: "quality.minimumHeuristicQuality must be between 0 and 1." });
   }
   for (const key of ["includeRawBytes", "includeDebugTrace", "includeAttempts"] as const) booleanValue(value.output?.[key], `output.${key}`, issues);
-  for (const key of ["localization", "multiScale", "enhancement", "rotations", "zxingFallback", "splitImageFallback"] as const) booleanValue(value.ablation?.[key], `ablation.${key}`, issues);
+  for (const key of ["localization", "multiScale", "enhancement", "rotations", "multiEngineFallback", "splitImageFallback"] as const) booleanValue(value.ablation?.[key], `ablation.${key}`, issues);
   if (value.decoders?.execution !== "sequential" && value.decoders?.execution !== "parallel") {
     issues.push({ code: "enum", path: "decoders.execution", message: "decoders.execution must be sequential or parallel." });
   }
@@ -269,7 +291,7 @@ export function validateScenario(input: unknown): ScenarioValidationResult {
   if (issues.length) {
     return { ok: false, issues, message: issues.map((issue) => `${issue.path}: ${issue.message}`).join("\n") };
   }
-  return { ok: true, value: input as ScenarioDefinition };
+  return { ok: true, value: candidate as ScenarioDefinition };
 }
 
 const BASE_SCENARIO: ScenarioDefinition = {
@@ -281,14 +303,14 @@ const BASE_SCENARIO: ScenarioDefinition = {
   localization: { strategy: "edge-density", maxCandidates: 5, cropPaddings: ["medium", "expanded", "tight"], scales: [1, 0.7, 1.35] },
   enhancement: { operators: ["contrast", "invert", "otsu", "threshold-140", "gamma", "sharpen", "threshold-115", "threshold-165"], rotations: [0, 90, 180, 270] },
   decoders: { order: ["jsqr", "zxing-js"], execution: "sequential" },
-  multiCode: { enabled: true, maxResults: 8 },
+  multiCode: { enabled: true, maxResults: 8, deduplication: "payload-format-spatial" },
   duplicateSuppression: { enabled: true, windowMs: 1_500 },
   budgets: { maxPixels: 8_000_000, maxCandidates: 5, maxAttempts: 96, maxIntermediateAllocations: 24, maxIntermediateBytes: 64 * 1024 * 1024, maxExecutionMs: 12_000, maxConcurrentFrames: 1 },
   validation: [],
   semanticParsers: ["url", "wifi", "vcard", "email", "telephone", "sms", "geo", "calendar", "gs1", "gs1-digital-link"],
   quality: {},
   output: { includeRawBytes: true, includeDebugTrace: false, includeAttempts: false },
-  ablation: { localization: true, multiScale: true, enhancement: true, rotations: true, zxingFallback: true, splitImageFallback: true },
+  ablation: { localization: true, multiScale: true, enhancement: true, rotations: true, multiEngineFallback: true, splitImageFallback: true },
 };
 
 function cloneScenario<T>(value: T): T {
@@ -296,9 +318,9 @@ function cloneScenario<T>(value: T): T {
 }
 
 export const BUILTIN_SCENARIOS: Readonly<Record<"fast" | "balanced" | "robust", ScenarioDefinition>> = Object.freeze({
-  fast: { ...cloneScenario(BASE_SCENARIO), id: "fast", localization: { ...BASE_SCENARIO.localization, maxCandidates: 2, cropPaddings: ["medium"], scales: [1] }, enhancement: { operators: ["contrast", "invert"], rotations: [0] }, multiCode: { enabled: false, maxResults: 1 }, budgets: { ...BASE_SCENARIO.budgets, maxPixels: 4_000_000, maxCandidates: 2, maxAttempts: 18, maxIntermediateAllocations: 8, maxIntermediateBytes: 24 * 1024 * 1024, maxExecutionMs: 2_000 }, semanticParsers: ["url"] },
+  fast: { ...cloneScenario(BASE_SCENARIO), id: "fast", localization: { ...BASE_SCENARIO.localization, maxCandidates: 2, cropPaddings: ["medium"], scales: [1] }, enhancement: { operators: ["contrast", "invert"], rotations: [0] }, multiCode: { enabled: false, maxResults: 1, deduplication: "payload-format-spatial" }, budgets: { ...BASE_SCENARIO.budgets, maxPixels: 4_000_000, maxCandidates: 2, maxAttempts: 18, maxIntermediateAllocations: 8, maxIntermediateBytes: 24 * 1024 * 1024, maxExecutionMs: 2_000 }, semanticParsers: ["url"] },
   balanced: cloneScenario(BASE_SCENARIO),
-  robust: { ...cloneScenario(BASE_SCENARIO), id: "robust", localization: { ...BASE_SCENARIO.localization, maxCandidates: 8 }, multiCode: { enabled: true, maxResults: 12 }, budgets: { ...BASE_SCENARIO.budgets, maxCandidates: 8, maxAttempts: 160, maxIntermediateAllocations: 40, maxIntermediateBytes: 96 * 1024 * 1024, maxExecutionMs: 20_000 } },
+  robust: { ...cloneScenario(BASE_SCENARIO), id: "robust", localization: { ...BASE_SCENARIO.localization, maxCandidates: 8 }, multiCode: { enabled: true, maxResults: 12, deduplication: "payload-format-spatial" }, budgets: { ...BASE_SCENARIO.budgets, maxCandidates: 8, maxAttempts: 160, maxIntermediateAllocations: 40, maxIntermediateBytes: 96 * 1024 * 1024, maxExecutionMs: 20_000 } },
 });
 
 export type BuiltinScenarioId = keyof typeof BUILTIN_SCENARIOS;

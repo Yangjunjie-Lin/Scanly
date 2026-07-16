@@ -15,7 +15,7 @@ const pkg = JSON.parse(read("package.json")) as {
   engines?: { node?: string; npm?: string };
 };
 if (pkg.license !== "MIT") fail("package.json license must be MIT");
-if (pkg.name !== "scanly" || pkg.version !== "2.0.0-alpha.1") fail("package metadata must identify the Scanly SDK v2 alpha foundation");
+if (pkg.name !== "scanly" || pkg.version !== "2.0.0-alpha.2") fail("package metadata must identify the Scanly SDK v2 alpha.2 foundation");
 if (pkg.engines?.node !== ">=20 <25" || pkg.engines?.npm !== ">=10") {
   fail("package engines must pin the verified Node/npm maintenance range");
 }

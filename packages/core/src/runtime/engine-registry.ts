@@ -18,6 +18,7 @@ interface EngineRecord {
   disposePromise?: Promise<void>;
   /** Instance-confined engines are serialized without blocking other engines. */
   tail: Promise<void>;
+  active: Set<Promise<EngineOutcome>>;
 }
 
 function initializationFailure(engine: DecoderEngine, cause: unknown): SdkException {
@@ -45,7 +46,7 @@ export class EngineRegistry implements EngineRegistryContract {
     if (prior && prior.state !== "registered") {
       throw new SdkException(sdkError("invalid_configuration", `Initialized decoder engine '${engine.id}' cannot be replaced; unregister or dispose it first.`, { engineId: engine.id }));
     }
-    this.records.set(engine.id, { engine, state: "registered", tail: Promise.resolve() });
+    this.records.set(engine.id, { engine, state: "registered", tail: Promise.resolve(), active: new Set() });
   }
 
   unregister(id: string): void {
@@ -83,6 +84,7 @@ export class EngineRegistry implements EngineRegistryContract {
       throw new SdkException(sdkError("invalid_configuration", `Decoder engine '${id}' is not registered.`, { engineId: id }));
     }
     await this.initialize(record);
+    this.assertUsable();
     if (record.state !== "ready") throw initializationFailure(record.engine, new Error("Engine is not ready."));
 
     const execute = async (): Promise<EngineOutcome> => {
@@ -91,14 +93,19 @@ export class EngineRegistry implements EngineRegistryContract {
       }
       return record.engine.decode(frame, options);
     };
-    if (record.engine.capabilities.threadSafe) return execute();
+    const track = (operation: Promise<EngineOutcome>): Promise<EngineOutcome> => {
+      record.active.add(operation);
+      void operation.finally(() => record.active.delete(operation)).catch(() => undefined);
+      return operation;
+    };
+    if (record.engine.capabilities.threadSafe) return track(execute());
 
     const previous = record.tail;
     let release!: () => void;
     record.tail = new Promise<void>((resolve) => { release = resolve; });
     await previous;
     try {
-      return await execute();
+      return await track(execute());
     } finally {
       release();
     }
@@ -113,7 +120,9 @@ export class EngineRegistry implements EngineRegistryContract {
     await Promise.all([...this.records.values()].map(async (record) => {
       if (record.disposePromise) return record.disposePromise;
       record.disposePromise = (async () => {
+        await record.initializePromise?.catch(() => undefined);
         await record.tail;
+        await Promise.allSettled([...record.active]);
         if (record.state !== "disposed") await record.engine.dispose?.();
         record.state = "disposed";
       })();

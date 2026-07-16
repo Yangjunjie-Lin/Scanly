@@ -31,6 +31,8 @@ export interface EngineDecodeOptions {
     formats: readonly BarcodeFormat[];
     findMultiple: boolean;
     signal?: AbortSignal;
+    /** Whether upstream preprocessing already inverted the candidate. */
+    inversion?: "unknown" | "original" | "inverted";
 }
 export interface DecoderEngine {
     readonly id: string;

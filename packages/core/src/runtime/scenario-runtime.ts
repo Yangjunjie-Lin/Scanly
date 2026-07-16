@@ -5,7 +5,7 @@ export function scenarioToPipelineConfig(scenario: ScenarioDefinition): Partial<
   const enhancements: PreprocessMethod[] = scenario.ablation.enhancement
     ? ["original", ...scenario.enhancement.operators]
     : ["original"];
-  const decoderOrder = scenario.ablation.zxingFallback ? scenario.decoders.order : scenario.decoders.order.slice(0, 1);
+  const decoderOrder = scenario.ablation.multiEngineFallback ? scenario.decoders.order : scenario.decoders.order.slice(0, 1);
   return {
     maxCandidates: Math.min(scenario.localization.maxCandidates, scenario.budgets.maxCandidates),
     maxAttempts: scenario.budgets.maxAttempts,
@@ -13,6 +13,7 @@ export function scenarioToPipelineConfig(scenario: ScenarioDefinition): Partial<
     maxPixels: scenario.budgets.maxPixels,
     findMultiple: scenario.multiCode.enabled,
     maxMultipleResults: scenario.multiCode.maxResults,
+    resultDeduplication: scenario.multiCode.deduplication,
     stallCandidateLimit: scenario.multiCode.enabled ? 6 : 1,
     scales: scenario.ablation.multiScale ? scenario.localization.scales : [1],
     paddings: scenario.localization.cropPaddings,

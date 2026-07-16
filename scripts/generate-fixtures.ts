@@ -53,6 +53,23 @@ function noiseBuffer(width: number, height: number, strength: number): Buffer {
   return data;
 }
 
+/** Host-font-independent pseudo text for deterministic adversarial fixtures. */
+function glyphRunSvg(text: string, x: number, y: number, scale = 3): string {
+  const rectangles: string[] = [];
+  for (let index = 0; index < text.length; index++) {
+    const code = text.charCodeAt(index);
+    if (text[index] === " ") continue;
+    for (let row = 0; row < 7; row++) {
+      for (let column = 0; column < 5; column++) {
+        const mixed = Math.imul(code + row * 17 + column * 31, 0x45d9f3b) ^ (code << ((row + column) % 5));
+        if (((mixed >>> ((row * 5 + column) % 23)) & 1) === 0) continue;
+        rectangles.push(`<rect x="${x + index * scale * 6 + column * scale}" y="${y + row * scale}" width="${scale}" height="${scale}"/>`);
+      }
+    }
+  }
+  return `<g fill="#111">${rectangles.join("")}</g>`;
+}
+
 const legacyFixtures: BenchmarkFixture[] = [
   {
     id: "01-clear-url",
@@ -228,7 +245,7 @@ async function main() {
     category: BenchmarkFixture["category"];
     payload: string;
     build: () => Promise<Buffer>;
-    expectedOutcome?: "decode" | "fail";
+    expectedOutcome?: "decode" | "no-symbol" | "invalid-input";
   }> = [
     {
       id: "17-clear-url-02",
@@ -731,7 +748,7 @@ async function main() {
       file: "fixtures/53-negative-blank.png",
       category: "negative",
       payload: "",
-      expectedOutcome: "fail",
+      expectedOutcome: "no-symbol",
       build: () => sharp({ create: { width: 480, height: 320, channels: 3, background: "#f7f7f7" } }).png().toBuffer(),
     },
     {
@@ -739,7 +756,7 @@ async function main() {
       file: "fixtures/54-negative-pattern.png",
       category: "adversarial",
       payload: "",
-      expectedOutcome: "fail",
+      expectedOutcome: "no-symbol",
       build: () => sharp(Buffer.from(`<svg width="480" height="320" xmlns="http://www.w3.org/2000/svg"><rect width="480" height="320" fill="white"/><g fill="#111"><rect x="30" y="30" width="70" height="70"/><rect x="45" y="45" width="40" height="40" fill="white"/><rect x="380" y="30" width="70" height="70"/><rect x="395" y="45" width="40" height="40" fill="white"/><path d="M30 150h420v12H30zm0 35h420v8H30zm0 30h420v15H30zm0 45h420v7H30z"/></g></svg>`)).png().toBuffer(),
     },
     {
@@ -747,7 +764,7 @@ async function main() {
       file: "fixtures/55-negative-checker.png",
       category: "adversarial",
       payload: "",
-      expectedOutcome: "fail",
+      expectedOutcome: "no-symbol",
       build: () => sharp(Buffer.from(`<svg width="480" height="480" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="c" width="16" height="16" patternUnits="userSpaceOnUse"><rect width="8" height="8"/><rect x="8" y="8" width="8" height="8"/></pattern></defs><rect width="480" height="480" fill="white"/><rect width="480" height="480" fill="url(#c)"/></svg>`)).png().toBuffer(),
     },
     {
@@ -755,7 +772,7 @@ async function main() {
       file: "fixtures/56-negative-random-noise.png",
       category: "adversarial",
       payload: "",
-      expectedOutcome: "fail",
+      expectedOutcome: "no-symbol",
       build: () => sharp(noiseBuffer(480, 360, 256), { raw: { width: 480, height: 360, channels: 3 } }).png().toBuffer(),
     },
     {
@@ -763,15 +780,15 @@ async function main() {
       file: "fixtures/57-negative-text-blocks.png",
       category: "negative",
       payload: "",
-      expectedOutcome: "fail",
-      build: () => sharp(Buffer.from(`<svg width="640" height="420" xmlns="http://www.w3.org/2000/svg"><rect width="640" height="420" fill="white"/><g font-family="monospace" font-size="22" fill="#111"><text x="24" y="50">SCANLY LOCAL-ONLY BARCODE CAPTURE</text><text x="24" y="95">0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ</text><text x="24" y="140">https://example.invalid/not-a-code</text><text x="24" y="185">|||| ||| || ||||| || ||||</text></g><g fill="#333">${Array.from({ length: 7 }, (_, index) => `<rect x="24" y="${220 + index * 24}" width="${560 - index * 37}" height="9"/>`).join("")}</g></svg>`)).png().toBuffer(),
+      expectedOutcome: "no-symbol",
+      build: () => sharp(Buffer.from(`<svg width="640" height="420" xmlns="http://www.w3.org/2000/svg"><rect width="640" height="420" fill="white"/>${glyphRunSvg("SCANLY LOCAL ONLY BARCODE CAPTURE", 24, 30)}${glyphRunSvg("0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ", 24, 75)}${glyphRunSvg("HTTPS EXAMPLE INVALID NOT A CODE", 24, 120)}${glyphRunSvg("|||| ||| || ||||| || ||||", 24, 165)}<g fill="#333">${Array.from({ length: 7 }, (_, index) => `<rect x="24" y="${220 + index * 24}" width="${560 - index * 37}" height="9"/>`).join("")}</g></svg>`)).png().toBuffer(),
     },
     {
       id: "58-negative-datamatrix-like",
       file: "fixtures/58-negative-datamatrix-like.png",
       category: "adversarial",
       payload: "",
-      expectedOutcome: "fail",
+      expectedOutcome: "no-symbol",
       build: () => sharp(Buffer.from(`<svg width="400" height="400" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="400" fill="white"/><g transform="translate(70 70)" fill="#111"><rect width="18" height="270"/><rect y="252" width="270" height="18"/>${Array.from({ length: 13 }, (_, y) => Array.from({ length: 13 }, (_, x) => ((x * 7 + y * 11 + x * y) % 5 < 2 ? `<rect x="${24 + x * 18}" y="${y * 18}" width="14" height="14"/>` : "")).join("")).join("")}</g></svg>`)).png().toBuffer(),
     },
     {
@@ -779,7 +796,7 @@ async function main() {
       file: "fixtures/59-negative-logo.png",
       category: "negative",
       payload: "",
-      expectedOutcome: "fail",
+      expectedOutcome: "no-symbol",
       build: () => sharp(Buffer.from(`<svg width="600" height="400" xmlns="http://www.w3.org/2000/svg"><rect width="600" height="400" fill="#f6f8ff"/><g transform="translate(170 70)"><circle cx="130" cy="130" r="120" fill="#315efb"/><circle cx="130" cy="130" r="70" fill="#f6f8ff"/><path d="M130 25L230 205H30Z" fill="#111" opacity=".75"/></g><text x="210" y="350" font-family="sans-serif" font-size="44" font-weight="700">SCANLY</text></svg>`)).png().toBuffer(),
     },
     {
@@ -787,7 +804,7 @@ async function main() {
       file: "fixtures/60-negative-grid.png",
       category: "adversarial",
       payload: "",
-      expectedOutcome: "fail",
+      expectedOutcome: "no-symbol",
       build: () => sharp(Buffer.from(`<svg width="600" height="420" xmlns="http://www.w3.org/2000/svg"><rect width="600" height="420" fill="white"/><g stroke="#111" stroke-width="3">${Array.from({ length: 20 }, (_, index) => `<path d="M${index * 30} 0V420"/><path d="M0 ${index * 22}H600"/>`).join("")}</g></svg>`)).png().toBuffer(),
     },
     {
@@ -795,7 +812,7 @@ async function main() {
       file: "fixtures/61-negative-screenshot.png",
       category: "screen_capture",
       payload: "",
-      expectedOutcome: "fail",
+      expectedOutcome: "no-symbol",
       build: () => sharp(Buffer.from(`<svg width="900" height="600" xmlns="http://www.w3.org/2000/svg"><rect width="900" height="600" fill="#101522"/><rect x="25" y="25" width="850" height="64" rx="12" fill="#252d40"/><circle cx="60" cy="57" r="12" fill="#ff5f57"/><circle cx="95" cy="57" r="12" fill="#febc2e"/><rect x="45" y="125" width="260" height="430" rx="18" fill="#1d2535"/><rect x="340" y="125" width="515" height="190" rx="18" fill="#1d2535"/><rect x="340" y="345" width="245" height="210" rx="18" fill="#1d2535"/><rect x="610" y="345" width="245" height="210" rx="18" fill="#1d2535"/><g fill="#7f8aa3">${Array.from({ length: 11 }, (_, index) => `<rect x="70" y="${155 + index * 32}" width="${120 + (index % 4) * 24}" height="10" rx="5"/>`).join("")}</g></svg>`)).png().toBuffer(),
     },
     {
@@ -803,15 +820,15 @@ async function main() {
       file: "fixtures/62-negative-linear-barcode-like.png",
       category: "adversarial",
       payload: "",
-      expectedOutcome: "fail",
-      build: () => sharp(Buffer.from(`<svg width="720" height="360" xmlns="http://www.w3.org/2000/svg"><rect width="720" height="360" fill="white"/><g fill="#111">${Array.from({ length: 80 }, (_, index) => `<rect x="${60 + index * 7}" y="60" width="${1 + ((index * 13) % 5)}" height="220"/>`).join("")}</g><text x="250" y="320" font-family="monospace" font-size="24">0123456789012</text></svg>`)).png().toBuffer(),
+      expectedOutcome: "no-symbol",
+      build: () => sharp(Buffer.from(`<svg width="720" height="360" xmlns="http://www.w3.org/2000/svg"><rect width="720" height="360" fill="white"/><g fill="#111">${Array.from({ length: 80 }, (_, index) => `<rect x="${60 + index * 7}" y="60" width="${1 + ((index * 13) % 5)}" height="220"/>`).join("")}</g>${glyphRunSvg("0123456789012", 250, 300, 3)}</svg>`)).png().toBuffer(),
     },
     {
       id: "63-negative-truncated",
       file: "fixtures/63-negative-truncated.png",
       category: "adversarial",
       payload: "",
-      expectedOutcome: "fail",
+      expectedOutcome: "no-symbol",
       build: async () => sharp(await qrPng("SHOULD_NOT_DECODE_TRUNCATED", 360)).extract({ left: 0, top: 0, width: 135, height: 360 }).extend({ right: 225, background: "#ffffff" }).png().toBuffer(),
     },
   ];

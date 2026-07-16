@@ -2,7 +2,13 @@
 
 ## Version policy
 
-- SDK package version: `2.0.0-alpha.1`
+- SDK package version: `2.0.0-alpha.2`
+
+`ScanResult.cornerPoints` are always expressed as pixel coordinates in the original normalized frame. ROI offsets, candidate crops, resizing, scale caps, and clockwise decode-attempt rotations are inverted before publication. Invalid or implausibly out-of-frame engine points are omitted.
+
+`ScanResult.orientation`, when present, is an engine-derived clockwise angle relative to the original normalized frame. A preprocessing attempt rotation is debug metadata only and is never exposed as symbol orientation.
+
+Static multi-code scans default to `payload-format-spatial` deduplication. Schema `2.1` also supports `payload`, `payload-format`, and `tracked-instance` policy selection. Geometry-proven separate instances with the same payload remain separate under the default; when geometry is unavailable, the documented fallback is payload plus format identity.
 - Scenario schema: `2.0`
 - Benchmark report schema: `2.0`
 - Engine metadata comes from each registered plugin instance; core contains no decoder version map.

@@ -4,6 +4,7 @@ export * from "./preprocess.js";
 export * from "./region-detection.js";
 export * from "./candidate-generation.js";
 export * from "./candidate-dedupe.js";
+export * from "./geometry.js";
 export * from "./rotate.js";
 export * from "./result-normalizer.js";
 export * from "./decode-pipeline.js";

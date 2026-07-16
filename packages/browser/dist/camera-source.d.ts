@@ -14,6 +14,8 @@ export interface CameraStartOptions {
     stopWhenPageHidden?: boolean;
     frameCadenceMs?: number;
     stableResultCount?: number;
+    /** Longest sampled RGBA side before Canvas readback. Defaults to 960. */
+    sampleMaxSide?: number;
     onResult(outcome: ScanOutcome): void;
     onError?(outcome: ScanFailure): void;
     onStateChange?(state: "starting" | "running" | "stopped"): void;
@@ -30,6 +32,7 @@ export declare class BrowserCameraSource {
     private options;
     private canvas;
     private timer;
+    private videoFrameCallbackId;
     private activeFrame;
     private sequence;
     private generation;

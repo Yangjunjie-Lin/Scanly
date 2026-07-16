@@ -22,7 +22,13 @@ export interface EngineDecodeResult {
 export type EngineOutcome =
   | { ok: true; results: [EngineDecodeResult, ...EngineDecodeResult[]] }
   | { ok: false; category: EngineFailureCategory; message: string; elapsedMs: number };
-export interface EngineDecodeOptions { formats: readonly BarcodeFormat[]; findMultiple: boolean; signal?: AbortSignal }
+export interface EngineDecodeOptions {
+  formats: readonly BarcodeFormat[];
+  findMultiple: boolean;
+  signal?: AbortSignal;
+  /** Whether upstream preprocessing already inverted the candidate. */
+  inversion?: "unknown" | "original" | "inverted";
+}
 export interface DecoderEngine {
   readonly id: string;
   readonly version: string;

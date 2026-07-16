@@ -1,6 +1,6 @@
 # Scenario configuration
 
-Scenario schema `2.0` is runtime validated. Unknown versions and unknown fields are rejected; they are never silently coerced. Generated canonical profiles live in `scenarios/generic/` and are synchronized with `@scanly/scenario-schema` by `npm run scenarios:generate`.
+Scenario schema `2.1` is runtime validated. Valid schema `2.0` input is migrated deterministically; ambiguous mixed fields, unknown versions, and unknown fields are rejected. Generated canonical profiles live in `scenarios/generic/` and are synchronized with `@scanly/scenario-schema` by `npm run scenarios:generate`.
 
 | Profile | Candidates | Attempts | Deadline | Multi-code | Intended use |
 | --- | ---: | ---: | ---: | --- | --- |

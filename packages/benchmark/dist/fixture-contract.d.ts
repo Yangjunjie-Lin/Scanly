@@ -6,5 +6,8 @@ export interface FixtureEvaluation {
 }
 export declare function expectedPayloads(fixture: BenchmarkFixture): string[];
 export declare function requiredPayloads(fixture: BenchmarkFixture): string[];
-export declare function evaluateFixture(fixture: BenchmarkFixture, payloads: string[], decoded: boolean): FixtureEvaluation;
+export declare function evaluateFixture(fixture: BenchmarkFixture, payloads: string[], actual: boolean | {
+    ok: boolean;
+    errorCode?: string;
+}): FixtureEvaluation;
 //# sourceMappingURL=fixture-contract.d.ts.map

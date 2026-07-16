@@ -74,6 +74,24 @@ describe("EngineRegistry", () => {
     registry.register(engine);
     await expect(registry.initializeAll()).rejects.toMatchObject({ error: { code: "engine_initialization_failure" } });
   });
+
+  it("waits for an active thread-safe decode before disposing the engine", async () => {
+    const engine = new FakeEngine("active", true);
+    let finish!: () => void;
+    engine.decodeSpy.mockImplementation(() => new Promise<EngineOutcome>((resolve) => {
+      finish = () => resolve({ ok: false, category: "not-found", message: "none", elapsedMs: 1 });
+    }));
+    const registry = new EngineRegistry(); registry.register(engine);
+    const decoding = registry.decode("active", createRgbaFrame(new Uint8ClampedArray(4), 1, 1), { formats: ["qr_code"], findMultiple: false });
+    await vi.waitFor(() => expect(engine.decodeSpy).toHaveBeenCalledOnce());
+    let disposed = false;
+    const disposal = registry.disposeAll().then(() => { disposed = true; });
+    await Promise.resolve();
+    expect(disposed).toBe(false);
+    finish();
+    await decoding; await disposal;
+    expect(engine.dispose).toHaveBeenCalledOnce();
+  });
 });
 
 describe("scenario-compiled Router", () => {
@@ -90,6 +108,55 @@ describe("scenario-compiled Router", () => {
       expect(outcome.attempts?.[0]).toMatchObject({ engineId: "fake", success: true });
     }
     expect(engine.decodeSpy).toHaveBeenCalled();
+  });
+
+  it("maps ROI candidate corners to original-frame pixels and omits unknown orientation", async () => {
+    const engines = new EngineRegistry();
+    const engine = new FakeEngine();
+    engine.decodeSpy.mockResolvedValue({ ok: true, results: [{
+      text: "GEOMETRY", format: "qr_code", elapsedMs: 1,
+      cornerPoints: [{ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 20, y: 20 }, { x: 0, y: 20 }],
+    }] });
+    engines.register(engine);
+    const value = scenario();
+    value.input.roi = { mode: "relative", x: 0.25, y: 0.2, width: 0.5, height: 0.5 };
+    value.localization.strategy = "full-frame";
+    const outcome = await new CaptureRouter({ scenario: value, engines }).scan(createRgbaFrame(new Uint8ClampedArray(200 * 200 * 4), 200, 200));
+    expect(outcome.ok).toBe(true);
+    if (outcome.ok) {
+      expect(outcome.primary.cornerPoints?.[0]).toEqual({ x: 50, y: 40 });
+      expect(outcome.primary.orientation).toBeUndefined();
+    }
+  });
+
+  it.each([
+    ["execution", "engine_execution_failure"],
+    ["timeout", "timeout"],
+    ["invalid-input", "invalid_image"],
+  ] as const)("propagates %s engine outcomes", async (category, code) => {
+    const engines = new EngineRegistry(); const engine = new FakeEngine();
+    engine.decodeSpy.mockResolvedValue({ ok: false, category, message: category, elapsedMs: 1 });
+    engines.register(engine);
+    const outcome = await new CaptureRouter({ scenario: scenario(), engines }).scan(createRgbaFrame(new Uint8ClampedArray(64 * 64 * 4), 64, 64));
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.error.code).toBe(code);
+  });
+
+  it("aborts and settles active scans before Router engine disposal", async () => {
+    const engines = new EngineRegistry(); const engine = new FakeEngine();
+    engine.decodeSpy.mockImplementation(async (_frame, options) => new Promise<EngineOutcome>((resolve) => {
+      const cancel = () => resolve({ ok: false, category: "cancelled", message: "cancelled", elapsedMs: 1 });
+      if (options.signal?.aborted) cancel(); else options.signal?.addEventListener("abort", cancel, { once: true });
+    }));
+    engines.register(engine);
+    const router = new CaptureRouter({ scenario: scenario(), engines });
+    const scanning = router.scan(createRgbaFrame(new Uint8ClampedArray(64 * 64 * 4), 64, 64));
+    await vi.waitFor(() => expect(engine.decodeSpy).toHaveBeenCalledOnce());
+    await router.dispose();
+    const outcome = await scanning;
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.error.code).toBe("cancelled");
+    expect(engine.dispose).toHaveBeenCalledOnce();
   });
 
   it("rejects missing operators, engines, unsafe parallelism, quality, and required validators before execution", () => {

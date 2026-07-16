@@ -15,6 +15,8 @@ export interface OperatorDescriptor {
 export interface OperatorContext {
   readonly signal?: AbortSignal;
   readonly artifacts: FrameArtifactStore;
+  readonly budget?: ExecutionBudget;
+  readonly phaseTimings?: Record<string, number>;
   readonly trace: (stage: string, detail?: string) => void;
 }
 export interface Operator<I, O, C = unknown> {
@@ -24,6 +26,7 @@ export interface Operator<I, O, C = unknown> {
 export interface FrameArtifactStore {
   readonly allocationCount: number;
   readonly retainedBytes: number;
+  readonly memoryBudget: FrameMemoryBudget;
   get<T>(key: string): T | undefined;
   set<T>(key: string, value: T, estimatedBytes?: number): void;
   dispose(): void;
@@ -45,3 +48,5 @@ export async function executeTaskGraph(nodes: TaskGraphNode[], context: Operator
     await Promise.all(batch.map(async (node) => { await node.run(context); pending.delete(node.id); complete.add(node.id); }));
   }
 }
+import type { ExecutionBudget } from "../runtime/execution-budget.js";
+import type { FrameMemoryBudget } from "../runtime/memory-budget.js";

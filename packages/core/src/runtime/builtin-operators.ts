@@ -14,6 +14,8 @@ import type { EngineRegistry } from "./engine-registry.js";
 import { OperatorRegistry } from "./operator-registry.js";
 import { scenarioToPipelineConfig } from "./scenario-runtime.js";
 import type { ValidatorRegistry } from "./validator-registry.js";
+import { createCoordinateTransform, IDENTITY_MATRIX, type CoordinateTransform } from "../qr/geometry.js";
+import { monotonicNow } from "./execution-budget.js";
 
 export const BUILTIN_OPERATOR_IDS = [
   "scanly.frame-normalization",
@@ -42,10 +44,10 @@ const MAX_MESSAGE_LENGTH = 512;
 function descriptor(id: string, accepts: string[], produces: string[], cpu: "low" | "medium" | "high" = "low"): OperatorDescriptor {
   return {
     id,
-    version: "2.0.0-alpha.1",
+    version: "2.0.0-alpha.2",
     accepts,
     produces,
-    configurationSchemaId: "https://scanly.dev/schema/scenario/2.0",
+    configurationSchemaId: "https://scanly.dev/schema/scenario/2.1",
     cost: { cpu },
     cancellation: "cooperative",
     behavior: "deterministic",
@@ -89,14 +91,17 @@ function rgbaFromFrame(frame: NormalizedFrame): PixelBuffer {
   return { data: output, width: frame.width, height: frame.height };
 }
 
-function roi(buffer: PixelBuffer, scenario: ScenarioDefinition): PixelBuffer {
+function roi(buffer: PixelBuffer, scenario: ScenarioDefinition): { buffer: PixelBuffer; transform: CoordinateTransform } {
   const value = scenario.input.roi;
-  if (value.mode === "full-frame") return buffer;
+  if (value.mode === "full-frame") return { buffer, transform: createCoordinateTransform(IDENTITY_MATRIX, buffer.width, buffer.height, buffer.width, buffer.height) };
   const x = Math.floor((value.x ?? 0) * buffer.width);
   const y = Math.floor((value.y ?? 0) * buffer.height);
   const width = Math.min(Math.max(1, Math.floor((value.width ?? 1) * buffer.width)), buffer.width - x);
   const height = Math.min(Math.max(1, Math.floor((value.height ?? 1) * buffer.height)), buffer.height - y);
-  return cropBuffer(buffer, { x, y, width, height });
+  return {
+    buffer: cropBuffer(buffer, { x, y, width, height }),
+    transform: createCoordinateTransform([1, 0, x, 0, 1, y, 0, 0, 1], width, height, buffer.width, buffer.height),
+  };
 }
 
 class FrameNormalizationOperator implements Operator<void, void, RuntimeOperatorConfiguration> {
@@ -110,11 +115,12 @@ class FrameNormalizationOperator implements Operator<void, void, RuntimeOperator
 }
 
 class RoiOperator implements Operator<void, void, RuntimeOperatorConfiguration> {
-  readonly descriptor = descriptor(BUILTIN_OPERATOR_IDS[1], ["pixel-buffer.rgba8888"], ["pixel-buffer.roi"], "medium");
+  readonly descriptor = descriptor(BUILTIN_OPERATOR_IDS[1], ["pixel-buffer.rgba8888"], ["pixel-buffer.roi", "frame.roi-transform"], "medium");
   async execute(_input: void, configuration: RuntimeOperatorConfiguration, context: OperatorContext): Promise<void> {
     const source = read<PixelBuffer>(context, "frame.rgba");
     const output = roi(source, configuration.scenario);
-    context.artifacts.set("frame.roi", output, output === source ? 0 : output.data.byteLength);
+    context.artifacts.set("frame.roi", output.buffer, output.buffer === source ? 0 : output.buffer.data.byteLength);
+    context.artifacts.set("frame.roi-transform", output.transform);
     context.trace("operator.roi", configuration.scenario.input.roi.mode);
   }
 }
@@ -129,10 +135,11 @@ class LocalizationOperator implements Operator<void, void, RuntimeOperatorConfig
 }
 
 class CandidateGenerationOperator implements Operator<void, void, RuntimeOperatorConfiguration> {
-  readonly descriptor = descriptor(BUILTIN_OPERATOR_IDS[3], ["pixel-buffer.roi", "localization.plan"], ["candidates.raw"], "high");
+  readonly descriptor = descriptor(BUILTIN_OPERATOR_IDS[3], ["pixel-buffer.roi", "frame.roi-transform", "localization.plan"], ["candidates.raw"], "high");
   async execute(_input: void, _configuration: RuntimeOperatorConfiguration, context: OperatorContext): Promise<void> {
     const frame = read<PixelBuffer>(context, "frame.roi");
     const config = read<PipelineConfig>(context, "localization.plan");
+    const sourceToFrame = read<CoordinateTransform>(context, "frame.roi-transform");
     const candidates = generateCandidates(frame, {
       previewSize: config.previewSize,
       maxCandidates: config.maxCandidates,
@@ -142,6 +149,8 @@ class CandidateGenerationOperator implements Operator<void, void, RuntimeOperato
       enableLocalization: config.enableLocalization,
       enableFullImageFallback: config.enableFullImageFallback,
       enableSplitImageFallback: config.enableSplitImageFallback,
+      budget: context.budget,
+      sourceToFrame,
     });
     const retainedBytes = candidates.reduce((sum, candidate) => sum + candidate.buffer.data.byteLength, 0);
     context.artifacts.set("candidates.raw", candidates, retainedBytes);
@@ -184,15 +193,15 @@ function engineExecutor(registry: EngineRegistry, scenario: ScenarioDefinition):
     decode: (engineId, image, options) => registry.decode(
       engineId,
       createRgbaFrame(image.data, image.width, image.height, { id: `attempt-${engineId}`, sourceType: "pixel-buffer", ownership: "borrowed" }),
-      { formats: scenario.acceptedFormats, findMultiple: options.findMultiple, signal: options.signal },
+      { formats: scenario.acceptedFormats, findMultiple: options.findMultiple, signal: options.signal, inversion: options.inversion },
     ),
   };
 }
 
-function mergeParallel(outcomes: DecodeOutcome[], started: number): DecodeOutcome {
+function mergeParallel(outcomes: DecodeOutcome[], started: number, deduplication: PipelineConfig["resultDeduplication"]): DecodeOutcome {
   const attempts = outcomes.flatMap((outcome) => outcome.attempts);
   const successes = outcomes.filter((outcome): outcome is DecodeSuccess => outcome.ok);
-  const phaseTiming: PhaseTiming = { candidateGenerationMs: 0, jsqrMs: 0, zxingMs: 0, preprocessMs: 0, rotationMs: 0, engineMs: {} };
+  const phaseTiming: PhaseTiming = { candidateGenerationMs: 0, preprocessMs: 0, rotationMs: 0, engineMs: {} };
   for (const outcome of outcomes) {
     const phase = outcome.phaseTiming;
     if (!phase) continue;
@@ -201,7 +210,7 @@ function mergeParallel(outcomes: DecodeOutcome[], started: number): DecodeOutcom
     for (const [id, elapsed] of Object.entries(phase.engineMs ?? {})) phaseTiming.engineMs![id] = (phaseTiming.engineMs![id] ?? 0) + elapsed;
   }
   if (successes.length) {
-    const results = dedupeResults(successes.flatMap((outcome) => outcome.results));
+    const results = dedupeResults(successes.flatMap((outcome) => outcome.results), deduplication);
     const nonEmpty = results as DecodeSuccess["results"];
     return {
       ok: true,
@@ -209,14 +218,14 @@ function mergeParallel(outcomes: DecodeOutcome[], started: number): DecodeOutcom
       primary: nonEmpty[0],
       attempts,
       attemptCount: attempts.length,
-      elapsedMs: Date.now() - started,
+      elapsedMs: monotonicNow() - started,
       timeToFirstResultMs: Math.min(...successes.map((outcome) => outcome.timeToFirstResultMs ?? outcome.elapsedMs)),
       cancelled: false,
       phaseTiming,
     };
   }
   const representative = outcomes.find((outcome): outcome is DecodeFailure => !outcome.ok && outcome.reason !== "no_qr_found") ?? outcomes[0] as DecodeFailure;
-  return { ...representative, attempts, attemptCount: attempts.length, elapsedMs: Date.now() - started, phaseTiming };
+  return { ...representative, attempts, attemptCount: attempts.length, elapsedMs: monotonicNow() - started, phaseTiming };
 }
 
 class DecoderExecutionOperator implements Operator<void, void, RuntimeOperatorConfiguration> {
@@ -226,7 +235,7 @@ class DecoderExecutionOperator implements Operator<void, void, RuntimeOperatorCo
     const candidates = read<CandidateImage[]>(context, "candidates.unique");
     const base = read<PipelineConfig>(context, "enhancement.plan");
     const executor = engineExecutor(configuration.engines, configuration.scenario);
-    const started = Date.now();
+    const started = monotonicNow();
     let outcome: DecodeOutcome;
     if (configuration.scenario.decoders.execution === "parallel" && base.decoders.order.length > 1) {
       const branchBudget = Math.max(1, Math.floor(base.maxAttempts / base.decoders.order.length));
@@ -239,6 +248,8 @@ class DecoderExecutionOperator implements Operator<void, void, RuntimeOperatorCo
           signal: controllers[index].signal,
           candidates,
           engineExecutor: executor,
+          executionBudget: context.budget,
+          memoryBudget: context.artifacts.memoryBudget,
           config: { ...base, maxAttempts: branchBudget, decoders: { order: [id], execution: "sequential" } },
         }).then((result) => {
           // Preserve declared priority: a single-code success can only make
@@ -248,12 +259,12 @@ class DecoderExecutionOperator implements Operator<void, void, RuntimeOperatorCo
           }
           return result;
         }));
-        outcome = mergeParallel(await Promise.all(branches), started);
+        outcome = mergeParallel(await Promise.all(branches), started, base.resultDeduplication);
       } finally {
         context.signal?.removeEventListener("abort", abortAll);
       }
     } else {
-      outcome = await decodePixelBuffer(frame, { signal: context.signal, candidates, engineExecutor: executor, config: base });
+      outcome = await decodePixelBuffer(frame, { signal: context.signal, candidates, engineExecutor: executor, config: base, executionBudget: context.budget, memoryBudget: context.artifacts.memoryBudget });
     }
     context.artifacts.set("decode.outcome", outcome);
     context.trace("operator.decoder-execution", `${base.decoders.execution}:${outcome.attemptCount}`);
@@ -269,6 +280,7 @@ function timing(outcome: DecodeOutcome): ScanTiming {
     preprocessingMs: phase?.preprocessMs,
     rotationMs: phase?.rotationMs,
     decodingMs: phase ? Object.values(phase.engineMs ?? {}).reduce((sum, value) => sum + value, 0) : undefined,
+    engineMs: phase?.engineMs,
     workerSetupMs: phase?.workerSetupMs,
     workerTransferMs: phase?.workerTransferMs,
   };
@@ -311,7 +323,7 @@ class ResultAggregationOperator implements Operator<void, void, RuntimeOperatorC
       rawText: code.payload,
       ...(configuration.scenario.output.includeRawBytes && code.rawBytes ? { rawBytes: code.rawBytes } : {}),
       ...(code.cornerPoints ? { cornerPoints: code.cornerPoints } : {}),
-      orientation: code.rotation,
+      ...(code.symbolOrientation !== undefined ? { orientation: code.symbolOrientation } : {}),
       engine: { id: code.decoder, version: code.engineVersion ?? "unknown" },
       preprocessingPath: [code.preprocessing],
       candidate: { index: code.candidateIndex, padding: code.cropPadding, scale: code.scale, rotation: code.rotation },

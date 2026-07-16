@@ -41,7 +41,7 @@ This is Scanly's internal regression suite—not universal accuracy, a third-par
 | Positive decode recall | **51/52 (98.1%)** |
 | Negative false positives | **0/11 (0.0%)** |
 | Remaining failure | `14-damaged` |
-| Benchmark date | 2026-07-15 |
+| Benchmark date | 2026-07-16 |
 | Manifest | [fixtures/manifest.json](fixtures/manifest.json) |
 | Canonical JSON | [benchmark-results/latest.json](benchmark-results/latest.json) |
 <!-- BENCHMARK_SUMMARY_END -->

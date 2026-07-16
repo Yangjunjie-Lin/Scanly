@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BUILTIN_SCENARIOS, getBuiltinScenario, validateScenario } from "@scanly/scenario-schema";
+import { BUILTIN_SCENARIOS, getBuiltinScenario, migrateScenario, validateScenario } from "@scanly/scenario-schema";
 
 describe("scenario schema v2", () => {
   it.each(Object.keys(BUILTIN_SCENARIOS) as Array<keyof typeof BUILTIN_SCENARIOS>)("validates the %s built-in", (id) => {
@@ -53,5 +53,21 @@ describe("scenario schema v2", () => {
     const result = validateScenario(value);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.issues.map((issue) => issue.path)).toEqual(expect.arrayContaining(["localization.maxCandidates", "multiCode.maxResults"]));
+  });
+
+  it("migrates schema 2.0 fallback naming and rejects ambiguous mixed input", () => {
+    const legacy = getBuiltinScenario("balanced") as unknown as Record<string, unknown>;
+    legacy.schemaVersion = "2.0";
+    const ablation = legacy.ablation as Record<string, unknown>;
+    ablation.zxingFallback = ablation.multiEngineFallback;
+    delete ablation.multiEngineFallback;
+    const migrated = migrateScenario(legacy);
+    expect(migrated.ok).toBe(true);
+    if (migrated.ok) {
+      expect(migrated.value.schemaVersion).toBe("2.1");
+      expect(migrated.value.ablation.multiEngineFallback).toBe(true);
+    }
+    ablation.multiEngineFallback = true;
+    expect(migrateScenario(legacy).ok).toBe(false);
   });
 });

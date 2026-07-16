@@ -7,23 +7,23 @@
     "arch": "x64"
   },
   "environment": {
-    "gitCommit": "160bc990e4683c5267edf7b8ff05f5ffa8638c9b",
-    "sdkVersion": "2.0.0-alpha.1",
+    "gitCommit": "ee99cd7cfedc89fb909bd264528243b7869ce7f9",
+    "sdkVersion": "2.0.0-alpha.2",
     "scenario": "balanced",
-    "datasetManifestHash": "03d56261b980f5bf9d22911cbf69db9737c55b361fdf5b2322247d7747d886f6",
+    "datasetManifestHash": "00ab09fb06aa916ae83a4f19a91f9c89d084447c649244bea57daece13597ac5",
     "fixtureCount": 63,
-    "date": "2026-07-15",
+    "date": "2026-07-16",
     "warmupPolicy": "No excluded warmup; lazy engine initialization is included in the first measured fixture.",
     "iterationCount": 1
   },
-  "generatedAt": "2026-07-15T17:19:51.783Z",
+  "generatedAt": "2026-07-16T04:37:18.922Z",
   "total": 63,
   "passed": 62,
   "failed": 1,
   "successRate": 0.9841269841269841,
-  "averageMs": 1348.142857142857,
-  "medianMs": 758,
-  "p95Ms": 3912,
+  "averageMs": 681.8730158730159,
+  "medianMs": 433,
+  "p95Ms": 1607,
   "p99Ms": null,
   "positiveCases": 52,
   "decodeRecall": 0.9807692307692307,
@@ -31,18 +31,23 @@
   "negativeCases": 11,
   "falsePositiveCount": 0,
   "falsePositiveRate": 0,
-  "timeoutCount": 1,
+  "timeoutCount": 0,
   "cancellationCorrectness": {
-    "passed": 1,
-    "total": 1
+    "passed": 3,
+    "total": 3
   },
   "engineInitializationFailures": 0,
-  "timeToFirstResult": {
-    "average": 398.5686274509804,
-    "median": 293,
-    "p95": 1044
+  "engineExecutionFailures": 0,
+  "phaseTimingAvailability": {
+    "passed": 63,
+    "total": 63
   },
-  "averageAttempts": 41.44444444444444,
+  "timeToFirstResult": {
+    "average": 196.5991450980392,
+    "median": 160.72849999999926,
+    "p95": 520.6041999999998
+  },
+  "averageAttempts": 41.857142857142854,
   "medianAttempts": 33,
   "p95Attempts": 96,
   "decoderDistribution": {
@@ -54,7 +59,8 @@
     "threshold-140": 1
   },
   "candidateDistribution": {
-    "0": 11,
+    "0": 10,
+    "1": 1,
     "100": 2,
     "-1": 38
   },
@@ -70,29 +76,54 @@
   ],
   "phaseTiming": {
     "candidateGenerationMs": {
-      "average": 0,
-      "median": 0,
-      "p95": 0
-    },
-    "jsqrMs": {
-      "average": 0,
-      "median": 0,
-      "p95": 0
-    },
-    "zxingMs": {
-      "average": 0,
-      "median": 0,
-      "p95": 0
+      "average": 24.02869047619022,
+      "median": 12.190699999999197,
+      "p95": 67.72939999999653
     },
     "preprocessMs": {
-      "average": 0,
-      "median": 0,
-      "p95": 0
+      "average": 47.88827936507822,
+      "median": 24.545399999999063,
+      "p95": 142.84359999998924
     },
     "rotationMs": {
       "average": 0,
       "median": 0,
       "p95": 0
+    },
+    "frameNormalizationMs": {
+      "average": 0.021528571428804738,
+      "median": 0.014899999998306157,
+      "p95": 0.05500000000029104
+    },
+    "roiMs": {
+      "average": 0.027592063492025296,
+      "median": 0.026199999999789725,
+      "p95": 0.03919999999925494
+    },
+    "localizationMs": {
+      "average": 0.018579365079579885,
+      "median": 0.013999999999214197,
+      "p95": 0.03999999999996362
+    },
+    "candidateDeduplicationMs": {
+      "average": 0.04398095238086138,
+      "median": 0.037000000000261934,
+      "p95": 0.05850000000009459
+    },
+    "validationMs": {
+      "average": 0.02251428571441776,
+      "median": 0.01599999999962165,
+      "p95": 0.03599999999960346
+    },
+    "semanticParsingMs": {
+      "average": 0.19278412698398975,
+      "median": 0.18649999999979627,
+      "p95": 0.4599000000016531
+    },
+    "engine:jsqr": {
+      "average": 494.16889999999853,
+      "median": 306.0745999999998,
+      "p95": 1288.9244000000144
     }
   },
   "perCategory": {
@@ -100,163 +131,163 @@
       "total": 2,
       "passed": 2,
       "successRate": 1,
-      "averageMs": 820
+      "averageMs": 382.5
     },
     "text": {
       "total": 3,
       "passed": 3,
       "successRate": 1,
-      "averageMs": 699
+      "averageMs": 362
     },
     "phone_photo": {
       "total": 1,
       "passed": 1,
       "successRate": 1,
-      "averageMs": 1981
+      "averageMs": 660
     },
     "screen_capture": {
       "total": 3,
       "passed": 3,
       "successRate": 1,
-      "averageMs": 2603
+      "averageMs": 1471.3333333333333
     },
     "low_contrast": {
       "total": 3,
       "passed": 3,
       "successRate": 1,
-      "averageMs": 591
+      "averageMs": 286
     },
     "underexposed": {
       "total": 2,
       "passed": 2,
       "successRate": 1,
-      "averageMs": 848.5
+      "averageMs": 375
     },
     "overexposed": {
       "total": 2,
       "passed": 2,
       "successRate": 1,
-      "averageMs": 789.5
+      "averageMs": 443.5
     },
     "blur": {
       "total": 2,
       "passed": 2,
       "successRate": 1,
-      "averageMs": 771.5
+      "averageMs": 504.5
     },
     "glare": {
       "total": 2,
       "passed": 2,
       "successRate": 1,
-      "averageMs": 766
+      "averageMs": 472
     },
     "small_in_large": {
       "total": 2,
       "passed": 2,
       "successRate": 1,
-      "averageMs": 1284.5
+      "averageMs": 821
     },
     "complex_background": {
       "total": 2,
       "passed": 2,
       "successRate": 1,
-      "averageMs": 1206.5
+      "averageMs": 720
     },
     "rotation": {
       "total": 5,
       "passed": 5,
       "successRate": 1,
-      "averageMs": 684.6
+      "averageMs": 425.8
     },
     "perspective": {
       "total": 2,
       "passed": 2,
       "successRate": 1,
-      "averageMs": 1222.5
+      "averageMs": 560.5
     },
     "damaged": {
       "total": 2,
       "passed": 1,
       "successRate": 0.5,
-      "averageMs": 1788.5
+      "averageMs": 952.5
     },
     "inverted": {
       "total": 4,
       "passed": 4,
       "successRate": 1,
-      "averageMs": 611.25
+      "averageMs": 360
     },
     "multiple": {
       "total": 3,
       "passed": 3,
       "successRate": 1,
-      "averageMs": 884.6666666666666
+      "averageMs": 703.6666666666666
     },
     "wifi": {
       "total": 2,
       "passed": 2,
       "successRate": 1,
-      "averageMs": 449
+      "averageMs": 295.5
     },
     "motion_blur": {
       "total": 1,
       "passed": 1,
       "successRate": 1,
-      "averageMs": 600
+      "averageMs": 313
     },
     "noise": {
       "total": 2,
       "passed": 2,
       "successRate": 1,
-      "averageMs": 461.5
+      "averageMs": 261.5
     },
     "near_edge": {
       "total": 2,
       "passed": 2,
       "successRate": 1,
-      "averageMs": 610
+      "averageMs": 420.5
     },
     "occlusion": {
       "total": 1,
       "passed": 1,
       "successRate": 1,
-      "averageMs": 497
+      "averageMs": 282
     },
     "high_resolution": {
       "total": 1,
       "passed": 1,
       "successRate": 1,
-      "averageMs": 1933
+      "averageMs": 1204
     },
     "unusual_aspect": {
       "total": 1,
       "passed": 1,
       "successRate": 1,
-      "averageMs": 758
+      "averageMs": 433
     },
     "colored_background": {
       "total": 2,
       "passed": 2,
       "successRate": 1,
-      "averageMs": 619
+      "averageMs": 385.5
     },
     "clear": {
       "total": 1,
       "passed": 1,
       "successRate": 1,
-      "averageMs": 419
+      "averageMs": 261
     },
     "negative": {
       "total": 3,
       "passed": 3,
       "successRate": 1,
-      "averageMs": 1850.6666666666667
+      "averageMs": 1268.6666666666667
     },
     "adversarial": {
       "total": 7,
       "passed": 7,
       "successRate": 1,
-      "averageMs": 4245.428571428572
+      "averageMs": 1538.857142857143
     }
   },
   "multipleCompleteness": {
@@ -266,34 +297,34 @@
   },
   "worstFixtures": [
     {
-      "id": "56-negative-random-noise",
-      "elapsedMs": 12579,
-      "attemptCount": 0,
-      "pass": true
-    },
-    {
       "id": "55-negative-checker",
-      "elapsedMs": 5658,
+      "elapsedMs": 3399,
       "attemptCount": 96,
       "pass": true
     },
     {
       "id": "61-negative-screenshot",
-      "elapsedMs": 5652,
+      "elapsedMs": 3383,
       "attemptCount": 96,
       "pass": true
     },
     {
       "id": "62-negative-linear-barcode-like",
-      "elapsedMs": 3912,
+      "elapsedMs": 2247,
       "attemptCount": 96,
       "pass": true
     },
     {
       "id": "14-damaged",
-      "elapsedMs": 3064,
+      "elapsedMs": 1607,
       "attemptCount": 96,
       "pass": false
+    },
+    {
+      "id": "57-negative-text-blocks",
+      "elapsedMs": 1606,
+      "attemptCount": 96,
+      "pass": true
     }
   ],
   "regressionCount": 0,
@@ -310,7 +341,7 @@
         "https://scanly.example/clear"
       ],
       "pass": true,
-      "elapsedMs": 1203,
+      "elapsedMs": 471,
       "successfulDecoder": "jsqr",
       "preprocessingPath": "original",
       "candidateIndex": -1,
@@ -321,7 +352,21 @@
       "unexpectedPayloads": [],
       "requiredPayloadCount": 1,
       "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 798
+      "timeToFirstResultMs": 278.5035,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.10419999999999163,
+        "roiMs": 0.15639999999996235,
+        "localizationMs": 0.11480000000000246,
+        "candidateGenerationMs": 26.15530000000001,
+        "candidateDeduplicationMs": 0.14069999999998117,
+        "preprocessMs": 43.29290000000009,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 313.8015
+        },
+        "validationMs": 0.10800000000006094,
+        "semanticParsingMs": 0.5658999999999423
+      }
     },
     {
       "id": "02-clear-text",
@@ -332,7 +377,7 @@
         "SCANLY_CLEAR_TEXT"
       ],
       "pass": true,
-      "elapsedMs": 1150,
+      "elapsedMs": 453,
       "successfulDecoder": "jsqr",
       "preprocessingPath": "original",
       "candidateIndex": -1,
@@ -343,7 +388,21 @@
       "unexpectedPayloads": [],
       "requiredPayloadCount": 1,
       "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 712
+      "timeToFirstResultMs": 275.4918,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.03330000000005384,
+        "roiMs": 0.019199999999955253,
+        "localizationMs": 0.03999999999996362,
+        "candidateGenerationMs": 21.413299999999936,
+        "candidateDeduplicationMs": 0.040100000000052205,
+        "preprocessMs": 22.19099999999935,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 306.0745999999998
+        },
+        "validationMs": 0.012400000000070577,
+        "semanticParsingMs": 0.24749999999994543
+      }
     },
     {
       "id": "03-phone-photo",
@@ -354,7 +413,7 @@
         "https://scanly.example/photo"
       ],
       "pass": true,
-      "elapsedMs": 1981,
+      "elapsedMs": 660,
       "successfulDecoder": "jsqr",
       "preprocessingPath": "original",
       "candidateIndex": -1,
@@ -365,7 +424,21 @@
       "unexpectedPayloads": [],
       "requiredPayloadCount": 1,
       "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 1154
+      "timeToFirstResultMs": 366.6235999999999,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.012800000000197542,
+        "roiMs": 0.015199999999822467,
+        "localizationMs": 0.03029999999989741,
+        "candidateGenerationMs": 24.998100000000022,
+        "candidateDeduplicationMs": 0.03459999999995489,
+        "preprocessMs": 34.82980000000043,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 481.4198000000001
+        },
+        "validationMs": 0.013799999999946522,
+        "semanticParsingMs": 0.3001999999999043
+      }
     },
     {
       "id": "04-screen-capture",
@@ -376,7 +449,7 @@
         "https://scanly.example/screen"
       ],
       "pass": true,
-      "elapsedMs": 1077,
+      "elapsedMs": 368,
       "successfulDecoder": "jsqr",
       "preprocessingPath": "original",
       "candidateIndex": -1,
@@ -387,7 +460,21 @@
       "unexpectedPayloads": [],
       "requiredPayloadCount": 1,
       "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 737
+      "timeToFirstResultMs": 226.25739999999996,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.01089999999999236,
+        "roiMs": 0.014000000000123691,
+        "localizationMs": 0.03459999999995489,
+        "candidateGenerationMs": 11.290500000000065,
+        "candidateDeduplicationMs": 0.0284999999998945,
+        "preprocessMs": 20.03209999999899,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 244.19760000000178
+        },
+        "validationMs": 0.015900000000328873,
+        "semanticParsingMs": 0.251100000000406
+      }
     },
     {
       "id": "05-low-contrast",
@@ -398,7 +485,7 @@
         "https://scanly.example/low-contrast"
       ],
       "pass": true,
-      "elapsedMs": 1108,
+      "elapsedMs": 378,
       "successfulDecoder": "jsqr",
       "preprocessingPath": "contrast",
       "candidateIndex": -1,
@@ -409,7 +496,21 @@
       "unexpectedPayloads": [],
       "requiredPayloadCount": 1,
       "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 812
+      "timeToFirstResultMs": 261.94529999999986,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.010199999999713327,
+        "roiMs": 0.017400000000179716,
+        "localizationMs": 0.0363999999999578,
+        "candidateGenerationMs": 11.279300000000148,
+        "candidateDeduplicationMs": 0.04260000000022046,
+        "preprocessMs": 23.553799999998773,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 256.2427000000007
+        },
+        "validationMs": 0.025499999999738066,
+        "semanticParsingMs": 0.20400000000017826
+      }
     },
     {
       "id": "06-dark-lighting",
@@ -420,7 +521,7 @@
         "https://scanly.example/dark"
       ],
       "pass": true,
-      "elapsedMs": 1246,
+      "elapsedMs": 469,
       "successfulDecoder": "jsqr",
       "preprocessingPath": "original",
       "candidateIndex": -1,
@@ -431,7 +532,21 @@
       "unexpectedPayloads": [],
       "requiredPayloadCount": 1,
       "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 831
+      "timeToFirstResultMs": 246.31100000000015,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.00889999999981228,
+        "roiMs": 0.01290000000017244,
+        "localizationMs": 0.03440000000000509,
+        "candidateGenerationMs": 9.434700000000248,
+        "candidateDeduplicationMs": 0.02569999999968786,
+        "preprocessMs": 33.4663000000005,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 334.84359999999924
+        },
+        "validationMs": 0.03599999999960346,
+        "semanticParsingMs": 0.26729999999997744
+      }
     },
     {
       "id": "07-overexposed",
@@ -442,7 +557,7 @@
         "https://scanly.example/bright"
       ],
       "pass": true,
-      "elapsedMs": 1131,
+      "elapsedMs": 577,
       "successfulDecoder": "jsqr",
       "preprocessingPath": "original",
       "candidateIndex": -1,
@@ -453,7 +568,21 @@
       "unexpectedPayloads": [],
       "requiredPayloadCount": 1,
       "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 784
+      "timeToFirstResultMs": 372.3577,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.019200000000182627,
+        "roiMs": 0.026199999999789725,
+        "localizationMs": 0.049500000000080036,
+        "candidateGenerationMs": 16.660599999999704,
+        "candidateDeduplicationMs": 0.05850000000009459,
+        "preprocessMs": 39.71199999999908,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 412.73739999999907
+        },
+        "validationMs": 0.032700000000204454,
+        "semanticParsingMs": 0.3263999999999214
+      }
     },
     {
       "id": "08-blurry",
@@ -462,733 +591,6 @@
       "actualPayload": "https://scanly.example/blur",
       "allPayloads": [
         "https://scanly.example/blur"
-      ],
-      "pass": true,
-      "elapsedMs": 1120,
-      "successfulDecoder": "jsqr",
-      "preprocessingPath": "original",
-      "candidateIndex": -1,
-      "attemptCount": 33,
-      "failureReason": null,
-      "expectedOutcome": "decode",
-      "missingPayloads": [],
-      "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 718
-    },
-    {
-      "id": "09-glare",
-      "category": "glare",
-      "expectedPayload": "https://scanly.example/glare",
-      "actualPayload": "https://scanly.example/glare",
-      "allPayloads": [
-        "https://scanly.example/glare"
-      ],
-      "pass": true,
-      "elapsedMs": 1002,
-      "successfulDecoder": "jsqr",
-      "preprocessingPath": "original",
-      "candidateIndex": -1,
-      "attemptCount": 33,
-      "failureReason": null,
-      "expectedOutcome": "decode",
-      "missingPayloads": [],
-      "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 650
-    },
-    {
-      "id": "10-small-in-large",
-      "category": "small_in_large",
-      "expectedPayload": "https://scanly.example/small",
-      "actualPayload": "https://scanly.example/small",
-      "allPayloads": [
-        "https://scanly.example/small"
-      ],
-      "pass": true,
-      "elapsedMs": 975,
-      "successfulDecoder": "jsqr",
-      "preprocessingPath": "original",
-      "candidateIndex": 0,
-      "attemptCount": 15,
-      "failureReason": null,
-      "expectedOutcome": "decode",
-      "missingPayloads": [],
-      "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 51
-    },
-    {
-      "id": "11-complex-background",
-      "category": "complex_background",
-      "expectedPayload": "https://scanly.example/background",
-      "actualPayload": "https://scanly.example/background",
-      "allPayloads": [
-        "https://scanly.example/background"
-      ],
-      "pass": true,
-      "elapsedMs": 1667,
-      "successfulDecoder": "jsqr",
-      "preprocessingPath": "original",
-      "candidateIndex": -1,
-      "attemptCount": 33,
-      "failureReason": null,
-      "expectedOutcome": "decode",
-      "missingPayloads": [],
-      "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 1025
-    },
-    {
-      "id": "12-rotated",
-      "category": "rotation",
-      "expectedPayload": "https://scanly.example/rotated",
-      "actualPayload": "https://scanly.example/rotated",
-      "allPayloads": [
-        "https://scanly.example/rotated"
-      ],
-      "pass": true,
-      "elapsedMs": 1629,
-      "successfulDecoder": "jsqr",
-      "preprocessingPath": "original",
-      "candidateIndex": -1,
-      "attemptCount": 33,
-      "failureReason": null,
-      "expectedOutcome": "decode",
-      "missingPayloads": [],
-      "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 1044
-    },
-    {
-      "id": "13-perspective",
-      "category": "perspective",
-      "expectedPayload": "https://scanly.example/perspective",
-      "actualPayload": "https://scanly.example/perspective",
-      "allPayloads": [
-        "https://scanly.example/perspective"
-      ],
-      "pass": true,
-      "elapsedMs": 1886,
-      "successfulDecoder": "jsqr",
-      "preprocessingPath": "original",
-      "candidateIndex": -1,
-      "attemptCount": 33,
-      "failureReason": null,
-      "expectedOutcome": "decode",
-      "missingPayloads": [],
-      "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 1228
-    },
-    {
-      "id": "14-damaged",
-      "category": "damaged",
-      "expectedPayload": "https://scanly.example/damaged",
-      "actualPayload": null,
-      "allPayloads": [],
-      "pass": false,
-      "elapsedMs": 3064,
-      "successfulDecoder": null,
-      "preprocessingPath": null,
-      "candidateIndex": null,
-      "attemptCount": 96,
-      "failureReason": "no_symbol_found",
-      "expectedOutcome": "decode",
-      "missingPayloads": [
-        "https://scanly.example/damaged"
-      ],
-      "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 0
-    },
-    {
-      "id": "15-inverted",
-      "category": "inverted",
-      "expectedPayload": "https://scanly.example/inverted",
-      "actualPayload": "https://scanly.example/inverted",
-      "allPayloads": [
-        "https://scanly.example/inverted"
-      ],
-      "pass": true,
-      "elapsedMs": 1147,
-      "successfulDecoder": "jsqr",
-      "preprocessingPath": "original",
-      "candidateIndex": -1,
-      "attemptCount": 33,
-      "failureReason": null,
-      "expectedOutcome": "decode",
-      "missingPayloads": [],
-      "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 782
-    },
-    {
-      "id": "16-multiple-codes",
-      "category": "multiple",
-      "expectedPayload": "https://scanly.example/primary",
-      "actualPayload": "https://scanly.example/primary",
-      "allPayloads": [
-        "https://scanly.example/primary",
-        "https://scanly.example/secondary"
-      ],
-      "pass": true,
-      "elapsedMs": 1299,
-      "successfulDecoder": "jsqr",
-      "preprocessingPath": "original",
-      "candidateIndex": 100,
-      "attemptCount": 29,
-      "failureReason": null,
-      "expectedOutcome": "decode",
-      "missingPayloads": [],
-      "unexpectedPayloads": [],
-      "requiredPayloadCount": 2,
-      "decodedPayloadCount": 2,
-      "timeToFirstResultMs": 208
-    },
-    {
-      "id": "17-clear-url-02",
-      "category": "url",
-      "expectedPayload": "https://scanly.example/clear-02",
-      "actualPayload": "https://scanly.example/clear-02",
-      "allPayloads": [
-        "https://scanly.example/clear-02"
-      ],
-      "pass": true,
-      "elapsedMs": 437,
-      "successfulDecoder": "jsqr",
-      "preprocessingPath": "original",
-      "candidateIndex": -1,
-      "attemptCount": 33,
-      "failureReason": null,
-      "expectedOutcome": "decode",
-      "missingPayloads": [],
-      "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 274
-    },
-    {
-      "id": "18-clear-text-02",
-      "category": "text",
-      "expectedPayload": "SCANLY_CLEAR_TEXT_02",
-      "actualPayload": "SCANLY_CLEAR_TEXT_02",
-      "allPayloads": [
-        "SCANLY_CLEAR_TEXT_02"
-      ],
-      "pass": true,
-      "elapsedMs": 434,
-      "successfulDecoder": "jsqr",
-      "preprocessingPath": "original",
-      "candidateIndex": -1,
-      "attemptCount": 33,
-      "failureReason": null,
-      "expectedOutcome": "decode",
-      "missingPayloads": [],
-      "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 281
-    },
-    {
-      "id": "19-wifi-payload",
-      "category": "wifi",
-      "expectedPayload": "WIFI:T:WPA;S:ScanlyLab;P:test-pass-01;;",
-      "actualPayload": "WIFI:T:WPA;S:ScanlyLab;P:test-pass-01;;",
-      "allPayloads": [
-        "WIFI:T:WPA;S:ScanlyLab;P:test-pass-01;;"
-      ],
-      "pass": true,
-      "elapsedMs": 462,
-      "successfulDecoder": "jsqr",
-      "preprocessingPath": "original",
-      "candidateIndex": -1,
-      "attemptCount": 33,
-      "failureReason": null,
-      "expectedOutcome": "decode",
-      "missingPayloads": [],
-      "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 303
-    },
-    {
-      "id": "20-low-contrast-02",
-      "category": "low_contrast",
-      "expectedPayload": "SCANLY_LOW_CONTRAST_02",
-      "actualPayload": "SCANLY_LOW_CONTRAST_02",
-      "allPayloads": [
-        "SCANLY_LOW_CONTRAST_02"
-      ],
-      "pass": true,
-      "elapsedMs": 346,
-      "successfulDecoder": "jsqr",
-      "preprocessingPath": "contrast",
-      "candidateIndex": 0,
-      "attemptCount": 15,
-      "failureReason": null,
-      "expectedOutcome": "decode",
-      "missingPayloads": [],
-      "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 40
-    },
-    {
-      "id": "21-underexposed-gen",
-      "category": "underexposed",
-      "expectedPayload": "SCANLY_UNDEREXPOSED_01",
-      "actualPayload": "SCANLY_UNDEREXPOSED_01",
-      "allPayloads": [
-        "SCANLY_UNDEREXPOSED_01"
-      ],
-      "pass": true,
-      "elapsedMs": 451,
-      "successfulDecoder": "jsqr",
-      "preprocessingPath": "original",
-      "candidateIndex": -1,
-      "attemptCount": 33,
-      "failureReason": null,
-      "expectedOutcome": "decode",
-      "missingPayloads": [],
-      "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 277
-    },
-    {
-      "id": "22-overexposed-gen",
-      "category": "overexposed",
-      "expectedPayload": "SCANLY_OVEREXPOSED_01",
-      "actualPayload": "SCANLY_OVEREXPOSED_01",
-      "allPayloads": [
-        "SCANLY_OVEREXPOSED_01"
-      ],
-      "pass": true,
-      "elapsedMs": 448,
-      "successfulDecoder": "jsqr",
-      "preprocessingPath": "original",
-      "candidateIndex": -1,
-      "attemptCount": 33,
-      "failureReason": null,
-      "expectedOutcome": "decode",
-      "missingPayloads": [],
-      "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 275
-    },
-    {
-      "id": "23-blur-gen",
-      "category": "blur",
-      "expectedPayload": "SCANLY_BLUR_01",
-      "actualPayload": "SCANLY_BLUR_01",
-      "allPayloads": [
-        "SCANLY_BLUR_01"
-      ],
-      "pass": true,
-      "elapsedMs": 423,
-      "successfulDecoder": "jsqr",
-      "preprocessingPath": "original",
-      "candidateIndex": 0,
-      "attemptCount": 15,
-      "failureReason": null,
-      "expectedOutcome": "decode",
-      "missingPayloads": [],
-      "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 28
-    },
-    {
-      "id": "24-motion-blur",
-      "category": "motion_blur",
-      "expectedPayload": "SCANLY_MOTION_BLUR_01",
-      "actualPayload": "SCANLY_MOTION_BLUR_01",
-      "allPayloads": [
-        "SCANLY_MOTION_BLUR_01"
-      ],
-      "pass": true,
-      "elapsedMs": 600,
-      "successfulDecoder": "jsqr",
-      "preprocessingPath": "original",
-      "candidateIndex": -1,
-      "attemptCount": 33,
-      "failureReason": null,
-      "expectedOutcome": "decode",
-      "missingPayloads": [],
-      "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 395
-    },
-    {
-      "id": "25-noise",
-      "category": "noise",
-      "expectedPayload": "SCANLY_NOISE_01",
-      "actualPayload": "SCANLY_NOISE_01",
-      "allPayloads": [
-        "SCANLY_NOISE_01"
-      ],
-      "pass": true,
-      "elapsedMs": 485,
-      "successfulDecoder": "jsqr",
-      "preprocessingPath": "original",
-      "candidateIndex": -1,
-      "attemptCount": 33,
-      "failureReason": null,
-      "expectedOutcome": "decode",
-      "missingPayloads": [],
-      "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 303
-    },
-    {
-      "id": "26-glare-gen",
-      "category": "glare",
-      "expectedPayload": "SCANLY_GLARE_01",
-      "actualPayload": "SCANLY_GLARE_01",
-      "allPayloads": [
-        "SCANLY_GLARE_01"
-      ],
-      "pass": true,
-      "elapsedMs": 530,
-      "successfulDecoder": "jsqr",
-      "preprocessingPath": "original",
-      "candidateIndex": -1,
-      "attemptCount": 33,
-      "failureReason": null,
-      "expectedOutcome": "decode",
-      "missingPayloads": [],
-      "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 335
-    },
-    {
-      "id": "27-inverted-01",
-      "category": "inverted",
-      "expectedPayload": "SCANLY_INVERTED_01",
-      "actualPayload": "SCANLY_INVERTED_01",
-      "allPayloads": [
-        "SCANLY_INVERTED_01"
-      ],
-      "pass": true,
-      "elapsedMs": 449,
-      "successfulDecoder": "jsqr",
-      "preprocessingPath": "original",
-      "candidateIndex": -1,
-      "attemptCount": 33,
-      "failureReason": null,
-      "expectedOutcome": "decode",
-      "missingPayloads": [],
-      "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 269
-    },
-    {
-      "id": "28-inverted-02",
-      "category": "inverted",
-      "expectedPayload": "SCANLY_INVERTED_02",
-      "actualPayload": "SCANLY_INVERTED_02",
-      "allPayloads": [
-        "SCANLY_INVERTED_02"
-      ],
-      "pass": true,
-      "elapsedMs": 402,
-      "successfulDecoder": "jsqr",
-      "preprocessingPath": "original",
-      "candidateIndex": -1,
-      "attemptCount": 33,
-      "failureReason": null,
-      "expectedOutcome": "decode",
-      "missingPayloads": [],
-      "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 267
-    },
-    {
-      "id": "29-rot-90",
-      "category": "rotation",
-      "expectedPayload": "SCANLY_ROT_90",
-      "actualPayload": "SCANLY_ROT_90",
-      "allPayloads": [
-        "SCANLY_ROT_90"
-      ],
-      "pass": true,
-      "elapsedMs": 400,
-      "successfulDecoder": "jsqr",
-      "preprocessingPath": "original",
-      "candidateIndex": -1,
-      "attemptCount": 33,
-      "failureReason": null,
-      "expectedOutcome": "decode",
-      "missingPayloads": [],
-      "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 247
-    },
-    {
-      "id": "30-rot-180",
-      "category": "rotation",
-      "expectedPayload": "SCANLY_ROT_180",
-      "actualPayload": "SCANLY_ROT_180",
-      "allPayloads": [
-        "SCANLY_ROT_180"
-      ],
-      "pass": true,
-      "elapsedMs": 375,
-      "successfulDecoder": "jsqr",
-      "preprocessingPath": "original",
-      "candidateIndex": -1,
-      "attemptCount": 33,
-      "failureReason": null,
-      "expectedOutcome": "decode",
-      "missingPayloads": [],
-      "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 231
-    },
-    {
-      "id": "31-rot-270",
-      "category": "rotation",
-      "expectedPayload": "SCANLY_ROT_270",
-      "actualPayload": "SCANLY_ROT_270",
-      "allPayloads": [
-        "SCANLY_ROT_270"
-      ],
-      "pass": true,
-      "elapsedMs": 423,
-      "successfulDecoder": "jsqr",
-      "preprocessingPath": "original",
-      "candidateIndex": -1,
-      "attemptCount": 33,
-      "failureReason": null,
-      "expectedOutcome": "decode",
-      "missingPayloads": [],
-      "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 280
-    },
-    {
-      "id": "32-rot-15",
-      "category": "rotation",
-      "expectedPayload": "SCANLY_ROT_15",
-      "actualPayload": "SCANLY_ROT_15",
-      "allPayloads": [
-        "SCANLY_ROT_15"
-      ],
-      "pass": true,
-      "elapsedMs": 596,
-      "successfulDecoder": "jsqr",
-      "preprocessingPath": "original",
-      "candidateIndex": -1,
-      "attemptCount": 33,
-      "failureReason": null,
-      "expectedOutcome": "decode",
-      "missingPayloads": [],
-      "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 392
-    },
-    {
-      "id": "33-small-in-large-gen",
-      "category": "small_in_large",
-      "expectedPayload": "SCANLY_SMALL_01",
-      "actualPayload": "SCANLY_SMALL_01",
-      "allPayloads": [
-        "SCANLY_SMALL_01"
-      ],
-      "pass": true,
-      "elapsedMs": 1594,
-      "successfulDecoder": "jsqr",
-      "preprocessingPath": "original",
-      "candidateIndex": 0,
-      "attemptCount": 15,
-      "failureReason": null,
-      "expectedOutcome": "decode",
-      "missingPayloads": [],
-      "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 128
-    },
-    {
-      "id": "34-near-edge",
-      "category": "near_edge",
-      "expectedPayload": "SCANLY_NEAR_EDGE_01",
-      "actualPayload": "SCANLY_NEAR_EDGE_01",
-      "allPayloads": [
-        "SCANLY_NEAR_EDGE_01"
-      ],
-      "pass": true,
-      "elapsedMs": 548,
-      "successfulDecoder": "jsqr",
-      "preprocessingPath": "original",
-      "candidateIndex": 0,
-      "attemptCount": 15,
-      "failureReason": null,
-      "expectedOutcome": "decode",
-      "missingPayloads": [],
-      "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 20
-    },
-    {
-      "id": "35-complex-bg-gen",
-      "category": "complex_background",
-      "expectedPayload": "SCANLY_COMPLEX_BG_01",
-      "actualPayload": "SCANLY_COMPLEX_BG_01",
-      "allPayloads": [
-        "SCANLY_COMPLEX_BG_01"
-      ],
-      "pass": true,
-      "elapsedMs": 746,
-      "successfulDecoder": "jsqr",
-      "preprocessingPath": "original",
-      "candidateIndex": 0,
-      "attemptCount": 15,
-      "failureReason": null,
-      "expectedOutcome": "decode",
-      "missingPayloads": [],
-      "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 19
-    },
-    {
-      "id": "36-multiple-gen",
-      "category": "multiple",
-      "expectedPayload": "SCANLY_MULTI_PRIMARY",
-      "actualPayload": "SCANLY_MULTI_PRIMARY",
-      "allPayloads": [
-        "SCANLY_MULTI_PRIMARY",
-        "SCANLY_MULTI_SECONDARY"
-      ],
-      "pass": true,
-      "elapsedMs": 566,
-      "successfulDecoder": "jsqr",
-      "preprocessingPath": "original",
-      "candidateIndex": 100,
-      "attemptCount": 29,
-      "failureReason": null,
-      "expectedOutcome": "decode",
-      "missingPayloads": [],
-      "unexpectedPayloads": [],
-      "requiredPayloadCount": 2,
-      "decodedPayloadCount": 2,
-      "timeToFirstResultMs": 92
-    },
-    {
-      "id": "37-occlusion",
-      "category": "occlusion",
-      "expectedPayload": "SCANLY_OCCLUSION_01",
-      "actualPayload": "SCANLY_OCCLUSION_01",
-      "allPayloads": [
-        "SCANLY_OCCLUSION_01"
-      ],
-      "pass": true,
-      "elapsedMs": 497,
-      "successfulDecoder": "jsqr",
-      "preprocessingPath": "original",
-      "candidateIndex": -1,
-      "attemptCount": 33,
-      "failureReason": null,
-      "expectedOutcome": "decode",
-      "missingPayloads": [],
-      "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 313
-    },
-    {
-      "id": "38-damaged-gen",
-      "category": "damaged",
-      "expectedPayload": "SCANLY_DAMAGED_01",
-      "actualPayload": "SCANLY_DAMAGED_01",
-      "allPayloads": [
-        "SCANLY_DAMAGED_01"
-      ],
-      "pass": true,
-      "elapsedMs": 513,
-      "successfulDecoder": "jsqr",
-      "preprocessingPath": "original",
-      "candidateIndex": -1,
-      "attemptCount": 33,
-      "failureReason": null,
-      "expectedOutcome": "decode",
-      "missingPayloads": [],
-      "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 316
-    },
-    {
-      "id": "39-high-res",
-      "category": "high_resolution",
-      "expectedPayload": "SCANLY_HIRES_01",
-      "actualPayload": "SCANLY_HIRES_01",
-      "allPayloads": [
-        "SCANLY_HIRES_01"
-      ],
-      "pass": true,
-      "elapsedMs": 1933,
-      "successfulDecoder": "jsqr",
-      "preprocessingPath": "original",
-      "candidateIndex": 0,
-      "attemptCount": 15,
-      "failureReason": null,
-      "expectedOutcome": "decode",
-      "missingPayloads": [],
-      "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 135
-    },
-    {
-      "id": "40-moire",
-      "category": "screen_capture",
-      "expectedPayload": "SCANLY_MOIRE_01",
-      "actualPayload": "SCANLY_MOIRE_01",
-      "allPayloads": [
-        "SCANLY_MOIRE_01"
-      ],
-      "pass": true,
-      "elapsedMs": 1080,
-      "successfulDecoder": "jsqr",
-      "preprocessingPath": "threshold-140",
-      "candidateIndex": -1,
-      "attemptCount": 96,
-      "failureReason": null,
-      "expectedOutcome": "decode",
-      "missingPayloads": [],
-      "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 848
-    },
-    {
-      "id": "41-unusual-aspect",
-      "category": "unusual_aspect",
-      "expectedPayload": "SCANLY_ASPECT_01",
-      "actualPayload": "SCANLY_ASPECT_01",
-      "allPayloads": [
-        "SCANLY_ASPECT_01"
       ],
       "pass": true,
       "elapsedMs": 758,
@@ -1202,7 +604,1210 @@
       "unexpectedPayloads": [],
       "requiredPayloadCount": 1,
       "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 486
+      "timeToFirstResultMs": 509.2966999999999,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.019099999999980355,
+        "roiMs": 0.024899999999888678,
+        "localizationMs": 0.014900000000125146,
+        "candidateGenerationMs": 30.73149999999987,
+        "candidateDeduplicationMs": 0.05609999999978754,
+        "preprocessMs": 53.93239999999969,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 562.5771999999988
+        },
+        "validationMs": 0.016000000000531145,
+        "semanticParsingMs": 0.20789999999942665
+      }
+    },
+    {
+      "id": "09-glare",
+      "category": "glare",
+      "expectedPayload": "https://scanly.example/glare",
+      "actualPayload": "https://scanly.example/glare",
+      "allPayloads": [
+        "https://scanly.example/glare"
+      ],
+      "pass": true,
+      "elapsedMs": 644,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 33,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 398.5796,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.03280000000086147,
+        "roiMs": 0.03129999999964639,
+        "localizationMs": 0.018100000000231375,
+        "candidateGenerationMs": 30.20629999999983,
+        "candidateDeduplicationMs": 0.0522000000000844,
+        "preprocessMs": 37.80369999999948,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 494.54669999999896
+        },
+        "validationMs": 0.02309999999943102,
+        "semanticParsingMs": 0.282999999999447
+      }
+    },
+    {
+      "id": "10-small-in-large",
+      "category": "small_in_large",
+      "expectedPayload": "https://scanly.example/small",
+      "actualPayload": "https://scanly.example/small",
+      "allPayloads": [
+        "https://scanly.example/small"
+      ],
+      "pass": true,
+      "elapsedMs": 655,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": 0,
+      "attemptCount": 15,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 33.17699999999968,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.02540000000044529,
+        "roiMs": 0.03290000000015425,
+        "localizationMs": 0.021799999999529973,
+        "candidateGenerationMs": 126.3086000000003,
+        "candidateDeduplicationMs": 0.038900000000467116,
+        "preprocessMs": 57.58589999999913,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 380.2390999999998
+        },
+        "validationMs": 0.024699999999938882,
+        "semanticParsingMs": 0.31639999999970314
+      }
+    },
+    {
+      "id": "11-complex-background",
+      "category": "complex_background",
+      "expectedPayload": "https://scanly.example/background",
+      "actualPayload": "https://scanly.example/background",
+      "allPayloads": [
+        "https://scanly.example/background"
+      ],
+      "pass": true,
+      "elapsedMs": 934,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 33,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 520.6041999999998,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.020900000000438013,
+        "roiMs": 0.024099999999634747,
+        "localizationMs": 0.014100000000325963,
+        "candidateGenerationMs": 46.841699999999946,
+        "candidateDeduplicationMs": 0.036199999999553256,
+        "preprocessMs": 58.85519999999724,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 744.7942000000012
+        },
+        "validationMs": 0.020599999999831198,
+        "semanticParsingMs": 0.2875000000003638
+      }
+    },
+    {
+      "id": "12-rotated",
+      "category": "rotation",
+      "expectedPayload": "https://scanly.example/rotated",
+      "actualPayload": "https://scanly.example/rotated",
+      "allPayloads": [
+        "https://scanly.example/rotated"
+      ],
+      "pass": true,
+      "elapsedMs": 997,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 33,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 619.6566999999995,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.021600000000034925,
+        "roiMs": 0.024099999999634747,
+        "localizationMs": 0.020900000000438013,
+        "candidateGenerationMs": 30.664099999999962,
+        "candidateDeduplicationMs": 0.048800000000483124,
+        "preprocessMs": 64.72009999999864,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 794.936200000001
+        },
+        "validationMs": 0.01680000000033033,
+        "semanticParsingMs": 0.2672999999995227
+      }
+    },
+    {
+      "id": "13-perspective",
+      "category": "perspective",
+      "expectedPayload": "https://scanly.example/perspective",
+      "actualPayload": "https://scanly.example/perspective",
+      "allPayloads": [
+        "https://scanly.example/perspective"
+      ],
+      "pass": true,
+      "elapsedMs": 788,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 33,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 464.9231,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.026799999999639113,
+        "roiMs": 0.02510000000074797,
+        "localizationMs": 0.014300000000730506,
+        "candidateGenerationMs": 18.355199999999968,
+        "candidateDeduplicationMs": 0.037100000000464206,
+        "preprocessMs": 41.09050000000025,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 625.6124999999947
+        },
+        "validationMs": 0.008299999999508145,
+        "semanticParsingMs": 0.2541000000001077
+      }
+    },
+    {
+      "id": "14-damaged",
+      "category": "damaged",
+      "expectedPayload": "https://scanly.example/damaged",
+      "actualPayload": null,
+      "allPayloads": [],
+      "pass": false,
+      "elapsedMs": 1607,
+      "successfulDecoder": null,
+      "preprocessingPath": null,
+      "candidateIndex": null,
+      "attemptCount": 96,
+      "failureReason": "no_symbol_found",
+      "expectedOutcome": "decode",
+      "missingPayloads": [
+        "https://scanly.example/damaged"
+      ],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.018500000000130967,
+        "roiMs": 0.015499999999519787,
+        "localizationMs": 0.011200000000826549,
+        "candidateGenerationMs": 18.284100000000763,
+        "candidateDeduplicationMs": 0.04100000000107684,
+        "preprocessMs": 156.59200000000055,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 1248.0404000000017
+        },
+        "validationMs": 0.004899999999906868,
+        "semanticParsingMs": 0.002999999998792191
+      }
+    },
+    {
+      "id": "15-inverted",
+      "category": "inverted",
+      "expectedPayload": "https://scanly.example/inverted",
+      "actualPayload": "https://scanly.example/inverted",
+      "allPayloads": [
+        "https://scanly.example/inverted"
+      ],
+      "pass": true,
+      "elapsedMs": 618,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 33,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 392.96969999999965,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.03020000000105938,
+        "roiMs": 0.03130000000055588,
+        "localizationMs": 0.013500000000931323,
+        "candidateGenerationMs": 18.03520000000026,
+        "candidateDeduplicationMs": 0.0375000000003638,
+        "preprocessMs": 35.90070000000196,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 484.5388000000057
+        },
+        "validationMs": 0.02140000000144937,
+        "semanticParsingMs": 0.33699999999953434
+      }
+    },
+    {
+      "id": "16-multiple-codes",
+      "category": "multiple",
+      "expectedPayload": "https://scanly.example/primary",
+      "actualPayload": "https://scanly.example/primary",
+      "allPayloads": [
+        "https://scanly.example/primary",
+        "https://scanly.example/secondary"
+      ],
+      "pass": true,
+      "elapsedMs": 861,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": 100,
+      "attemptCount": 29,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 2,
+      "decodedPayloadCount": 2,
+      "timeToFirstResultMs": 142.38560000000143,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.0316000000002532,
+        "roiMs": 0.033699999999953434,
+        "localizationMs": 0.017400000000634464,
+        "candidateGenerationMs": 35.79639999999927,
+        "candidateDeduplicationMs": 0.042100000000573345,
+        "preprocessMs": 56.66229999999814,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 644.6294999999991
+        },
+        "validationMs": 0.019400000001041917,
+        "semanticParsingMs": 0.4495999999999185
+      }
+    },
+    {
+      "id": "17-clear-url-02",
+      "category": "url",
+      "expectedPayload": "https://scanly.example/clear-02",
+      "actualPayload": "https://scanly.example/clear-02",
+      "allPayloads": [
+        "https://scanly.example/clear-02"
+      ],
+      "pass": true,
+      "elapsedMs": 294,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 33,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 170.16359999999986,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.028900000001158332,
+        "roiMs": 0.030399999999644933,
+        "localizationMs": 0.014900000000125146,
+        "candidateGenerationMs": 6.27980000000025,
+        "candidateDeduplicationMs": 0.046999999998661224,
+        "preprocessMs": 10.662700000004406,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 150.95559999999568
+        },
+        "validationMs": 0.020999999998821295,
+        "semanticParsingMs": 0.06520000000091386
+      }
+    },
+    {
+      "id": "18-clear-text-02",
+      "category": "text",
+      "expectedPayload": "SCANLY_CLEAR_TEXT_02",
+      "actualPayload": "SCANLY_CLEAR_TEXT_02",
+      "allPayloads": [
+        "SCANLY_CLEAR_TEXT_02"
+      ],
+      "pass": true,
+      "elapsedMs": 279,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 33,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 150.97290000000066,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.028899999999339343,
+        "roiMs": 0.030099999999947613,
+        "localizationMs": 0.01540000000022701,
+        "candidateGenerationMs": 6.051099999998769,
+        "candidateDeduplicationMs": 0.04500000000007276,
+        "preprocessMs": 11.311900000000605,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 137.61429999999928
+        },
+        "validationMs": 0.025499999999738066,
+        "semanticParsingMs": 0.19440000000031432
+      }
+    },
+    {
+      "id": "19-wifi-payload",
+      "category": "wifi",
+      "expectedPayload": "WIFI:T:WPA;S:ScanlyLab;P:test-pass-01;;",
+      "actualPayload": "WIFI:T:WPA;S:ScanlyLab;P:test-pass-01;;",
+      "allPayloads": [
+        "WIFI:T:WPA;S:ScanlyLab;P:test-pass-01;;"
+      ],
+      "pass": true,
+      "elapsedMs": 294,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 33,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 169.40389999999934,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.05500000000029104,
+        "roiMs": 0.03470000000015716,
+        "localizationMs": 0.017399999998815474,
+        "candidateGenerationMs": 5.440399999999499,
+        "candidateDeduplicationMs": 0.04370000000017171,
+        "preprocessMs": 10.221700000000055,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 156.59539999999834
+        },
+        "validationMs": 0.019699999998920248,
+        "semanticParsingMs": 0.32810000000063155
+      }
+    },
+    {
+      "id": "20-low-contrast-02",
+      "category": "low_contrast",
+      "expectedPayload": "SCANLY_LOW_CONTRAST_02",
+      "actualPayload": "SCANLY_LOW_CONTRAST_02",
+      "allPayloads": [
+        "SCANLY_LOW_CONTRAST_02"
+      ],
+      "pass": true,
+      "elapsedMs": 263,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "contrast",
+      "candidateIndex": 0,
+      "attemptCount": 15,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 40.21970000000147,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.02779999999984284,
+        "roiMs": 0.027599999999438296,
+        "localizationMs": 0.013800000000628643,
+        "candidateGenerationMs": 17.460400000001755,
+        "candidateDeduplicationMs": 0.03720000000066648,
+        "preprocessMs": 13.634100000002945,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 171.69870000000628
+        },
+        "validationMs": 0.009399999999004649,
+        "semanticParsingMs": 0.2407999999995809
+      }
+    },
+    {
+      "id": "21-underexposed-gen",
+      "category": "underexposed",
+      "expectedPayload": "SCANLY_UNDEREXPOSED_01",
+      "actualPayload": "SCANLY_UNDEREXPOSED_01",
+      "allPayloads": [
+        "SCANLY_UNDEREXPOSED_01"
+      ],
+      "pass": true,
+      "elapsedMs": 281,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 33,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 152.9898000000012,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.030399999999644933,
+        "roiMs": 0.013399999999819556,
+        "localizationMs": 0.007799999999406282,
+        "candidateGenerationMs": 4.3817999999992026,
+        "candidateDeduplicationMs": 0.02659999999923457,
+        "preprocessMs": 12.726000000000568,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 163.35449999999582
+        },
+        "validationMs": 0.01599999999962165,
+        "semanticParsingMs": 0.558100000000195
+      }
+    },
+    {
+      "id": "22-overexposed-gen",
+      "category": "overexposed",
+      "expectedPayload": "SCANLY_OVEREXPOSED_01",
+      "actualPayload": "SCANLY_OVEREXPOSED_01",
+      "allPayloads": [
+        "SCANLY_OVEREXPOSED_01"
+      ],
+      "pass": true,
+      "elapsedMs": 310,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 33,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 160.72849999999926,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.14730000000054133,
+        "roiMs": 0.03689999999915017,
+        "localizationMs": 0.014300000000730506,
+        "candidateGenerationMs": 10.598999999998341,
+        "candidateDeduplicationMs": 0.2669999999998254,
+        "preprocessMs": 11.577299999995375,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 142.48599999999533
+        },
+        "validationMs": 0.015900000000328873,
+        "semanticParsingMs": 0.09429999999883876
+      }
+    },
+    {
+      "id": "23-blur-gen",
+      "category": "blur",
+      "expectedPayload": "SCANLY_BLUR_01",
+      "actualPayload": "SCANLY_BLUR_01",
+      "allPayloads": [
+        "SCANLY_BLUR_01"
+      ],
+      "pass": true,
+      "elapsedMs": 251,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": 0,
+      "attemptCount": 15,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 9.668999999999869,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.021600000000034925,
+        "roiMs": 0.03210000000035507,
+        "localizationMs": 0.01300000000082946,
+        "candidateGenerationMs": 13.08429999999862,
+        "candidateDeduplicationMs": 0.019699999998920248,
+        "preprocessMs": 13.972200000001976,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 149.68250000000626
+        },
+        "validationMs": 0.009700000000520959,
+        "semanticParsingMs": 0.07439999999951397
+      }
+    },
+    {
+      "id": "24-motion-blur",
+      "category": "motion_blur",
+      "expectedPayload": "SCANLY_MOTION_BLUR_01",
+      "actualPayload": "SCANLY_MOTION_BLUR_01",
+      "allPayloads": [
+        "SCANLY_MOTION_BLUR_01"
+      ],
+      "pass": true,
+      "elapsedMs": 313,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 33,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 180.4376000000011,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.01479999999901338,
+        "roiMs": 0.033999999999650754,
+        "localizationMs": 0.014600000000427826,
+        "candidateGenerationMs": 11.418899999998757,
+        "candidateDeduplicationMs": 0.03900000000066939,
+        "preprocessMs": 15.183300000002419,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 196.61570000000575
+        },
+        "validationMs": 0.010299999999915599,
+        "semanticParsingMs": 0.08499999999912689
+      }
+    },
+    {
+      "id": "25-noise",
+      "category": "noise",
+      "expectedPayload": "SCANLY_NOISE_01",
+      "actualPayload": "SCANLY_NOISE_01",
+      "allPayloads": [
+        "SCANLY_NOISE_01"
+      ],
+      "pass": true,
+      "elapsedMs": 256,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 33,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 141.25240000000122,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.007700000000113505,
+        "roiMs": 0.019099999999525608,
+        "localizationMs": 0.0076999999982945155,
+        "candidateGenerationMs": 3.7927999999992608,
+        "candidateDeduplicationMs": 0.02419999999983702,
+        "preprocessMs": 12.819600000006176,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 157.29310000000623
+        },
+        "validationMs": 0.009799999999813735,
+        "semanticParsingMs": 0.0787000000000262
+      }
+    },
+    {
+      "id": "26-glare-gen",
+      "category": "glare",
+      "expectedPayload": "SCANLY_GLARE_01",
+      "actualPayload": "SCANLY_GLARE_01",
+      "allPayloads": [
+        "SCANLY_GLARE_01"
+      ],
+      "pass": true,
+      "elapsedMs": 300,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 33,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 170.96709999999985,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.01749999999992724,
+        "roiMs": 0.03360000000066066,
+        "localizationMs": 0.01389999999992142,
+        "candidateGenerationMs": 9.10899999999856,
+        "candidateDeduplicationMs": 0.033999999999650754,
+        "preprocessMs": 14.41469999999208,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 170.15969999999652
+        },
+        "validationMs": 0.366199999998571,
+        "semanticParsingMs": 0.09990000000107102
+      }
+    },
+    {
+      "id": "27-inverted-01",
+      "category": "inverted",
+      "expectedPayload": "SCANLY_INVERTED_01",
+      "actualPayload": "SCANLY_INVERTED_01",
+      "allPayloads": [
+        "SCANLY_INVERTED_01"
+      ],
+      "pass": true,
+      "elapsedMs": 261,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 33,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 135.46559999999954,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.013500000000931323,
+        "roiMs": 0.03180000000065775,
+        "localizationMs": 0.01330000000052678,
+        "candidateGenerationMs": 6.438200000000506,
+        "candidateDeduplicationMs": 0.0338000000010652,
+        "preprocessMs": 11.621399999996356,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 138.07400000000052
+        },
+        "validationMs": 0.01659999999901629,
+        "semanticParsingMs": 0.0974000000005617
+      }
+    },
+    {
+      "id": "28-inverted-02",
+      "category": "inverted",
+      "expectedPayload": "SCANLY_INVERTED_02",
+      "actualPayload": "SCANLY_INVERTED_02",
+      "allPayloads": [
+        "SCANLY_INVERTED_02"
+      ],
+      "pass": true,
+      "elapsedMs": 266,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 33,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 139.09299999999894,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.012199999999211286,
+        "roiMs": 0.033699999999953434,
+        "localizationMs": 0.012200000001030276,
+        "candidateGenerationMs": 6.417699999999968,
+        "candidateDeduplicationMs": 0.04869999999937136,
+        "preprocessMs": 7.471700000005512,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 113.5391000000036
+        },
+        "validationMs": 0.009799999999813735,
+        "semanticParsingMs": 0.07630000000062864
+      }
+    },
+    {
+      "id": "29-rot-90",
+      "category": "rotation",
+      "expectedPayload": "SCANLY_ROT_90",
+      "actualPayload": "SCANLY_ROT_90",
+      "allPayloads": [
+        "SCANLY_ROT_90"
+      ],
+      "pass": true,
+      "elapsedMs": 281,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 33,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 155.03709999999955,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.011999999998806743,
+        "roiMs": 0.022199999999429565,
+        "localizationMs": 0.008099999999103602,
+        "candidateGenerationMs": 3.2026999999998225,
+        "candidateDeduplicationMs": 0.021600000000034925,
+        "preprocessMs": 10.186400000000503,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 122.40999999999258
+        },
+        "validationMs": 0.021199999999225838,
+        "semanticParsingMs": 0.11409999999887077
+      }
+    },
+    {
+      "id": "30-rot-180",
+      "category": "rotation",
+      "expectedPayload": "SCANLY_ROT_180",
+      "actualPayload": "SCANLY_ROT_180",
+      "allPayloads": [
+        "SCANLY_ROT_180"
+      ],
+      "pass": true,
+      "elapsedMs": 282,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 33,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 151.17599999999948,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.01449999999931606,
+        "roiMs": 0.03299999999944703,
+        "localizationMs": 0.015299999999115244,
+        "candidateGenerationMs": 6.285100000000966,
+        "candidateDeduplicationMs": 0.03739999999925203,
+        "preprocessMs": 9.474100000001272,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 130.96480000000156
+        },
+        "validationMs": 0.021300000000337604,
+        "semanticParsingMs": 0.12449999999989814
+      }
+    },
+    {
+      "id": "31-rot-270",
+      "category": "rotation",
+      "expectedPayload": "SCANLY_ROT_270",
+      "actualPayload": "SCANLY_ROT_270",
+      "allPayloads": [
+        "SCANLY_ROT_270"
+      ],
+      "pass": true,
+      "elapsedMs": 233,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 33,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 136.7482999999993,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.020000000000436557,
+        "roiMs": 0.03889999999955762,
+        "localizationMs": 0.07769999999982247,
+        "candidateGenerationMs": 5.800499999999374,
+        "candidateDeduplicationMs": 0.03809999999975844,
+        "preprocessMs": 9.546699999995326,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 117.04630000000907
+        },
+        "validationMs": 0.008700000000317232,
+        "semanticParsingMs": 0.17299999999886495
+      }
+    },
+    {
+      "id": "32-rot-15",
+      "category": "rotation",
+      "expectedPayload": "SCANLY_ROT_15",
+      "actualPayload": "SCANLY_ROT_15",
+      "allPayloads": [
+        "SCANLY_ROT_15"
+      ],
+      "pass": true,
+      "elapsedMs": 336,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 33,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 190.67159999999967,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.01209999999991851,
+        "roiMs": 0.028900000001158332,
+        "localizationMs": 0.014400000000023283,
+        "candidateGenerationMs": 8.630999999999403,
+        "candidateDeduplicationMs": 0.0338000000010652,
+        "preprocessMs": 14.850100000003295,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 200.27489999999852
+        },
+        "validationMs": 0.02080000000023574,
+        "semanticParsingMs": 0.14830000000074506
+      }
+    },
+    {
+      "id": "33-small-in-large-gen",
+      "category": "small_in_large",
+      "expectedPayload": "SCANLY_SMALL_01",
+      "actualPayload": "SCANLY_SMALL_01",
+      "allPayloads": [
+        "SCANLY_SMALL_01"
+      ],
+      "pass": true,
+      "elapsedMs": 987,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": 0,
+      "attemptCount": 15,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 86.96999999999753,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.015300000000934233,
+        "roiMs": 0.03780000000006112,
+        "localizationMs": 0.01389999999992142,
+        "candidateGenerationMs": 178.27669999999853,
+        "candidateDeduplicationMs": 0.02149999999892316,
+        "preprocessMs": 79.91319999999541,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 654.4286000000029
+        },
+        "validationMs": 0.01989999999932479,
+        "semanticParsingMs": 0.32030000000304426
+      }
+    },
+    {
+      "id": "34-near-edge",
+      "category": "near_edge",
+      "expectedPayload": "SCANLY_NEAR_EDGE_01",
+      "actualPayload": "SCANLY_NEAR_EDGE_01",
+      "allPayloads": [
+        "SCANLY_NEAR_EDGE_01"
+      ],
+      "pass": true,
+      "elapsedMs": 389,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": 0,
+      "attemptCount": 15,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 9.069400000000314,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.014899999998306157,
+        "roiMs": 0.035800000001472654,
+        "localizationMs": 0.013500000000931323,
+        "candidateGenerationMs": 34.55450000000201,
+        "candidateDeduplicationMs": 0.037000000000261934,
+        "preprocessMs": 32.49420000000464,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 284.47940000000017
+        },
+        "validationMs": 0.01810000000114087,
+        "semanticParsingMs": 0.34760000000096625
+      }
+    },
+    {
+      "id": "35-complex-bg-gen",
+      "category": "complex_background",
+      "expectedPayload": "SCANLY_COMPLEX_BG_01",
+      "actualPayload": "SCANLY_COMPLEX_BG_01",
+      "allPayloads": [
+        "SCANLY_COMPLEX_BG_01"
+      ],
+      "pass": true,
+      "elapsedMs": 506,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": 0,
+      "attemptCount": 15,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 16.8762999999999,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.060499999999592546,
+        "roiMs": 0.036700000000564614,
+        "localizationMs": 0.014699999999720603,
+        "candidateGenerationMs": 44.60069999999905,
+        "candidateDeduplicationMs": 0.05129999999917345,
+        "preprocessMs": 35.912799999994604,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 366.72759999999835
+        },
+        "validationMs": 0.016700000000128057,
+        "semanticParsingMs": 0.32219999999870197
+      }
+    },
+    {
+      "id": "36-multiple-gen",
+      "category": "multiple",
+      "expectedPayload": "SCANLY_MULTI_PRIMARY",
+      "actualPayload": "SCANLY_MULTI_PRIMARY",
+      "allPayloads": [
+        "SCANLY_MULTI_PRIMARY",
+        "SCANLY_MULTI_SECONDARY"
+      ],
+      "pass": true,
+      "elapsedMs": 390,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": 100,
+      "attemptCount": 29,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 2,
+      "decodedPayloadCount": 2,
+      "timeToFirstResultMs": 55.55240000000049,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.013699999999516876,
+        "roiMs": 0.03110000000015134,
+        "localizationMs": 0.013200000001234002,
+        "candidateGenerationMs": 9.390299999999115,
+        "candidateDeduplicationMs": 0.031199999997625127,
+        "preprocessMs": 20.511799999989307,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 264.7193999999872
+        },
+        "validationMs": 0.022400000001653098,
+        "semanticParsingMs": 0.5249000000003434
+      }
+    },
+    {
+      "id": "37-occlusion",
+      "category": "occlusion",
+      "expectedPayload": "SCANLY_OCCLUSION_01",
+      "actualPayload": "SCANLY_OCCLUSION_01",
+      "allPayloads": [
+        "SCANLY_OCCLUSION_01"
+      ],
+      "pass": true,
+      "elapsedMs": 282,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 33,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 154.2003999999979,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.01329999999870779,
+        "roiMs": 0.03280000000086147,
+        "localizationMs": 0.01329999999870779,
+        "candidateGenerationMs": 8.289499999998952,
+        "candidateDeduplicationMs": 0.03840000000127475,
+        "preprocessMs": 12.150999999998021,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 145.93979999999647
+        },
+        "validationMs": 0.010099999999511056,
+        "semanticParsingMs": 0.07479999999850406
+      }
+    },
+    {
+      "id": "38-damaged-gen",
+      "category": "damaged",
+      "expectedPayload": "SCANLY_DAMAGED_01",
+      "actualPayload": "SCANLY_DAMAGED_01",
+      "allPayloads": [
+        "SCANLY_DAMAGED_01"
+      ],
+      "pass": true,
+      "elapsedMs": 298,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 33,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 166.70809999999983,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.015299999999115244,
+        "roiMs": 0.033100000000558794,
+        "localizationMs": 0.01420000000143773,
+        "candidateGenerationMs": 6.524799999999232,
+        "candidateDeduplicationMs": 0.03160000000207219,
+        "preprocessMs": 10.319600000006176,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 145.5661999999902
+        },
+        "validationMs": 0.00969999999870197,
+        "semanticParsingMs": 0.09590000000025611
+      }
+    },
+    {
+      "id": "39-high-res",
+      "category": "high_resolution",
+      "expectedPayload": "SCANLY_HIRES_01",
+      "actualPayload": "SCANLY_HIRES_01",
+      "allPayloads": [
+        "SCANLY_HIRES_01"
+      ],
+      "pass": true,
+      "elapsedMs": 1204,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": 0,
+      "attemptCount": 15,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 69.87960000000021,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.014900000001944136,
+        "roiMs": 0.036399999997229315,
+        "localizationMs": 0.013399999999819556,
+        "candidateGenerationMs": 207.04680000000008,
+        "candidateDeduplicationMs": 0.02779999999984284,
+        "preprocessMs": 113.58519999999771,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 781.2091000000073
+        },
+        "validationMs": 0.015800000001036096,
+        "semanticParsingMs": 0.2802000000010594
+      }
+    },
+    {
+      "id": "40-moire",
+      "category": "screen_capture",
+      "expectedPayload": "SCANLY_MOIRE_01",
+      "actualPayload": "SCANLY_MOIRE_01",
+      "allPayloads": [
+        "SCANLY_MOIRE_01"
+      ],
+      "pass": true,
+      "elapsedMs": 663,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "threshold-140",
+      "candidateIndex": -1,
+      "attemptCount": 96,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 535.7563000000009,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.01209999999991851,
+        "roiMs": 0.02840000000287546,
+        "localizationMs": 0.013000000002648449,
+        "candidateGenerationMs": 6.9166000000004715,
+        "candidateDeduplicationMs": 0.03149999999732245,
+        "preprocessMs": 46.11709999999948,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 339.58350000000064
+        },
+        "validationMs": 0.02110000000175205,
+        "semanticParsingMs": 0.18649999999979627
+      }
+    },
+    {
+      "id": "41-unusual-aspect",
+      "category": "unusual_aspect",
+      "expectedPayload": "SCANLY_ASPECT_01",
+      "actualPayload": "SCANLY_ASPECT_01",
+      "allPayloads": [
+        "SCANLY_ASPECT_01"
+      ],
+      "pass": true,
+      "elapsedMs": 433,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 33,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 260.6873999999989,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.01029999999809661,
+        "roiMs": 0.023600000000442378,
+        "localizationMs": 0.011099999999714782,
+        "candidateGenerationMs": 17.269799999998213,
+        "candidateDeduplicationMs": 0.03210000000035507,
+        "preprocessMs": 24.545399999999063,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 282.55919999999605
+        },
+        "validationMs": 0.01510000000052969,
+        "semanticParsingMs": 0.4372000000003027
+      }
     },
     {
       "id": "42-colored-bg",
@@ -1213,7 +1818,7 @@
         "SCANLY_COLOR_BG_01"
       ],
       "pass": true,
-      "elapsedMs": 685,
+      "elapsedMs": 433,
       "successfulDecoder": "jsqr",
       "preprocessingPath": "original",
       "candidateIndex": 0,
@@ -1224,7 +1829,21 @@
       "unexpectedPayloads": [],
       "requiredPayloadCount": 1,
       "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 54
+      "timeToFirstResultMs": 29.398799999999028,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.01510000000052969,
+        "roiMs": 0.039999999997235136,
+        "localizationMs": 0.013500000000931323,
+        "candidateGenerationMs": 46.445599999999104,
+        "candidateDeduplicationMs": 0.05459999999948195,
+        "preprocessMs": 33.895000000004075,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 308.02039999999397
+        },
+        "validationMs": 0.01989999999932479,
+        "semanticParsingMs": 0.336700000003475
+      }
     },
     {
       "id": "43-transparent-bg",
@@ -1235,7 +1854,7 @@
         "SCANLY_TRANSPARENT_01"
       ],
       "pass": true,
-      "elapsedMs": 553,
+      "elapsedMs": 338,
       "successfulDecoder": "jsqr",
       "preprocessingPath": "original",
       "candidateIndex": -1,
@@ -1246,7 +1865,21 @@
       "unexpectedPayloads": [],
       "requiredPayloadCount": 1,
       "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 332
+      "timeToFirstResultMs": 193.34700000000157,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.013600000002043089,
+        "roiMs": 0.03919999999925494,
+        "localizationMs": 0.013999999999214197,
+        "candidateGenerationMs": 7.423399999999674,
+        "candidateDeduplicationMs": 0.033100000000558794,
+        "preprocessMs": 15.833900000008725,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 205.1747000000105
+        },
+        "validationMs": 0.02289999999993597,
+        "semanticParsingMs": 0.342000000000553
+      }
     },
     {
       "id": "44-clear-url-03",
@@ -1257,7 +1890,7 @@
         "https://scanly.example/clear-03"
       ],
       "pass": true,
-      "elapsedMs": 419,
+      "elapsedMs": 261,
       "successfulDecoder": "jsqr",
       "preprocessingPath": "original",
       "candidateIndex": -1,
@@ -1268,7 +1901,21 @@
       "unexpectedPayloads": [],
       "requiredPayloadCount": 1,
       "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 268
+      "timeToFirstResultMs": 137.1706000000013,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.02050000000235741,
+        "roiMs": 0.08550000000104774,
+        "localizationMs": 0.016400000000430737,
+        "candidateGenerationMs": 5.444000000003143,
+        "candidateDeduplicationMs": 0.04320000000006985,
+        "preprocessMs": 9.398700000001554,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 146.20430000000852
+        },
+        "validationMs": 0.018199999998614658,
+        "semanticParsingMs": 0.060899999996763654
+      }
     },
     {
       "id": "45-text-long",
@@ -1279,7 +1926,7 @@
         "SCANLY_LONG_TEXT_PAYLOAD_ABCDEF_0123456789"
       ],
       "pass": true,
-      "elapsedMs": 513,
+      "elapsedMs": 354,
       "successfulDecoder": "jsqr",
       "preprocessingPath": "original",
       "candidateIndex": -1,
@@ -1290,7 +1937,21 @@
       "unexpectedPayloads": [],
       "requiredPayloadCount": 1,
       "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 312
+      "timeToFirstResultMs": 208.61079999999856,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.013500000000931323,
+        "roiMs": 0.015900000002147863,
+        "localizationMs": 0.01450000000113505,
+        "candidateGenerationMs": 8.170200000000477,
+        "candidateDeduplicationMs": 0.04169999999794527,
+        "preprocessMs": 17.36069999997926,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 224.4635999999955
+        },
+        "validationMs": 0.01780000000144355,
+        "semanticParsingMs": 0.11340000000200234
+      }
     },
     {
       "id": "46-invert-url",
@@ -1301,7 +1962,7 @@
         "https://scanly.example/inverted-url"
       ],
       "pass": true,
-      "elapsedMs": 447,
+      "elapsedMs": 295,
       "successfulDecoder": "jsqr",
       "preprocessingPath": "original",
       "candidateIndex": -1,
@@ -1312,7 +1973,21 @@
       "unexpectedPayloads": [],
       "requiredPayloadCount": 1,
       "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 293
+      "timeToFirstResultMs": 156.47420000000056,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.013900000001740409,
+        "roiMs": 0.01719999999841093,
+        "localizationMs": 0.014400000000023283,
+        "candidateGenerationMs": 5.800500000001193,
+        "candidateDeduplicationMs": 0.034299999999348074,
+        "preprocessMs": 11.324700000008306,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 169.67310000000725
+        },
+        "validationMs": 0.01689999999871361,
+        "semanticParsingMs": 0.06590000000142027
+      }
     },
     {
       "id": "47-near-edge-bottom",
@@ -1323,7 +1998,7 @@
         "SCANLY_NEAR_EDGE_02"
       ],
       "pass": true,
-      "elapsedMs": 672,
+      "elapsedMs": 452,
       "successfulDecoder": "jsqr",
       "preprocessingPath": "original",
       "candidateIndex": 0,
@@ -1334,7 +2009,21 @@
       "unexpectedPayloads": [],
       "requiredPayloadCount": 1,
       "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 57
+      "timeToFirstResultMs": 34.44300000000294,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.01900000000023283,
+        "roiMs": 0.02019999999902211,
+        "localizationMs": 0.01480000000083237,
+        "candidateGenerationMs": 56.88600000000224,
+        "candidateDeduplicationMs": 0.03020000000105938,
+        "preprocessMs": 37.3576999999932,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 308.4574999999968
+        },
+        "validationMs": 0.016499999997904524,
+        "semanticParsingMs": 0.30640000000130385
+      }
     },
     {
       "id": "48-perspective-mild",
@@ -1345,7 +2034,7 @@
         "SCANLY_PERSPECTIVE_01"
       ],
       "pass": true,
-      "elapsedMs": 559,
+      "elapsedMs": 333,
       "successfulDecoder": "jsqr",
       "preprocessingPath": "original",
       "candidateIndex": -1,
@@ -1356,7 +2045,21 @@
       "unexpectedPayloads": [],
       "requiredPayloadCount": 1,
       "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 345
+      "timeToFirstResultMs": 196.57270000000062,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.010399999999208376,
+        "roiMs": 0.014699999999720603,
+        "localizationMs": 0.011800000000221189,
+        "candidateGenerationMs": 8.28570000000036,
+        "candidateDeduplicationMs": 0.03240000000005239,
+        "preprocessMs": 12.810999999994237,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 196.9930999999815
+        },
+        "validationMs": 0.010600000001431908,
+        "semanticParsingMs": 0.2587000000021362
+      }
     },
     {
       "id": "49-noise-dark",
@@ -1367,7 +2070,7 @@
         "SCANLY_NOISE_DARK_01"
       ],
       "pass": true,
-      "elapsedMs": 438,
+      "elapsedMs": 267,
       "successfulDecoder": "jsqr",
       "preprocessingPath": "original",
       "candidateIndex": -1,
@@ -1378,31 +2081,59 @@
       "unexpectedPayloads": [],
       "requiredPayloadCount": 1,
       "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 270
+      "timeToFirstResultMs": 157.16509999999835,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.006900000000314321,
+        "roiMs": 0.008799999999610009,
+        "localizationMs": 0.008200000000215368,
+        "candidateGenerationMs": 3.0054000000018277,
+        "candidateDeduplicationMs": 0.020400000001245644,
+        "preprocessMs": 10.599499999992986,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 156.6729999999843
+        },
+        "validationMs": 0.014900000001944136,
+        "semanticParsingMs": 0.10089999999763677
+      }
     },
     {
       "id": "50-multiple-three",
       "category": "multiple",
       "expectedPayload": "SCANLY_TRI_A",
-      "actualPayload": "SCANLY_TRI_B",
+      "actualPayload": "SCANLY_TRI_A",
       "allPayloads": [
-        "SCANLY_TRI_B",
         "SCANLY_TRI_A",
+        "SCANLY_TRI_B",
         "SCANLY_TRI_C"
       ],
       "pass": true,
-      "elapsedMs": 789,
+      "elapsedMs": 860,
       "successfulDecoder": "jsqr",
       "preprocessingPath": "original",
-      "candidateIndex": 0,
-      "attemptCount": 30,
+      "candidateIndex": 1,
+      "attemptCount": 55,
       "failureReason": null,
       "expectedOutcome": "decode",
       "missingPayloads": [],
       "unexpectedPayloads": [],
       "requiredPayloadCount": 3,
       "decodedPayloadCount": 3,
-      "timeToFirstResultMs": 17
+      "timeToFirstResultMs": 11.060499999999593,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.012200000001030276,
+        "roiMs": 0.027699999998731073,
+        "localizationMs": 0.01629999999931897,
+        "candidateGenerationMs": 19.977999999999156,
+        "candidateDeduplicationMs": 0.033100000000558794,
+        "preprocessMs": 56.05959999998959,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 604.7797999999966
+        },
+        "validationMs": 0.03900000000066939,
+        "semanticParsingMs": 0.4599000000016531
+      }
     },
     {
       "id": "51-gamma-ish",
@@ -1413,7 +2144,7 @@
         "SCANLY_GAMMA_01"
       ],
       "pass": true,
-      "elapsedMs": 319,
+      "elapsedMs": 217,
       "successfulDecoder": "jsqr",
       "preprocessingPath": "original",
       "candidateIndex": 0,
@@ -1424,7 +2155,21 @@
       "unexpectedPayloads": [],
       "requiredPayloadCount": 1,
       "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 19
+      "timeToFirstResultMs": 14.136800000000221,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.01029999999809661,
+        "roiMs": 0.013800000000628643,
+        "localizationMs": 0.011900000001332955,
+        "candidateGenerationMs": 12.522300000000541,
+        "candidateDeduplicationMs": 0.03900000000066939,
+        "preprocessMs": 8.829900000000634,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 117.94659999999203
+        },
+        "validationMs": 0.013500000000931323,
+        "semanticParsingMs": 0.09920000000056461
+      }
     },
     {
       "id": "52-wifi-02",
@@ -1435,7 +2180,7 @@
         "WIFI:T:nopass;S:GuestScanly;P:;;"
       ],
       "pass": true,
-      "elapsedMs": 436,
+      "elapsedMs": 297,
       "successfulDecoder": "jsqr",
       "preprocessingPath": "original",
       "candidateIndex": -1,
@@ -1446,7 +2191,21 @@
       "unexpectedPayloads": [],
       "requiredPayloadCount": 1,
       "decodedPayloadCount": 1,
-      "timeToFirstResultMs": 272
+      "timeToFirstResultMs": 168.39800000000105,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.015199999998003477,
+        "roiMs": 0.014999999999417923,
+        "localizationMs": 0.011900000001332955,
+        "candidateGenerationMs": 6.211599999998725,
+        "candidateDeduplicationMs": 0.030999999999039574,
+        "preprocessMs": 9.072200000016892,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 142.46530000000348
+        },
+        "validationMs": 0.014999999999417923,
+        "semanticParsingMs": 0.2481999999981781
+      }
     },
     {
       "id": "53-negative-blank",
@@ -1455,17 +2214,30 @@
       "actualPayload": null,
       "allPayloads": [],
       "pass": true,
-      "elapsedMs": 1867,
+      "elapsedMs": 1235,
       "successfulDecoder": null,
       "preprocessingPath": null,
       "candidateIndex": null,
       "attemptCount": 96,
       "failureReason": "no_symbol_found",
-      "expectedOutcome": "fail",
+      "expectedOutcome": "no-symbol",
       "missingPayloads": [],
       "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 0
+      "decodedPayloadCount": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.011099999999714782,
+        "roiMs": 0.01239999999961583,
+        "localizationMs": 0.012299999998504063,
+        "candidateGenerationMs": 17.235599999999977,
+        "candidateDeduplicationMs": 0.02690000000075088,
+        "preprocessMs": 142.84359999998924,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 873.723599999983
+        },
+        "validationMs": 0.0072000000000116415,
+        "semanticParsingMs": 0.004299999996874249
+      }
     },
     {
       "id": "54-negative-pattern",
@@ -1474,17 +2246,30 @@
       "actualPayload": null,
       "allPayloads": [],
       "pass": true,
-      "elapsedMs": 1903,
+      "elapsedMs": 1306,
       "successfulDecoder": null,
       "preprocessingPath": null,
       "candidateIndex": null,
       "attemptCount": 96,
       "failureReason": "no_symbol_found",
-      "expectedOutcome": "fail",
+      "expectedOutcome": "no-symbol",
       "missingPayloads": [],
       "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 0
+      "decodedPayloadCount": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.011200000000826549,
+        "roiMs": 0.011899999997694977,
+        "localizationMs": 0.012500000000727596,
+        "candidateGenerationMs": 18.86460000000079,
+        "candidateDeduplicationMs": 0.02809999999954016,
+        "preprocessMs": 139.0257999999958,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 945.9972999999773
+        },
+        "validationMs": 0.002599999999802094,
+        "semanticParsingMs": 0.002099999997881241
+      }
     },
     {
       "id": "55-negative-checker",
@@ -1493,17 +2278,30 @@
       "actualPayload": null,
       "allPayloads": [],
       "pass": true,
-      "elapsedMs": 5658,
+      "elapsedMs": 3399,
       "successfulDecoder": null,
       "preprocessingPath": null,
       "candidateIndex": null,
       "attemptCount": 96,
       "failureReason": "no_symbol_found",
-      "expectedOutcome": "fail",
+      "expectedOutcome": "no-symbol",
       "missingPayloads": [],
       "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 0
+      "decodedPayloadCount": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.011099999999714782,
+        "roiMs": 0.013100000000122236,
+        "localizationMs": 0.012800000000424916,
+        "candidateGenerationMs": 32.9945000000007,
+        "candidateDeduplicationMs": 0.030699999999342253,
+        "preprocessMs": 192.31370000000243,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 3042.0923999999795
+        },
+        "validationMs": 0.006000000001222361,
+        "semanticParsingMs": 0.004099999998288695
+      }
     },
     {
       "id": "56-negative-random-noise",
@@ -1512,17 +2310,30 @@
       "actualPayload": null,
       "allPayloads": [],
       "pass": true,
-      "elapsedMs": 12579,
+      "elapsedMs": 376,
       "successfulDecoder": null,
       "preprocessingPath": null,
       "candidateIndex": null,
-      "attemptCount": 0,
-      "failureReason": "timeout",
-      "expectedOutcome": "fail",
+      "attemptCount": 1,
+      "failureReason": "no_symbol_found",
+      "expectedOutcome": "no-symbol",
       "missingPayloads": [],
       "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 0
+      "decodedPayloadCount": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.011999999998806743,
+        "roiMs": 0.011800000000221189,
+        "localizationMs": 0.01269999999931315,
+        "candidateGenerationMs": 5.662900000002992,
+        "candidateDeduplicationMs": 0.17009999999936554,
+        "preprocessMs": 0.07650000000285218,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 360.0448000000033
+        },
+        "validationMs": 0.0015999999995983671,
+        "semanticParsingMs": 0.0018000000018218998
+      }
     },
     {
       "id": "57-negative-text-blocks",
@@ -1531,17 +2342,30 @@
       "actualPayload": null,
       "allPayloads": [],
       "pass": true,
-      "elapsedMs": 2116,
+      "elapsedMs": 1606,
       "successfulDecoder": null,
       "preprocessingPath": null,
       "candidateIndex": null,
       "attemptCount": 96,
       "failureReason": "no_symbol_found",
-      "expectedOutcome": "fail",
+      "expectedOutcome": "no-symbol",
       "missingPayloads": [],
       "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 0
+      "decodedPayloadCount": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.013500000000931323,
+        "roiMs": 0.014100000000325963,
+        "localizationMs": 0.011399999999412103,
+        "candidateGenerationMs": 13.21480000000156,
+        "candidateDeduplicationMs": 0.041199999999662396,
+        "preprocessMs": 96.52919999996448,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 1288.9244000000144
+        },
+        "validationMs": 0.006900000000314321,
+        "semanticParsingMs": 0.004399999997986015
+      }
     },
     {
       "id": "58-negative-datamatrix-like",
@@ -1550,17 +2374,30 @@
       "actualPayload": null,
       "allPayloads": [],
       "pass": true,
-      "elapsedMs": 2140,
+      "elapsedMs": 1426,
       "successfulDecoder": null,
       "preprocessingPath": null,
       "candidateIndex": null,
       "attemptCount": 96,
       "failureReason": "no_symbol_found",
-      "expectedOutcome": "fail",
+      "expectedOutcome": "no-symbol",
       "missingPayloads": [],
       "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 0
+      "decodedPayloadCount": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.018200000005890615,
+        "roiMs": 0.013500000000931323,
+        "localizationMs": 0.014699999999720603,
+        "candidateGenerationMs": 19.294499999996333,
+        "candidateDeduplicationMs": 0.035499999998137355,
+        "preprocessMs": 135.6266000000178,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 1116.7546000000002
+        },
+        "validationMs": 0.006099999998696148,
+        "semanticParsingMs": 0.004199999995762482
+      }
     },
     {
       "id": "59-negative-logo",
@@ -1569,17 +2406,30 @@
       "actualPayload": null,
       "allPayloads": [],
       "pass": true,
-      "elapsedMs": 1569,
+      "elapsedMs": 965,
       "successfulDecoder": null,
       "preprocessingPath": null,
       "candidateIndex": null,
       "attemptCount": 96,
       "failureReason": "no_symbol_found",
-      "expectedOutcome": "fail",
+      "expectedOutcome": "no-symbol",
       "missingPayloads": [],
       "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 0
+      "decodedPayloadCount": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.01209999999991851,
+        "roiMs": 0.011700000002747402,
+        "localizationMs": 0.012199999997392297,
+        "candidateGenerationMs": 7.325799999998708,
+        "candidateDeduplicationMs": 0.032400000003690366,
+        "preprocessMs": 92.73319999998785,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 700.7243000000308
+        },
+        "validationMs": 0.0062000000034458935,
+        "semanticParsingMs": 0.00420000000303844
+      }
     },
     {
       "id": "60-negative-grid",
@@ -1588,17 +2438,30 @@
       "actualPayload": null,
       "allPayloads": [],
       "pass": true,
-      "elapsedMs": 1411,
+      "elapsedMs": 805,
       "successfulDecoder": null,
       "preprocessingPath": null,
       "candidateIndex": null,
       "attemptCount": 96,
       "failureReason": "no_symbol_found",
-      "expectedOutcome": "fail",
+      "expectedOutcome": "no-symbol",
       "missingPayloads": [],
       "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 0
+      "decodedPayloadCount": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.012300000002142042,
+        "roiMs": 0.013300000005983748,
+        "localizationMs": 0.012600000001839362,
+        "candidateGenerationMs": 10.368799999996554,
+        "candidateDeduplicationMs": 0.04299999999784632,
+        "preprocessMs": 57.88579999996,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 555.9128999999812
+        },
+        "validationMs": 0.005899999996472616,
+        "semanticParsingMs": 0.00399999999353895
+      }
     },
     {
       "id": "61-negative-screenshot",
@@ -1607,17 +2470,30 @@
       "actualPayload": null,
       "allPayloads": [],
       "pass": true,
-      "elapsedMs": 5652,
+      "elapsedMs": 3383,
       "successfulDecoder": null,
       "preprocessingPath": null,
       "candidateIndex": null,
       "attemptCount": 96,
       "failureReason": "no_symbol_found",
-      "expectedOutcome": "fail",
+      "expectedOutcome": "no-symbol",
       "missingPayloads": [],
       "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 0
+      "decodedPayloadCount": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.012900000001536682,
+        "roiMs": 0.013399999996181577,
+        "localizationMs": 0.013700000003154855,
+        "candidateGenerationMs": 67.72939999999653,
+        "candidateDeduplicationMs": 0.03160000000207219,
+        "preprocessMs": 399.28370000002906,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 2752.1031000000075
+        },
+        "validationMs": 0.0070000000050640665,
+        "semanticParsingMs": 0.004300000000512227
+      }
     },
     {
       "id": "62-negative-linear-barcode-like",
@@ -1626,17 +2502,30 @@
       "actualPayload": null,
       "allPayloads": [],
       "pass": true,
-      "elapsedMs": 3912,
+      "elapsedMs": 2247,
       "successfulDecoder": null,
       "preprocessingPath": null,
       "candidateIndex": null,
       "attemptCount": 96,
       "failureReason": "no_symbol_found",
-      "expectedOutcome": "fail",
+      "expectedOutcome": "no-symbol",
       "missingPayloads": [],
       "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 0
+      "decodedPayloadCount": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.014699999999720603,
+        "roiMs": 0.03169999999954598,
+        "localizationMs": 0.014000000002852175,
+        "candidateGenerationMs": 12.190699999999197,
+        "candidateDeduplicationMs": 0.046399999999266583,
+        "preprocessMs": 85.1317000000272,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 2010.4452999999776
+        },
+        "validationMs": 0.006600000000617001,
+        "semanticParsingMs": 0.0051000000021304
+      }
     },
     {
       "id": "63-negative-truncated",
@@ -1645,17 +2534,30 @@
       "actualPayload": null,
       "allPayloads": [],
       "pass": true,
-      "elapsedMs": 2115,
+      "elapsedMs": 1213,
       "successfulDecoder": null,
       "preprocessingPath": null,
       "candidateIndex": null,
       "attemptCount": 96,
       "failureReason": "no_symbol_found",
-      "expectedOutcome": "fail",
+      "expectedOutcome": "no-symbol",
       "missingPayloads": [],
       "unexpectedPayloads": [],
-      "requiredPayloadCount": 1,
-      "decodedPayloadCount": 0
+      "decodedPayloadCount": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.01570000000356231,
+        "roiMs": 0.013099999996484257,
+        "localizationMs": 0.01359999999840511,
+        "candidateGenerationMs": 15.035899999995308,
+        "candidateDeduplicationMs": 0.03209999999671709,
+        "preprocessMs": 107.52399999997579,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 891.8573999999935
+        },
+        "validationMs": 0.006800000002840534,
+        "semanticParsingMs": 0.004399999997986015
+      }
     }
   ]
 }

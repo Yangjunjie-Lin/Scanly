@@ -201,8 +201,6 @@ describe("pipeline ordering / timeout / cancel", () => {
     expect(() =>
       successOutcome([], [], Date.now(), false, {
         candidateGenerationMs: 0,
-        jsqrMs: 0,
-        zxingMs: 0,
         preprocessMs: 0,
         rotationMs: 0,
       })

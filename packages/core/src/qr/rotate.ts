@@ -1,7 +1,8 @@
 import type { PixelBuffer, RotationDegrees } from "./types.js";
+import type { ExecutionBudget } from "../runtime/execution-budget.js";
 
 /** Rotate RGBA buffer by 0/90/180/270 degrees clockwise. */
-export function rotateBuffer(src: PixelBuffer, degrees: RotationDegrees): PixelBuffer {
+export function rotateBuffer(src: PixelBuffer, degrees: RotationDegrees, budget?: ExecutionBudget): PixelBuffer {
   if (degrees === 0) {
     return { data: new Uint8ClampedArray(src.data), width: src.width, height: src.height };
   }
@@ -10,6 +11,7 @@ export function rotateBuffer(src: PixelBuffer, degrees: RotationDegrees): PixelB
   if (degrees === 180) {
     const out = new Uint8ClampedArray(data.length);
     for (let y = 0; y < h; y++) {
+      if ((y & 31) === 0) budget?.throwIfExceeded("rotate-180");
       for (let x = 0; x < w; x++) {
         const si = (y * w + x) * 4;
         const di = ((h - 1 - y) * w + (w - 1 - x)) * 4;
@@ -27,6 +29,7 @@ export function rotateBuffer(src: PixelBuffer, degrees: RotationDegrees): PixelB
   const out = new Uint8ClampedArray(outW * outH * 4);
 
   for (let y = 0; y < h; y++) {
+    if ((y & 31) === 0) budget?.throwIfExceeded("rotate");
     for (let x = 0; x < w; x++) {
       const si = (y * w + x) * 4;
       let dx: number;

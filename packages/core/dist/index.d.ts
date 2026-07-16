@@ -1,4 +1,4 @@
-export declare const SDK_VERSION: "2.0.0-alpha.1";
+export declare const SDK_VERSION: "2.0.0-alpha.2";
 export * from "./contracts/frame.js";
 export * from "./contracts/errors.js";
 export * from "./contracts/result.js";
@@ -6,6 +6,8 @@ export * from "./contracts/engine.js";
 export * from "./contracts/operator.js";
 export * from "./contracts/validator.js";
 export * from "./runtime/artifacts.js";
+export * from "./runtime/execution-budget.js";
+export * from "./runtime/memory-budget.js";
 export * from "./runtime/engine-registry.js";
 export * from "./runtime/operator-registry.js";
 export * from "./runtime/validator-registry.js";

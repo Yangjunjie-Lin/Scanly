@@ -1,5 +1,6 @@
 export type BenchmarkCategory = "clear" | "text" | "url" | "wifi" | "low_contrast" | "underexposed" | "overexposed" | "blur" | "motion_blur" | "noise" | "glare" | "inverted" | "rotation" | "perspective" | "small_in_large" | "near_edge" | "complex_background" | "multiple" | "occlusion" | "damaged" | "high_resolution" | "screen_capture" | "unusual_aspect" | "colored_background" | "phone_photo" | "negative" | "adversarial";
-export type BenchmarkExpectedOutcome = "decode" | "fail";
+export type BenchmarkExpectedOutcome = "decode" | "no-symbol" | "invalid-input";
+export type BenchmarkFailureCode = "no_symbol_found" | "invalid_image" | "timeout" | "cancelled" | "engine_execution_failure" | "engine_initialization_failure" | "worker_initialization_failure" | "resource_limit_exceeded" | "internal_invariant_failure" | "concurrent_call_rejected" | "session_disposed";
 export type BenchmarkSourceType = "generated" | "project-photo";
 export interface BenchmarkFixture {
     id: string;
@@ -7,6 +8,7 @@ export interface BenchmarkFixture {
     category: BenchmarkCategory;
     expectedPayload: string | string[];
     expectedOutcome: BenchmarkExpectedOutcome;
+    allowedFailureCodes?: BenchmarkFailureCode[];
     sourceType: BenchmarkSourceType;
     license: string;
     /** Fixed generator seed for reproducible generated fixtures. */
@@ -43,11 +45,16 @@ export interface BenchmarkFixtureResult {
     decodedPayloadCount?: number;
     timeToFirstResultMs?: number;
     phaseTiming?: {
+        frameNormalizationMs?: number;
+        roiMs?: number;
+        localizationMs?: number;
         candidateGenerationMs: number;
-        jsqrMs: number;
-        zxingMs: number;
+        candidateDeduplicationMs?: number;
         preprocessMs: number;
         rotationMs: number;
+        engineMs: Record<string, number>;
+        validationMs?: number;
+        semanticParsingMs?: number;
     };
 }
 export interface BenchmarkDistribution {
@@ -94,6 +101,11 @@ export interface BenchmarkRunSummary {
         total: number;
     };
     engineInitializationFailures: number;
+    engineExecutionFailures: number;
+    phaseTimingAvailability: {
+        passed: number;
+        total: number;
+    };
     timeToFirstResult: BenchmarkDistribution;
     averageAttempts: number;
     medianAttempts: number;
@@ -107,13 +119,7 @@ export interface BenchmarkRunSummary {
         recall: number;
     }>;
     memoryObservations: string[];
-    phaseTiming: {
-        candidateGenerationMs: BenchmarkDistribution;
-        jsqrMs: BenchmarkDistribution;
-        zxingMs: BenchmarkDistribution;
-        preprocessMs: BenchmarkDistribution;
-        rotationMs: BenchmarkDistribution;
-    };
+    phaseTiming: Record<string, BenchmarkDistribution>;
     perCategory: Record<string, {
         total: number;
         passed: number;

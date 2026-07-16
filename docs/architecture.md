@@ -2,6 +2,8 @@
 
 Scanly v2 has one local-only capture execution model. Framework adapters compose the runtime; they do not own decoding business logic.
 
+Benchmark outcome and timing rules are documented in [benchmark methodology](benchmark-methodology.md).
+
 ## Authoritative execution paths
 
 ```text
@@ -45,7 +47,7 @@ Dependency-ready operator branches execute concurrently when safe. Decoder branc
 
 ## Ownership and lifecycle
 
-`FrameLease` is created before scenario, frame, budget, or concurrency preflight. Owned/transferred frames are therefore released exactly once on every Router return path; borrowed frames are never released by Scanly. Per-frame artifacts and preprocessing caches are bounded and disposed in `finally`.
+`FrameLease` is created before scenario, frame, budget, or concurrency preflight. Owned/transferred frames are therefore released exactly once on every Router return path; borrowed frames are never released by Scanly. Router disposal aborts and awaits every active scan before clearing compiler caches or disposing engines. Engine disposal waits for both serialized and thread-safe active decodes. Per-frame artifacts and preprocessing caches share one logical retained-buffer budget and release leases in `finally`.
 
 `CaptureSession` supports `idle -> initialized -> running -> stopped -> running -> disposed`. Start/stop are idempotent, configuration/source changes cancel active ownership, stale results are replaced with `cancelled`, and async disposal can await owned Router/engine disposal.
 
@@ -61,4 +63,4 @@ No image, analytics event, or decoded payload is uploaded by the SDK. Host actio
 
 The shipped engines implement QR Code Model 2 through jsQR and ZXing JavaScript. Micro QR, rMQR, Data Matrix, PDF417, Aztec, linear formats, ZXing-C++ WASM, and native bindings are not installed. The schema can name future engines, but compilation rejects unregistered ids or unsupported formats.
 
-The camera foundation is implemented and browser-tested with mocked media primitives, but physical devices, torch/zoom variants, thermal behavior, and long mobile sessions have not been certified. No industrial-readiness or commercial-SDK parity claim is made.
+Camera capture defaults to the fast scenario, samples at a maximum 960-pixel side before RGBA readback, prefers `requestVideoFrameCallback`, and keeps one active frame. The camera foundation is browser-tested with mocked media primitives, but physical devices, torch/zoom variants, thermal behavior, and long mobile sessions have not been certified. No industrial-readiness or commercial-SDK parity claim is made.

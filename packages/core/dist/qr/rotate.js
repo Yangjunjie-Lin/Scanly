@@ -1,5 +1,5 @@
 /** Rotate RGBA buffer by 0/90/180/270 degrees clockwise. */
-export function rotateBuffer(src, degrees) {
+export function rotateBuffer(src, degrees, budget) {
     if (degrees === 0) {
         return { data: new Uint8ClampedArray(src.data), width: src.width, height: src.height };
     }
@@ -7,6 +7,8 @@ export function rotateBuffer(src, degrees) {
     if (degrees === 180) {
         const out = new Uint8ClampedArray(data.length);
         for (let y = 0; y < h; y++) {
+            if ((y & 31) === 0)
+                budget?.throwIfExceeded("rotate-180");
             for (let x = 0; x < w; x++) {
                 const si = (y * w + x) * 4;
                 const di = ((h - 1 - y) * w + (w - 1 - x)) * 4;
@@ -22,6 +24,8 @@ export function rotateBuffer(src, degrees) {
     const outH = w;
     const out = new Uint8ClampedArray(outW * outH * 4);
     for (let y = 0; y < h; y++) {
+        if ((y & 31) === 0)
+            budget?.throwIfExceeded("rotate");
         for (let x = 0; x < w; x++) {
             const si = (y * w + x) * 4;
             let dx;

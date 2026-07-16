@@ -43,6 +43,8 @@ function summary(overrides: Partial<BenchmarkRunSummary> = {}): BenchmarkRunSumm
     timeoutCount: 0,
     cancellationCorrectness: { passed: 1, total: 1 },
     engineInitializationFailures: 0,
+    engineExecutionFailures: 0,
+    phaseTimingAvailability: { passed: 52, total: 52 },
     timeToFirstResult: { average: 1, median: 1, p95: 1 },
     averageAttempts: 12,
     medianAttempts: 10,

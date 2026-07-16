@@ -1,6 +1,7 @@
 import type { PixelBuffer } from "./types.js";
+import type { ExecutionBudget } from "../runtime/execution-budget.js";
 /** Convert RGBA buffer to grayscale in-place copy (R=G=B). */
-export declare function toGrayscale(src: PixelBuffer): PixelBuffer;
+export declare function toGrayscale(src: PixelBuffer, budget?: ExecutionBudget): PixelBuffer;
 /** Sample luminance at pixel index. */
 export declare function luminanceAt(data: Uint8ClampedArray, i: number): number;
 /** Build a PixelBuffer from raw RGBA. */

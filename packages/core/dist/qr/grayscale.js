@@ -1,7 +1,9 @@
 /** Convert RGBA buffer to grayscale in-place copy (R=G=B). */
-export function toGrayscale(src) {
+export function toGrayscale(src, budget) {
     const data = new Uint8ClampedArray(src.data);
     for (let i = 0; i < data.length; i += 4) {
+        if ((i & 0xffff) === 0)
+            budget?.throwIfExceeded("grayscale");
         const g = Math.round(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]);
         data[i] = data[i + 1] = data[i + 2] = g;
     }

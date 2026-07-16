@@ -1,4 +1,4 @@
-export declare const SCENARIO_SCHEMA_VERSION: "2.0";
+export declare const SCENARIO_SCHEMA_VERSION: "2.1";
 export type BarcodeFormat = "qr_code" | "micro_qr" | "rmqr" | "data_matrix" | "gs1_data_matrix" | "pdf417" | "micro_pdf417" | "aztec" | "code_128" | "gs1_128" | "code_39" | "code_93" | "ean_8" | "ean_13" | "upc_a" | "upc_e" | "itf" | "itf_14" | "codabar" | "gs1_databar";
 export type PixelFormatPreference = "rgba8888" | "rgb888" | "gray8" | "yuv420";
 /** Decoder ids are plugin-defined; the schema validates their portable id shape. */
@@ -38,6 +38,7 @@ export interface ScenarioDefinition {
     multiCode: {
         enabled: boolean;
         maxResults: number;
+        deduplication: "payload" | "payload-format" | "payload-format-spatial" | "tracked-instance";
     };
     duplicateSuppression: {
         enabled: boolean;
@@ -70,7 +71,7 @@ export interface ScenarioDefinition {
         multiScale: boolean;
         enhancement: boolean;
         rotations: boolean;
-        zxingFallback: boolean;
+        multiEngineFallback: boolean;
         splitImageFallback: boolean;
     };
 }

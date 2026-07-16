@@ -11,10 +11,17 @@ export interface HeuristicQualitySignal {
 export interface ScanTiming {
   totalMs: number;
   timeToFirstResultMs?: number;
+  frameNormalizationMs?: number;
+  roiMs?: number;
+  localizationMs?: number;
   candidateGenerationMs?: number;
+  candidateDeduplicationMs?: number;
   preprocessingMs?: number;
   rotationMs?: number;
   decodingMs?: number;
+  engineMs?: Record<string, number>;
+  validationMs?: number;
+  semanticParsingMs?: number;
   workerSetupMs?: number;
   workerTransferMs?: number;
 }
@@ -29,7 +36,9 @@ export interface ScanResult {
   format: BarcodeFormat;
   rawText: string;
   rawBytes?: Uint8Array;
+  /** Pixel coordinates in the original normalized frame coordinate space. */
   cornerPoints?: CornerPoint[];
+  /** Clockwise symbol orientation relative to the original normalized frame, when engine-derived. */
   orientation?: number;
   heuristicQuality?: HeuristicQualitySignal;
   engine: { id: string; version: string };

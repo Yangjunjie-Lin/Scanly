@@ -2,19 +2,7 @@ import { validateScenario } from "@scanly/scenario-schema";
 import { SdkException, sdkError } from "../contracts/errors.js";
 import { executeTaskGraph } from "../contracts/operator.js";
 import { BUILTIN_OPERATOR_IDS } from "./builtin-operators.js";
-const DEPENDENCIES = {
-    "scanly.frame-normalization": [],
-    "scanly.roi": ["scanly.frame-normalization"],
-    "scanly.localization": ["scanly.roi"],
-    "scanly.candidate-generation": ["scanly.localization"],
-    "scanly.candidate-deduplication": ["scanly.candidate-generation"],
-    "scanly.enhancement-plan": ["scanly.localization"],
-    "scanly.geometry": ["scanly.candidate-deduplication", "scanly.enhancement-plan"],
-    "scanly.decoder-execution": ["scanly.geometry"],
-    "scanly.result-aggregation": ["scanly.decoder-execution"],
-    "scanly.validation": ["scanly.result-aggregation"],
-    "scanly.semantic-parsing": ["scanly.validation"],
-};
+import { monotonicNow } from "./execution-budget.js";
 export class CompiledScenarioGraph {
     scenario;
     nodes;
@@ -56,13 +44,31 @@ export class ScenarioCompiler {
             return cached;
         }
         const configuration = { scenario, engines: this.engines, validators: this.validators };
-        const nodes = BUILTIN_OPERATOR_IDS.map((id) => {
+        const selected = BUILTIN_OPERATOR_IDS.map((id) => {
             const operator = this.operators.get(id);
             if (!operator) {
                 throw new SdkException(sdkError("invalid_configuration", `Required operator '${id}' is not registered.`, { operatorId: id }));
             }
-            return { id, dependencies: [...DEPENDENCIES[id]], run: (context) => operator.execute(undefined, configuration, context) };
+            return operator;
         });
+        const producers = new Map();
+        for (const operator of selected)
+            for (const artifact of operator.descriptor.produces)
+                producers.set(artifact, operator.descriptor.id);
+        const nodes = selected.map((operator) => ({
+            id: operator.descriptor.id,
+            dependencies: [...new Set(operator.descriptor.accepts.flatMap((artifact) => {
+                    const producer = producers.get(artifact);
+                    return producer && producer !== operator.descriptor.id ? [producer] : [];
+                }))],
+            run: async (context) => {
+                context.budget?.throwIfExceeded(operator.descriptor.id);
+                const started = monotonicNow();
+                await operator.execute(undefined, configuration, context);
+                if (context.phaseTimings)
+                    context.phaseTimings[operator.descriptor.id] = (context.phaseTimings[operator.descriptor.id] ?? 0) + monotonicNow() - started;
+            },
+        }));
         this.validateGraph(nodes);
         const graph = new CompiledScenarioGraph(scenario, nodes, configuration);
         this.cache.set(key, graph);

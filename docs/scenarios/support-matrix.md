@@ -4,7 +4,7 @@ Every production scenario field is either executed or rejected before execution.
 
 | Field | Status | Enforcement |
 |---|---|---|
-| `schemaVersion` | Implemented | Only schema `2.0` is accepted. |
+| `schemaVersion` | Implemented | Schema `2.1` is current; deterministic migration from `2.0` is supported. |
 | `id`, `revision` | Implemented | Portable id and positive revision are validated and participate in graph-cache identity. |
 | `description` | Implemented | Optional, bounded to 512 characters. |
 | `acceptedFormats` | Implemented | Compiler requires requested engines to cover every format. Shipped engines cover only `qr_code`. |
@@ -31,7 +31,7 @@ Every production scenario field is either executed or rejected before execution.
 | `ablation.multiScale` | Implemented | Restricts scale plan to 1.0. |
 | `ablation.enhancement` | Implemented | Restricts preprocessing to original pixels. |
 | `ablation.rotations` | Implemented | Restricts rotation to 0. |
-| `ablation.zxingFallback` | Implemented | When false, only the first configured decoder executes (retained legacy field name). |
+| `ablation.multiEngineFallback` | Implemented | When false, only the first configured decoder executes. Schema 2.0 `zxingFallback` migrates to this field. |
 | `ablation.splitImageFallback` | Implemented | Controls split-image candidates. |
 
 Unknown fields are rejected. Plugin engine ids are open-ended portable strings so adding a future engine does not require changing the core Router or schema enum.

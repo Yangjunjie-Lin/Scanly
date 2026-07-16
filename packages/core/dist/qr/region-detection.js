@@ -65,6 +65,7 @@ export function detectCandidateRegions(image, options) {
     const cellH = Math.max(1, Math.floor(height / gridSize));
     const raw = [];
     for (let gy = 0; gy <= gridSize - windowCells; gy++) {
+        options?.budget?.throwIfExceeded("region-scoring");
         for (let gx = 0; gx <= gridSize - windowCells; gx++) {
             let density = 0;
             for (let dy = 0; dy < windowCells; dy++) {
@@ -113,10 +114,12 @@ export function scaleRectToOriginal(rect, previewScale) {
     };
 }
 /** Crop a region from a pixel buffer. */
-export function cropBuffer(src, rect) {
+export function cropBuffer(src, rect, budget) {
     const r = clampRect(rect, src.width, src.height);
     const out = new Uint8ClampedArray(r.width * r.height * 4);
     for (let y = 0; y < r.height; y++) {
+        if ((y & 31) === 0)
+            budget?.throwIfExceeded("candidate-crop");
         const srcStart = ((r.y + y) * src.width + r.x) * 4;
         const dstStart = y * r.width * 4;
         out.set(src.data.subarray(srcStart, srcStart + r.width * 4), dstStart);

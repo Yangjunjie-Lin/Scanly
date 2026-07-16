@@ -9,12 +9,18 @@ on:
       - architecture/sdk-v2-foundation
     paths:
       - "packages/core/**"
+      - "packages/node/**"
       - "packages/benchmark/**"
+      - "packages/scenario-schema/**"
+      - "packages/parsers/**"
+      - "packages/browser/**"
       - "engines/**"
       - "fixtures/**"
       - "scenarios/**"
       - "scripts/run-benchmark.ts"
+      - "scripts/compare-engines.ts"
       - "scripts/generate-fixtures.ts"
+      - "scripts/export-scenarios.ts"
       - "apps/web-demo/**"
       - "package.json"
       - "package-lock.json"
@@ -56,11 +62,14 @@ jobs:
       - name: Verify canonical benchmark and repository contracts
         run: npm run quality:gates
 
+      - name: Verify generated artifact drift
+        run: git diff --exit-code -- fixtures scenarios
+
       - name: Run internal engine/scenario comparison
         run: npm run benchmark:compare
 
       - name: Upload benchmark artifacts
-        if: always()
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: benchmark-full

@@ -1,12 +1,13 @@
+import { FrameMemoryBudget } from "./memory-budget.js";
 export class BoundedFrameArtifactStore {
     maxAllocations;
-    maxBytes;
     entries = new Map();
     allocations = 0;
     bytes = 0;
-    constructor(maxAllocations, maxBytes) {
+    memoryBudget;
+    constructor(maxAllocations, maxBytes, memoryBudget) {
         this.maxAllocations = maxAllocations;
-        this.maxBytes = maxBytes;
+        this.memoryBudget = memoryBudget ?? new FrameMemoryBudget(maxBytes);
     }
     get allocationCount() { return this.allocations; }
     get retainedBytes() { return this.bytes; }
@@ -16,13 +17,21 @@ export class BoundedFrameArtifactStore {
         const normalizedBytes = Math.max(0, estimatedBytes);
         const nextAllocations = this.allocations - (prior && prior.bytes > 0 ? 1 : 0) + (normalizedBytes > 0 ? 1 : 0);
         const nextBytes = this.bytes - (prior?.bytes ?? 0) + normalizedBytes;
-        if (nextAllocations > this.maxAllocations || nextBytes > this.maxBytes) {
+        if (nextAllocations > this.maxAllocations) {
             throw Object.assign(new Error("Frame intermediate artifact budget exceeded."), { code: "resource_limit_exceeded" });
         }
-        this.entries.set(key, { value, bytes: normalizedBytes });
+        const lease = normalizedBytes > 0 ? this.memoryBudget.reserve(normalizedBytes, `artifact:${key}`) : undefined;
+        prior?.lease?.release();
+        this.entries.set(key, { value, bytes: normalizedBytes, lease });
         this.allocations = nextAllocations;
         this.bytes = nextBytes;
     }
-    dispose() { this.entries.clear(); this.allocations = 0; this.bytes = 0; }
+    dispose() {
+        for (const entry of this.entries.values())
+            entry.lease?.release();
+        this.entries.clear();
+        this.allocations = 0;
+        this.bytes = 0;
+    }
 }
 //# sourceMappingURL=artifacts.js.map

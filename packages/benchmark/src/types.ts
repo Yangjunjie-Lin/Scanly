@@ -27,7 +27,12 @@ export type BenchmarkCategory =
   | "negative"
   | "adversarial";
 
-export type BenchmarkExpectedOutcome = "decode" | "fail";
+export type BenchmarkExpectedOutcome = "decode" | "no-symbol" | "invalid-input";
+export type BenchmarkFailureCode =
+  | "no_symbol_found" | "invalid_image" | "timeout" | "cancelled"
+  | "engine_execution_failure" | "engine_initialization_failure"
+  | "worker_initialization_failure" | "resource_limit_exceeded"
+  | "internal_invariant_failure" | "concurrent_call_rejected" | "session_disposed";
 
 export type BenchmarkSourceType = "generated" | "project-photo";
 
@@ -37,6 +42,7 @@ export interface BenchmarkFixture {
   category: BenchmarkCategory;
   expectedPayload: string | string[];
   expectedOutcome: BenchmarkExpectedOutcome;
+  allowedFailureCodes?: BenchmarkFailureCode[];
   sourceType: BenchmarkSourceType;
   license: string;
   /** Fixed generator seed for reproducible generated fixtures. */
@@ -74,11 +80,16 @@ export interface BenchmarkFixtureResult {
   decodedPayloadCount?: number;
   timeToFirstResultMs?: number;
   phaseTiming?: {
+    frameNormalizationMs?: number;
+    roiMs?: number;
+    localizationMs?: number;
     candidateGenerationMs: number;
-    jsqrMs: number;
-    zxingMs: number;
+    candidateDeduplicationMs?: number;
     preprocessMs: number;
     rotationMs: number;
+    engineMs: Record<string, number>;
+    validationMs?: number;
+    semanticParsingMs?: number;
   };
 }
 
@@ -119,6 +130,8 @@ export interface BenchmarkRunSummary {
   timeoutCount: number;
   cancellationCorrectness: { passed: number; total: number };
   engineInitializationFailures: number;
+  engineExecutionFailures: number;
+  phaseTimingAvailability: { passed: number; total: number };
   timeToFirstResult: BenchmarkDistribution;
   averageAttempts: number;
   medianAttempts: number;
@@ -128,13 +141,7 @@ export interface BenchmarkRunSummary {
   candidateDistribution: Record<string, number>;
   perFormatRecall: Record<string, { total: number; decoded: number; recall: number }>;
   memoryObservations: string[];
-  phaseTiming: {
-    candidateGenerationMs: BenchmarkDistribution;
-    jsqrMs: BenchmarkDistribution;
-    zxingMs: BenchmarkDistribution;
-    preprocessMs: BenchmarkDistribution;
-    rotationMs: BenchmarkDistribution;
-  };
+  phaseTiming: Record<string, BenchmarkDistribution>;
   perCategory: Record<
     string,
     { total: number; passed: number; successRate: number; averageMs: number }

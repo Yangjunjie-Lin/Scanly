@@ -1,5 +1,7 @@
 import { applyCropPadding, cropBuffer, detectCandidateRegions, scaleRectToOriginal } from "./region-detection.js";
 import type { CropPadding, PixelBuffer, ScaleLabel, ScoredRegion } from "./types.js";
+import { createCoordinateTransform, cropToSourceTransform, IDENTITY_MATRIX, multiplyMatrices, type CoordinateTransform } from "./geometry.js";
+import type { ExecutionBudget } from "../runtime/execution-budget.js";
 
 export interface CandidateImage {
   buffer: PixelBuffer;
@@ -9,6 +11,9 @@ export interface CandidateImage {
   scale: ScaleLabel;
   scaleFactor: number;
   region: ScoredRegion | null;
+  /** Exact candidate-buffer -> original normalized-frame transform. */
+  transform: CoordinateTransform;
+  pathologicalInput?: boolean;
 }
 
 function scaleLabel(factor: number): ScaleLabel {
@@ -18,7 +23,7 @@ function scaleLabel(factor: number): ScaleLabel {
 }
 
 /** Nearest-neighbor resize for RGBA buffers. */
-export function resizeBuffer(src: PixelBuffer, targetW: number, targetH: number): PixelBuffer {
+export function resizeBuffer(src: PixelBuffer, targetW: number, targetH: number, budget?: ExecutionBudget): PixelBuffer {
   const tw = Math.max(1, Math.floor(targetW));
   const th = Math.max(1, Math.floor(targetH));
   if (tw === src.width && th === src.height) {
@@ -26,6 +31,7 @@ export function resizeBuffer(src: PixelBuffer, targetW: number, targetH: number)
   }
   const out = new Uint8ClampedArray(tw * th * 4);
   for (let y = 0; y < th; y++) {
+    if ((y & 31) === 0) budget?.throwIfExceeded("candidate-resize");
     const sy = Math.min(src.height - 1, Math.floor((y / th) * src.height));
     for (let x = 0; x < tw; x++) {
       const sx = Math.min(src.width - 1, Math.floor((x / tw) * src.width));
@@ -40,7 +46,7 @@ export function resizeBuffer(src: PixelBuffer, targetW: number, targetH: number)
   return { data: out, width: tw, height: th };
 }
 
-export function fitMaxSide(src: PixelBuffer, maxSide: number): { buffer: PixelBuffer; scale: number } {
+export function fitMaxSide(src: PixelBuffer, maxSide: number, budget?: ExecutionBudget): { buffer: PixelBuffer; scale: number } {
   const m = Math.max(src.width, src.height);
   if (m <= maxSide) {
     return {
@@ -50,14 +56,14 @@ export function fitMaxSide(src: PixelBuffer, maxSide: number): { buffer: PixelBu
   }
   const scale = maxSide / m;
   return {
-    buffer: resizeBuffer(src, Math.floor(src.width * scale), Math.floor(src.height * scale)),
+    buffer: resizeBuffer(src, Math.floor(src.width * scale), Math.floor(src.height * scale), budget),
     scale,
   };
 }
 
-function capAndResize(cropped: PixelBuffer, scaleFactor: number, maxPixels: number): PixelBuffer {
-  let w = Math.floor(cropped.width * scaleFactor);
-  let h = Math.floor(cropped.height * scaleFactor);
+function cappedDimensions(width: number, height: number, scaleFactor: number, maxPixels: number): { width: number; height: number } {
+  let w = Math.floor(width * scaleFactor);
+  let h = Math.floor(height * scaleFactor);
   const pixels = Math.max(1, w * h);
   if (pixels > maxPixels) {
     const s = Math.sqrt(maxPixels / pixels);
@@ -70,7 +76,20 @@ function capAndResize(cropped: PixelBuffer, scaleFactor: number, maxPixels: numb
     w = Math.floor(w * s);
     h = Math.floor(h * s);
   }
-  return resizeBuffer(cropped, w, h);
+  return { width: Math.max(1, w), height: Math.max(1, h) };
+}
+
+function capAndResize(cropped: PixelBuffer, scaleFactor: number, maxPixels: number, budget?: ExecutionBudget): PixelBuffer {
+  const target = cappedDimensions(cropped.width, cropped.height, scaleFactor, maxPixels);
+  return resizeBuffer(cropped, target.width, target.height, budget);
+}
+
+function hasCandidateCapacity(out: CandidateImage[], transientBytes: number, outputBytes: number, budget?: ExecutionBudget): boolean {
+  if (!budget) return true;
+  const retained = out.reduce((sum, candidate) => sum + candidate.buffer.data.byteLength, 0);
+  const available = budget.remainingIntermediateBytes();
+  const decodeHeadroom = Math.min(8 * 1024 * 1024, Math.floor(available / 3));
+  return retained + transientBytes + outputBytes <= available - decodeHeadroom;
 }
 
 function pushCandidate(
@@ -80,19 +99,59 @@ function pushCandidate(
   originalRect: { x: number; y: number; width: number; height: number },
   padding: CropPadding,
   scaleFactor: number,
-  maxPixels: number
-) {
+  maxPixels: number,
+  sourceToFrame: CoordinateTransform,
+  budget?: ExecutionBudget,
+): boolean {
+  budget?.throwIfExceeded("candidate-generation");
   const padded = applyCropPadding(originalRect, full.width, full.height, padding);
-  const cropped = cropBuffer(full, padded);
+  const target = cappedDimensions(padded.width, padded.height, scaleFactor, maxPixels);
+  if (!hasCandidateCapacity(out, padded.width * padded.height * 4, target.width * target.height * 4, budget)) return false;
+  const cropped = cropBuffer(full, padded, budget);
+  const buffer = capAndResize(cropped, scaleFactor, maxPixels, budget);
+  const local = cropToSourceTransform(padded, buffer.width, buffer.height, full.width, full.height);
   out.push({
-    buffer: capAndResize(cropped, scaleFactor, maxPixels),
+    buffer,
     candidateIndex: region.index >= 0 ? region.index : 0,
     candidateScore: region.score,
     cropPadding: padding,
     scale: scaleLabel(scaleFactor),
     scaleFactor,
     region: { ...region, ...padded },
+    transform: createCoordinateTransform(
+      multiplyMatrices(sourceToFrame.matrix, local.matrix),
+      buffer.width,
+      buffer.height,
+      sourceToFrame.targetWidth,
+      sourceToFrame.targetHeight,
+    ),
   });
+  return true;
+}
+
+/** Conservative high-frequency rejection for independently random pixels. */
+export function isPathologicalHighEntropy(image: PixelBuffer, budget?: ExecutionBudget): boolean {
+  if (image.width < 64 || image.height < 64) return false;
+  let high = 0;
+  let samples = 0;
+  const step = Math.max(1, Math.floor(Math.max(image.width, image.height) / 256));
+  for (let y = 0; y < image.height - step; y += step) {
+    if ((y & 31) === 0) budget?.throwIfExceeded("entropy-analysis");
+    for (let x = 0; x < image.width - step; x += step) {
+      const i = (y * image.width + x) * 4;
+      const r = (y * image.width + x + step) * 4;
+      const d = ((y + step) * image.width + x) * 4;
+      const gray = (image.data[i] + image.data[i + 1] + image.data[i + 2]) / 3;
+      const right = (image.data[r] + image.data[r + 1] + image.data[r + 2]) / 3;
+      const down = (image.data[d] + image.data[d + 1] + image.data[d + 2]) / 3;
+      high += Math.abs(gray - right) > 48 ? 1 : 0;
+      high += Math.abs(gray - down) > 48 ? 1 : 0;
+      samples += 2;
+    }
+  }
+  // The retained corpus peaks at 0.235 for valid QR imagery (moire); seeded
+  // independent random noise is 0.436. Keep a substantial deterministic gap.
+  return samples > 2_000 && high / samples > 0.4;
 }
 
 /**
@@ -112,11 +171,25 @@ export function generateCandidates(
     enableLocalization?: boolean;
     enableFullImageFallback?: boolean;
     enableSplitImageFallback?: boolean;
+    budget?: ExecutionBudget;
+    sourceToFrame?: CoordinateTransform;
   }
 ): CandidateImage[] {
-  const preview = fitMaxSide(full, options.previewSize);
+  const budget = options.budget;
+  const sourceToFrame = options.sourceToFrame ?? createCoordinateTransform(IDENTITY_MATRIX, full.width, full.height, full.width, full.height);
+  const preview = fitMaxSide(full, options.previewSize, budget);
+  if (isPathologicalHighEntropy(preview.buffer, budget)) {
+    const fitted = fitMaxSide(full, Math.min(600, options.previewSize * 2), budget);
+    const local = cropToSourceTransform({ x: 0, y: 0, width: full.width, height: full.height }, fitted.buffer.width, fitted.buffer.height, full.width, full.height);
+    return [{
+      buffer: fitted.buffer, candidateIndex: -1, candidateScore: 0, cropPadding: "full", scale: "full",
+      scaleFactor: fitted.scale, region: null, pathologicalInput: true,
+      transform: createCoordinateTransform(multiplyMatrices(sourceToFrame.matrix, local.matrix), fitted.buffer.width, fitted.buffer.height, sourceToFrame.targetWidth, sourceToFrame.targetHeight),
+    }];
+  }
   const regions = options.enableLocalization === false ? [] : detectCandidateRegions(preview.buffer, {
     maxRaw: Math.max(8, options.maxCandidates * 3),
+    budget,
   });
   const top = regions.slice(0, options.maxCandidates);
   const out: CandidateImage[] = [];
@@ -146,19 +219,23 @@ export function generateCandidates(
     if (idx === 0) {
       for (const padding of options.paddings) {
         for (const scaleFactor of options.scales) {
-          pushCandidate(out, full, region, originalRect, padding, scaleFactor, options.maxPixels);
+          pushCandidate(out, full, region, originalRect, padding, scaleFactor, options.maxPixels, sourceToFrame, budget);
         }
       }
     } else {
       // Secondary candidates: medium @ 1 and expanded @ 1
-      pushCandidate(out, full, region, originalRect, "medium", 1, options.maxPixels);
-      pushCandidate(out, full, region, originalRect, "expanded", 1, options.maxPixels);
-      pushCandidate(out, full, region, originalRect, "medium", 1.35, options.maxPixels);
+      pushCandidate(out, full, region, originalRect, "medium", 1, options.maxPixels, sourceToFrame, budget);
+      pushCandidate(out, full, region, originalRect, "expanded", 1, options.maxPixels, sourceToFrame, budget);
+      pushCandidate(out, full, region, originalRect, "medium", 1.35, options.maxPixels, sourceToFrame, budget);
     }
   });
 
   for (const side of options.enableFullImageFallback === false ? [] : [800, 600, 1200]) {
-    const fitted = fitMaxSide(full, side);
+    budget?.throwIfExceeded("full-image-candidate");
+    const scale = Math.min(1, side / Math.max(full.width, full.height));
+    if (!hasCandidateCapacity(out, 0, Math.max(1, Math.floor(full.width * scale)) * Math.max(1, Math.floor(full.height * scale)) * 4, budget)) continue;
+    const fitted = fitMaxSide(full, side, budget);
+    const local = cropToSourceTransform({ x: 0, y: 0, width: full.width, height: full.height }, fitted.buffer.width, fitted.buffer.height, full.width, full.height);
     out.push({
       buffer: fitted.buffer,
       candidateIndex: -1,
@@ -167,6 +244,7 @@ export function generateCandidates(
       scale: "full",
       scaleFactor: fitted.scale,
       region: null,
+      transform: createCoordinateTransform(multiplyMatrices(sourceToFrame.matrix, local.matrix), fitted.buffer.width, fitted.buffer.height, sourceToFrame.targetWidth, sourceToFrame.targetHeight),
     });
   }
 
@@ -179,17 +257,31 @@ export function generateCandidates(
   ];
   for (const h of halves) {
     if (h.width < 32 || h.height < 32) continue;
-    const cropped = cropBuffer(full, h);
+    budget?.throwIfExceeded("split-image-candidate");
+    const splitScale = Math.min(1, 800 / Math.max(h.width, h.height));
+    if (!hasCandidateCapacity(out, h.width * h.height * 4, Math.max(1, Math.floor(h.width * splitScale)) * Math.max(1, Math.floor(h.height * splitScale)) * 4, budget)) continue;
+    const cropped = cropBuffer(full, h, budget);
+    const fitted = fitMaxSide(cropped, 800, budget);
+    const local = cropToSourceTransform(h, fitted.buffer.width, fitted.buffer.height, full.width, full.height);
     out.push({
-      buffer: fitMaxSide(cropped, 800).buffer,
+      buffer: fitted.buffer,
       candidateIndex: h.index,
       candidateScore: 1,
       cropPadding: "medium",
       scale: "original",
-      scaleFactor: 1,
+      scaleFactor: fitted.scale,
       region: { ...h, score: 1, index: h.index },
+      transform: createCoordinateTransform(multiplyMatrices(sourceToFrame.matrix, local.matrix), fitted.buffer.width, fitted.buffer.height, sourceToFrame.targetWidth, sourceToFrame.targetHeight),
     });
   }
 
+  if (out.length === 0) {
+    const local = cropToSourceTransform({ x: 0, y: 0, width: full.width, height: full.height }, preview.buffer.width, preview.buffer.height, full.width, full.height);
+    out.push({
+      buffer: preview.buffer, candidateIndex: -1, candidateScore: 0, cropPadding: "full", scale: "full",
+      scaleFactor: preview.scale, region: null,
+      transform: createCoordinateTransform(multiplyMatrices(sourceToFrame.matrix, local.matrix), preview.buffer.width, preview.buffer.height, sourceToFrame.targetWidth, sourceToFrame.targetHeight),
+    });
+  }
   return out;
 }

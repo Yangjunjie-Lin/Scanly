@@ -30,6 +30,25 @@ describe("SDK capture router integration", () => {
     if (outcome.ok) expect(outcome.results.map((result) => result.rawText)).toContain("SCANLY_MOIRE_01");
   });
 
+  it("publishes near-edge corners in original-frame pixels with real phase timing", async () => {
+    const pixels = await loadPixelBufferFromPath(path.join(root, "fixtures/34-near-edge.png"));
+    const router = createNodeCaptureRouter({ scenario: getBuiltinScenario("balanced") });
+    const outcome = await router.scan(createRgbaFrame(pixels.data, pixels.width, pixels.height, { id: "near-edge-geometry" }));
+    expect(outcome.ok).toBe(true);
+    if (outcome.ok) {
+      expect(outcome.primary.cornerPoints).toHaveLength(4);
+      for (const point of outcome.primary.cornerPoints ?? []) {
+        expect(point.x).toBeGreaterThanOrEqual(0); expect(point.x).toBeLessThan(200);
+        expect(point.y).toBeGreaterThanOrEqual(0); expect(point.y).toBeLessThan(200);
+      }
+      expect(outcome.primary.orientation).toBeUndefined();
+      expect(outcome.timing.candidateGenerationMs).toBeGreaterThan(0);
+      expect(outcome.timing.engineMs?.jsqr).toBeGreaterThan(0);
+      expect(outcome.timing.totalMs).toBeGreaterThanOrEqual(outcome.timing.engineMs?.jsqr ?? 0);
+    }
+    await router.dispose();
+  });
+
   it("returns a typed failure for unsupported YUV conversion", async () => {
     const router = createNodeCaptureRouter();
     const outcome = await router.scan({ id: "yuv", timestampMs: Date.now(), width: 2, height: 2, rowStride: 2, pixelFormat: "yuv420", orientation: 0, sourceType: "video-frame", ownership: "borrowed", data: new Uint8Array(6) });

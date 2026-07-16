@@ -1,5 +1,13 @@
-const HARD_ATTEMPT_LIMITS = { "14-damaged": 110, "16-multiple-codes": 30, "50-multiple-three": 70 };
-const TIMING_TOLERANCE = 1.5;
+const HARD_ATTEMPT_LIMITS = {
+    fast: { "14-damaged": 18, "16-multiple-codes": 18, "50-multiple-three": 18 },
+    balanced: { "14-damaged": 110, "16-multiple-codes": 30, "50-multiple-three": 70 },
+    robust: { "14-damaged": 160, "16-multiple-codes": 40, "50-multiple-three": 90 },
+};
+const PROFILE_LIMITS = {
+    fast: { p95Attempts: 24, timingRelative: 1.75, averageMs: 250, medianMs: 180, p95Ms: 600 },
+    balanced: { p95Attempts: 100, timingRelative: 1.6, averageMs: 1_500, medianMs: 1_000, p95Ms: 4_000 },
+    robust: { p95Attempts: 160, timingRelative: 1.75, averageMs: 2_000, medianMs: 1_200, p95Ms: 7_000 },
+};
 export function evaluateBenchmarkGates(summary, baseline, options) {
     const failures = [];
     if (summary.regressionCount > 0)
@@ -12,8 +20,12 @@ export function evaluateBenchmarkGates(summary, baseline, options) {
         failures.push(`${summary.timeoutCount} benchmark timeout(s) detected`);
     if (summary.engineInitializationFailures > 0)
         failures.push(`${summary.engineInitializationFailures} engine initialization failure(s)`);
+    if (summary.engineExecutionFailures > 0)
+        failures.push(`${summary.engineExecutionFailures} engine execution failure(s)`);
     if (summary.cancellationCorrectness.passed !== summary.cancellationCorrectness.total)
         failures.push(`cancellation correctness is ${summary.cancellationCorrectness.passed}/${summary.cancellationCorrectness.total}`);
+    if (summary.phaseTimingAvailability.passed !== summary.phaseTimingAvailability.total)
+        failures.push(`phase timing availability is ${summary.phaseTimingAvailability.passed}/${summary.phaseTimingAvailability.total}`);
     if (options.fullSuite) {
         if (!baseline.environment || !baseline.runtime)
             failures.push("baseline lacks required environment metadata");
@@ -39,17 +51,18 @@ export function evaluateBenchmarkGates(summary, baseline, options) {
             failures.push("multiple-code completeness is below baseline");
         if (summary.averageAttempts > baseline.averageAttempts * 1.15)
             failures.push(`average attempts ${summary.averageAttempts.toFixed(1)} exceed baseline tolerance`);
-        if (summary.p95Attempts > Math.max(baseline.p95Attempts, 100))
+        const limits = PROFILE_LIMITS[summary.environment.scenario];
+        if (summary.p95Attempts > Math.min(limits.p95Attempts, Math.ceil(baseline.p95Attempts * 1.15)))
             failures.push(`P95 attempts ${summary.p95Attempts.toFixed(1)} exceed profile limit`);
-        if (summary.averageMs > baseline.averageMs * TIMING_TOLERANCE)
-            failures.push(`average latency exceeds ${TIMING_TOLERANCE}x baseline`);
-        if (summary.medianMs > baseline.medianMs * TIMING_TOLERANCE)
-            failures.push(`median latency exceeds ${TIMING_TOLERANCE}x baseline`);
-        if (summary.p95Ms > baseline.p95Ms * TIMING_TOLERANCE)
-            failures.push(`P95 latency exceeds ${TIMING_TOLERANCE}x baseline`);
+        if (summary.averageMs > baseline.averageMs * limits.timingRelative || summary.averageMs > limits.averageMs)
+            failures.push(`average latency exceeds ${limits.timingRelative}x baseline or ${limits.averageMs}ms absolute limit`);
+        if (summary.medianMs > baseline.medianMs * limits.timingRelative || summary.medianMs > limits.medianMs)
+            failures.push(`median latency exceeds ${limits.timingRelative}x baseline or ${limits.medianMs}ms absolute limit`);
+        if (summary.p95Ms > baseline.p95Ms * limits.timingRelative || summary.p95Ms > limits.p95Ms)
+            failures.push(`P95 latency exceeds ${limits.timingRelative}x baseline or ${limits.p95Ms}ms absolute limit`);
     }
     for (const result of summary.results) {
-        const limit = HARD_ATTEMPT_LIMITS[result.id];
+        const limit = HARD_ATTEMPT_LIMITS[summary.environment.scenario][result.id];
         if (limit !== undefined && result.attemptCount > limit)
             failures.push(`${result.id} used ${result.attemptCount} attempts; limit is ${limit}`);
     }

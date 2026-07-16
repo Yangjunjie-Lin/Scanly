@@ -22,7 +22,9 @@ export declare class CaptureRouter {
     readonly validators: ValidatorRegistry;
     readonly compiler: ScenarioCompiler;
     private activeFrames;
-    private disposed;
+    private state;
+    private readonly activeOperations;
+    private disposePromise?;
     constructor(options?: CaptureRouterOptions);
     updateScenario(scenario: ScenarioDefinition): void;
     getScenario(): ScenarioDefinition;

@@ -14,9 +14,11 @@ export class JsQrEngine {
         const data = frame.data instanceof Uint8ClampedArray ? frame.data : new Uint8ClampedArray(frame.data.buffer, frame.data.byteOffset, frame.data.byteLength);
         let decoded = null;
         try {
-            decoded = jsQR(data, frame.width, frame.height, { inversionAttempts: "attemptBoth" });
+            decoded = jsQR(data, frame.width, frame.height, { inversionAttempts: options.inversion === "inverted" ? "dontInvert" : "attemptBoth" });
         }
-        catch { /* hostile input is a typed miss */ }
+        catch (error) {
+            return { ok: false, category: "execution", message: error instanceof Error ? error.message : "jsQR execution failed.", elapsedMs: Date.now() - started };
+        }
         const elapsedMs = Date.now() - started;
         if (!decoded?.data)
             return { ok: false, category: "not-found", message: "No QR code found.", elapsedMs };

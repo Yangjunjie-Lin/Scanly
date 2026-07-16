@@ -1,4 +1,5 @@
 import type { CropPadding, PixelBuffer, Rect, ScoredRegion } from "./types.js";
+import type { ExecutionBudget } from "../runtime/execution-budget.js";
 
 const PADDING_RATIOS: Record<CropPadding, number> = {
   tight: 0.05,
@@ -75,7 +76,7 @@ export function nonMaximumSuppression(
  */
 export function detectCandidateRegions(
   image: PixelBuffer,
-  options?: { gridSize?: number; windowCells?: number; maxRaw?: number }
+  options?: { gridSize?: number; windowCells?: number; maxRaw?: number; budget?: ExecutionBudget }
 ): ScoredRegion[] {
   const { data, width, height } = image;
   const gridSize = options?.gridSize ?? 20;
@@ -87,6 +88,7 @@ export function detectCandidateRegions(
   const raw: ScoredRegion[] = [];
 
   for (let gy = 0; gy <= gridSize - windowCells; gy++) {
+    options?.budget?.throwIfExceeded("region-scoring");
     for (let gx = 0; gx <= gridSize - windowCells; gx++) {
       let density = 0;
       for (let dy = 0; dy < windowCells; dy++) {
@@ -138,10 +140,11 @@ export function scaleRectToOriginal(rect: Rect, previewScale: number): Rect {
 }
 
 /** Crop a region from a pixel buffer. */
-export function cropBuffer(src: PixelBuffer, rect: Rect): PixelBuffer {
+export function cropBuffer(src: PixelBuffer, rect: Rect, budget?: ExecutionBudget): PixelBuffer {
   const r = clampRect(rect, src.width, src.height);
   const out = new Uint8ClampedArray(r.width * r.height * 4);
   for (let y = 0; y < r.height; y++) {
+    if ((y & 31) === 0) budget?.throwIfExceeded("candidate-crop");
     const srcStart = ((r.y + y) * src.width + r.x) * 4;
     const dstStart = y * r.width * 4;
     out.set(src.data.subarray(srcStart, srcStart + r.width * 4), dstStart);

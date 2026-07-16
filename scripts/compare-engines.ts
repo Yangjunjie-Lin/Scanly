@@ -47,7 +47,7 @@ async function main(): Promise<void> {
       const decoded = strategy.startsWith("raw-")
         ? await rawDecode(strategy as "raw-jsqr" | "raw-zxing-js", pixels)
         : await scenarioDecode(routers[strategy as keyof typeof routers], pixels);
-      const evaluation = evaluateFixture(fixture, decoded.payloads, decoded.payloads.length > 0);
+      const evaluation = evaluateFixture(fixture, decoded.payloads, { ok: decoded.payloads.length > 0, errorCode: decoded.reason ?? undefined });
       results.push({
         fixtureId: fixture.id,
         strategy,
@@ -59,7 +59,7 @@ async function main(): Promise<void> {
         latencyMs: Date.now() - started,
         failureReason: decoded.reason,
         unsupportedFormat: false,
-        falsePositive: fixture.expectedOutcome === "fail" && decoded.payloads.length > 0,
+        falsePositive: fixture.expectedOutcome !== "decode" && decoded.payloads.length > 0,
       });
     }
   }
@@ -69,7 +69,7 @@ async function main(): Promise<void> {
     return [strategy, {
       cases: subset.length,
       positiveCases: subset.filter((result) => manifest.fixtures.find((fixture) => fixture.id === result.fixtureId)?.expectedOutcome === "decode").length,
-      negativeCases: subset.filter((result) => manifest.fixtures.find((fixture) => fixture.id === result.fixtureId)?.expectedOutcome === "fail").length,
+      negativeCases: subset.filter((result) => manifest.fixtures.find((fixture) => fixture.id === result.fixtureId)?.expectedOutcome !== "decode").length,
       exact: subset.filter((result) => result.exactPayload).length,
       multipleComplete: `${subset.filter((result) => result.multipleCase && result.multipleComplete).length}/${subset.filter((result) => result.multipleCase).length}`,
       falsePositives: subset.filter((result) => result.falsePositive).length,

@@ -4,6 +4,8 @@ import { generateCandidates } from "./candidate-generation.js";
 import { applyPreprocess } from "./preprocess.js";
 import { rotateBuffer } from "./rotate.js";
 import { dedupeResults, normalizePayload } from "./result-normalizer.js";
+import { mapAndClampPoints, multiplyMatrices, rotatedToSourceMatrix } from "./geometry.js";
+import { ExecutionBudget, monotonicNow } from "../runtime/execution-budget.js";
 function mergeConfig(partial) {
     return { ...DEFAULT_PIPELINE_CONFIG, ...partial };
 }
@@ -14,8 +16,8 @@ function throwIfAborted(signal) {
         throw err;
     }
 }
-function timedOut(start, timeoutMs) {
-    return Date.now() - start >= timeoutMs;
+function timedOut(start, timeoutMs, now) {
+    return now() - start >= timeoutMs;
 }
 /** Yield to the event loop so AbortSignal and UI can run between attempts. */
 async function cooperativeYield(signal) {
@@ -48,13 +50,16 @@ export function buildAttemptPlan(preprocessOrder, rotations, budgetRemaining) {
 class AttemptImageCache {
     maxEntries;
     maxBytes;
+    memoryBudget;
     entries = new Map();
     ids = new WeakMap();
     sequence = 0;
     retainedBytes = 0;
-    constructor(maxEntries, maxBytes) {
+    leases = [];
+    constructor(maxEntries, maxBytes, memoryBudget) {
         this.maxEntries = maxEntries;
         this.maxBytes = maxBytes;
+        this.memoryBudget = memoryBudget;
     }
     key(buffer, preprocessing, rotation) {
         let id = this.ids.get(buffer);
@@ -70,23 +75,35 @@ class AttemptImageCache {
             return existing;
         const value = create();
         const bytes = value.data.byteLength;
-        if (this.entries.size < this.maxEntries && this.retainedBytes + bytes <= this.maxBytes) {
+        const sharedCapacity = !this.memoryBudget || this.memoryBudget.remainingBytes >= bytes;
+        if (this.entries.size < this.maxEntries && this.retainedBytes + bytes <= this.maxBytes && sharedCapacity) {
+            const lease = this.memoryBudget?.reserve(bytes, `preprocess-cache:${key}`);
             this.entries.set(key, value);
             this.retainedBytes += bytes;
+            if (lease)
+                this.leases.push(lease);
         }
         return value;
+    }
+    dispose() {
+        for (const lease of this.leases)
+            lease.release();
+        this.leases.length = 0;
+        this.entries.clear();
+        this.retainedBytes = 0;
     }
 }
 function processedFor(ctx, candidate, preprocessing, rotation) {
     const key = ctx.intermediateCache.key(candidate.buffer, preprocessing, rotation);
     return ctx.intermediateCache.getOrCreate(key, () => {
-        const preprocessStarted = Date.now();
-        let processed = applyPreprocess(candidate.buffer, preprocessing);
-        ctx.phaseTiming.preprocessMs += Date.now() - preprocessStarted;
+        ctx.budget.throwIfExceeded("preprocessing");
+        const preprocessStarted = ctx.now();
+        let processed = applyPreprocess(candidate.buffer, preprocessing, ctx.budget);
+        ctx.phaseTiming.preprocessMs += ctx.now() - preprocessStarted;
         if (rotation !== 0) {
-            const rotationStarted = Date.now();
-            processed = rotateBuffer(processed, rotation);
-            ctx.phaseTiming.rotationMs += Date.now() - rotationStarted;
+            const rotationStarted = ctx.now();
+            processed = rotateBuffer(processed, rotation, ctx.budget);
+            ctx.phaseTiming.rotationMs += ctx.now() - rotationStarted;
         }
         return processed;
     });
@@ -108,19 +125,16 @@ function shouldStopMultiple(ctx) {
         return false;
     if (payloads.length >= config.maxMultipleResults)
         return true;
-    if (payloads.length >= 3)
-        return true;
     const stall = config.stallCandidateLimit ?? 8;
-    if (payloads.length === 2 && ctx.candidatesSinceNew >= stall + 3)
-        return true;
-    if (payloads.length === 1 && ctx.candidatesSinceNew >= stall)
+    const scaledStall = stall + Math.max(0, payloads.length - 1) * 3;
+    if (ctx.candidatesSinceNew >= scaledStall)
         return true;
     return false;
 }
 function pushResult(ctx, code) {
     const prevSize = ctx.found.length;
     ctx.found.push(code);
-    const unique = dedupeResults(ctx.found);
+    const unique = dedupeResults(ctx.found, ctx.config.resultDeduplication);
     unique.sort((a, b) => a.candidateIndex - b.candidateIndex);
     ctx.found.length = 0;
     ctx.found.push(...unique);
@@ -141,17 +155,22 @@ function onCandidateDone(ctx, hadNewResult) {
 }
 async function tryEngine(ctx, engineId, candidate, preprocessing, rotation) {
     throwIfAborted(ctx.signal);
-    if (timedOut(ctx.start, ctx.config.timeoutMs))
+    ctx.budget.throwIfExceeded("decoder-attempt");
+    if (timedOut(ctx.start, ctx.config.timeoutMs, ctx.now))
         return null;
     if (ctx.attempts.length >= ctx.config.maxAttempts)
         return null;
     if (!decoderEnabled(ctx.config, engineId))
         return null;
-    const t0 = Date.now();
+    const t0 = ctx.now();
     const processed = processedFor(ctx, candidate, preprocessing, rotation);
-    const t1 = Date.now();
-    const decoded = await ctx.engineExecutor.decode(engineId, processed, { signal: ctx.signal, findMultiple: ctx.config.findMultiple });
-    const engineElapsed = Date.now() - t1;
+    const t1 = ctx.now();
+    const decoded = await ctx.engineExecutor.decode(engineId, processed, {
+        signal: ctx.signal,
+        findMultiple: ctx.config.findMultiple,
+        inversion: preprocessing === "invert" ? "inverted" : "original",
+    });
+    const engineElapsed = ctx.now() - t1;
     const engineTiming = (ctx.phaseTiming.engineMs ??= {});
     engineTiming[engineId] = (engineTiming[engineId] ?? 0) + engineElapsed;
     ctx.attempts.push({
@@ -163,32 +182,53 @@ async function tryEngine(ctx, engineId, candidate, preprocessing, rotation) {
         scaleFactor: candidate.scaleFactor,
         rotation,
         decoder: engineId,
-        elapsedMs: Date.now() - t0,
+        elapsedMs: ctx.now() - t0,
         success: decoded.ok && decoded.results.length > 0,
     });
     ctx.onProgress?.({ attemptCount: ctx.attempts.length });
-    if (!decoded.ok)
-        return null;
+    if (!decoded.ok) {
+        if (decoded.category === "not-found")
+            return null;
+        const reasons = {
+            "unsupported-format": "unsupported_format",
+            "invalid-input": "invalid_image",
+            initialization: "engine_initialization_failure",
+            execution: "engine_execution_failure",
+            cancelled: "cancelled",
+            timeout: "timeout",
+        };
+        const reason = reasons[decoded.category];
+        const error = Object.assign(new Error(decoded.message), { code: reason, name: reason === "cancelled" ? "AbortError" : reason === "timeout" ? "TimeoutError" : "EngineError" });
+        throw error;
+    }
     let completed = null;
     for (const result of decoded.results) {
         const payload = normalizePayload(result.text);
         if (!payload)
             continue;
+        const candidateToFrame = multiplyMatrices(candidate.transform.matrix, rotatedToSourceMatrix(rotation, candidate.buffer.width, candidate.buffer.height));
+        const cornerPoints = result.cornerPoints
+            ? mapAndClampPoints(result.cornerPoints, candidateToFrame, candidate.transform.targetWidth, candidate.transform.targetHeight)
+            : undefined;
+        const symbolOrientation = result.orientation === undefined
+            ? undefined
+            : ((result.orientation - rotation) % 360 + 360) % 360;
         completed = pushResult(ctx, {
             payload,
             format: result.format,
             rawBytes: result.rawBytes,
             decoder: engineId,
             engineVersion: ctx.engineExecutor.versions?.[engineId],
-            cornerPoints: result.cornerPoints,
+            cornerPoints,
             symbologyIdentifier: result.symbologyIdentifier,
             preprocessing,
             candidateIndex: candidate.candidateIndex,
             scale: candidate.scale,
             rotation,
+            symbolOrientation,
             cropPadding: candidate.cropPadding,
             attemptIndex: ctx.attempts.length - 1,
-            foundAtMs: Date.now() - ctx.start,
+            foundAtMs: ctx.now() - ctx.start,
         }) ?? completed;
     }
     return completed;
@@ -206,15 +246,14 @@ export function orderCandidates(candidates, findMultiple) {
  */
 export async function decodePixelBuffer(image, options = {}) {
     const config = mergeConfig(options.config);
-    const start = Date.now();
+    const now = options.executionBudget ? () => options.executionBudget.now() : monotonicNow;
+    const start = now();
     const attempts = [];
     const found = [];
     const signal = options.signal;
     const engineExecutor = options.engineExecutor;
     const phaseTiming = {
         candidateGenerationMs: 0,
-        jsqrMs: 0,
-        zxingMs: 0,
         preprocessMs: 0,
         rotationMs: 0,
     };
@@ -224,7 +263,7 @@ export async function decodePixelBuffer(image, options = {}) {
         message,
         attempts,
         attemptCount: attempts.length,
-        elapsedMs: Date.now() - start,
+        elapsedMs: now() - start,
         cancelled,
         phaseTiming,
     });
@@ -239,8 +278,16 @@ export async function decodePixelBuffer(image, options = {}) {
         phaseTiming,
         candidatesSinceNew: 0,
         failFast: false,
-        intermediateCache: new AttemptImageCache(config.maxIntermediateAllocations ?? 24, config.maxIntermediateBytes ?? 64 * 1024 * 1024),
+        intermediateCache: new AttemptImageCache(config.maxIntermediateAllocations ?? 24, config.maxIntermediateBytes ?? 64 * 1024 * 1024, options.memoryBudget),
         engineExecutor: engineExecutor,
+        budget: options.executionBudget ?? new ExecutionBudget({
+            signal,
+            deadlineMs: start + config.timeoutMs,
+            now,
+            remainingAttempts: () => config.maxAttempts - attempts.length,
+            memory: options.memoryBudget,
+        }),
+        now,
     };
     try {
         throwIfAborted(signal);
@@ -263,7 +310,7 @@ export async function decodePixelBuffer(image, options = {}) {
             return fail("image_too_large", "Pixel buffer exceeds the direct-input safety limit for this scenario.");
         }
         options.onStage?.("Detecting candidate regions…");
-        const cgStart = Date.now();
+        const cgStart = now();
         const rawCandidates = options.candidates ?? generateCandidates(image, {
             previewSize: config.previewSize,
             maxCandidates: config.maxCandidates,
@@ -273,31 +320,33 @@ export async function decodePixelBuffer(image, options = {}) {
             enableLocalization: config.enableLocalization,
             enableFullImageFallback: config.enableFullImageFallback,
             enableSplitImageFallback: config.enableSplitImageFallback,
+            budget: ctx.budget,
         });
         const candidates = dedupeCandidates(rawCandidates);
-        phaseTiming.candidateGenerationMs = Date.now() - cgStart;
+        phaseTiming.candidateGenerationMs = now() - cgStart;
         const ordered = orderCandidates(candidates, config.findMultiple);
         const primaryEngineId = config.decoders.order[0];
         const fallbackEngineIds = config.decoders.order.slice(1);
-        const cheap = ["original", "contrast", "invert"];
-        const deep = config.preprocessOrder.filter((m) => !cheap.includes(m));
+        const pathological = ordered.some((candidate) => candidate.pathologicalInput);
+        const cheap = pathological ? ["original"] : ["original", "contrast", "invert"];
+        const deep = pathological ? [] : config.preprocessOrder.filter((m) => !cheap.includes(m));
         const cheapTargets = config.findMultiple ? ordered : ordered.slice(0, 12);
         // Phase 1 — cheap pass
         for (const candidate of cheapTargets) {
             await cooperativeYield(signal);
             throwIfAborted(signal);
-            if (timedOut(start, config.timeoutMs)) {
+            if (timedOut(start, config.timeoutMs, now)) {
                 if (signal?.aborted) {
                     if (found.length)
-                        return successOutcome(dedupeResults(found), attempts, start, true, phaseTiming);
+                        return successOutcome(dedupeResults(found, config.resultDeduplication), attempts, start, true, phaseTiming);
                     return fail("cancelled", "Decode cancelled.", true);
                 }
                 if (found.length)
-                    return successOutcome(dedupeResults(found), attempts, start, false, phaseTiming);
+                    return successOutcome(dedupeResults(found, config.resultDeduplication), attempts, start, false, phaseTiming);
                 return fail("timeout", "Decode timed out. Try cropping closer to the QR code, using a clearer image, or reducing image size.");
             }
             if (shouldStopMultiple(ctx)) {
-                return successOutcome(dedupeResults(found), attempts, start, false, phaseTiming);
+                return successOutcome(dedupeResults(found, config.resultDeduplication), attempts, start, false, phaseTiming);
             }
             options.onStage?.(candidate.cropPadding === "full"
                 ? "Trying full image…"
@@ -313,7 +362,7 @@ export async function decodePixelBuffer(image, options = {}) {
             }
             onCandidateDone(ctx, found.length > before);
             if (!config.findMultiple && found.length > 0) {
-                return successOutcome(dedupeResults(found), attempts, start, false, phaseTiming);
+                return successOutcome(dedupeResults(found, config.resultDeduplication), attempts, start, false, phaseTiming);
             }
             if (ctx.failFast)
                 continue;
@@ -322,10 +371,10 @@ export async function decodePixelBuffer(image, options = {}) {
             }
         }
         if (found.length > 0 && shouldStopMultiple(ctx)) {
-            return successOutcome(dedupeResults(found), attempts, start, false, phaseTiming);
+            return successOutcome(dedupeResults(found, config.resultDeduplication), attempts, start, false, phaseTiming);
         }
         // Phase 2 — deep preprocess (skip if fail-fast with no results)
-        if (!ctx.failFast || found.length > 0) {
+        if (!pathological && (!ctx.failFast || found.length > 0)) {
             const eligibleDeepTargets = ordered.filter((c, idx) => c.cropPadding === "full" || idx < 6 || c.scale === "original");
             const deepTargets = [
                 ...eligibleDeepTargets.filter((candidate) => candidate.cropPadding === "full"),
@@ -334,7 +383,7 @@ export async function decodePixelBuffer(image, options = {}) {
             for (const candidate of deepTargets) {
                 await cooperativeYield(signal);
                 throwIfAborted(signal);
-                if (timedOut(start, config.timeoutMs))
+                if (timedOut(start, config.timeoutMs, now))
                     break;
                 if (attempts.length >= config.maxAttempts)
                     break;
@@ -350,14 +399,14 @@ export async function decodePixelBuffer(image, options = {}) {
             }
         }
         if (found.length > 0 && shouldStopMultiple(ctx)) {
-            return successOutcome(dedupeResults(found), attempts, start, false, phaseTiming);
+            return successOutcome(dedupeResults(found, config.resultDeduplication), attempts, start, false, phaseTiming);
         }
         // Return to lower-ranked candidates only after high-value deep preprocessing.
         if (!config.findMultiple && found.length === 0) {
             for (const candidate of ordered.slice(cheapTargets.length)) {
                 await cooperativeYield(signal);
                 throwIfAborted(signal);
-                if (timedOut(start, config.timeoutMs) || attempts.length >= config.maxAttempts)
+                if (timedOut(start, config.timeoutMs, now) || attempts.length >= config.maxAttempts)
                     break;
                 for (const preprocessing of cheap) {
                     const hit = await tryEngine(ctx, primaryEngineId, candidate, preprocessing, 0);
@@ -367,7 +416,7 @@ export async function decodePixelBuffer(image, options = {}) {
             }
         }
         // Phase 3 — rotations (only if not fail-fast empty)
-        if (!ctx.failFast && found.length === 0) {
+        if (!pathological && !ctx.failFast && found.length === 0) {
             const rotateTargets = ordered.filter((c) => c.cropPadding !== "full").slice(0, 3);
             const rotations = config.rotations.filter((r) => r !== 0);
             for (const candidate of rotateTargets) {
@@ -383,7 +432,7 @@ export async function decodePixelBuffer(image, options = {}) {
             }
         }
         // Phase 4 - registered fallback engines in scenario order.
-        if (found.length === 0 && fallbackEngineIds.length) {
+        if (!pathological && found.length === 0 && fallbackEngineIds.length) {
             options.onStage?.("Backup decoder...");
             const zxTargets = ordered.filter((c) => c.cropPadding === "full").slice(0, 2);
             if (zxTargets.length === 0) {
@@ -400,9 +449,9 @@ export async function decodePixelBuffer(image, options = {}) {
             }
         }
         if (found.length > 0) {
-            return successOutcome(dedupeResults(found), attempts, start, false, phaseTiming);
+            return successOutcome(dedupeResults(found, config.resultDeduplication), attempts, start, false, phaseTiming);
         }
-        if (timedOut(start, config.timeoutMs)) {
+        if (timedOut(start, config.timeoutMs, now)) {
             if (signal?.aborted) {
                 return fail("cancelled", "Decode cancelled.", true);
             }
@@ -413,11 +462,20 @@ export async function decodePixelBuffer(image, options = {}) {
     catch (e) {
         if (e instanceof Error && (e.name === "AbortError" || e.message === "cancelled")) {
             if (found.length > 0) {
-                return successOutcome(dedupeResults(found), attempts, start, true, phaseTiming);
+                return successOutcome(dedupeResults(found, config.resultDeduplication), attempts, start, true, phaseTiming);
             }
             return fail("cancelled", "Decode cancelled.", true);
         }
+        const code = e && typeof e === "object" && "code" in e ? String(e.code) : "";
+        if (["timeout", "unsupported_format", "invalid_image", "engine_initialization_failure", "engine_execution_failure"].includes(code)) {
+            return fail(code, code === "timeout"
+                ? "Decode timed out. Try cropping closer to the QR code, using a clearer image, or reducing image size."
+                : e instanceof Error ? e.message : String(e));
+        }
         throw e;
+    }
+    finally {
+        ctx.intermediateCache.dispose();
     }
 }
 export function successOutcome(results, attempts, start, cancelled, phaseTiming) {
@@ -434,7 +492,7 @@ export function successOutcome(results, attempts, start, cancelled, phaseTiming)
         primary: nonEmptyResults[0],
         attempts,
         attemptCount: attempts.length,
-        elapsedMs: Date.now() - start,
+        elapsedMs: (start > 10_000_000_000 ? Date.now() : monotonicNow()) - start,
         ...(foundOffsets.length ? { timeToFirstResultMs: Math.min(...foundOffsets) } : {}),
         cancelled,
         phaseTiming,

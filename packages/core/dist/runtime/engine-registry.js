@@ -17,7 +17,7 @@ export class EngineRegistry {
         if (prior && prior.state !== "registered") {
             throw new SdkException(sdkError("invalid_configuration", `Initialized decoder engine '${engine.id}' cannot be replaced; unregister or dispose it first.`, { engineId: engine.id }));
         }
-        this.records.set(engine.id, { engine, state: "registered", tail: Promise.resolve() });
+        this.records.set(engine.id, { engine, state: "registered", tail: Promise.resolve(), active: new Set() });
     }
     unregister(id) {
         this.assertUsable();
@@ -50,6 +50,7 @@ export class EngineRegistry {
             throw new SdkException(sdkError("invalid_configuration", `Decoder engine '${id}' is not registered.`, { engineId: id }));
         }
         await this.initialize(record);
+        this.assertUsable();
         if (record.state !== "ready")
             throw initializationFailure(record.engine, new Error("Engine is not ready."));
         const execute = async () => {
@@ -58,14 +59,19 @@ export class EngineRegistry {
             }
             return record.engine.decode(frame, options);
         };
+        const track = (operation) => {
+            record.active.add(operation);
+            void operation.finally(() => record.active.delete(operation)).catch(() => undefined);
+            return operation;
+        };
         if (record.engine.capabilities.threadSafe)
-            return execute();
+            return track(execute());
         const previous = record.tail;
         let release;
         record.tail = new Promise((resolve) => { release = resolve; });
         await previous;
         try {
-            return await execute();
+            return await track(execute());
         }
         finally {
             release();
@@ -81,7 +87,9 @@ export class EngineRegistry {
             if (record.disposePromise)
                 return record.disposePromise;
             record.disposePromise = (async () => {
+                await record.initializePromise?.catch(() => undefined);
                 await record.tail;
+                await Promise.allSettled([...record.active]);
                 if (record.state !== "disposed")
                     await record.engine.dispose?.();
                 record.state = "disposed";

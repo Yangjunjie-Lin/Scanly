@@ -9,6 +9,8 @@ import { OperatorRegistry } from "./operator-registry.js";
 import { ScenarioCompiler } from "./scenario-compiler.js";
 import { scenarioToPipelineConfig } from "./scenario-runtime.js";
 import { ValidatorRegistry } from "./validator-registry.js";
+import { ExecutionBudget, monotonicNow } from "./execution-budget.js";
+import { FrameMemoryBudget } from "./memory-budget.js";
 const MAX_TRACE_EVENTS = 256;
 const MAX_TRACE_DETAIL_LENGTH = 512;
 function failure(frameId, scenarioId, code, message, totalMs, trace, cause) {
@@ -23,10 +25,10 @@ function failure(frameId, scenarioId, code, message, totalMs, trace, cause) {
     };
 }
 function errorCode(error, signal, timedOut) {
-    if (signal?.aborted)
-        return "cancelled";
     if (timedOut)
         return "timeout";
+    if (signal?.aborted)
+        return "cancelled";
     if (error instanceof SdkException)
         return error.error.code;
     const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
@@ -42,10 +44,12 @@ export class CaptureRouter {
     validators;
     compiler;
     activeFrames = 0;
-    disposed = false;
+    state = "active";
+    activeOperations = new Map();
+    disposePromise;
     constructor(options = {}) {
         this.scenario = options.scenario ?? getBuiltinScenario("balanced");
-        this.now = options.now ?? (() => Date.now());
+        this.now = options.now ?? monotonicNow;
         this.engines = options.engines ?? new EngineRegistry();
         this.operators = options.operators ?? createDefaultOperatorRegistry();
         this.validators = options.validators ?? new ValidatorRegistry();
@@ -66,6 +70,10 @@ export class CaptureRouter {
         const frameId = frame && typeof frame === "object" && typeof frame.id === "string" && frame.id ? frame.id : "invalid-frame";
         const scenarioId = scenario && typeof scenario === "object" && typeof scenario.id === "string" ? scenario.id : "invalid";
         const started = this.now();
+        const operationController = new AbortController();
+        let settleOperation;
+        const settledOperation = new Promise((resolve) => { settleOperation = resolve; });
+        this.activeOperations.set(operationController, settledOperation);
         const trace = [];
         const record = (stage, detail) => {
             if (trace.length >= MAX_TRACE_EVENTS)
@@ -81,11 +89,11 @@ export class CaptureRouter {
         let artifacts;
         let timeoutId;
         let timedOut = false;
-        let timeout;
         let onAbort;
+        const phaseTimings = {};
         try {
-            if (this.disposed)
-                return failure(frameId, scenarioId, "session_disposed", "Capture router has been disposed.", this.now() - started, traceOutput());
+            if (this.state !== "active")
+                return failure(frameId, scenarioId, "session_disposed", "Capture router is disposing or has been disposed.", this.now() - started, traceOutput());
             const scenarioValidation = validateScenario(scenario);
             if (!scenarioValidation.ok)
                 return failure(frameId, scenarioId, "malformed_scenario", scenarioValidation.message, this.now() - started, traceOutput());
@@ -105,25 +113,37 @@ export class CaptureRouter {
             const graph = this.compiler.compile(validatedScenario);
             this.activeFrames += 1;
             active = true;
-            artifacts = new BoundedFrameArtifactStore(validatedScenario.budgets.maxIntermediateAllocations, validatedScenario.budgets.maxIntermediateBytes);
+            const memoryBudget = new FrameMemoryBudget(validatedScenario.budgets.maxIntermediateBytes);
+            artifacts = new BoundedFrameArtifactStore(validatedScenario.budgets.maxIntermediateAllocations, validatedScenario.budgets.maxIntermediateBytes, memoryBudget);
             artifacts.set("input.frame", frame);
-            timeout = new AbortController();
-            onAbort = () => timeout?.abort();
+            onAbort = () => operationController.abort();
             options.signal?.addEventListener("abort", onAbort, { once: true });
             if (options.signal?.aborted)
-                timeout.abort();
-            timeoutId = setTimeout(() => { timedOut = true; timeout?.abort(); }, validatedScenario.budgets.maxExecutionMs);
+                operationController.abort();
+            const deadlineMs = started + validatedScenario.budgets.maxExecutionMs;
+            timeoutId = setTimeout(() => { timedOut = true; operationController.abort(); }, validatedScenario.budgets.maxExecutionMs);
             record("frame.accepted", `${frame.pixelFormat} ${frame.width}x${frame.height}`);
-            const context = { signal: timeout.signal, artifacts, trace: record };
+            const budget = new ExecutionBudget({ signal: operationController.signal, deadlineMs, now: this.now, memory: memoryBudget });
+            const context = { signal: operationController.signal, artifacts, budget, phaseTimings, trace: record };
             await graph.execute(context);
             const outcome = artifacts.get("scan.final");
             if (!outcome)
                 return failure(frameId, validatedScenario.id, "internal_invariant_failure", "Capture graph completed without a final outcome.", this.now() - started, traceOutput());
-            const result = { ...outcome, timing: { ...outcome.timing, totalMs: this.now() - started } };
+            const result = { ...outcome, timing: {
+                    ...outcome.timing,
+                    totalMs: this.now() - started,
+                    frameNormalizationMs: phaseTimings["scanly.frame-normalization"],
+                    roiMs: phaseTimings["scanly.roi"],
+                    localizationMs: phaseTimings["scanly.localization"],
+                    candidateGenerationMs: phaseTimings["scanly.candidate-generation"],
+                    candidateDeduplicationMs: phaseTimings["scanly.candidate-deduplication"],
+                    validationMs: phaseTimings["scanly.validation"],
+                    semanticParsingMs: phaseTimings["scanly.semantic-parsing"],
+                } };
             return validatedScenario.output.includeDebugTrace ? { ...result, trace } : result;
         }
         catch (error) {
-            const code = errorCode(error, options.signal, timedOut);
+            const code = errorCode(error, operationController.signal, timedOut);
             const message = error instanceof SdkException ? error.error.message : error instanceof Error ? error.message : String(error);
             return failure(frameId, scenarioId, code, message, this.now() - started, traceOutput(), error);
         }
@@ -136,18 +156,27 @@ export class CaptureRouter {
             if (active)
                 this.activeFrames -= 1;
             lease.release();
+            this.activeOperations.delete(operationController);
+            settleOperation();
         }
     }
     async dispose() {
-        if (this.disposed)
-            return;
-        this.disposed = true;
-        this.compiler.clearCache();
-        await this.engines.disposeAll();
+        if (this.disposePromise)
+            return this.disposePromise;
+        this.state = "disposing";
+        this.disposePromise = (async () => {
+            for (const controller of this.activeOperations.keys())
+                controller.abort();
+            await Promise.allSettled([...this.activeOperations.values()]);
+            this.compiler.clearCache();
+            await this.engines.disposeAll();
+            this.state = "disposed";
+        })();
+        return this.disposePromise;
     }
     assertUsable() {
-        if (this.disposed)
-            throw new SdkException(sdkError("session_disposed", "Capture router has been disposed."));
+        if (this.state !== "active")
+            throw new SdkException(sdkError("session_disposed", "Capture router is disposing or has been disposed."));
     }
 }
 export { scenarioToPipelineConfig };

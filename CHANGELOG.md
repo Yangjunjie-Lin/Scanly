@@ -2,6 +2,15 @@
 
 All notable changes follow semantic versioning.
 
+## [2.0.0-alpha.2] - 2026-07-16
+
+- Bounded adversarial candidate generation and cooperative monotonic execution deadlines.
+- Explicit benchmark outcomes for decode, no-symbol, and invalid-input fixtures with real phase timing.
+- Original normalized-frame corner mapping and engine-derived-only orientation semantics.
+- Configured multi-code limits above three and spatial identity for repeated payloads.
+- Typed engine failures, active Router/engine disposal waits, and shared frame-memory leases.
+- Fast bounded camera sampling, scenario schema 2.1 migration, and explicit monorepo Vercel output configuration.
+
 ## [2.0.0-alpha.1] - 2026-07-15
 
 ### Added

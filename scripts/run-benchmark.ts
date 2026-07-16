@@ -23,7 +23,7 @@ import {
 const ROOT = path.resolve(__dirname, "..");
 const MANIFEST_PATH = path.join(ROOT, "fixtures", "manifest.json");
 const OUT_DIR = path.join(ROOT, "benchmark-results");
-function baselinePath(profile: BuiltinScenarioId): string { return path.join(OUT_DIR, "baselines", `v2-alpha1-${profile}-node24-windows-x64.json`); }
+function baselinePath(profile: BuiltinScenarioId): string { return path.join(OUT_DIR, "baselines", `v2-alpha2-r2-${profile}-node24-windows-x64.json`); }
 
 interface ManifestFile {
   seed: number;
@@ -71,8 +71,7 @@ function toCsv(results: BenchmarkFixtureResult[]): string {
     "requiredPayloadCount",
     "decodedPayloadCount",
     "candidateGenerationMs",
-    "jsqrMs",
-    "zxingMs",
+    "engineMs",
     "preprocessMs",
     "rotationMs",
     "timeToFirstResultMs",
@@ -96,8 +95,7 @@ function toCsv(results: BenchmarkFixtureResult[]): string {
       r.requiredPayloadCount ?? "",
       r.decodedPayloadCount ?? "",
       r.phaseTiming?.candidateGenerationMs ?? "",
-      r.phaseTiming?.jsqrMs ?? "",
-      r.phaseTiming?.zxingMs ?? "",
+      r.phaseTiming?.engineMs ? JSON.stringify(r.phaseTiming.engineMs) : "",
       r.phaseTiming?.preprocessMs ?? "",
       r.phaseTiming?.rotationMs ?? "",
       r.timeToFirstResultMs ?? "",
@@ -270,7 +268,7 @@ async function runFixture(router: CaptureRouter, fixture: BenchmarkFixture): Pro
     const outcome = await router.scan(createRgbaFrame(buffer.data, buffer.width, buffer.height, { id: `benchmark-${fixture.id}`, sourceType: "upload" }));
     const payloads = outcome.ok ? outcome.results.map((r) => r.rawText) : [];
     const primary = outcome.ok ? outcome.primary : null;
-    const evalResult = evaluateFixture(fixture, payloads, outcome.ok);
+    const evalResult = evaluateFixture(fixture, payloads, { ok: outcome.ok, errorCode: outcome.ok ? undefined : outcome.error.code });
     const required = requiredPayloads(fixture);
     return {
       id: fixture.id,
@@ -291,6 +289,18 @@ async function runFixture(router: CaptureRouter, fixture: BenchmarkFixture): Pro
       requiredPayloadCount: required.length || undefined,
       decodedPayloadCount: payloads.length,
       timeToFirstResultMs: outcome.ok ? outcome.timing.timeToFirstResultMs : undefined,
+      phaseTiming: {
+        frameNormalizationMs: outcome.timing.frameNormalizationMs,
+        roiMs: outcome.timing.roiMs,
+        localizationMs: outcome.timing.localizationMs,
+        candidateGenerationMs: outcome.timing.candidateGenerationMs ?? 0,
+        candidateDeduplicationMs: outcome.timing.candidateDeduplicationMs,
+        preprocessMs: outcome.timing.preprocessingMs ?? 0,
+        rotationMs: outcome.timing.rotationMs ?? 0,
+        engineMs: outcome.timing.engineMs ?? {},
+        validationMs: outcome.timing.validationMs,
+        semanticParsingMs: outcome.timing.semanticParsingMs,
+      },
     };
   } catch (e) {
     return {
@@ -299,7 +309,7 @@ async function runFixture(router: CaptureRouter, fixture: BenchmarkFixture): Pro
       expectedPayload: fixture.expectedPayload,
       actualPayload: null,
       allPayloads: [],
-      pass: fixture.expectedOutcome === "fail",
+      pass: false,
       elapsedMs: Date.now() - t0,
       successfulDecoder: null,
       preprocessingPath: null,
@@ -416,23 +426,49 @@ async function main() {
     .slice(0, 5)
     .map((r) => ({ id: r.id, elapsedMs: r.elapsedMs, attemptCount: r.attemptCount, pass: r.pass }));
 
-  const phaseValues = {
+  const phaseValues: Record<string, number[]> = {
     candidateGenerationMs: results.map((r) => r.phaseTiming?.candidateGenerationMs ?? 0),
-    jsqrMs: results.map((r) => r.phaseTiming?.jsqrMs ?? 0),
-    zxingMs: results.map((r) => r.phaseTiming?.zxingMs ?? 0),
     preprocessMs: results.map((r) => r.phaseTiming?.preprocessMs ?? 0),
     rotationMs: results.map((r) => r.phaseTiming?.rotationMs ?? 0),
+    frameNormalizationMs: results.map((r) => r.phaseTiming?.frameNormalizationMs ?? 0),
+    roiMs: results.map((r) => r.phaseTiming?.roiMs ?? 0),
+    localizationMs: results.map((r) => r.phaseTiming?.localizationMs ?? 0),
+    candidateDeduplicationMs: results.map((r) => r.phaseTiming?.candidateDeduplicationMs ?? 0),
+    validationMs: results.map((r) => r.phaseTiming?.validationMs ?? 0),
+    semanticParsingMs: results.map((r) => r.phaseTiming?.semanticParsingMs ?? 0),
   };
+  for (const engineId of [...new Set(results.flatMap((result) => Object.keys(result.phaseTiming?.engineMs ?? {})))].sort()) {
+    phaseValues[`engine:${engineId}`] = results.map((result) => result.phaseTiming?.engineMs[engineId] ?? 0);
+  }
   const positive = results.filter((result) => result.expectedOutcome === "decode");
-  const negative = results.filter((result) => result.expectedOutcome === "fail");
+  const negative = results.filter((result) => result.expectedOutcome !== "decode");
   const positivePasses = positive.filter((result) => result.pass).length;
   const falsePositiveCount = negative.filter((result) => result.actualPayload !== null).length;
   const timeToFirstValues = results.flatMap((result) => result.timeToFirstResultMs === undefined ? [] : [result.timeToFirstResultMs]);
-  const cancellationController = new AbortController();
-  cancellationController.abort();
-  const cancellationOutcome = await router.scan(createRgbaFrame(new Uint8ClampedArray(4), 1, 1, { id: "benchmark-cancellation" }), { signal: cancellationController.signal });
-  const cancellationPassed = !cancellationOutcome.ok && cancellationOutcome.error.code === "cancelled" ? 1 : 0;
+  const cancellationChecks: boolean[] = [];
+  const beforeController = new AbortController();
+  beforeController.abort();
+  const beforeOutcome = await router.scan(createRgbaFrame(new Uint8ClampedArray(4), 1, 1, { id: "benchmark-cancellation-before" }), { signal: beforeController.signal });
+  cancellationChecks.push(!beforeOutcome.ok && beforeOutcome.error.code === "cancelled");
+  const activeController = new AbortController();
+  const activePixels = new Uint8ClampedArray(512 * 512 * 4);
+  for (let index = 0; index < activePixels.length; index += 4) { const value = (index * 1103515245 + 12345) >>> 24; activePixels[index] = activePixels[index + 1] = activePixels[index + 2] = value; activePixels[index + 3] = 255; }
+  const activePromise = router.scan(createRgbaFrame(activePixels, 512, 512, { id: "benchmark-cancellation-active" }), { signal: activeController.signal });
+  setTimeout(() => activeController.abort(), 0);
+  const activeOutcome = await activePromise;
+  cancellationChecks.push(!activeOutcome.ok && activeOutcome.error.code === "cancelled");
+  const disposalRouter = createNodeCaptureRouter({ scenario: getBuiltinScenario(profile) });
+  const disposalPromise = disposalRouter.scan(createRgbaFrame(activePixels.slice(), 512, 512, { id: "benchmark-cancellation-dispose" }));
+  const disposing = disposalRouter.dispose();
+  const disposalOutcome = await disposalPromise;
+  await disposing;
+  cancellationChecks.push(!disposalOutcome.ok && disposalOutcome.error.code === "cancelled");
   const gitCommit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" }).trim();
+
+  const datasetHash = crypto.createHash("sha256").update(manifestBytes);
+  for (const fixture of [...manifest.fixtures].sort((left, right) => left.file.localeCompare(right.file))) {
+    datasetHash.update(fixture.file).update(await fs.promises.readFile(path.join(ROOT, fixture.file)));
+  }
 
   const summary: BenchmarkRunSummary = {
     schemaVersion: "2.0",
@@ -441,7 +477,7 @@ async function main() {
       gitCommit,
       sdkVersion: SDK_VERSION,
       scenario: profile,
-      datasetManifestHash: crypto.createHash("sha256").update(manifestBytes).digest("hex"),
+      datasetManifestHash: datasetHash.digest("hex"),
       fixtureCount: fixtures.length,
       date: new Date().toISOString().slice(0, 10),
       warmupPolicy: "No excluded warmup; lazy engine initialization is included in the first measured fixture.",
@@ -463,8 +499,16 @@ async function main() {
     falsePositiveCount,
     falsePositiveRate: negative.length ? falsePositiveCount / negative.length : 0,
     timeoutCount: results.filter((result) => result.failureReason === "timeout").length,
-    cancellationCorrectness: { passed: cancellationPassed, total: 1 },
+    cancellationCorrectness: { passed: cancellationChecks.filter(Boolean).length, total: cancellationChecks.length },
     engineInitializationFailures: results.filter((result) => result.failureReason === "engine_initialization_failure").length,
+    engineExecutionFailures: results.filter((result) => result.failureReason === "engine_execution_failure").length,
+    phaseTimingAvailability: (() => {
+      const routed = results.filter((result) => result.failureReason !== "resource_limit_exceeded" || result.attemptCount > 0);
+      return {
+        passed: routed.filter((result) => result.phaseTiming && result.phaseTiming.candidateGenerationMs >= 0 && Object.values(result.phaseTiming.engineMs).some((value) => value > 0)).length,
+        total: routed.length,
+      };
+    })(),
     timeToFirstResult: distribution(timeToFirstValues),
     averageAttempts: attemptCounts.length
       ? attemptCounts.reduce((a, b) => a + b, 0) / attemptCounts.length
@@ -476,13 +520,7 @@ async function main() {
     candidateDistribution,
     perFormatRecall: { qr_code: { total: positive.length, decoded: positivePasses, recall: positive.length ? positivePasses / positive.length : 0 } },
     memoryObservations: ["Node benchmark does not expose reliable per-case retained-memory measurements; use the local soak utility for heap observation."],
-    phaseTiming: {
-      candidateGenerationMs: distribution(phaseValues.candidateGenerationMs),
-      jsqrMs: distribution(phaseValues.jsqrMs),
-      zxingMs: distribution(phaseValues.zxingMs),
-      preprocessMs: distribution(phaseValues.preprocessMs),
-      rotationMs: distribution(phaseValues.rotationMs),
-    },
+    phaseTiming: Object.fromEntries(Object.entries(phaseValues).map(([phase, values]) => [phase, distribution(values)])),
     perCategory,
     multipleCompleteness: {
       total: multipleResults.length,
