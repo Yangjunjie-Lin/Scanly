@@ -8,6 +8,7 @@ import { ZxingJsEngine } from "@scanly/engine-zxing-js";
 import { getBuiltinScenario, type ScenarioDefinition } from "@scanly/scenario-schema";
 import { evaluateFixture, type BenchmarkFixture, type ComparisonReport, type StrategyFixtureResult, type StrategySummary } from "@scanly/benchmark";
 import { assertCleanRepository, collectSourceIdentity } from "./benchmark-provenance.js";
+import { validateComparisonReport } from "./canonical-evidence.js";
 
 const root = path.resolve(__dirname, "..");
 const manifestPath = path.join(root, "fixtures", "manifest.json");
@@ -73,10 +74,10 @@ function engineFailureCode(category: string): string {
   return codes[category] ?? category;
 }
 
-async function execute(runtime: StrategyRuntime, pixels: PixelBuffer): Promise<{ payloads: string[]; reason: string | null; attempts: number; peak?: number; diagnostics?: EngineDiagnostic[] }> {
+async function execute(runtime: StrategyRuntime, pixels: PixelBuffer): Promise<{ payloads: string[]; reason: string | null; attempts: number; peak?: number; final: number; diagnostics?: EngineDiagnostic[] }> {
   if (runtime.rawEngine) {
     const outcome = await runtime.rawEngine.decode(createRgbaFrame(pixels.data, pixels.width, pixels.height), { formats: ["qr_code"], findMultiple: false });
-    return { payloads: outcome.ok ? outcome.results.map((result) => result.text) : [], reason: outcome.ok ? null : engineFailureCode(outcome.category), attempts: 1 };
+    return { payloads: outcome.ok ? outcome.results.map((result) => result.text) : [], reason: outcome.ok ? null : engineFailureCode(outcome.category), attempts: 1, final: 0 };
   }
   const outcome = await runtime.router!.scan(createRgbaFrame(pixels.data, pixels.width, pixels.height, { sourceType: "upload" }), { scenario: runtime.scenario });
   return {
@@ -84,16 +85,23 @@ async function execute(runtime: StrategyRuntime, pixels: PixelBuffer): Promise<{
     reason: outcome.ok ? null : outcome.error.code,
     attempts: outcome.attemptCount,
     peak: outcome.timing.controlledMemory?.peakControlledBytes,
+    final: outcome.timing.controlledMemory?.currentControlledBytes ?? 0,
     diagnostics: outcome.engineDiagnostics,
   };
 }
 
 async function main(): Promise<void> {
   const canonical = process.argv.includes("--canonical");
+  const canonicalCandidate = process.argv.includes("--canonical-candidate");
   const ciArtifact = process.argv.includes("--ci-artifact");
-  if (canonical && ciArtifact) throw new Error("Choose exactly one comparison execution mode.");
-  const allowDirty = process.argv.includes("--allow-dirty-development") || (!canonical && !ciArtifact);
-  if (canonical || ciArtifact) assertCleanRepository(root);
+  if ([canonical, canonicalCandidate, ciArtifact].filter(Boolean).length > 1) throw new Error("Choose exactly one comparison execution mode.");
+  const canonicalCompatible = canonical || canonicalCandidate;
+  const allowDirty = process.argv.includes("--allow-dirty-development") || (!canonicalCompatible && !ciArtifact);
+  if (canonicalCompatible || ciArtifact) assertCleanRepository(root);
+  const warmupIterations = Number(process.argv.find((argument) => argument.startsWith("--warmup-iterations="))?.split("=")[1] ?? (canonicalCompatible ? 1 : 0));
+  const measuredIterations = Number(process.argv.find((argument) => argument.startsWith("--measured-iterations="))?.split("=")[1] ?? (canonicalCompatible ? 3 : 1));
+  if (!Number.isInteger(warmupIterations) || warmupIterations < 0 || !Number.isInteger(measuredIterations) || measuredIterations < 1) throw new Error("Comparison iteration arguments are invalid.");
+  if (canonicalCompatible && (warmupIterations < 1 || measuredIterations < 3)) throw new Error("Canonical-compatible comparison requires warmup >= 1 and measured iterations >= 3.");
   const jsqrSize = packageCost(["jsqr"]);
   const zxingSize = packageCost(["zxing-js"]);
   const definitions: Array<{ id: StrategyId; raw?: DecoderEngine; scenario?: ScenarioDefinition }> = [
@@ -132,27 +140,44 @@ async function main(): Promise<void> {
   }
 
   const perFixture: StrategyFixtureResult[] = [];
+  if (warmupIterations > 0) {
+    const pixels = await loadPixelBufferFromPath(path.join(root, manifest.fixtures[0].file));
+    for (let iteration = 0; iteration < warmupIterations; iteration++) for (const runtime of runtimes) await execute(runtime, pixels);
+  }
   for (const fixture of manifest.fixtures) {
     const pixels = await loadPixelBufferFromPath(path.join(root, fixture.file));
     for (const runtime of runtimes) {
-      const started = Date.now();
-      let actual: Awaited<ReturnType<typeof execute>>;
-      try { actual = await execute(runtime, pixels); }
-      catch (error) { actual = { payloads: [], reason: error instanceof Error ? error.message : String(error), attempts: 0 }; }
+      const runs: Array<Awaited<ReturnType<typeof execute>> & { elapsedMs: number; pass: boolean }> = [];
+      for (let iteration = 0; iteration < measuredIterations; iteration++) {
+        const runStarted = Date.now();
+        let actual: Awaited<ReturnType<typeof execute>>;
+        try { actual = await execute(runtime, pixels); }
+        catch (error) { actual = { payloads: [], reason: error instanceof Error ? error.message : String(error), attempts: 0, final: 0 }; }
+        const evaluation = evaluateFixture(fixture, actual.payloads, { ok: actual.payloads.length > 0, errorCode: actual.reason ?? undefined });
+        runs.push({ ...actual, elapsedMs: Date.now() - runStarted, pass: evaluation.pass });
+      }
+      const ordered = [...runs].sort((left, right) => left.elapsedMs - right.elapsedMs);
+      const actual = ordered[Math.floor(ordered.length / 2)];
       const evaluation = evaluateFixture(fixture, actual.payloads, { ok: actual.payloads.length > 0, errorCode: actual.reason ?? undefined });
+      const payloadSignatures = new Set(runs.map((run) => JSON.stringify([...run.payloads].sort())));
       perFixture.push({
         fixtureId: fixture.id,
         strategyId: runtime.id,
         expectedOutcome: fixture.expectedOutcome,
         payloads: actual.payloads,
-        pass: evaluation.pass,
-        exactPayload: fixture.expectedOutcome === "decode" && evaluation.pass,
-        falsePositive: fixture.expectedOutcome !== "decode" && actual.payloads.length > 0,
-        multipleComplete: fixture.category !== "multiple" || evaluation.missingPayloads.length === 0,
-        elapsedMs: Date.now() - started,
-        attemptCount: actual.attempts,
+        pass: runs.every((run) => run.pass),
+        exactPayload: fixture.expectedOutcome === "decode" && runs.every((run) => run.pass),
+        falsePositive: fixture.expectedOutcome !== "decode" && runs.some((run) => run.payloads.length > 0),
+        multipleComplete: fixture.category !== "multiple" || runs.every((run) => evaluateFixture(fixture, run.payloads, { ok: run.payloads.length > 0, errorCode: run.reason ?? undefined }).missingPayloads.length === 0),
+        elapsedMs: median(runs.map((run) => run.elapsedMs)),
+        attemptCount: Math.round(median(runs.map((run) => run.attempts))),
         failureReason: actual.reason,
-        controlledMemoryPeakBytes: actual.peak,
+        controlledMemoryPeakBytes: Math.max(0, ...runs.map((run) => run.peak ?? 0)),
+        finalControlledMemoryBytes: Math.max(0, ...runs.map((run) => run.final)),
+        iterationPassCount: runs.filter((run) => run.pass).length,
+        iterationFailureCount: runs.filter((run) => !run.pass).length,
+        unstablePayload: payloadSignatures.size > 1,
+        runTimingsMs: runs.map((run) => run.elapsedMs),
         engineDiagnostics: actual.diagnostics?.map(({ engineId, status, elapsedMs, attemptCount, resultCount }) => ({ engineId, status, elapsedMs, attemptCount, resultCount })),
       });
     }
@@ -211,6 +236,7 @@ async function main(): Promise<void> {
   const parallelAccepted = parallel.positiveRecall >= sequential.positiveRecall - 0.01
     && parallel.exactPayloadAccuracy >= sequential.exactPayloadAccuracy - 0.01
     && parallel.falsePositiveCount <= sequential.falsePositiveCount
+    && parallel.multiCodeCompleteness.complete >= sequential.multiCodeCompleteness.complete
     && parallel.timeoutCount === 0
     && parallel.initializationFailures === 0
     && parallel.executionFailures === 0;
@@ -220,13 +246,15 @@ async function main(): Promise<void> {
     sdkVersion: SDK_VERSION,
     sourceIdentity,
     executionPolicy: {
-      mode: canonical ? "canonical" : ciArtifact ? "ci-artifact" : "development",
-      canonical,
-      warmupIterations: 0,
-      measuredIterations: 1,
-      dirtyDevelopmentAllowed: !canonical && !ciArtifact,
+      mode: canonicalCandidate ? "canonical-candidate" : canonical ? "canonical" : ciArtifact ? "ci-artifact" : "development",
+      evidenceType: canonicalCandidate ? "canonical-candidate" : ciArtifact ? "ci-artifact" : canonical ? "canonical-committed" : "development",
+      canonical: canonicalCompatible,
+      warmupIterations,
+      measuredIterations,
+      dirtyDevelopmentAllowed: !canonicalCompatible && !ciArtifact,
       updatesDocumentation: false,
     },
+    finalControlledMemoryBytes: Math.max(0, ...perFixture.map((result) => result.finalControlledMemoryBytes ?? 0)),
     parallelExecution: {
       status: parallelAccepted ? "supported" : "experimental",
       builtInScenarioUsage: false,
@@ -241,14 +269,19 @@ async function main(): Promise<void> {
     strategies,
     perFixture,
   };
-  const output = canonical
-    ? path.join(root, "benchmark-results", "comparison.json")
-    : path.join(root, "benchmark-results", ciArtifact ? "ci" : "development", "comparison.json");
+  const explicitOutput = process.argv.find((argument) => argument.startsWith("--output="))?.slice("--output=".length);
+  const output = explicitOutput
+    ? path.join(path.resolve(explicitOutput), "comparison.json")
+    : path.join(root, "benchmark-results", canonicalCompatible ? "candidates" : ciArtifact ? "ci" : "development", "comparison.json");
   await fs.promises.mkdir(path.dirname(output), { recursive: true });
   await fs.promises.writeFile(output, JSON.stringify(report, null, 2));
   console.log(JSON.stringify(strategies, null, 2));
   console.log(`Wrote ${output}`);
   await Promise.all(runtimes.flatMap((runtime) => runtime.router ? [runtime.router.dispose()] : []));
+  if (canonicalCompatible) {
+    const failures = validateComparisonReport(report);
+    if (failures.length) throw new Error(`Comparison candidate gates failed:\n- ${failures.join("\n- ")}`);
+  }
 }
 
 main().catch((error) => { console.error(error); process.exit(1); });

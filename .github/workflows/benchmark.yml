@@ -57,14 +57,19 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 24, cache: npm }
       - run: npm ci
-      - run: npx tsx scripts/run-benchmark.ts --ci-artifact --profile=${{ matrix.profile }} --gate --warmup-iterations=1 --measured-iterations=3
+      - run: npm run fixtures:generate
+      - run: npm run scenarios:generate
+      - run: git diff --exit-code -- fixtures scenarios
+      - name: Verify clean profile checkout
+        run: git status --porcelain --untracked-files=all | Tee-Object -Variable status; if ($status) { throw "profile checkout is dirty" }
+      - run: npx tsx scripts/run-benchmark.ts --canonical-candidate --profile=${{ matrix.profile }} --gate --gate-mode=active-baseline --warmup-iterations=1 --measured-iterations=3
       - uses: actions/upload-artifact@v4
         with:
           name: benchmark-${{ matrix.profile }}
           if-no-files-found: error
           path: |
-            benchmark-results/ci/${{ matrix.report }}.json
-            benchmark-results/ci/${{ matrix.report }}.csv
+            benchmark-results/candidates/${{ matrix.report }}.json
+            benchmark-results/candidates/${{ matrix.report }}.csv
 
   comparison:
     needs: prepare
@@ -76,12 +81,17 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 24, cache: npm }
       - run: npm ci
-      - run: npm run benchmark:compare -- --ci-artifact
+      - run: npm run fixtures:generate
+      - run: npm run scenarios:generate
+      - run: git diff --exit-code -- fixtures scenarios
+      - name: Verify clean comparison checkout
+        run: git status --porcelain --untracked-files=all | Tee-Object -Variable status; if ($status) { throw "comparison checkout is dirty" }
+      - run: npm run benchmark:compare -- --canonical-candidate --warmup-iterations=1 --measured-iterations=3
       - uses: actions/upload-artifact@v4
         with:
           name: benchmark-comparison
           if-no-files-found: error
-          path: benchmark-results/ci/comparison.json
+          path: benchmark-results/candidates/comparison.json
 
   assemble:
     needs: [profile, comparison]
@@ -97,9 +107,10 @@ jobs:
           pattern: benchmark-*
           merge-multiple: true
           path: benchmark-artifacts
-      - run: npx tsx scripts/assemble-benchmark-artifacts.ts --directory=benchmark-artifacts
+      - run: npm run benchmark:assemble-canonical -- --fast=benchmark-artifacts/latest-fast.json --balanced=benchmark-artifacts/latest.json --robust=benchmark-artifacts/latest-robust.json --comparison=benchmark-artifacts/comparison.json --output=benchmark-artifacts/canonical
+      - run: npm run benchmark:verify-evidence -- --mode=baseline-bootstrap --canonical-manifest=benchmark-artifacts/canonical/canonical-evidence-manifest.json
       - uses: actions/upload-artifact@v4
         with:
           name: benchmark-assembled
           if-no-files-found: error
-          path: benchmark-artifacts
+          path: benchmark-artifacts/canonical

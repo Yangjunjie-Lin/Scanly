@@ -65,3 +65,32 @@ export async function collectSourceIdentity(options: SourceIdentityOptions): Pro
     benchmarkRunnerHash: sha256(await fs.promises.readFile(options.runnerPath)),
   };
 }
+
+const EVIDENCE_ONLY_PATH = /^(benchmark-results\/|docs\/benchmark\.md$|README\.md$)/;
+
+function stripReadmeBenchmarkBlock(value: string): string {
+  return value.replace(/<!-- BENCHMARK_SUMMARY_START -->[\s\S]*?<!-- BENCHMARK_SUMMARY_END -->/, "<!-- BENCHMARK_SUMMARY -->");
+}
+
+export function verifyEvidenceCommitPolicy(root: string, sourceCommitSha: string, sourceTreeSha: string, evidenceCommitSha = "HEAD"): string[] {
+  const failures: string[] = [];
+  const git = (args: string[]) => execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
+  try {
+    if (git(["rev-parse", `${sourceCommitSha}^{tree}`]) !== sourceTreeSha) failures.push("source tree does not match source commit");
+    execFileSync("git", ["merge-base", "--is-ancestor", sourceCommitSha, evidenceCommitSha], { cwd: root, stdio: "pipe" });
+  } catch {
+    failures.push("source commit is not an ancestor of the evidence commit");
+    return failures;
+  }
+  const changed = git(["diff", "--name-only", sourceCommitSha, evidenceCommitSha]).split(/\r?\n/).filter(Boolean).map((file) => file.replace(/\\/g, "/"));
+  const forbidden = changed.filter((file) => !EVIDENCE_ONLY_PATH.test(file));
+  if (forbidden.length) failures.push(`runtime/tooling paths changed after source commit: ${forbidden.join(", ")}`);
+  if (changed.includes("README.md")) {
+    try {
+      const source = execFileSync("git", ["show", `${sourceCommitSha}:README.md`], { cwd: root, encoding: "utf8" });
+      const evidence = execFileSync("git", ["show", `${evidenceCommitSha}:README.md`], { cwd: root, encoding: "utf8" });
+      if (stripReadmeBenchmarkBlock(source) !== stripReadmeBenchmarkBlock(evidence)) failures.push("README changes outside the benchmark summary block are not evidence-only");
+    } catch { failures.push("README benchmark-only policy could not be verified"); }
+  }
+  return failures;
+}

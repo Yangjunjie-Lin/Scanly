@@ -123,10 +123,19 @@ export interface BenchmarkSourceIdentity {
   benchmarkRunnerHash: string;
 }
 
-export type BenchmarkExecutionMode = "development" | "canonical" | "baseline-freeze" | "ci-artifact";
+export type BenchmarkEvidenceType =
+  | "development"
+  | "ci-artifact"
+  | "canonical-candidate"
+  | "canonical-committed"
+  | "baseline-candidate"
+  | "active-baseline";
+
+export type BenchmarkExecutionMode = "development" | "canonical" | "baseline-freeze" | "ci-artifact" | "canonical-candidate";
 
 export interface BenchmarkExecutionPolicy {
   mode: BenchmarkExecutionMode;
+  evidenceType?: BenchmarkEvidenceType;
   canonical: boolean;
   warmupIterations: number;
   measuredIterations: number;
@@ -244,6 +253,11 @@ export interface StrategyFixtureResult {
   attemptCount: number;
   failureReason: string | null;
   controlledMemoryPeakBytes?: number;
+  finalControlledMemoryBytes?: number;
+  iterationPassCount?: number;
+  iterationFailureCount?: number;
+  unstablePayload?: boolean;
+  runTimingsMs?: number[];
   engineDiagnostics?: Array<{ engineId: string; status: string; elapsedMs: number; attemptCount: number; resultCount: number }>;
 }
 
@@ -253,6 +267,7 @@ export interface ComparisonReport {
   sdkVersion: string;
   sourceIdentity: BenchmarkSourceIdentity;
   executionPolicy: BenchmarkExecutionPolicy;
+  finalControlledMemoryBytes: number;
   parallelExecution: {
     status: "supported" | "experimental";
     builtInScenarioUsage: boolean;

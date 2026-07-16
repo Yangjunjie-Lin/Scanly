@@ -62,6 +62,8 @@ for (const fixture of manifest.fixtures.filter((item) => item.category === "mult
   }
 }
 
+const readme = read("README.md");
+if (!process.argv.includes("--static")) {
 const canonical = JSON.parse(read("benchmark-results/latest.json")) as BenchmarkRunSummary;
 const canonicalProfiles = (["fast", "balanced", "robust"] as const).map((profile) => ({
   profile,
@@ -80,7 +82,6 @@ for (const field of ["commitSha", "treeSha", "datasetHash", "packageLockHash", "
   if (new Set(canonicalProfiles.map(({ report }) => report.sourceIdentity[field])).size !== 1) fail(`Canonical profile source identity mismatch: ${field}.`);
 }
 if (canonical.environment.scenario !== "balanced" || canonical.environment.fixtureCount !== manifest.fixtures.length) fail("Canonical benchmark metadata must describe the balanced Router-path fixture run");
-const readme = read("README.md");
 const rate = `${(canonical.successRate * 100).toFixed(1)}%`;
 const generatedCount = manifest.fixtures.filter((fixture) => fixture.sourceType === "generated").length;
 const photoCount = manifest.fixtures.filter((fixture) => fixture.sourceType === "project-photo").length;
@@ -133,6 +134,7 @@ for (const profile of ["fast", "balanced", "robust"] as const) {
     runtimeFamily: "node24-win32-x64",
   });
   if (failures.length) fail(`Active ${profile} baseline is incompatible: ${failures.join("; ")}`);
+}
 }
 
 if (!readme.includes("SDK-2.0.0--alpha.3")) fail("README SDK badge does not match 2.0.0-alpha.3.");

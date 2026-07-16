@@ -53,6 +53,14 @@ function noiseBuffer(width: number, height: number, strength: number): Buffer {
   return data;
 }
 
+async function writeTextIfChanged(file: string, content: string): Promise<void> {
+  if (fs.existsSync(file)) {
+    const existing = await fs.promises.readFile(file, "utf8");
+    if (existing.replace(/\r\n/g, "\n") === content.replace(/\r\n/g, "\n")) return;
+  }
+  await fs.promises.writeFile(file, content);
+}
+
 async function versionedQrPng(text: string, version: number, size = 720): Promise<Buffer> {
   return QRCode.toBuffer(text, { type: "png", width: size, margin: 2, version, errorCorrectionLevel: "M" });
 }
@@ -1015,7 +1023,7 @@ async function main() {
   // checksum stamp
   const hash = crypto.createHash("sha256").update(SEED.toString()).digest("hex").slice(0, 12);
   const manifestPath = path.join(FIXTURES_DIR, "manifest.json");
-  await fs.promises.writeFile(
+  await writeTextIfChanged(
     manifestPath,
     JSON.stringify(
       {

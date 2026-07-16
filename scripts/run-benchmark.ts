@@ -1,6 +1,7 @@
 /**
  * Upload-mode decode benchmark against fixtures/manifest.json.
- * Writes benchmark-results/latest.json|csv and regenerates docs/benchmark.md.
+ * Writes development, CI, or canonical-candidate artifacts. Tracked canonical aliases
+ * are updated only by update-canonical-evidence.ts.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -21,6 +22,7 @@ import {
 } from "@scanly/benchmark";
 import { assertCleanRepository, collectSourceIdentity } from "./benchmark-provenance.js";
 import { resolveActiveBaseline, runtimeFamily } from "./baseline-registry.js";
+import { validateProfileReport } from "./canonical-evidence.js";
 
 const ROOT = path.resolve(__dirname, "..");
 const MANIFEST_PATH = path.join(ROOT, "fixtures", "manifest.json");
@@ -272,12 +274,13 @@ async function runFixture(router: CaptureRouter, fixture: BenchmarkFixture): Pro
     const buffer = await loadPixelBufferFromPath(filePath);
     const scenario = router.getScenario();
     scenario.output.includeDebugTrace = true;
+    const profile = scenario.id as "fast" | "balanced" | "robust";
+    const completeRequired = requiredPayloads(fixture);
+    const effectiveRequired = requiredPayloadsForProfile(fixture, profile);
+    if (scenario.multiCode.enabled && fixture.category === "multiple" && effectiveRequired.length > 0) scenario.multiCode.maxResults = effectiveRequired.length;
     const outcome = await router.scan(createRgbaFrame(buffer.data, buffer.width, buffer.height, { id: `benchmark-${fixture.id}`, sourceType: "upload" }), { scenario });
     const payloads = outcome.ok ? outcome.results.map((r) => r.rawText) : [];
     const primary = outcome.ok ? outcome.primary : null;
-    const completeRequired = requiredPayloads(fixture);
-    const profile = router.getScenario().id as "fast" | "balanced" | "robust";
-    const effectiveRequired = requiredPayloadsForProfile(fixture, profile);
     const evaluatedFixture = effectiveRequired.length !== completeRequired.length
       ? { ...fixture, requiredPayloads: effectiveRequired, requiredInstances: undefined, expectedResultCount: effectiveRequired.length }
       : fixture;
@@ -361,27 +364,28 @@ async function runMeasuredFixture(router: CaptureRouter, fixture: BenchmarkFixtu
 async function main() {
   const smoke = process.argv.includes("--smoke");
   const failOnRegression = process.argv.includes("--gate");
-  const freezeBaseline = process.argv.includes("--freeze-baseline");
-  const canonical = process.argv.includes("--canonical") || freezeBaseline;
+  if (process.argv.includes("--freeze-baseline")) throw new Error("Benchmark collection no longer freezes baselines. Use npm run benchmark:freeze with an external canonical manifest.");
+  const canonical = process.argv.includes("--canonical");
+  const canonicalCandidate = process.argv.includes("--canonical-candidate");
   const ciArtifact = process.argv.includes("--ci-artifact");
-  const allowDirtyDevelopment = process.argv.includes("--allow-dirty-development") || (!canonical && !ciArtifact);
-  if (canonical && ciArtifact) throw new Error("Choose exactly one benchmark execution mode.");
-  if (canonical && allowDirtyDevelopment) throw new Error("Canonical and baseline-freeze runs cannot use --allow-dirty-development.");
-  if (canonical || ciArtifact) assertCleanRepository(ROOT);
-  const baselineId = process.argv.find((argument) => argument.startsWith("--baseline-id="))?.split("=")[1];
-  if (freezeBaseline && (!process.argv.includes("--approve-baseline") || !baselineId || !/^v2-alpha3-r\d+$/.test(baselineId))) {
-    throw new Error("Baseline freeze requires --approve-baseline and --baseline-id=v2-alpha3-rN.");
-  }
+  const selectedModes = [canonical, canonicalCandidate, ciArtifact].filter(Boolean).length;
+  const allowDirtyDevelopment = process.argv.includes("--allow-dirty-development") || selectedModes === 0;
+  if (selectedModes > 1) throw new Error("Choose exactly one benchmark execution mode.");
+  if ((canonical || canonicalCandidate) && allowDirtyDevelopment) throw new Error("Canonical candidate runs cannot use --allow-dirty-development.");
+  if (canonical || canonicalCandidate || ciArtifact) assertCleanRepository(ROOT);
+  const gateMode = process.argv.find((argument) => argument.startsWith("--gate-mode="))?.split("=")[1] ?? "active-baseline";
+  if (!(["active-baseline", "baseline-candidate"] as const).includes(gateMode as "active-baseline")) throw new Error("--gate-mode must be active-baseline or baseline-candidate.");
   const profileArgument = process.argv.find((argument) => argument.startsWith("--profile="))?.split("=")[1] ?? "balanced";
   if (!["fast", "balanced", "robust"].includes(profileArgument)) throw new Error(`Unknown benchmark profile '${profileArgument}'.`);
   const profile = profileArgument as BuiltinScenarioId;
-  const measuredIterations = Number(process.argv.find((argument) => argument.startsWith("--measured-iterations="))?.split("=")[1] ?? (canonical ? 3 : 1));
+  const canonicalCompatible = canonical || canonicalCandidate;
+  const measuredIterations = Number(process.argv.find((argument) => argument.startsWith("--measured-iterations="))?.split("=")[1] ?? (canonicalCompatible ? 3 : 1));
   const warmupIterations = Number(process.argv.find((argument) => argument.startsWith("--warmup-iterations="))?.split("=")[1] ?? (smoke ? 0 : 1));
   if (!Number.isInteger(measuredIterations) || measuredIterations < 1 || measuredIterations > 10) throw new Error("--measured-iterations must be an integer from 1 to 10.");
   if (!Number.isInteger(warmupIterations) || warmupIterations < 0 || warmupIterations > 5) throw new Error("--warmup-iterations must be an integer from 0 to 5.");
-  if (canonical && warmupIterations < 1) throw new Error("Canonical benchmark requires at least one warmup iteration.");
-  if (canonical && measuredIterations < 3) throw new Error("Canonical benchmark requires at least three measured iterations.");
-  const executionMode: BenchmarkExecutionMode = freezeBaseline ? "baseline-freeze" : canonical ? "canonical" : ciArtifact ? "ci-artifact" : "development";
+  if (canonicalCompatible && warmupIterations < 1) throw new Error("Canonical-compatible benchmark requires at least one warmup iteration.");
+  if (canonicalCompatible && measuredIterations < 3) throw new Error("Canonical-compatible benchmark requires at least three measured iterations.");
+  const executionMode: BenchmarkExecutionMode = canonicalCandidate ? "canonical-candidate" : canonical ? "canonical" : ciArtifact ? "ci-artifact" : "development";
   const selectedScenario = getBuiltinScenario(profile);
   const router = createNodeCaptureRouter({ scenario: selectedScenario });
 
@@ -460,7 +464,7 @@ async function main() {
     slot.successRate = slot.total ? slot.passed / slot.total : 0;
   }
 
-  const baseline = freezeBaseline
+  const baseline = gateMode === "baseline-candidate"
     ? { passedIds: new Set<string>(), metrics: null }
     : await loadBaseline(profile, smoke);
   const baselinePassed = baseline.passedIds;
@@ -538,11 +542,12 @@ async function main() {
     sourceIdentity,
     executionPolicy: {
       mode: executionMode,
-      canonical,
+      evidenceType: canonicalCandidate ? "canonical-candidate" : ciArtifact ? "ci-artifact" : canonical ? "canonical-committed" : "development",
+      canonical: canonicalCompatible,
       warmupIterations,
       measuredIterations,
       dirtyDevelopmentAllowed: executionMode === "development",
-      updatesDocumentation: canonical && !freezeBaseline && !smoke && profile === "balanced",
+      updatesDocumentation: false,
     },
     environment: {
       gitCommit: sourceIdentity.commitSha,
@@ -608,19 +613,14 @@ async function main() {
     results,
   };
 
-  const outputDirectory = canonical ? OUT_DIR : path.join(OUT_DIR, executionMode === "ci-artifact" ? "ci" : "development");
+  const explicitOutput = process.argv.find((argument) => argument.startsWith("--output="))?.slice("--output=".length);
+  const outputDirectory = explicitOutput ? path.resolve(explicitOutput) : canonicalCompatible ? path.join(OUT_DIR, "candidates") : path.join(OUT_DIR, executionMode === "ci-artifact" ? "ci" : "development");
   await fs.promises.mkdir(outputDirectory, { recursive: true });
   const outputStem = smoke ? `smoke-${profile}` : profile === "balanced" ? "latest" : `latest-${profile}`;
   const jsonPath = path.join(outputDirectory, `${outputStem}.json`);
   const csvPath = path.join(outputDirectory, `${outputStem}.csv`);
   await fs.promises.writeFile(jsonPath, JSON.stringify(summary, null, 2));
   await fs.promises.writeFile(csvPath, toCsv(results));
-
-  if (canonical && !freezeBaseline && !smoke && profile === "balanced") {
-    const md = renderMarkdown(summary, false);
-    await fs.promises.writeFile(path.join(ROOT, "docs", "benchmark.md"), md);
-    await updateReadmeSummary(summary, manifest);
-  }
 
   console.log("");
   console.log(
@@ -633,32 +633,7 @@ async function main() {
   console.log(`Wrote ${csvPath}`);
 
   const gateFailures = baseline.metrics ? evaluateBenchmarkGates(summary, baseline.metrics, { fullSuite: !smoke }) : [];
-  if (freezeBaseline) {
-    const freezeFailures = [
-      ...(sourceIdentity.repositoryDirty ? ["source repository is dirty"] : []),
-      ...(!summary.executionPolicy.canonical ? ["execution policy is not canonical"] : []),
-      ...(summary.executionPolicy.warmupIterations < 1 ? ["canonical warmup is below one"] : []),
-      ...(summary.executionPolicy.measuredIterations < 3 ? ["canonical measured iterations are below three"] : []),
-      ...(summary.finalControlledMemoryBytes !== 0 ? ["controlled memory was retained after benchmark scans"] : []),
-      ...(summary.timeoutCount ? ["benchmark contains timeouts"] : []),
-      ...(summary.engineInitializationFailures ? ["benchmark contains engine initialization failures"] : []),
-      ...(summary.engineExecutionFailures ? ["benchmark contains engine execution failures"] : []),
-      ...(summary.falsePositiveCount ? ["false-positive gate failed"] : []),
-      ...(summary.multipleCompleteness.complete !== summary.multipleCompleteness.total ? ["multiple completeness gate failed"] : []),
-      ...gateFailures,
-    ];
-    const comparisonPath = path.join(OUT_DIR, "comparison.json");
-    if (!fs.existsSync(comparisonPath)) freezeFailures.push("comparison report is missing");
-    else {
-      const comparison = JSON.parse(await fs.promises.readFile(comparisonPath, "utf8")) as { sdkVersion?: string; fixtureCount?: number; sourceIdentity?: { commitSha?: string; treeSha?: string; datasetHash?: string } };
-      if (comparison.sdkVersion !== SDK_VERSION || comparison.fixtureCount !== summary.total || comparison.sourceIdentity?.commitSha !== sourceIdentity.commitSha || comparison.sourceIdentity?.treeSha !== sourceIdentity.treeSha || comparison.sourceIdentity?.datasetHash !== sourceIdentity.datasetHash) freezeFailures.push("comparison report is stale");
-    }
-    if (freezeFailures.length) throw new Error(`Baseline freeze policy failed:\n- ${freezeFailures.join("\n- ")}`);
-    const destination = path.join(OUT_DIR, "baselines", `${baselineId}-${profile}-${runtimeFamily().replace("win32", "windows")}.json`);
-    await fs.promises.mkdir(path.dirname(destination), { recursive: true });
-    await fs.promises.writeFile(destination, JSON.stringify({ ...summary, passedIds: passed.map((result) => result.id) }, null, 2), { flag: "wx" });
-    console.log(`Frozen immutable baseline ${destination}`);
-  }
+  if (gateMode === "baseline-candidate") gateFailures.push(...validateProfileReport(summary, profile));
   await router.dispose();
   if (failOnRegression && gateFailures.length > 0) {
     console.error(`Benchmark gate failed:\n- ${gateFailures.join("\n- ")}`);

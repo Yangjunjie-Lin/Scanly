@@ -4,8 +4,14 @@ import type { BuiltinScenarioId } from "@scanly/scenario-schema";
 import type { BenchmarkRunSummary } from "@scanly/benchmark";
 
 export interface BaselineRegistry {
-  schemaVersion: "1.0";
+  schemaVersion: "1.0" | "2.0";
   activeBaselines: Record<string, Record<BuiltinScenarioId, string>>;
+  activeEvidence?: Record<string, {
+    baselineId: string;
+    evidenceId: string;
+    canonicalManifestHash: string;
+    baselineHashes: Record<BuiltinScenarioId, string>;
+  }>;
 }
 
 const PORTABLE_FILE = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,191}\.json$/;
@@ -17,7 +23,7 @@ export function runtimeFamily(nodeVersion = process.version, platform = process.
 
 export async function loadBaselineRegistry(file: string): Promise<BaselineRegistry> {
   const parsed = JSON.parse(await fs.promises.readFile(file, "utf8")) as Partial<BaselineRegistry>;
-  if (parsed.schemaVersion !== "1.0" || !parsed.activeBaselines || typeof parsed.activeBaselines !== "object") throw new Error("Baseline registry schema is invalid.");
+  if (!(["1.0", "2.0"] as const).includes(parsed.schemaVersion as "1.0") || !parsed.activeBaselines || typeof parsed.activeBaselines !== "object") throw new Error("Baseline registry schema is invalid.");
   for (const [family, profiles] of Object.entries(parsed.activeBaselines)) {
     if (!/^node\d+-(win32|linux|darwin)-(x64|arm64)$/.test(family) || !profiles || typeof profiles !== "object") throw new Error(`Baseline registry runtime family '${family}' is invalid.`);
     for (const profile of ["fast", "balanced", "robust"] as const) {
@@ -60,10 +66,16 @@ export function validateBaselineForActivation(baseline: Partial<BenchmarkRunSumm
   if (!baseline.executionPolicy?.canonical) failures.push("baseline execution policy is not canonical");
   if ((baseline.executionPolicy?.warmupIterations ?? 0) < 1) failures.push("baseline warmup is below one iteration");
   if ((baseline.executionPolicy?.measuredIterations ?? 0) < 3) failures.push("baseline measured iterations are below three");
-  if (baseline.multipleCompleteness?.complete !== baseline.multipleCompleteness?.total) failures.push("baseline multiple-code results are incomplete");
+  if (expected.profile !== "fast" && baseline.multipleCompleteness?.complete !== baseline.multipleCompleteness?.total) failures.push("baseline multiple-code results are incomplete");
   if ((baseline.timeoutCount ?? 0) !== 0) failures.push("baseline contains timeouts");
   if ((baseline.falsePositiveCount ?? 0) !== 0) failures.push("baseline contains false positives");
   if ((baseline.engineInitializationFailures ?? 0) !== 0 || (baseline.engineExecutionFailures ?? 0) !== 0) failures.push("baseline contains engine failures");
+  if (baseline.cancellationCorrectness?.passed !== baseline.cancellationCorrectness?.total) failures.push("baseline cancellation checks failed");
+  if (baseline.phaseTimingAvailability?.passed !== baseline.phaseTimingAvailability?.total) failures.push("baseline phase timing is incomplete");
   if ((baseline.finalControlledMemoryBytes ?? -1) !== 0) failures.push("baseline does not prove zero final controlled bytes");
+  const expectedFailures = expected.profile === "fast"
+    ? ["14-damaged", "16-multiple-codes", "36-multiple-gen", "39-high-res", "40-moire", "50-multiple-three", "64-multiple-five", "65-multiple-eight", "66-multiple-twelve", "67-multiple-same-two", "68-multiple-same-three", "69-multiple-mixed-size"]
+    : ["14-damaged"];
+  if (JSON.stringify(baseline.remainingFailures) !== JSON.stringify(expectedFailures)) failures.push("baseline retained-failure policy is incompatible");
   return failures;
 }

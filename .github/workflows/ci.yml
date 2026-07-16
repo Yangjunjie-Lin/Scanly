@@ -37,8 +37,11 @@ jobs:
       - name: Generated fixture/scenario drift
         run: git diff --exit-code -- fixtures scenarios
 
-      - name: Repository quality contracts
-        run: npm run quality:gates
+      - name: Static quality contracts
+        run: npm run quality:static
+
+      - name: Canonical evidence contracts
+        run: npm run quality:evidence
 
       - name: Lint
         run: npm run lint

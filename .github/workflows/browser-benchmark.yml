@@ -50,3 +50,23 @@ jobs:
           name: browser-${{ env.BROWSER_BENCHMARK_KIND }}-${{ matrix.browser }}
           if-no-files-found: error
           path: benchmark-results/browser/${{ matrix.browser }}.json
+
+  assemble:
+    needs: browser-benchmark
+    name: Assemble
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: browser-*
+          path: browser-artifacts
+      - run: npx tsx scripts/assemble-browser-benchmarks.ts --directory=browser-artifacts --output=browser-artifacts/browser-evidence-manifest.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: browser-${{ github.event_name == 'workflow_dispatch' && inputs.suite || github.event_name == 'schedule' && 'full' || 'smoke' }}-assembled
+          if-no-files-found: error
+          path: browser-artifacts/browser-evidence-manifest.json

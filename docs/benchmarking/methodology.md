@@ -12,4 +12,6 @@ Variance terminology is strict: `perFixtureRunStdDevMs` summarizes repeated timi
 
 Parallel engine execution shares one global deadline and atomic attempt budget. The primary branch may use the full budget while all secondary initial allocations are bounded to 30%, preserving at least 70% primary opportunity and allowing the primary to borrow unused attempts. Single-code lower-priority branches are cancelled after a valid higher-priority result; multi-code branches finish and merge spatially. The current development comparison remains 1/63 below the 1% recall/accuracy parity tolerance, so parallel is explicitly experimental and every built-in production scenario remains sequential.
 
+Canonical and baseline handling follows the [artifact-driven evidence lifecycle](evidence-lifecycle.md). Candidate generation never overwrites tracked aliases, and baseline freeze consumes the assembled external manifest rather than tracked comparison output.
+
 The suite is internal regression evidence. It is not a universal accuracy figure, an ML evaluation, or a commercial competitor comparison. The retained `14-damaged` failure remains in the denominator. Commercial results require licensing and methodology approval described in `benchmark/competitors/README.md`.

@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { afterEach, describe, expect, it } from "vitest";
-import { assertCleanRepository, collectSourceIdentity, computeDatasetHash } from "../../scripts/benchmark-provenance.js";
+import { assertCleanRepository, collectSourceIdentity, computeDatasetHash, verifyEvidenceCommitPolicy } from "../../scripts/benchmark-provenance.js";
 import { loadBaselineRegistry, resolveActiveBaseline, validateBaselineForActivation } from "../../scripts/baseline-registry.js";
 
 const roots: string[] = [];
@@ -12,7 +12,7 @@ afterEach(() => { for (const root of roots.splice(0)) fs.rmSync(root, { recursiv
 function repository() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "scanly-provenance-")); roots.push(root);
   const write = (file: string, content: string) => { const target = path.join(root, file); fs.mkdirSync(path.dirname(target), { recursive: true }); fs.writeFileSync(target, content); };
-  write("package-lock.json", "{\"lockfileVersion\":3}"); write("fixtures/manifest.json", "{\"fixtures\":[]}"); write("fixtures/a.bin", "one"); write("scripts/runner.ts", "export {};"); write("source.ts", "export const value = 1;");
+  write("package-lock.json", "{\"lockfileVersion\":3}"); write("fixtures/manifest.json", "{\"fixtures\":[]}"); write("fixtures/a.bin", "one"); write("scripts/runner.ts", "export {};"); write("source.ts", "export const value = 1;"); write("README.md", "before\n<!-- BENCHMARK_SUMMARY_START -->\nold\n<!-- BENCHMARK_SUMMARY_END -->\nafter\n");
   execFileSync("git", ["init"], { cwd: root }); execFileSync("git", ["config", "user.email", "test@scanly.dev"], { cwd: root }); execFileSync("git", ["config", "user.name", "Scanly Test"], { cwd: root });
   execFileSync("git", ["add", "."], { cwd: root }); execFileSync("git", ["commit", "-m", "initial"], { cwd: root });
   return { root, write };
@@ -65,10 +65,30 @@ describe("baseline registry", () => {
       executionPolicy: { canonical: true, warmupIterations: 1, measuredIterations: 3 },
       multipleCompleteness: { complete: 5, total: 5 }, timeoutCount: 0, falsePositiveCount: 0,
       engineInitializationFailures: 0, engineExecutionFailures: 0, finalControlledMemoryBytes: 0,
+      remainingFailures: ["14-damaged"],
     } as unknown as Parameters<typeof validateBaselineForActivation>[0];
     expect(validateBaselineForActivation(baseline, expected)).toEqual([]);
     expect(validateBaselineForActivation({ ...baseline, sourceIdentity: { ...baseline.sourceIdentity!, repositoryDirty: true } }, expected).join(" ")).toContain("dirty");
     expect(validateBaselineForActivation({ ...baseline, environment: { ...baseline.environment!, sdkVersion: "2.0.0-alpha.2", fixtureCount: 63 } }, expected).join(" ")).toMatch(/SDK version|fixture count/);
     expect(validateBaselineForActivation({ ...baseline, executionPolicy: { ...baseline.executionPolicy!, canonical: false, warmupIterations: 0, measuredIterations: 1 } }, expected).join(" ")).toMatch(/not canonical|warmup|measured/);
+  });
+});
+
+describe("source/evidence commit policy", () => {
+  it("allows report, benchmark documentation, and marked README summary changes", () => {
+    const repo = repository();
+    const source = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repo.root, encoding: "utf8" }).trim();
+    const tree = execFileSync("git", ["rev-parse", "HEAD^{tree}"], { cwd: repo.root, encoding: "utf8" }).trim();
+    repo.write("benchmark-results/latest.json", "{}"); repo.write("docs/benchmark.md", "evidence"); repo.write("README.md", "before\n<!-- BENCHMARK_SUMMARY_START -->\nnew\n<!-- BENCHMARK_SUMMARY_END -->\nafter\n");
+    execFileSync("git", ["add", "."], { cwd: repo.root }); execFileSync("git", ["commit", "-m", "evidence"], { cwd: repo.root });
+    expect(verifyEvidenceCommitPolicy(repo.root, source, tree)).toEqual([]);
+  });
+
+  it("rejects runtime changes between source and evidence commits", () => {
+    const repo = repository();
+    const source = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repo.root, encoding: "utf8" }).trim();
+    const tree = execFileSync("git", ["rev-parse", "HEAD^{tree}"], { cwd: repo.root, encoding: "utf8" }).trim();
+    repo.write("source.ts", "export const value = 2;"); execFileSync("git", ["add", "."], { cwd: repo.root }); execFileSync("git", ["commit", "-m", "runtime"], { cwd: repo.root });
+    expect(verifyEvidenceCommitPolicy(repo.root, source, tree).join(" ")).toContain("runtime/tooling");
   });
 });

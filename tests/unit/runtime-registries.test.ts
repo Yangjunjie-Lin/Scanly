@@ -180,6 +180,33 @@ describe("scenario-compiled Router", () => {
     ]));
   });
 
+  it("shares the global attempt cap, gives the primary usable work, bounds the secondary, and preserves priority", async () => {
+    const engines = new EngineRegistry();
+    const primary = new FakeEngine("primary"); const secondary = new FakeEngine("secondary");
+    primary.decodeSpy.mockResolvedValue({ ok: false, category: "not-found", message: "none", elapsedMs: 1 });
+    secondary.decodeSpy.mockResolvedValue({ ok: false, category: "not-found", message: "none", elapsedMs: 1 });
+    engines.register(primary); engines.register(secondary);
+    const value = scenario("primary"); value.decoders.order = ["primary", "secondary"]; value.decoders.execution = "parallel"; value.output.includeDebugTrace = true;
+    const outcome = await new CaptureRouter({ scenario: value, engines }).scan(createRgbaFrame(new Uint8ClampedArray(64 * 64 * 4).fill(255), 64, 64));
+    expect(outcome.attemptCount).toBeLessThanOrEqual(value.budgets.maxAttempts);
+    expect(outcome.engineDiagnostics?.map((diagnostic) => diagnostic.engineId)).toEqual(["primary", "secondary"]);
+    expect(outcome.engineDiagnostics?.[0].attemptCount).toBeGreaterThan(0);
+    expect(outcome.engineDiagnostics?.[1].attemptCount).toBeLessThanOrEqual(Math.floor(value.budgets.maxAttempts * 0.3));
+  });
+
+  it("keeps all parallel branches active for multi-code completion", async () => {
+    const engines = new EngineRegistry();
+    const primary = new FakeEngine("primary"); const secondary = new FakeEngine("secondary");
+    primary.decodeSpy.mockResolvedValue({ ok: true, results: [{ text: "PRIMARY", format: "qr_code", elapsedMs: 1 }] });
+    secondary.decodeSpy.mockResolvedValue({ ok: true, results: [{ text: "SECONDARY", format: "qr_code", elapsedMs: 1 }] });
+    engines.register(primary); engines.register(secondary);
+    const value = getBuiltinScenario("balanced"); value.decoders.order = ["primary", "secondary"]; value.decoders.execution = "parallel"; value.multiCode.maxResults = 2; value.output.includeDebugTrace = true;
+    const outcome = await new CaptureRouter({ scenario: value, engines }).scan(createRgbaFrame(new Uint8ClampedArray(64 * 64 * 4).fill(255), 64, 64));
+    expect(outcome.ok).toBe(true);
+    if (outcome.ok) expect(outcome.results.map((result) => result.rawText)).toEqual(["PRIMARY", "SECONDARY"]);
+    expect(outcome.engineDiagnostics?.every((diagnostic) => diagnostic.status !== "cancelled")).toBe(true);
+  });
+
   it.each([
     ["execution", "engine_execution_failure"],
     ["timeout", "timeout"],
