@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { BrowserCaptureSession, type BrowserCaptureSessionOptions, type BrowserScanFileOptions } from "@scanly/browser";
 import type { ScanOutcome } from "@scanly/core";
 
@@ -14,13 +14,13 @@ export interface UseScanlyResult {
 }
 
 export function useScanly(options: BrowserCaptureSessionOptions = {}): UseScanlyResult {
-  const session = useMemo(() => new BrowserCaptureSession(options), []);
+  const [session] = useState(() => new BrowserCaptureSession(options));
   const [outcome, setOutcome] = useState<ScanOutcome | null>(null);
   const [scanning, setScanning] = useState(false);
   useEffect(() => {
     session.initialize();
     session.start();
-    return () => session.dispose();
+    return () => { void session.dispose(); };
   }, [session]);
   const scanFile = useCallback(async (file: File, scanOptions: BrowserScanFileOptions = {}) => {
     setScanning(true);

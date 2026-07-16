@@ -13,7 +13,8 @@ import {
   nonMaximumSuppression,
   iou,
 } from "@scanly/core/qr";
-import { rotateBuffer, dedupeResults, looksLikeUrl, normalizePayload, buildAttemptPlan, decodePixelBuffer, successOutcome } from "@scanly/core/qr";
+import { rotateBuffer, dedupeResults, looksLikeUrl, normalizePayload, buildAttemptPlan, successOutcome } from "@scanly/core/qr";
+import { decodePixelBufferWithNodeEngines as decodePixelBuffer } from "@scanly/node";
 import type { DecodedCode, PixelBuffer, ScoredRegion } from "@scanly/core/qr";
 
 function solid(width: number, height: number, rgb: [number, number, number]): PixelBuffer {

@@ -1,6 +1,6 @@
 # Scanly SDK v2 foundation — preview
 
-Scanly is a local-first barcode capture SDK foundation with a working browser QR reference application. The v2 alpha adds framework-independent contracts, versioned scenarios, a bounded capture router, deterministic sessions, engine/operator interfaces, semantic parsers, and reusable browser/React packages while preserving the proven QR pipeline. It is not an ML model and has no image-upload backend.
+Scanly is a local-first barcode capture SDK foundation with a working browser QR reference application. The v2 alpha has one authoritative capture model: normalized upload, Worker, main-thread, Node, and sampled camera frames converge on a scenario-compiled Router backed by real operator and engine registries. It is not an ML model and has no image-upload backend.
 
 ![Next.js 15](https://img.shields.io/badge/Next.js-15-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
@@ -13,9 +13,10 @@ Scanly is a local-first barcode capture SDK foundation with a working browser QR
 
 ## Implemented in this branch
 
-- UI-independent frame, result, error, engine, operator, router, and session contracts
+- UI-independent frame, result, error, engine, operator, router, and session contracts with explicit ownership and lifecycle
+- Dependency-inverted engine, operator, and validator registries plus an eleven-operator compiled graph
 - Versioned runtime-validated fast, balanced, and robust scenario profiles
-- Web Worker upload decoding with transferable pixel buffers and termination-based cancellation
+- Web Worker upload decoding through the public Router with transferable pixel buffers and termination-based cancellation
 - Job ownership checks that prevent stale results from overwriting a newer upload
 - Top-N regions, deduplication, multi-scale crops, preprocessing, rotations, jsQR, and ZXing fallback
 - Per-frame bounded intermediate cache shared by repeated preprocessing/decoder attempts
@@ -33,12 +34,12 @@ This is Scanly's internal regression suite—not universal accuracy, a third-par
 <!-- BENCHMARK_SUMMARY_START -->
 | Metric | Value |
 | --- | ---: |
-| Internal fixtures | 54 |
-| Generated fixtures | 45 |
+| Internal fixtures | 63 |
+| Generated fixtures | 54 |
 | Project-owned photos | 9 |
-| Success on fixture suite | **53/54 (98.1%)** on the current 54-case project fixture suite |
+| Success on fixture suite | **62/63 (98.4%)** on the current 63-case project fixture suite |
 | Positive decode recall | **51/52 (98.1%)** |
-| Negative false positives | **0/2 (0.0%)** |
+| Negative false positives | **0/11 (0.0%)** |
 | Remaining failure | `14-damaged` |
 | Benchmark date | 2026-07-15 |
 | Manifest | [fixtures/manifest.json](fixtures/manifest.json) |
@@ -60,8 +61,9 @@ See [the full benchmark](docs/benchmark.md) and [fixture methodology](docs/testi
 | Workspace | Ownership |
 | --- | --- |
 | `apps/web-demo` | Next.js reference application; consumes SDK APIs |
-| `packages/core` | contracts, router, session, bounded artifacts, QR pipeline |
+| `packages/core` | dependency-light contracts, registries, compiler, router, session, bounded artifacts, and engine-agnostic QR primitives |
 | `packages/browser` | file loading, Worker ownership, camera source lifecycle |
+| `packages/node` | Sharp-isolated Node image loading and default engine composition |
 | `packages/react` | thin React lifecycle adapter |
 | `packages/scenario-schema` | scenario v2 types, validation, profiles |
 | `packages/parsers` | side-effect-free semantic parsing |
@@ -130,11 +132,11 @@ See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 - File and pixel limits reject unusually large images before full RGBA allocation.
 - Micro QR, rMQR, Data Matrix, PDF417, Aztec, 1D formats, ZXing-C++ WASM, native bindings, Python, and .NET bindings are not implemented.
 - Desktop browser automation is not real iOS/Android device validation; torch, zoom, orientation, and long-running camera behavior still need a physical device lab.
-- Corner points, symbology identifiers, and statistically calibrated confidence are not available from the migrated default QR path. Decoder-provided raw bytes are exposed for image scans, while the camera text callback omits them rather than fabricating them.
+- Statistically calibrated confidence is not available from the default QR path. Corners, raw bytes, and symbology identifiers are exposed only when the selected engine returns them; no input path fabricates metadata.
 
 ## Project status
 
-**SDK v2 alpha preview.** The modular foundation and web reference app are implemented and tested, but industrial- or production-readiness for the SDK as a cross-platform product is not claimed. The public API may change before v2 stable under the documented deprecation policy.
+**SDK v2 alpha preview.** Scanly now has a unified, dependency-inverted, scenario-driven runtime that can be developed toward commercial barcode-capture maturity without another core architectural rewrite. Industrial or production readiness is not claimed: the dataset is internal, physical-device coverage is absent, only QR Code Model 2 is implemented, and the alpha API may change.
 
 ## License
 

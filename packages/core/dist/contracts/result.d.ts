@@ -58,6 +58,15 @@ export interface DebugTraceEvent {
     stage: string;
     detail?: string;
 }
+export interface ScanAttempt {
+    index: number;
+    engineId: string;
+    candidateIndex: number;
+    preprocessing: string;
+    rotation: number;
+    elapsedMs: number;
+    success: boolean;
+}
 export interface ScanSuccess {
     ok: true;
     results: NonEmptyArray<ScanResult>;
@@ -67,6 +76,7 @@ export interface ScanSuccess {
     attemptCount: number;
     timing: ScanTiming;
     trace?: DebugTraceEvent[];
+    attempts?: ScanAttempt[];
 }
 export interface ScanFailure {
     ok: false;
@@ -76,6 +86,7 @@ export interface ScanFailure {
     attemptCount: number;
     timing: ScanTiming;
     trace?: DebugTraceEvent[];
+    attempts?: ScanAttempt[];
 }
 export type ScanOutcome = ScanSuccess | ScanFailure;
 //# sourceMappingURL=result.d.ts.map

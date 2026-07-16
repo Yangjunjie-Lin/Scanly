@@ -8,6 +8,8 @@ export interface CaptureSessionOptions {
     router?: CaptureRouter;
     scenario?: ScenarioDefinition;
     concurrentCallPolicy?: ConcurrentCallPolicy;
+    disposeRouter?: boolean;
+    applyDuplicateSuppression?: boolean;
 }
 export declare class CaptureSession {
     private state;
@@ -16,6 +18,9 @@ export declare class CaptureSession {
     private activeController;
     private ownership;
     private source;
+    private readonly ownsRouter;
+    private duplicatePolicy;
+    private readonly applyDuplicateSuppression;
     constructor(options?: CaptureSessionOptions);
     getState(): CaptureSessionState;
     getSource(): FrameSourceType | null;
@@ -28,7 +33,7 @@ export declare class CaptureSession {
     scan(frame: NormalizedFrame, options?: {
         signal?: AbortSignal;
     }): Promise<ScanOutcome>;
-    dispose(): void;
+    dispose(): Promise<void>;
     private assertNotDisposed;
     private lifecycleFailure;
 }

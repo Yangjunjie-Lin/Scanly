@@ -2,7 +2,7 @@ import type { BarcodeFormat } from "@scanly/scenario-schema";
 import type { NormalizedFrame } from "./frame.js";
 import type { CornerPoint } from "./result.js";
 export interface EngineCapabilities {
-    formats: BarcodeFormat[];
+    formats: readonly BarcodeFormat[];
     supportsMultiple: boolean;
     returnsRawBytes: boolean;
     returnsCornerPoints: boolean;
@@ -28,7 +28,7 @@ export type EngineOutcome = {
     elapsedMs: number;
 };
 export interface EngineDecodeOptions {
-    formats: BarcodeFormat[];
+    formats: readonly BarcodeFormat[];
     findMultiple: boolean;
     signal?: AbortSignal;
 }
@@ -39,5 +39,18 @@ export interface DecoderEngine {
     initialize?(): Promise<void>;
     decode(frame: NormalizedFrame, options: EngineDecodeOptions): Promise<EngineOutcome>;
     dispose?(): void | Promise<void>;
+}
+export interface EngineRegistrationOptions {
+    /** Duplicate ids are rejected unless replacement is explicit. */
+    replace?: boolean;
+}
+export interface EngineRegistryContract {
+    register(engine: DecoderEngine, options?: EngineRegistrationOptions): void;
+    unregister(id: string): void;
+    get(id: string): DecoderEngine | undefined;
+    list(): readonly DecoderEngine[];
+    resolve(formats: readonly BarcodeFormat[]): readonly DecoderEngine[];
+    initializeAll(): Promise<void>;
+    disposeAll(): Promise<void>;
 }
 //# sourceMappingURL=engine.d.ts.map

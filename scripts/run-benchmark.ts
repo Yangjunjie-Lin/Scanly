@@ -4,8 +4,11 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { loadPixelBufferFromPath } from "@scanly/core/node";
-import { decodePixelBuffer } from "@scanly/core/qr";
+import crypto from "node:crypto";
+import { execFileSync } from "node:child_process";
+import { SDK_VERSION, createRgbaFrame, type CaptureRouter } from "@scanly/core";
+import { createNodeCaptureRouter, loadPixelBufferFromPath } from "@scanly/node";
+import { getBuiltinScenario, type BuiltinScenarioId } from "@scanly/scenario-schema";
 import type { BenchmarkFixture, BenchmarkFixtureResult, BenchmarkRunSummary } from "@scanly/benchmark";
 import { toCsvRow } from "@scanly/benchmark";
 import {
@@ -20,7 +23,7 @@ import {
 const ROOT = path.resolve(__dirname, "..");
 const MANIFEST_PATH = path.join(ROOT, "fixtures", "manifest.json");
 const OUT_DIR = path.join(ROOT, "benchmark-results");
-const BASELINE_PATH = path.join(OUT_DIR, "baseline-pre-polish.json");
+function baselinePath(profile: BuiltinScenarioId): string { return path.join(OUT_DIR, "baselines", `v2-alpha1-${profile}-node24-windows-x64.json`); }
 
 interface ManifestFile {
   seed: number;
@@ -248,31 +251,24 @@ function updateReadmeSummary(summary: BenchmarkRunSummary, manifest: ManifestFil
   return fs.promises.writeFile(readmePath, updated);
 }
 
-async function loadBaseline(): Promise<{ passedIds: Set<string>; metrics: BenchmarkBaseline }> {
-  if (!fs.existsSync(BASELINE_PATH)) {
-    throw new Error(`Missing required benchmark baseline: ${BASELINE_PATH}`);
+async function loadBaseline(profile: BuiltinScenarioId): Promise<{ passedIds: Set<string>; metrics: BenchmarkBaseline }> {
+  const selected = baselinePath(profile);
+  if (!fs.existsSync(selected)) {
+    throw new Error(`Missing required benchmark baseline: ${selected}`);
   }
-  const raw = JSON.parse(await fs.promises.readFile(BASELINE_PATH, "utf8")) as BenchmarkBaseline & {
+  const raw = JSON.parse(await fs.promises.readFile(selected, "utf8")) as BenchmarkBaseline & {
     passedIds?: string[];
   };
   return { passedIds: new Set(raw.passedIds ?? []), metrics: raw };
 }
 
-async function runFixture(fixture: BenchmarkFixture): Promise<BenchmarkFixtureResult> {
+async function runFixture(router: CaptureRouter, fixture: BenchmarkFixture): Promise<BenchmarkFixtureResult> {
   const filePath = path.join(ROOT, fixture.file);
   const t0 = Date.now();
   try {
     const buffer = await loadPixelBufferFromPath(filePath);
-    const outcome = await decodePixelBuffer(buffer, {
-      config: {
-        findMultiple: fixture.category === "multiple" || Boolean(fixture.requiredPayloads?.length),
-        maxMultipleResults: fixture.expectedResultCount ?? fixture.requiredPayloads?.length ?? 8,
-        requiredPayloads: fixture.requiredPayloads,
-        expectedResultCount: fixture.expectedResultCount,
-        timeoutMs: 15_000,
-      },
-    });
-    const payloads = outcome.ok ? outcome.results.map((r) => r.payload) : [];
+    const outcome = await router.scan(createRgbaFrame(buffer.data, buffer.width, buffer.height, { id: `benchmark-${fixture.id}`, sourceType: "upload" }));
+    const payloads = outcome.ok ? outcome.results.map((r) => r.rawText) : [];
     const primary = outcome.ok ? outcome.primary : null;
     const evalResult = evaluateFixture(fixture, payloads, outcome.ok);
     const required = requiredPayloads(fixture);
@@ -280,22 +276,21 @@ async function runFixture(fixture: BenchmarkFixture): Promise<BenchmarkFixtureRe
       id: fixture.id,
       category: fixture.category,
       expectedPayload: fixture.expectedPayload,
-      actualPayload: primary?.payload ?? null,
+      actualPayload: primary?.rawText ?? null,
       allPayloads: payloads,
       pass: evalResult.pass,
       elapsedMs: Date.now() - t0,
-      successfulDecoder: primary?.decoder ?? null,
-      preprocessingPath: primary?.preprocessing ?? null,
-      candidateIndex: primary?.candidateIndex ?? null,
+      successfulDecoder: primary?.engine.id ?? null,
+      preprocessingPath: primary?.preprocessingPath.join(">") ?? null,
+      candidateIndex: primary?.candidate?.index ?? null,
       attemptCount: outcome.attemptCount,
-      failureReason: outcome.ok ? (evalResult.pass ? null : "incomplete_multiple") : outcome.reason,
+      failureReason: outcome.ok ? (evalResult.pass ? null : "incomplete_multiple") : outcome.error.code,
       expectedOutcome: fixture.expectedOutcome,
       missingPayloads: evalResult.missingPayloads,
       unexpectedPayloads: evalResult.unexpectedPayloads,
       requiredPayloadCount: required.length || undefined,
       decodedPayloadCount: payloads.length,
-      phaseTiming: outcome.phaseTiming,
-      timeToFirstResultMs: outcome.ok ? outcome.timeToFirstResultMs : undefined,
+      timeToFirstResultMs: outcome.ok ? outcome.timing.timeToFirstResultMs : undefined,
     };
   } catch (e) {
     return {
@@ -319,13 +314,19 @@ async function runFixture(fixture: BenchmarkFixture): Promise<BenchmarkFixtureRe
 async function main() {
   const smoke = process.argv.includes("--smoke");
   const failOnRegression = process.argv.includes("--gate");
+  const freezeBaseline = process.argv.includes("--freeze-baseline");
+  const profileArgument = process.argv.find((argument) => argument.startsWith("--profile="))?.split("=")[1] ?? "balanced";
+  if (!["fast", "balanced", "robust"].includes(profileArgument)) throw new Error(`Unknown benchmark profile '${profileArgument}'.`);
+  const profile = profileArgument as BuiltinScenarioId;
+  const router = createNodeCaptureRouter({ scenario: getBuiltinScenario(profile) });
 
   if (!fs.existsSync(MANIFEST_PATH)) {
     console.error("Missing fixtures/manifest.json — run npm run fixtures:generate first.");
     process.exit(1);
   }
 
-  const manifest = JSON.parse(await fs.promises.readFile(MANIFEST_PATH, "utf8")) as ManifestFile;
+  const manifestBytes = await fs.promises.readFile(MANIFEST_PATH);
+  const manifest = JSON.parse(manifestBytes.toString("utf8")) as ManifestFile;
   let fixtures = manifest.fixtures;
 
   if (smoke) {
@@ -351,7 +352,7 @@ async function main() {
   const results: BenchmarkFixtureResult[] = [];
   for (const fixture of fixtures) {
     process.stdout.write(`  ${fixture.id}… `);
-    const result = await runFixture(fixture);
+    const result = await runFixture(router, fixture);
     results.push(result);
     console.log(result.pass ? `PASS ${(result.elapsedMs / 1000).toFixed(2)}s` : `FAIL ${(result.elapsedMs / 1000).toFixed(2)}s`);
   }
@@ -390,7 +391,9 @@ async function main() {
     slot.successRate = slot.total ? slot.passed / slot.total : 0;
   }
 
-  const baseline = await loadBaseline();
+  const baseline = freezeBaseline
+    ? { passedIds: new Set<string>(), metrics: null }
+    : await loadBaseline(profile);
   const baselinePassed = baseline.passedIds;
   let regressionCount = 0;
   if (baselinePassed.size > 0) {
@@ -425,10 +428,25 @@ async function main() {
   const positivePasses = positive.filter((result) => result.pass).length;
   const falsePositiveCount = negative.filter((result) => result.actualPayload !== null).length;
   const timeToFirstValues = results.flatMap((result) => result.timeToFirstResultMs === undefined ? [] : [result.timeToFirstResultMs]);
+  const cancellationController = new AbortController();
+  cancellationController.abort();
+  const cancellationOutcome = await router.scan(createRgbaFrame(new Uint8ClampedArray(4), 1, 1, { id: "benchmark-cancellation" }), { signal: cancellationController.signal });
+  const cancellationPassed = !cancellationOutcome.ok && cancellationOutcome.error.code === "cancelled" ? 1 : 0;
+  const gitCommit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" }).trim();
 
   const summary: BenchmarkRunSummary = {
     schemaVersion: "2.0",
     runtime: { kind: "node", nodeVersion: process.version, platform: process.platform, arch: process.arch },
+    environment: {
+      gitCommit,
+      sdkVersion: SDK_VERSION,
+      scenario: profile,
+      datasetManifestHash: crypto.createHash("sha256").update(manifestBytes).digest("hex"),
+      fixtureCount: fixtures.length,
+      date: new Date().toISOString().slice(0, 10),
+      warmupPolicy: "No excluded warmup; lazy engine initialization is included in the first measured fixture.",
+      iterationCount: 1,
+    },
     generatedAt: new Date().toISOString(),
     total: results.length,
     passed: passed.length,
@@ -445,6 +463,8 @@ async function main() {
     falsePositiveCount,
     falsePositiveRate: negative.length ? falsePositiveCount / negative.length : 0,
     timeoutCount: results.filter((result) => result.failureReason === "timeout").length,
+    cancellationCorrectness: { passed: cancellationPassed, total: 1 },
+    engineInitializationFailures: results.filter((result) => result.failureReason === "engine_initialization_failure").length,
     timeToFirstResult: distribution(timeToFirstValues),
     averageAttempts: attemptCounts.length
       ? attemptCounts.reduce((a, b) => a + b, 0) / attemptCounts.length
@@ -476,12 +496,13 @@ async function main() {
   };
 
   await fs.promises.mkdir(OUT_DIR, { recursive: true });
-  const jsonPath = path.join(OUT_DIR, smoke ? "smoke.json" : "latest.json");
-  const csvPath = path.join(OUT_DIR, smoke ? "smoke.csv" : "latest.csv");
+  const outputStem = smoke ? `smoke-${profile}` : profile === "balanced" ? "latest" : `latest-${profile}`;
+  const jsonPath = path.join(OUT_DIR, `${outputStem}.json`);
+  const csvPath = path.join(OUT_DIR, `${outputStem}.csv`);
   await fs.promises.writeFile(jsonPath, JSON.stringify(summary, null, 2));
   await fs.promises.writeFile(csvPath, toCsv(results));
 
-  if (!smoke) {
+  if (!smoke && profile === "balanced") {
     const md = renderMarkdown(summary, false);
     await fs.promises.writeFile(path.join(ROOT, "docs", "benchmark.md"), md);
     await updateReadmeSummary(summary, manifest);
@@ -497,10 +518,17 @@ async function main() {
   console.log(`Wrote ${jsonPath}`);
   console.log(`Wrote ${csvPath}`);
 
-  const gateFailures = evaluateBenchmarkGates(summary, baseline.metrics, { fullSuite: !smoke });
+  if (freezeBaseline) {
+    const destination = baselinePath(profile);
+    await fs.promises.mkdir(path.dirname(destination), { recursive: true });
+    await fs.promises.writeFile(destination, JSON.stringify({ ...summary, passedIds: passed.map((result) => result.id) }, null, 2), { flag: "wx" });
+    console.log(`Frozen immutable baseline ${destination}`);
+  }
+  const gateFailures = baseline.metrics ? evaluateBenchmarkGates(summary, baseline.metrics, { fullSuite: !smoke }) : [];
+  await router.dispose();
   if (failOnRegression && gateFailures.length > 0) {
     console.error(`Benchmark gate failed:\n- ${gateFailures.join("\n- ")}`);
-    process.exit(1);
+    process.exitCode = 1;
   }
 }
 

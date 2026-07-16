@@ -23,7 +23,8 @@ export type BarcodeFormat =
   | "gs1_databar";
 
 export type PixelFormatPreference = "rgba8888" | "rgb888" | "gray8" | "yuv420";
-export type DecoderId = "jsqr" | "zxing-js" | "zxing-cpp-wasm" | "native-qr";
+/** Decoder ids are plugin-defined; the schema validates their portable id shape. */
+export type DecoderId = string;
 export type EnhancementId =
   | "contrast"
   | "gamma"
@@ -113,7 +114,6 @@ const FORMAT_VALUES = new Set<BarcodeFormat>([
   "micro_pdf417", "aztec", "code_128", "gs1_128", "code_39", "code_93", "ean_8",
   "ean_13", "upc_a", "upc_e", "itf", "itf_14", "codabar", "gs1_databar",
 ]);
-const DECODER_VALUES = new Set<DecoderId>(["jsqr", "zxing-js", "zxing-cpp-wasm", "native-qr"]);
 const PIXEL_VALUES = new Set<PixelFormatPreference>(["rgba8888", "rgb888", "gray8", "yuv420"]);
 const PADDING_VALUES = new Set(["tight", "medium", "expanded"] as const);
 const ENHANCEMENT_VALUES = new Set<EnhancementId>(["contrast", "gamma", "invert", "otsu", "threshold-115", "threshold-140", "threshold-165", "sharpen"]);
@@ -133,6 +133,7 @@ function recordArrayIssues<T extends string>(
   if (requireNonEmpty && value.length === 0) {
     issues.push({ code: "required", path, message: `${path} must contain at least one value.` });
   }
+  if (value.length > 64) issues.push({ code: "range", path, message: `${path} must contain at most 64 values.` });
   const seen = new Set<string>();
   value.forEach((entry, index) => {
     if (typeof entry !== "string" || !allowed.has(entry as T)) {
@@ -143,6 +144,22 @@ function recordArrayIssues<T extends string>(
     }
     if (typeof entry === "string") seen.add(entry);
   });
+}
+
+function decoderArrayIssues(value: unknown, path: string, issues: ScenarioValidationIssue[]): void {
+  if (!Array.isArray(value) || value.length === 0) { issues.push({ code: "required", path, message: `${path} must contain at least one decoder id.` }); return; }
+  if (value.length > 16) issues.push({ code: "range", path, message: `${path} must contain at most 16 decoder ids.` });
+  const seen = new Set<string>();
+  value.forEach((entry, index) => {
+    if (typeof entry !== "string" || !/^[a-z0-9][a-z0-9._-]{0,63}$/.test(entry)) issues.push({ code: "type", path: `${path}[${index}]`, message: "Decoder id must be 1-64 lowercase portable characters." });
+    else if (seen.has(entry)) issues.push({ code: "duplicate", path: `${path}[${index}]`, message: `Duplicate value ${entry}.` });
+    if (typeof entry === "string") seen.add(entry);
+  });
+}
+
+function unknownKeys(value: unknown, path: string, allowed: readonly string[], issues: ScenarioValidationIssue[]): void {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return;
+  for (const key of Object.keys(value)) if (!allowed.includes(key)) issues.push({ code: "type", path: path === "$" ? key : `${path}.${key}`, message: `Unknown scenario field '${key}'.` });
 }
 
 function positiveInteger(value: unknown, path: string, issues: ScenarioValidationIssue[]): void {
@@ -161,6 +178,18 @@ export function validateScenario(input: unknown): ScenarioValidationResult {
     return { ok: false, issues: [{ code: "type", path: "$", message: "Scenario must be an object." }], message: "Scenario must be an object." };
   }
   const value = input as Partial<ScenarioDefinition>;
+  unknownKeys(value, "$", ["schemaVersion", "id", "revision", "description", "acceptedFormats", "input", "localization", "enhancement", "decoders", "multiCode", "duplicateSuppression", "budgets", "validation", "semanticParsers", "quality", "output", "ablation"], issues);
+  unknownKeys(value.input, "input", ["preferredPixelFormats", "roi"], issues);
+  unknownKeys(value.input?.roi, "input.roi", ["mode", "x", "y", "width", "height"], issues);
+  unknownKeys(value.localization, "localization", ["strategy", "maxCandidates", "cropPaddings", "scales"], issues);
+  unknownKeys(value.enhancement, "enhancement", ["operators", "rotations"], issues);
+  unknownKeys(value.decoders, "decoders", ["order", "execution"], issues);
+  unknownKeys(value.multiCode, "multiCode", ["enabled", "maxResults"], issues);
+  unknownKeys(value.duplicateSuppression, "duplicateSuppression", ["enabled", "windowMs"], issues);
+  unknownKeys(value.budgets, "budgets", ["maxPixels", "maxCandidates", "maxAttempts", "maxIntermediateAllocations", "maxIntermediateBytes", "maxExecutionMs", "maxConcurrentFrames"], issues);
+  unknownKeys(value.quality, "quality", ["minimumHeuristicQuality"], issues);
+  unknownKeys(value.output, "output", ["includeRawBytes", "includeDebugTrace", "includeAttempts"], issues);
+  unknownKeys(value.ablation, "ablation", ["localization", "multiScale", "enhancement", "rotations", "zxingFallback", "splitImageFallback"], issues);
   if (value.schemaVersion !== SCENARIO_SCHEMA_VERSION) {
     issues.push({ code: "unsupported-version", path: "schemaVersion", message: `Expected scenario schema ${SCENARIO_SCHEMA_VERSION}; received ${String(value.schemaVersion)}.` });
   }
@@ -168,9 +197,10 @@ export function validateScenario(input: unknown): ScenarioValidationResult {
     issues.push({ code: "type", path: "id", message: "id must be 2-64 lowercase letters, digits, dots, underscores, or hyphens." });
   }
   positiveInteger(value.revision, "revision", issues);
+  if (value.description !== undefined && (typeof value.description !== "string" || value.description.length > 512)) issues.push({ code: "range", path: "description", message: "description must be a string of at most 512 characters." });
   recordArrayIssues(value.acceptedFormats, "acceptedFormats", FORMAT_VALUES, issues);
   recordArrayIssues(value.input?.preferredPixelFormats, "input.preferredPixelFormats", PIXEL_VALUES, issues);
-  recordArrayIssues(value.decoders?.order, "decoders.order", DECODER_VALUES, issues);
+  decoderArrayIssues(value.decoders?.order, "decoders.order", issues);
   recordArrayIssues(value.localization?.cropPaddings, "localization.cropPaddings", PADDING_VALUES, issues);
   recordArrayIssues(value.enhancement?.operators, "enhancement.operators", ENHANCEMENT_VALUES, issues, false);
   recordArrayIssues(value.semanticParsers, "semanticParsers", PARSER_VALUES, issues, false);
@@ -195,8 +225,26 @@ export function validateScenario(input: unknown): ScenarioValidationResult {
   positiveInteger(value.budgets?.maxIntermediateBytes, "budgets.maxIntermediateBytes", issues);
   positiveInteger(value.budgets?.maxExecutionMs, "budgets.maxExecutionMs", issues);
   positiveInteger(value.budgets?.maxConcurrentFrames, "budgets.maxConcurrentFrames", issues);
+  if (Number.isInteger(value.localization?.maxCandidates) && Number.isInteger(value.budgets?.maxCandidates) && value.localization!.maxCandidates > value.budgets!.maxCandidates) {
+    issues.push({ code: "range", path: "localization.maxCandidates", message: "localization.maxCandidates must not exceed budgets.maxCandidates." });
+  }
+  if (Number.isInteger(value.multiCode?.maxResults) && Number.isInteger(value.budgets?.maxAttempts) && value.multiCode!.maxResults > value.budgets!.maxAttempts) {
+    issues.push({ code: "range", path: "multiCode.maxResults", message: "multiCode.maxResults must not exceed budgets.maxAttempts." });
+  }
   if (!Array.isArray(value.validation) || value.validation.some((validator) => !validator || typeof validator.id !== "string" || !validator.id || typeof validator.required !== "boolean")) {
     issues.push({ code: "type", path: "validation", message: "validation must contain objects with a non-empty id and boolean required flag." });
+  }
+  if (Array.isArray(value.validation)) {
+    const ids = new Set<string>();
+    if (value.validation.length > 32) issues.push({ code: "range", path: "validation", message: "validation must contain at most 32 validators." });
+    value.validation.forEach((validator, index) => {
+      if (validator && typeof validator === "object") unknownKeys(validator, `validation[${index}]`, ["id", "required"], issues);
+      if (validator && typeof validator.id === "string") {
+        if (!/^[a-z0-9][a-z0-9._-]{0,63}$/.test(validator.id)) issues.push({ code: "type", path: `validation[${index}].id`, message: "Validator id must be a portable 1-64 character id." });
+        if (ids.has(validator.id)) issues.push({ code: "duplicate", path: `validation[${index}].id`, message: `Duplicate validator '${validator.id}'.` });
+        ids.add(validator.id);
+      }
+    });
   }
   const minimumQuality = value.quality?.minimumHeuristicQuality;
   if (minimumQuality !== undefined && (typeof minimumQuality !== "number" || !Number.isFinite(minimumQuality) || minimumQuality < 0 || minimumQuality > 1)) {
@@ -213,6 +261,8 @@ export function validateScenario(input: unknown): ScenarioValidationResult {
       const valid = typeof part === "number" && part >= 0 && part <= 1 && ((key === "width" || key === "height") ? part > 0 : true);
       if (!valid) issues.push({ code: "range", path: `input.roi.${key}`, message: `input.roi.${key} must be a relative value in the valid 0-1 range.` });
     }
+    if (typeof value.input.roi.x === "number" && typeof value.input.roi.width === "number" && value.input.roi.x + value.input.roi.width > 1) issues.push({ code: "range", path: "input.roi.width", message: "ROI x + width must not exceed 1." });
+    if (typeof value.input.roi.y === "number" && typeof value.input.roi.height === "number" && value.input.roi.y + value.input.roi.height > 1) issues.push({ code: "range", path: "input.roi.height", message: "ROI y + height must not exceed 1." });
   } else if (value.input?.roi?.mode !== "full-frame") {
     issues.push({ code: "enum", path: "input.roi.mode", message: "input.roi.mode must be full-frame or relative." });
   }
@@ -233,7 +283,7 @@ const BASE_SCENARIO: ScenarioDefinition = {
   decoders: { order: ["jsqr", "zxing-js"], execution: "sequential" },
   multiCode: { enabled: true, maxResults: 8 },
   duplicateSuppression: { enabled: true, windowMs: 1_500 },
-  budgets: { maxPixels: 4_000_000, maxCandidates: 5, maxAttempts: 96, maxIntermediateAllocations: 24, maxIntermediateBytes: 64 * 1024 * 1024, maxExecutionMs: 12_000, maxConcurrentFrames: 1 },
+  budgets: { maxPixels: 8_000_000, maxCandidates: 5, maxAttempts: 96, maxIntermediateAllocations: 24, maxIntermediateBytes: 64 * 1024 * 1024, maxExecutionMs: 12_000, maxConcurrentFrames: 1 },
   validation: [],
   semanticParsers: ["url", "wifi", "vcard", "email", "telephone", "sms", "geo", "calendar", "gs1", "gs1-digital-link"],
   quality: {},
@@ -246,7 +296,7 @@ function cloneScenario<T>(value: T): T {
 }
 
 export const BUILTIN_SCENARIOS: Readonly<Record<"fast" | "balanced" | "robust", ScenarioDefinition>> = Object.freeze({
-  fast: { ...cloneScenario(BASE_SCENARIO), id: "fast", localization: { ...BASE_SCENARIO.localization, maxCandidates: 2, cropPaddings: ["medium"], scales: [1] }, enhancement: { operators: ["contrast", "invert"], rotations: [0] }, multiCode: { enabled: false, maxResults: 1 }, budgets: { ...BASE_SCENARIO.budgets, maxCandidates: 2, maxAttempts: 18, maxIntermediateAllocations: 8, maxIntermediateBytes: 24 * 1024 * 1024, maxExecutionMs: 2_000 }, semanticParsers: ["url"] },
+  fast: { ...cloneScenario(BASE_SCENARIO), id: "fast", localization: { ...BASE_SCENARIO.localization, maxCandidates: 2, cropPaddings: ["medium"], scales: [1] }, enhancement: { operators: ["contrast", "invert"], rotations: [0] }, multiCode: { enabled: false, maxResults: 1 }, budgets: { ...BASE_SCENARIO.budgets, maxPixels: 4_000_000, maxCandidates: 2, maxAttempts: 18, maxIntermediateAllocations: 8, maxIntermediateBytes: 24 * 1024 * 1024, maxExecutionMs: 2_000 }, semanticParsers: ["url"] },
   balanced: cloneScenario(BASE_SCENARIO),
   robust: { ...cloneScenario(BASE_SCENARIO), id: "robust", localization: { ...BASE_SCENARIO.localization, maxCandidates: 8 }, multiCode: { enabled: true, maxResults: 12 }, budgets: { ...BASE_SCENARIO.budgets, maxCandidates: 8, maxAttempts: 160, maxIntermediateAllocations: 40, maxIntermediateBytes: 96 * 1024 * 1024, maxExecutionMs: 20_000 } },
 });

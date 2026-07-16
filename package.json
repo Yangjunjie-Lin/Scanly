@@ -21,10 +21,11 @@
     "build:web": "next build apps/web-demo",
     "build": "npm run build:packages && npm run build:web",
     "start": "next start apps/web-demo",
-    "lint": "eslint apps/web-demo --ext .ts,.tsx",
+    "lint": "eslint apps packages engines scripts tests *.ts --ext .ts,.tsx --ignore-pattern '**/dist/**' --ignore-pattern '**/.next/**'",
     "typecheck": "tsc --noEmit",
-    "build:packages": "npm run build --workspace=@scanly/scenario-schema && npm run build --workspace=@scanly/parsers && npm run build --workspace=@scanly/benchmark && npm run build --workspace=@scanly/core && npm run build --workspace=@scanly/browser && npm run build --workspace=@scanly/react && npm run build --workspace=@scanly/engine-jsqr && npm run build --workspace=@scanly/engine-zxing-js",
+    "build:packages": "npm run build --workspace=@scanly/scenario-schema && npm run build --workspace=@scanly/parsers && npm run build --workspace=@scanly/benchmark && npm run build --workspace=@scanly/core && npm run build --workspace=@scanly/engine-jsqr && npm run build --workspace=@scanly/engine-zxing-js && npm run build --workspace=@scanly/browser && npm run build --workspace=@scanly/node && npm run build --workspace=@scanly/react",
     "packages:smoke": "node scripts/verify-package-imports.mjs",
+    "packages:tarball": "node scripts/verify-package-tarballs.mjs",
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
     "test:coverage": "vitest run --coverage",
@@ -36,21 +37,18 @@
     "benchmark": "tsx scripts/run-benchmark.ts",
     "benchmark:smoke": "tsx scripts/run-benchmark.ts --smoke --gate",
     "benchmark:compare": "tsx scripts/compare-engines.ts",
+    "benchmark:profiles": "tsx scripts/run-benchmark.ts --profile=fast --gate && tsx scripts/run-benchmark.ts --profile=balanced --gate && tsx scripts/run-benchmark.ts --profile=robust --gate",
     "fixtures:generate": "tsx scripts/generate-fixtures.ts",
     "scenarios:generate": "tsx scripts/export-scenarios.ts",
     "quality:gates": "tsx scripts/verify-quality-gates.ts",
     "docs:check": "tsx scripts/check-doc-links.ts",
-    "check": "npm run quality:gates && npm run docs:check && npm run lint && npm run typecheck && npm run test:coverage && npm run build && npm run packages:smoke",
+    "check": "npm run quality:gates && npm run docs:check && npm run lint && npm run typecheck && npm run test:coverage && npm run build && npm run packages:smoke && npm run packages:tarball",
     "verify": "npm run check && npm run test:e2e && npm run benchmark:smoke"
   },
   "dependencies": {
-    "@zxing/browser": "^0.1.5",
-    "@zxing/library": "0.21.3",
-    "jsqr": "^1.4.0",
     "next": "15.5.20",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "sharp": "^0.34.5"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.10.2",

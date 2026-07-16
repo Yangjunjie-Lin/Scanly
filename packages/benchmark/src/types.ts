@@ -91,6 +91,16 @@ export interface BenchmarkDistribution {
 export interface BenchmarkRunSummary {
   schemaVersion: "2.0";
   runtime: { kind: "node" | "browser-device"; nodeVersion?: string; platform: string; arch: string };
+  environment: {
+    gitCommit: string;
+    sdkVersion: string;
+    scenario: "fast" | "balanced" | "robust";
+    datasetManifestHash: string;
+    fixtureCount: number;
+    date: string;
+    warmupPolicy: string;
+    iterationCount: number;
+  };
   generatedAt: string;
   total: number;
   passed: number;
@@ -107,6 +117,8 @@ export interface BenchmarkRunSummary {
   falsePositiveCount: number;
   falsePositiveRate: number;
   timeoutCount: number;
+  cancellationCorrectness: { passed: number; total: number };
+  engineInitializationFailures: number;
   timeToFirstResult: BenchmarkDistribution;
   averageAttempts: number;
   medianAttempts: number;

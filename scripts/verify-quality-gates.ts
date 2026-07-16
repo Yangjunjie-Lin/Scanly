@@ -16,7 +16,7 @@ const pkg = JSON.parse(read("package.json")) as {
 };
 if (pkg.license !== "MIT") fail("package.json license must be MIT");
 if (pkg.name !== "scanly" || pkg.version !== "2.0.0-alpha.1") fail("package metadata must identify the Scanly SDK v2 alpha foundation");
-  if (pkg.engines?.node !== ">=20 <25" || pkg.engines?.npm !== ">=10") {
+if (pkg.engines?.node !== ">=20 <25" || pkg.engines?.npm !== ">=10") {
   fail("package engines must pin the verified Node/npm maintenance range");
 }
 
@@ -50,14 +50,18 @@ for (const fixture of manifest.fixtures) {
     fail(`${fixture.id} is missing generated seed/transform provenance`);
   }
 }
+if (!manifest.fixtures.some((fixture) => fixture.id === "14-damaged")) fail("Retained hard fixture 14-damaged is missing");
+if (manifest.fixtures.filter((fixture) => fixture.category === "negative" || fixture.category === "adversarial").length < 10) fail("Negative/adversarial suite must contain at least 10 deterministic fixtures");
 for (const fixture of manifest.fixtures.filter((item) => item.category === "multiple")) {
-  if (!fixture.requiredPayloads?.length) fail(`${fixture.id} has no requiredPayloads contract`);
-  if (fixture.expectedResultCount !== fixture.requiredPayloads.length) {
+  const required = fixture.requiredPayloads ?? [];
+  if (!required.length) fail(`${fixture.id} has no requiredPayloads contract`);
+  if (fixture.expectedResultCount !== required.length) {
     fail(`${fixture.id} expectedResultCount must equal requiredPayloads length`);
   }
 }
 
 const canonical = JSON.parse(read("benchmark-results/latest.json")) as BenchmarkRunSummary;
+if (canonical.environment.scenario !== "balanced" || canonical.environment.fixtureCount !== manifest.fixtures.length) fail("Canonical benchmark metadata must describe the balanced Router-path fixture run");
 const readme = read("README.md");
 const rate = `${(canonical.successRate * 100).toFixed(1)}%`;
 const generatedCount = manifest.fixtures.filter((fixture) => fixture.sourceType === "generated").length;
@@ -85,7 +89,7 @@ const tracked = execFileSync("git", ["ls-files", "-z", "--cached", "--others", "
   .split("\0")
   .filter((file) => Boolean(file) && fs.existsSync(path.join(ROOT, file)));
 const forbiddenPaths = tracked.filter((file) =>
-  /(^|\/)\.vercel(\/|$)|(^|\/)\.env(\.|$)|fixtures\/(?:_tmp-|_e2e-)|benchmark-results\/smoke\.(?:json|csv)$/.test(file)
+  /(^|\/)\.vercel(\/|$)|(^|\/)\.env(\.|$)|fixtures\/(?:_tmp-|_e2e-)|benchmark-results\/smoke-[^/]+\.(?:json|csv)$/.test(file)
 );
 if (forbiddenPaths.length) fail(`Forbidden tracked paths: ${forbiddenPaths.join(", ")}`);
 
@@ -103,6 +107,21 @@ for (const file of tracked) {
     fail(`QR payloads must never be rendered as HTML: ${file}`);
   }
 }
+
+const coreManifest = JSON.parse(read("packages/core/package.json")) as { dependencies?: Record<string, string> };
+for (const forbidden of ["jsqr", "@zxing/library", "@zxing/browser", "sharp"]) {
+  if (coreManifest.dependencies?.[forbidden]) fail(`@scanly/core must not depend on concrete/runtime-specific package ${forbidden}`);
+}
+const coreSources = tracked.filter((file) => file.startsWith("packages/core/src/") && file.endsWith(".ts"));
+for (const file of coreSources) {
+  const content = read(file);
+  if (/from\s+["'](?:jsqr|@zxing\/library|@zxing\/browser|sharp)["']/.test(content)) fail(`Concrete decoder/Node dependency leaked into core: ${file}`);
+}
+for (const file of ["packages/browser/src/browser-session.ts", "packages/browser/src/worker/decode-worker.ts"]) {
+  if (read(file).includes("decodePixelBuffer")) fail(`${file} bypasses CaptureRouter through the legacy pipeline`);
+}
+if (!read("packages/browser/src/worker/decode-worker.ts").includes("router.scan")) fail("Browser Worker does not execute CaptureRouter");
+if (read("scripts/run-benchmark.ts").includes("baseline-pre-polish.json")) fail("Canonical benchmark still references the permissive historical baseline");
 
 for (const required of [
   "README.md",

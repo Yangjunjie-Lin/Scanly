@@ -1,8 +1,6 @@
 # Scenario configuration
 
-Scenario schema `2.0` is runtime validated. Unknown versions are rejected; they are not silently coerced. Generated canonical profiles are in `scenarios/generic/` and are synchronized with `@scanly/scenario-schema` by `npm run scenarios:generate`.
-
-Profiles deliberately trade work for latency:
+Scenario schema `2.0` is runtime validated. Unknown versions and unknown fields are rejected; they are never silently coerced. Generated canonical profiles live in `scenarios/generic/` and are synchronized with `@scanly/scenario-schema` by `npm run scenarios:generate`.
 
 | Profile | Candidates | Attempts | Deadline | Multi-code | Intended use |
 | --- | ---: | ---: | ---: | --- | --- |
@@ -10,8 +8,10 @@ Profiles deliberately trade work for latency:
 | balanced | 5 | 96 | 12 s | up to 8 | reference app default |
 | robust | 8 | 160 | 20 s | up to 12 | bounded difficult-image investigation |
 
-Configuration covers accepted formats, input format/ROI, localization, padding/scales, enhancement/rotations, engine order and execution mode, multi-code, duplicate window, resource budgets, validators, semantic parsers, output fields, and ablation switches.
+Each scenario compiles into eleven logical operators: frame normalization, ROI, localization, candidate generation and deduplication, enhancement and geometry planning, decoder execution, result aggregation, validation, and semantic parsing. Dependency-ready graph nodes execute in parallel.
 
-Parallel execution is supported by the task-graph executor for dependency-ready independent operators. The migrated default QR graph currently has one pipeline operator, so declaring parallel decoder execution does not create duplicate work or an unsupported accuracy claim.
+`decoders.execution` controls real engine branches. `sequential` preserves ordered fallback. `parallel` requires thread-safe engines and aggregates in declared engine order. For single-code scans, a successful higher-priority branch cancels lower-priority branches; multi-code scans retain all branches so completeness is not traded away.
 
-To add a scenario: clone a built-in, change its ID/revision and budgets, validate it, add a canonical JSON file, create scenario-specific fixtures/validators, and record benchmark/compatibility evidence. An industry name without its evidence is not a supported scenario pack.
+See the [field-by-field enforcement matrix](support-matrix.md). `quality.minimumHeuristicQuality` is deliberately rejected by the compiler because the installed engines do not expose a defensible quality signal. Missing engines/operators, unsupported formats, unsafe parallel combinations, and unavailable required validators fail before decoding.
+
+To add a scenario: clone a built-in, change its ID/revision and budgets, validate it, add canonical JSON, create scenario-specific fixtures/validators, and record benchmark/compatibility evidence. An industry name without that evidence is not a supported scenario pack.

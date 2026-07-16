@@ -1,98 +1,44 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createPixelBuffer } from "@scanly/core/qr";
+import type { ScanOutcome } from "@scanly/core";
 
-const {
-  loadPixelBufferFromFile,
-  decodePixelBuffer,
-  workerDecode,
-  workerCancel,
-  workerDispose,
-  markDecodePath,
-} = vi.hoisted(() => ({
-  loadPixelBufferFromFile: vi.fn(),
-  decodePixelBuffer: vi.fn(),
-  workerDecode: vi.fn(),
-  workerCancel: vi.fn(),
-  workerDispose: vi.fn(),
-  markDecodePath: vi.fn(),
+const state = vi.hoisted(() => ({ scan: vi.fn(), start: vi.fn(), cancel: vi.fn(), dispose: vi.fn(), update: vi.fn() }));
+vi.mock("../../packages/browser/src/browser-session", () => ({
+  BrowserCaptureSession: class {
+    start = state.start;
+    scanFile = state.scan;
+    cancel = state.cancel;
+    dispose = state.dispose;
+    updateConfiguration = state.update;
+  },
 }));
+import { cancelUploadedDecode, decodeUploadedFile, disposeUploadedDecodeWorker } from "../../packages/browser/src/decode-upload";
 
-vi.mock("../../packages/browser/src/image-loader", () => ({ loadPixelBufferFromFile }));
-vi.mock("@scanly/core/qr", async (importOriginal) => ({ ...(await importOriginal()), decodePixelBuffer }));
-vi.mock("../../packages/browser/src/worker/worker-client", () => ({
-  getDecodeWorkerClient: () => ({ decode: workerDecode, cancel: workerCancel }),
-  disposeDecodeWorkerClient: workerDispose,
-  markDecodePath,
-}));
+const failure: ScanOutcome = { ok: false, error: { code: "no_symbol_found", category: "input", message: "none", retryable: true }, frameId: "f", scenarioId: "balanced", attemptCount: 0, timing: { totalMs: 1 } };
 
-import {
-  cancelUploadedDecode,
-  decodeUploadedFile,
-  disposeUploadedDecodeWorker,
-} from "../../packages/browser/src/decode-upload";
+afterEach(async () => { await disposeUploadedDecodeWorker(); vi.clearAllMocks(); });
 
-const file = {} as File;
-const buffer = createPixelBuffer(new Uint8ClampedArray(16), 2, 2);
-const failure = {
-  ok: false as const,
-  reason: "no_qr_found" as const,
-  message: "none",
-  attempts: [],
-  attemptCount: 0,
-  elapsedMs: 1,
-  cancelled: false,
-};
-
-afterEach(() => {
-  vi.clearAllMocks();
-  vi.unstubAllGlobals();
-});
-
-describe("upload decode wrapper", () => {
-  it("uses the main-thread pipeline when explicitly requested", async () => {
-    loadPixelBufferFromFile.mockResolvedValue(buffer);
-    decodePixelBuffer.mockResolvedValue(failure);
-    const outcome = await decodeUploadedFile(file, { forceMainThread: true });
-    expect(outcome).toBe(failure);
-    expect(decodePixelBuffer).toHaveBeenCalledWith(buffer, expect.any(Object));
+describe("deprecated upload wrapper", () => {
+  it("delegates to BrowserCaptureSession instead of a private pipeline", async () => {
+    state.scan.mockResolvedValue(failure);
+    expect(await decodeUploadedFile({} as File, { forceMainThread: true })).toBe(failure);
+    expect(state.start).toHaveBeenCalledOnce();
+    expect(state.scan).toHaveBeenCalledWith({}, expect.objectContaining({ forceMainThread: true }));
   });
 
-  it.each(["invalid_file", "unsupported_image", "empty_image", "image_too_large", "worker_error"] as const)(
-    "preserves the %s application error reason",
-    async (code) => {
-      loadPixelBufferFromFile.mockRejectedValue(Object.assign(new Error(`failure: ${code}`), { code }));
-      const outcome = await decodeUploadedFile(file);
-      expect(outcome.ok).toBe(false);
-      if (!outcome.ok) expect(outcome.reason).toBe(code);
-    }
-  );
+  it("reuses the session and routes scenario updates through validation", async () => {
+    state.scan.mockResolvedValue(failure);
+    await decodeUploadedFile({} as File);
+    const scenario = (await import("@scanly/scenario-schema")).getBuiltinScenario("fast");
+    await decodeUploadedFile({} as File, { scenario });
+    expect(state.update).toHaveBeenCalledWith(scenario);
+  });
 
-  it("uses, cancels, and disposes the browser worker client", async () => {
-    vi.stubGlobal("window", {});
-    vi.stubGlobal("Worker", class WorkerStub {});
-    loadPixelBufferFromFile.mockResolvedValue(buffer);
-    workerDecode.mockResolvedValue(failure);
-
-    expect(await decodeUploadedFile(file)).toBe(failure);
-    expect(workerDecode).toHaveBeenCalled();
-    await cancelUploadedDecode();
-    expect(workerCancel).toHaveBeenCalledOnce();
+  it("cancels and disposes the compatibility session", async () => {
+    state.scan.mockResolvedValue(failure);
+    await decodeUploadedFile({} as File);
+    cancelUploadedDecode();
+    expect(state.cancel).toHaveBeenCalledOnce();
     await disposeUploadedDecodeWorker();
-    expect(workerDispose).toHaveBeenCalledOnce();
-  });
-
-  it("forwards an in-flight AbortSignal to worker cancellation", async () => {
-    vi.stubGlobal("window", {});
-    vi.stubGlobal("Worker", class WorkerStub {});
-    loadPixelBufferFromFile.mockResolvedValue(buffer);
-    let resolveWorker!: (value: typeof failure) => void;
-    workerDecode.mockImplementation(() => new Promise((resolve) => { resolveWorker = resolve; }));
-    const controller = new AbortController();
-    const pending = decodeUploadedFile(file, { signal: controller.signal });
-    await vi.waitFor(() => expect(workerDecode).toHaveBeenCalled());
-    controller.abort();
-    expect(workerCancel).toHaveBeenCalledOnce();
-    resolveWorker(failure);
-    await pending;
+    expect(state.dispose).toHaveBeenCalledOnce();
   });
 });

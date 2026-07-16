@@ -4,7 +4,7 @@ const expectedExports = [
   ["@scanly/benchmark", "BENCHMARK_SCHEMA_VERSION"],
   ["@scanly/core", "SDK_VERSION"],
   ["@scanly/core/qr", "decodePixelBuffer"],
-  ["@scanly/core/node", "loadPixelBufferFromPath"],
+  ["@scanly/node", "loadPixelBufferFromPath"],
   ["@scanly/browser", "BROWSER_SDK_VERSION"],
   ["@scanly/react", "useScanly"],
   ["@scanly/engine-jsqr", "JsQrEngine"],

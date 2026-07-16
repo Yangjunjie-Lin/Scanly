@@ -69,9 +69,9 @@ export default function QRTool() {
     uploadSession.initialize();
     uploadSession.start();
     return () => {
-      cameraSource.dispose();
+      void cameraSource.dispose();
       uploadAbortRef.current?.abort();
-      uploadSession.dispose();
+      void uploadSession.dispose();
     };
   }, [cameraSource, uploadSession]);
 

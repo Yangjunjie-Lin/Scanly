@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - master
+      - architecture/sdk-v2-foundation
     paths:
       - "packages/core/**"
       - "packages/benchmark/**"
@@ -21,7 +22,7 @@ on:
 jobs:
   full-benchmark:
     name: Full fixture benchmark
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     timeout-minutes: 60
 
     steps:
@@ -31,7 +32,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
@@ -43,8 +44,14 @@ jobs:
       - name: Generate scenarios
         run: npm run scenarios:generate
 
-      - name: Run full benchmark with regression gate
-        run: npx tsx scripts/run-benchmark.ts --gate
+      - name: Run fast profile benchmark with regression gate
+        run: npx tsx scripts/run-benchmark.ts --profile=fast --gate
+
+      - name: Run balanced profile benchmark with regression gate
+        run: npx tsx scripts/run-benchmark.ts --profile=balanced --gate
+
+      - name: Run robust profile benchmark with regression gate
+        run: npx tsx scripts/run-benchmark.ts --profile=robust --gate
 
       - name: Verify canonical benchmark and repository contracts
         run: npm run quality:gates
@@ -61,5 +68,9 @@ jobs:
           path: |
             benchmark-results/latest.json
             benchmark-results/latest.csv
+            benchmark-results/latest-fast.json
+            benchmark-results/latest-fast.csv
+            benchmark-results/latest-robust.json
+            benchmark-results/latest-robust.csv
             docs/benchmark.md
             benchmark-results/comparison.json

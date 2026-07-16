@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - master
+      - architecture/sdk-v2-foundation
   pull_request:
 
 jobs:
@@ -32,6 +33,9 @@ jobs:
       - name: Generate scenarios
         run: npm run scenarios:generate
 
+      - name: Generated fixture/scenario drift
+        run: git diff --exit-code -- fixtures scenarios
+
       - name: Repository quality contracts
         run: npm run quality:gates
 
@@ -47,6 +51,9 @@ jobs:
       - name: Unit tests
         run: npm run test:unit
 
+      - name: Integration tests
+        run: npx vitest run tests/integration
+
       - name: Coverage
         run: npm run test:coverage
 
@@ -55,6 +62,12 @@ jobs:
 
       - name: Native ESM package import smoke
         run: npm run packages:smoke
+
+      - name: Package tarball and installed-export verification
+        run: npm run packages:tarball
+
+      - name: Tracked package output drift
+        run: git diff --exit-code -- packages engines
 
       - name: Production build
         run: npm run build:web
@@ -70,8 +83,11 @@ jobs:
 
       - name: Verify smoke benchmark artifacts
         run: |
-          test -f benchmark-results/smoke.json
-          test -f benchmark-results/smoke.csv
+          test -f benchmark-results/smoke-balanced.json
+          test -f benchmark-results/smoke-balanced.csv
+
+      - name: Dependency audit
+        run: npm audit --audit-level=high
 
       - name: Upload smoke benchmark artifacts
         if: always()
@@ -80,5 +96,5 @@ jobs:
           name: benchmark-smoke
           if-no-files-found: error
           path: |
-            benchmark-results/smoke.json
-            benchmark-results/smoke.csv
+            benchmark-results/smoke-balanced.json
+            benchmark-results/smoke-balanced.csv

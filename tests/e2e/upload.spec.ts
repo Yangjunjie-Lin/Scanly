@@ -151,7 +151,7 @@ test("in-flight cancel on hard fixture responds within 2 seconds @smoke", async 
   await page.getByRole("tab", { name: "Upload" }).click();
   await page.getByTestId("upload-input").setInputFiles(fixture("14-damaged.png"));
   await expect(page.getByTestId("processing-status")).toContainText(
-    /Detecting|Decoding|Trying|Backup/,
+    /Routing|Detecting|Decoding|Trying|Backup/,
     { timeout: 10_000 }
   );
   const cancelStarted = Date.now();
@@ -171,7 +171,7 @@ test("upload after cancellation decodes clear fixture exactly @smoke", async ({ 
   await page.getByRole("tab", { name: "Upload" }).click();
   await page.getByTestId("upload-input").setInputFiles(fixture("14-damaged.png"));
   await expect(page.getByTestId("processing-status")).toContainText(
-    /Detecting|Decoding|Trying|Backup/,
+    /Routing|Detecting|Decoding|Trying|Backup/,
     { timeout: 10_000 }
   );
   await page.getByTestId("cancel-button").click();
@@ -290,7 +290,7 @@ test("ten cancel cycles leave the next worker decode healthy", async ({ page }) 
     await page.getByTestId("upload-input").setInputFiles([]);
     await page.getByTestId("upload-input").setInputFiles(fixture("14-damaged.png"));
     await expect(page.getByTestId("processing-status")).toContainText(
-      /Detecting|Decoding|Trying|Backup/,
+      /Routing|Detecting|Decoding|Trying|Backup/,
       { timeout: 10_000 }
     );
     await page.getByTestId("cancel-button").click();

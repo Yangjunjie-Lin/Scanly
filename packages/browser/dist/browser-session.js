@@ -1,24 +1,16 @@
-import { mapLegacyQrOutcome, scenarioToPipelineConfig, sdkError, } from "@scanly/core";
+import { CaptureRouter, createRgbaFrame, sdkError } from "@scanly/core";
 import { getBuiltinScenario, validateScenario } from "@scanly/scenario-schema";
-import { decodePixelBuffer } from "@scanly/core/qr";
 import { loadPixelBufferFromFile } from "./image-loader.js";
+import { createBrowserCaptureRouter } from "./runtime.js";
 import { DecodeWorkerClient, markDecodePath } from "./worker/worker-client.js";
-function legacyFailure(reason, message) {
-    return { ok: false, reason, message, attempts: [], attemptCount: 0, elapsedMs: 0, cancelled: reason === "cancelled" };
-}
-function inputFailure(error) {
-    const code = error && typeof error === "object" && "code" in error ? String(error.code) : "unsupported_image";
-    const reason = code === "invalid_file" || code === "unsupported_image" || code === "empty_image" || code === "image_too_large" || code === "invalid_image" || code === "invalid_configuration"
-        ? code
-        : "unsupported_image";
-    return legacyFailure(reason, error instanceof Error ? error.message : String(error));
-}
 let browserFrameSequence = 0;
 export class BrowserCaptureSession {
     state = "idle";
     scenario;
     concurrentPolicy;
     worker;
+    router;
+    ownsRouter;
     controller = null;
     owner = 0;
     constructor(options = {}) {
@@ -28,6 +20,8 @@ export class BrowserCaptureSession {
         this.scenario = validation.value;
         this.concurrentPolicy = options.concurrentCallPolicy ?? "replace";
         this.worker = new DecodeWorkerClient(options.workerFactory);
+        this.router = options.router ?? createBrowserCaptureRouter({ scenario: this.scenario });
+        this.ownsRouter = options.disposeRouter ?? !options.router;
     }
     getState() { return this.state; }
     initialize() { this.assertNotDisposed(); if (this.state === "idle" || this.state === "stopped")
@@ -43,6 +37,7 @@ export class BrowserCaptureSession {
         if (!validation.ok)
             throw Object.assign(new Error(validation.message), { code: "malformed_scenario", issues: validation.issues });
         this.cancel();
+        this.router.updateScenario(validation.value);
         this.scenario = validation.value;
     }
     async scanFile(file, options = {}) {
@@ -61,25 +56,31 @@ export class BrowserCaptureSession {
         const onAbort = () => controller.abort();
         options.signal?.addEventListener("abort", onAbort, { once: true });
         try {
-            options.onStage?.("Loading image…");
+            options.onStage?.("Loading image...");
             const pixels = await loadPixelBufferFromFile(file);
             if (controller.signal.aborted)
-                return mapLegacyQrOutcome(frameId, this.scenario, legacyFailure("cancelled", "Decode cancelled."));
+                return this.failure(frameId, "cancelled", "Decode cancelled.");
+            const workerPath = !options.forceMainThread && typeof Worker !== "undefined";
+            const frame = createRgbaFrame(pixels.data, pixels.width, pixels.height, { id: frameId, sourceType: "upload", ownership: workerPath ? "transferred" : "owned" });
             let outcome;
-            if (options.forceMainThread || typeof Worker === "undefined") {
-                markDecodePath("main-thread");
-                outcome = await decodePixelBuffer(pixels, { signal: controller.signal, config: scenarioToPipelineConfig(this.scenario), onStage: options.onStage, onProgress: options.onProgress });
+            if (workerPath) {
+                markDecodePath("worker");
+                outcome = await this.worker.scan(frame, this.scenario, { signal: controller.signal, onStage: options.onStage, onProgress: options.onProgress });
             }
             else {
-                markDecodePath("worker");
-                outcome = await this.worker.decode(pixels, { signal: controller.signal, config: scenarioToPipelineConfig(this.scenario), onStage: options.onStage, onProgress: options.onProgress });
+                markDecodePath("main-thread");
+                options.onStage?.("Routing normalized frame...");
+                outcome = await this.router.scan(frame, { signal: controller.signal, scenario: this.scenario });
+                options.onProgress?.({ attemptCount: outcome.attemptCount });
             }
             if (owner !== this.owner)
-                return mapLegacyQrOutcome(frameId, this.scenario, legacyFailure("cancelled", "Result belongs to a superseded browser job."));
-            return mapLegacyQrOutcome(frameId, this.scenario, outcome);
+                return this.failure(frameId, "cancelled", "Result belongs to a superseded browser job.");
+            return outcome;
         }
         catch (error) {
-            return mapLegacyQrOutcome(frameId, this.scenario, inputFailure(error));
+            const code = error && typeof error === "object" && "code" in error ? String(error.code) : "unsupported_image";
+            const mapped = code === "image_too_large" ? "resource_limit_exceeded" : code === "invalid_file" || code === "unsupported_image" || code === "empty_image" || code === "invalid_image" ? "invalid_image" : controller.signal.aborted ? "cancelled" : "engine_execution_failure";
+            return this.failure(frameId, mapped, error instanceof Error ? error.message : String(error));
         }
         finally {
             options.signal?.removeEventListener("abort", onAbort);
@@ -87,12 +88,17 @@ export class BrowserCaptureSession {
                 this.controller = null;
         }
     }
-    dispose() { if (this.state === "disposed")
-        return; this.cancel(); this.worker.dispose(); this.state = "disposed"; }
-    assertNotDisposed() {
+    async dispose() {
         if (this.state === "disposed")
-            throw Object.assign(new Error("Browser capture session has been disposed."), { code: "session_disposed" });
+            return;
+        this.cancel();
+        this.worker.dispose();
+        this.state = "disposed";
+        if (this.ownsRouter)
+            await this.router.dispose();
     }
+    assertNotDisposed() { if (this.state === "disposed")
+        throw Object.assign(new Error("Browser capture session has been disposed."), { code: "session_disposed" }); }
     failure(frameId, code, message) {
         return { ok: false, error: sdkError(code, message), frameId, scenarioId: this.scenario.id, attemptCount: 0, timing: { totalMs: 0 } };
     }

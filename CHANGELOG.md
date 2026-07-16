@@ -12,15 +12,19 @@ All notable changes follow semantic versioning.
 - Semantic parsing separated from raw decoding; browser camera source lifecycle and capability detection.
 - Negative/adversarial fixtures, false-positive/recall metrics, time-to-first-result, report schema/runtime labels, comparison harness, and soak tests.
 - SDK, migration, benchmarking, compatibility, security, extension, and release documentation.
+- Real engine/operator/validator registries, a bounded scenario compiler/cache, an eleven-operator execution graph, and deterministic frame leases.
+- `@scanly/node` for Sharp-isolated image loading and Node engine composition.
+- Profile-specific immutable benchmark baselines and eleven deterministic negative/adversarial fixtures.
 
 ### Changed
 
-- Moved the single QR implementation into `@scanly/core`; moved Worker/file/camera ownership into `@scanly/browser`; migrated the Next.js demo to public SDK outcomes.
+- Moved QR primitives behind a generic engine executor in `@scanly/core`; concrete decoder libraries now live in engine packages, while Worker/file/camera ownership lives in `@scanly/browser`.
+- Browser upload, Worker, main-thread fallback, Node benchmark, and sampled camera frames now execute through `CaptureRouter` and the compiled scenario graph.
 - Package and production builds now verify publishable ESM/declaration output and emitted Worker resolution.
 - Worker requests/responses and direct pipeline configuration/pixel buffers receive runtime validation.
 - Upgraded the reference app to Next.js 15.5.20 and overrode its compatible PostCSS 8.x dependency to 8.5.19; both full and production-only npm audits report zero known vulnerabilities.
 - Emitted workspace modules now use Node-compatible ESM relative specifiers, with a native import smoke gate covering all ten public package entry points.
-- Image results expose decoder-provided raw bytes instead of reconstructed text bytes; text-only camera results omit unavailable bytes.
+- Results expose decoder-provided raw bytes instead of reconstructed text bytes; upload and camera now share the same result mapping.
 - Balanced and robust multi-code execution preserve the 51/52 positive baseline by reserving deep-preprocessing budget and prioritizing the full-frame fallback, while retaining 3/3 multi-code completeness.
 
 ### Compatibility

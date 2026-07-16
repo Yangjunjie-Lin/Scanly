@@ -9,6 +9,7 @@ export declare class ZxingJsEngine implements DecoderEngine {
         returnsCornerPoints: boolean;
         threadSafe: boolean;
     };
+    private readonly reader;
     decode(frame: NormalizedFrame, options: EngineDecodeOptions): Promise<EngineOutcome>;
 }
 //# sourceMappingURL=index.d.ts.map

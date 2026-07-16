@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  transpilePackages: ["@scanly/core", "@scanly/browser", "@scanly/parsers", "@scanly/scenario-schema"],
+  transpilePackages: ["@scanly/core", "@scanly/browser", "@scanly/parsers", "@scanly/scenario-schema", "@scanly/engine-jsqr", "@scanly/engine-zxing-js"],
   async headers() {
     return [
       {

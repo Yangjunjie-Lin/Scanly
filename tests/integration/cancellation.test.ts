@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { decodePixelBuffer, createPixelBuffer } from "@scanly/core/qr";
-import { loadPixelBufferFromPath } from "@scanly/core/node";
+import { createPixelBuffer } from "@scanly/core/qr";
+import { decodePixelBufferWithNodeEngines as decodePixelBuffer } from "@scanly/node";
+import { loadPixelBufferFromPath } from "@scanly/node";
 import fs from "node:fs";
 import path from "node:path";
 

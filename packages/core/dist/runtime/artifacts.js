@@ -13,12 +13,13 @@ export class BoundedFrameArtifactStore {
     get(key) { return this.entries.get(key)?.value; }
     set(key, value, estimatedBytes = 0) {
         const prior = this.entries.get(key);
-        const nextAllocations = this.allocations + (prior ? 0 : 1);
-        const nextBytes = this.bytes - (prior?.bytes ?? 0) + Math.max(0, estimatedBytes);
+        const normalizedBytes = Math.max(0, estimatedBytes);
+        const nextAllocations = this.allocations - (prior && prior.bytes > 0 ? 1 : 0) + (normalizedBytes > 0 ? 1 : 0);
+        const nextBytes = this.bytes - (prior?.bytes ?? 0) + normalizedBytes;
         if (nextAllocations > this.maxAllocations || nextBytes > this.maxBytes) {
             throw Object.assign(new Error("Frame intermediate artifact budget exceeded."), { code: "resource_limit_exceeded" });
         }
-        this.entries.set(key, { value, bytes: Math.max(0, estimatedBytes) });
+        this.entries.set(key, { value, bytes: normalizedBytes });
         this.allocations = nextAllocations;
         this.bytes = nextBytes;
     }

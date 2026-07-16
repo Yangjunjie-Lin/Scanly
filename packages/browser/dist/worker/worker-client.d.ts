@@ -1,4 +1,5 @@
-import type { DecodeOutcome, DecodePipelineOptions, PixelBuffer } from "@scanly/core/qr";
+import { type NormalizedFrame, type ScanOutcome } from "@scanly/core";
+import type { ScenarioDefinition } from "@scanly/scenario-schema";
 import { type WorkerRequest, type WorkerResponse } from "./worker-messages.js";
 export interface DecodeWorkerLike {
     onmessage: ((event: MessageEvent<WorkerResponse>) => void) | null;
@@ -7,6 +8,13 @@ export interface DecodeWorkerLike {
     terminate(): void;
 }
 export type DecodeWorkerFactory = () => DecodeWorkerLike;
+export interface WorkerScanOptions {
+    signal?: AbortSignal;
+    onStage?: (stage: string) => void;
+    onProgress?: (progress: {
+        attemptCount: number;
+    }) => void;
+}
 type WorkerDebugState = {
     created: number;
     terminated: number;
@@ -20,7 +28,6 @@ declare global {
 }
 export declare function markDecodePath(path: WorkerDebugState["lastPath"]): void;
 export declare function getDecodeWorkerClient(): DecodeWorkerClient;
-/** Test hook: reset singleton between tests. */
 export declare function resetDecodeWorkerClientForTests(): void;
 export declare function disposeDecodeWorkerClient(): void;
 export declare class DecodeWorkerClient {
@@ -31,14 +38,11 @@ export declare class DecodeWorkerClient {
     private seq;
     constructor(workerFactory?: DecodeWorkerFactory);
     private ensureWorker;
-    private timingFor;
-    private noteFirstMessage;
     private handleMessage;
     private handleWorkerError;
     private finish;
     private restartWorker;
-    decode(buffer: PixelBuffer, options?: DecodePipelineOptions): Promise<DecodeOutcome>;
-    /** Cancel the active job, settle its promise, and recreate the worker lazily. */
+    scan(frame: NormalizedFrame, scenario: ScenarioDefinition, options?: WorkerScanOptions): Promise<ScanOutcome>;
     cancel(): void;
     dispose(): void;
 }

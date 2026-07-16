@@ -5,19 +5,25 @@
 - SDK package version: `2.0.0-alpha.1`
 - Scenario schema: `2.0`
 - Benchmark report schema: `2.0`
-- Engine metadata uses the underlying engine version (`jsqr` 1.4.0, ZXing JavaScript 0.21.3).
+- Engine metadata comes from each registered plugin instance; core contains no decoder version map.
 
 Alpha APIs may change. Before v2 stable, a breaking public change increments the alpha/preview release and receives a migration note. After stable, semantic versioning applies; supported deprecated APIs receive at least one minor-release migration window unless a security fix requires removal.
+
+## Authoritative execution API
+
+`CaptureRouter.scan(NormalizedFrame)` is the low-level execution entry point. `EngineRegistry`, `OperatorRegistry`, `ValidatorRegistry`, and `ScenarioCompiler` are public composition APIs. Applications normally use the browser or Node composition roots; advanced integrations can register a conforming engine or replace an operator without editing Router.
+
+A frame declares `borrowed`, `owned`, or `transferred` ownership. Router releases non-borrowed frames exactly once, including validation, concurrency, cancellation, timeout, engine failure, and internal-error paths. Borrowed buffers remain caller-owned.
 
 ## Lifecycle
 
 ```text
-idle → initialized → running → stopped → running
-                    ↘ error
-any non-disposed state → disposed
+idle -> initialized -> running -> stopped -> running
+                       \-> error
+any non-disposed state -> disposed
 ```
 
-`cancel()`, `stop()`, and `dispose()` are idempotent. Calling `scan()` before start returns `session_not_running`; using a disposed core session throws `SdkException` containing a typed `SdkError`. The default concurrent policy is `replace`; `reject` returns `concurrent_call_rejected`.
+`cancel()` and `stop()` are idempotent. `dispose()` is asynchronous and idempotent; an owned Router waits for engine disposal before its promise resolves. Calling `scan()` before start returns `session_not_running`; using a disposed core session throws `SdkException` containing a typed `SdkError`. The default concurrent policy is `replace`; `reject` returns `concurrent_call_rejected`. Configuration and source changes cancel active work and clear stream duplicate state.
 
 ## Error taxonomy
 
@@ -34,10 +40,12 @@ Public consumers switch on `SdkError.code`, never message text:
 
 ## Result model
 
-`ScanSuccess.results` is a non-empty tuple and `primary` is its first item. `rawText` always remains available. `rawBytes` contains decoder-provided bytes for the migrated image pipeline when requested by the scenario; text-only camera callbacks omit it. Corners, orientation, symbology identifiers, track IDs, and quality remain optional because engines do not provide all of them.
+`ScanSuccess.results` is a non-empty tuple and `primary` is its first item. `rawText` always remains available. `rawBytes` contains only decoder-provided bytes when requested by the scenario. Upload, Worker, main-thread, and sampled camera frames all use the same result construction path. Corners, orientation, symbology identifiers, track IDs, and quality remain optional because engines do not provide all of them.
 
-`heuristicQuality` is intentionally named and includes a definition string. The default QR pipeline does not currently emit it; Scanly does not fabricate statistical confidence.
+When `output.includeAttempts` is enabled, `attempts` contains a bounded, payload-free public record. Debug traces are stage-only, bounded to 256 events, and details are truncated; neither traces nor attempts contain decoded text or pixels.
+
+`heuristicQuality` is intentionally named and includes a definition string. The default QR pipeline does not emit it, and scenarios that request a minimum are rejected. Scanly does not fabricate statistical confidence.
 
 ## Supported capability versus vocabulary
 
-The scenario format union reserves identifiers for future formats, but installed default engines report and test only `qr_code` (QR Code Model 2). A scenario without QR returns `unsupported_format`. Capability metadata, documentation, and tests must change before any other format is claimed.
+The scenario format union reserves identifiers for future formats, but installed default engines report and test only `qr_code` (QR Code Model 2). A scenario requesting uncovered formats returns `unsupported_format` during compilation. Capability metadata, documentation, and tests must change before any other format is claimed.

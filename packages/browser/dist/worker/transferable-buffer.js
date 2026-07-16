@@ -1,20 +1,24 @@
-export function toTransferable(buffer) {
-    const backing = buffer.data.buffer;
-    const transferable = backing instanceof ArrayBuffer &&
-        buffer.data.byteOffset === 0 &&
-        buffer.data.byteLength === backing.byteLength
+export function toTransferableFrame(frame) {
+    const backing = frame.data.buffer;
+    const transferable = backing instanceof ArrayBuffer && frame.data.byteOffset === 0 && frame.data.byteLength === backing.byteLength
         ? backing
-        : buffer.data.slice().buffer;
+        : frame.data.slice().buffer;
     return {
-        serialized: { width: buffer.width, height: buffer.height, buffer: transferable },
+        serialized: {
+            id: frame.id,
+            timestampMs: frame.timestampMs,
+            width: frame.width,
+            height: frame.height,
+            rowStride: frame.rowStride,
+            pixelFormat: frame.pixelFormat,
+            orientation: frame.orientation,
+            sourceType: frame.sourceType,
+            buffer: transferable,
+        },
         transfer: [transferable],
     };
 }
-export function fromTransferable(serialized) {
-    return {
-        width: serialized.width,
-        height: serialized.height,
-        data: new Uint8ClampedArray(serialized.buffer),
-    };
+export function fromTransferableFrame(frame) {
+    return { ...frame, data: new Uint8ClampedArray(frame.buffer), ownership: "transferred" };
 }
 //# sourceMappingURL=transferable-buffer.js.map

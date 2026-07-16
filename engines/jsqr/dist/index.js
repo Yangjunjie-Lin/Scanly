@@ -1,8 +1,8 @@
-import { decodeWithJsQR } from "@scanly/core/qr";
+import jsQR from "jsqr";
 export class JsQrEngine {
     id = "jsqr";
     version = "1.4.0";
-    capabilities = { formats: ["qr_code"], supportsMultiple: false, returnsRawBytes: true, returnsCornerPoints: false, threadSafe: true };
+    capabilities = { formats: ["qr_code"], supportsMultiple: false, returnsRawBytes: true, returnsCornerPoints: true, threadSafe: true };
     async decode(frame, options) {
         const started = Date.now();
         if (options.signal?.aborted)
@@ -12,9 +12,22 @@ export class JsQrEngine {
         if (frame.pixelFormat !== "rgba8888" || frame.rowStride !== frame.width * 4)
             return { ok: false, category: "invalid-input", message: "jsQR adapter requires tightly packed RGBA8888 input.", elapsedMs: Date.now() - started };
         const data = frame.data instanceof Uint8ClampedArray ? frame.data : new Uint8ClampedArray(frame.data.buffer, frame.data.byteOffset, frame.data.byteLength);
-        const decoded = decodeWithJsQR({ data, width: frame.width, height: frame.height });
+        let decoded = null;
+        try {
+            decoded = jsQR(data, frame.width, frame.height, { inversionAttempts: "attemptBoth" });
+        }
+        catch { /* hostile input is a typed miss */ }
         const elapsedMs = Date.now() - started;
-        return decoded ? { ok: true, results: [{ text: decoded.payload, rawBytes: decoded.rawBytes, format: "qr_code", elapsedMs }] } : { ok: false, category: "not-found", message: "No QR code found.", elapsedMs };
+        if (!decoded?.data)
+            return { ok: false, category: "not-found", message: "No QR code found.", elapsedMs };
+        const { topLeftCorner, topRightCorner, bottomRightCorner, bottomLeftCorner } = decoded.location;
+        return { ok: true, results: [{
+                    text: decoded.data,
+                    rawBytes: Uint8Array.from(decoded.binaryData),
+                    format: "qr_code",
+                    cornerPoints: [topLeftCorner, topRightCorner, bottomRightCorner, bottomLeftCorner],
+                    elapsedMs,
+                }] };
     }
 }
 //# sourceMappingURL=index.js.map

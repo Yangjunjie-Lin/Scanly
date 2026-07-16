@@ -3,7 +3,7 @@ import type { NormalizedFrame } from "./frame.js";
 import type { CornerPoint } from "./result.js";
 
 export interface EngineCapabilities {
-  formats: BarcodeFormat[];
+  formats: readonly BarcodeFormat[];
   supportsMultiple: boolean;
   returnsRawBytes: boolean;
   returnsCornerPoints: boolean;
@@ -22,7 +22,7 @@ export interface EngineDecodeResult {
 export type EngineOutcome =
   | { ok: true; results: [EngineDecodeResult, ...EngineDecodeResult[]] }
   | { ok: false; category: EngineFailureCategory; message: string; elapsedMs: number };
-export interface EngineDecodeOptions { formats: BarcodeFormat[]; findMultiple: boolean; signal?: AbortSignal }
+export interface EngineDecodeOptions { formats: readonly BarcodeFormat[]; findMultiple: boolean; signal?: AbortSignal }
 export interface DecoderEngine {
   readonly id: string;
   readonly version: string;
@@ -30,4 +30,19 @@ export interface DecoderEngine {
   initialize?(): Promise<void>;
   decode(frame: NormalizedFrame, options: EngineDecodeOptions): Promise<EngineOutcome>;
   dispose?(): void | Promise<void>;
+}
+
+export interface EngineRegistrationOptions {
+  /** Duplicate ids are rejected unless replacement is explicit. */
+  replace?: boolean;
+}
+
+export interface EngineRegistryContract {
+  register(engine: DecoderEngine, options?: EngineRegistrationOptions): void;
+  unregister(id: string): void;
+  get(id: string): DecoderEngine | undefined;
+  list(): readonly DecoderEngine[];
+  resolve(formats: readonly BarcodeFormat[]): readonly DecoderEngine[];
+  initializeAll(): Promise<void>;
+  disposeAll(): Promise<void>;
 }

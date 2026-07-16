@@ -1,10 +1,12 @@
-import type { DecodeOutcome, PipelineConfig } from "@scanly/core/qr";
-import type { SerializedPixelBuffer } from "./transferable-buffer.js";
+import { type ScanOutcome } from "@scanly/core";
+import { type ScenarioDefinition } from "@scanly/scenario-schema";
+import { type SerializedNormalizedFrame } from "./transferable-buffer.js";
 export type WorkerRequest = {
-    type: "decode";
+    type: "scan";
     jobId: string;
-    pixels: SerializedPixelBuffer;
-    config?: Partial<PipelineConfig>;
+    frame: SerializedNormalizedFrame;
+    scenario: ScenarioDefinition;
+    progress: boolean;
 } | {
     type: "cancel";
     jobId: string;
@@ -20,7 +22,7 @@ export type WorkerResponse = {
 } | {
     type: "result";
     jobId: string;
-    outcome: DecodeOutcome;
+    outcome: ScanOutcome;
 } | {
     type: "cancelled";
     jobId: string;

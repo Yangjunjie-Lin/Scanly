@@ -1,93 +1,109 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-
-const state = vi.hoisted(() => ({
-  callback: null as null | ((result: { getText(): string } | undefined, error: unknown, controls: { stop(): void }) => void),
-  decode: vi.fn(),
-  list: vi.fn(),
-  stop: vi.fn(),
-}));
-
-vi.mock("@zxing/browser", () => ({
-  BrowserQRCodeReader: class {
-    static listVideoInputDevices = state.list;
-    decodeFromVideoDevice(deviceId: string | undefined, video: HTMLVideoElement, callback: typeof state.callback) {
-      state.callback = callback;
-      return state.decode(deviceId, video, callback);
-    }
-  },
-}));
-
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { CaptureRouter, type NormalizedFrame, type ScanOutcome } from "@scanly/core";
 import { BrowserCameraSource } from "../../packages/browser/src/camera-source";
 
-class FakeMediaStream {
-  constructor(private readonly tracks: Array<{ stop(): void }>) {}
-  getTracks() { return this.tracks; }
-  getVideoTracks() { return this.tracks; }
+function success(frameId: string): ScanOutcome {
+  const result = { format: "qr_code" as const, rawText: "CAMERA", engine: { id: "fake", version: "1" }, preprocessingPath: [], frameId, structuredPayload: null, validation: { valid: true, validatorIds: [], messages: [] }, warnings: [], timing: { totalMs: 1 } };
+  return { ok: true, results: [result], primary: result, frameId, scenarioId: "balanced", attemptCount: 1, timing: { totalMs: 1 } };
 }
 
-afterEach(() => {
-  vi.clearAllMocks();
-  state.callback = null;
-  vi.unstubAllGlobals();
+class TestRouter extends CaptureRouter {
+  readonly frames: NormalizedFrame[] = [];
+  override async scan(frame: NormalizedFrame): Promise<ScanOutcome> { this.frames.push(frame); return success(frame.id); }
+  override updateScenario(): void {}
+}
+
+class FakeTrack {
+  stop = vi.fn();
+  applyConstraints = vi.fn().mockResolvedValue(undefined);
+  addEventListener = vi.fn();
+  removeEventListener = vi.fn();
+  getCapabilities() { return { torch: true, zoom: { min: 1, max: 4 } }; }
+  getSettings() { return { zoom: 2, deviceId: "rear", facingMode: "environment" }; }
+}
+class FakeMediaStream {
+  constructor(readonly track = new FakeTrack()) {}
+  getTracks() { return [this.track]; }
+  getVideoTracks() { return [this.track]; }
+}
+
+const listeners = new Map<string, Set<() => void>>();
+const context = { drawImage: vi.fn(), getImageData: vi.fn(() => ({ data: new Uint8ClampedArray(16), width: 2, height: 2 })) };
+
+beforeEach(() => {
+  vi.useFakeTimers();
+  listeners.clear();
+  vi.stubGlobal("MediaStream", FakeMediaStream);
+  vi.stubGlobal("screen", { orientation: { angle: 0 } });
+  vi.stubGlobal("document", {
+    visibilityState: "visible",
+    createElement: () => ({ width: 0, height: 0, getContext: () => context }),
+    addEventListener: (name: string, handler: () => void) => { const set = listeners.get(name) ?? new Set(); set.add(handler); listeners.set(name, set); },
+    removeEventListener: (name: string, handler: () => void) => listeners.get(name)?.delete(handler),
+  });
+  vi.stubGlobal("window", {
+    addEventListener: (name: string, handler: () => void) => { const set = listeners.get(name) ?? new Set(); set.add(handler); listeners.set(name, set); },
+    removeEventListener: (name: string, handler: () => void) => listeners.get(name)?.delete(handler),
+  });
 });
 
-describe("BrowserCameraSource abstraction", () => {
-  it("lists devices, reports a result, suppresses immediate duplicates, and cleans tracks", async () => {
-    vi.stubGlobal("MediaStream", FakeMediaStream);
-    state.list.mockResolvedValue([{ deviceId: "rear" }]);
-    expect(await BrowserCameraSource.listDevices()).toHaveLength(1);
-    const trackStop = vi.fn();
-    const video = { srcObject: new FakeMediaStream([{ stop: trackStop }]) } as unknown as HTMLVideoElement;
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
+
+function installMedia(stream = new FakeMediaStream()) {
+  const getUserMedia = vi.fn().mockResolvedValue(stream);
+  vi.stubGlobal("navigator", { mediaDevices: { getUserMedia, enumerateDevices: vi.fn().mockResolvedValue([{ kind: "videoinput", deviceId: "rear" }, { kind: "audioinput", deviceId: "mic" }]) } });
+  return { stream, getUserMedia };
+}
+
+function video() { return { srcObject: null, videoWidth: 2, videoHeight: 2, play: vi.fn().mockResolvedValue(undefined) } as unknown as HTMLVideoElement; }
+
+describe("Router camera source", () => {
+  it("samples normalized frames, auto-stops, and removes every listener/track", async () => {
+    const { stream } = installMedia();
+    const router = new TestRouter();
+    const source = new BrowserCameraSource({ router });
+    const element = video();
     const results = vi.fn();
-    const states: string[] = [];
-    state.decode.mockResolvedValue({ stop: state.stop });
-    const source = new BrowserCameraSource();
-    await source.start(video, { stopAfterResult: false, onResult: results, onStateChange: (next) => states.push(next) });
-    state.callback?.({ getText: () => "CAMERA_RESULT" }, undefined, { stop: state.stop });
-    state.callback?.({ getText: () => "CAMERA_RESULT" }, undefined, { stop: state.stop });
+    await source.start(element, { onResult: results, stopAfterResult: true, frameCadenceMs: 50 });
+    await vi.advanceTimersByTimeAsync(1);
+    expect(router.frames[0]).toMatchObject({ sourceType: "camera", pixelFormat: "rgba8888", ownership: "owned" });
     expect(results).toHaveBeenCalledOnce();
-    expect(results.mock.calls[0][0].ok).toBe(true);
-    expect(states).toContain("running");
+    expect(stream.track.stop).toHaveBeenCalledOnce();
+    expect(element.srcObject).toBeNull();
+    expect([...listeners.values()].every((set) => set.size === 0)).toBe(true);
     source.stop();
-    expect(trackStop).toHaveBeenCalled();
+    expect(results).toHaveBeenCalledOnce();
   });
 
-  it("maps permission failures and stops the partial source", async () => {
-    vi.stubGlobal("MediaStream", FakeMediaStream);
-    const failure = new Error("NotAllowedError: Permission denied");
-    state.decode.mockRejectedValue(failure);
-    const onError = vi.fn();
-    const source = new BrowserCameraSource();
-    await expect(source.start({ srcObject: null } as HTMLVideoElement, { onResult: vi.fn(), onError })).rejects.toBe(failure);
-    expect(onError.mock.calls[0][0].error.code).toBe("camera_permission_denied");
+  it("page-hide cleanup is authoritative and idempotent", async () => {
+    const { stream } = installMedia();
+    const source = new BrowserCameraSource({ router: new TestRouter() });
+    await source.start(video(), { onResult: vi.fn(), stopAfterResult: false });
+    Object.assign(document, { visibilityState: "hidden" });
+    for (const handler of [...(listeners.get("visibilitychange") ?? [])]) handler();
+    source.stop();
+    expect(stream.track.stop).toHaveBeenCalledOnce();
+    expect([...listeners.values()].every((set) => set.size === 0)).toBe(true);
   });
 
-  it("detects and applies torch/zoom capabilities and switches devices", async () => {
-    vi.stubGlobal("MediaStream", FakeMediaStream);
-    const applyConstraints = vi.fn().mockResolvedValue(undefined);
-    const track = { stop: vi.fn(), getCapabilities: () => ({ torch: true, zoom: { min: 1, max: 4 } }), getSettings: () => ({ zoom: 2 }), applyConstraints };
-    const video = { srcObject: new FakeMediaStream([track]) } as unknown as HTMLVideoElement;
-    state.decode.mockResolvedValue({ stop: state.stop });
-    const source = new BrowserCameraSource();
-    await source.start(video, { deviceId: "one", onResult: vi.fn() });
+  it("reports and applies torch/zoom capabilities", async () => {
+    const { stream } = installMedia();
+    const source = new BrowserCameraSource({ router: new TestRouter() });
+    await source.start(video(), { onResult: vi.fn(), stopAfterResult: false });
     expect(source.getCapabilities()).toEqual({ torch: true, minZoom: 1, maxZoom: 4, currentZoom: 2 });
     await source.setTorch(true);
     await source.setZoom(3);
-    expect(applyConstraints).toHaveBeenCalledTimes(2);
-    video.srcObject = new FakeMediaStream([track]) as unknown as MediaStream;
-    await source.switchDevice("two");
-    expect(state.decode).toHaveBeenLastCalledWith("two", video, expect.any(Function));
-    source.dispose();
+    expect(stream.track.applyConstraints).toHaveBeenCalledTimes(2);
+    await expect(source.setZoom(5)).rejects.toThrow(/between/);
+    source.stop();
   });
 
-  it("rejects unsupported or out-of-range capabilities", async () => {
-    vi.stubGlobal("MediaStream", FakeMediaStream);
-    const track = { stop: vi.fn(), getCapabilities: () => ({}), getSettings: () => ({}), applyConstraints: vi.fn() };
-    const video = { srcObject: new FakeMediaStream([track]) } as unknown as HTMLVideoElement;
-    state.decode.mockResolvedValue({ stop: state.stop });
-    const source = new BrowserCameraSource();
-    await source.start(video, { onResult: vi.fn() });
-    await expect(source.setTorch(true)).rejects.toThrow(/not supported/);
-    await expect(source.setZoom(2)).rejects.toThrow(/not supported/);
+  it("maps permission failures and leaves no partial source", async () => {
+    vi.stubGlobal("navigator", { mediaDevices: { getUserMedia: vi.fn().mockRejectedValue(new Error("NotAllowedError: Permission denied")), enumerateDevices: vi.fn() } });
+    const onError = vi.fn();
+    const source = new BrowserCameraSource({ router: new TestRouter() });
+    await expect(source.start(video(), { onResult: vi.fn(), onError })).rejects.toThrow(/NotAllowedError/);
+    expect(onError.mock.calls[0][0].error.code).toBe("camera_permission_denied");
+    expect([...listeners.values()].every((set) => set.size === 0)).toBe(true);
   });
 });

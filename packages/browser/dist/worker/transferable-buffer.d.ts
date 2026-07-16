@@ -1,13 +1,18 @@
-import type { PixelBuffer } from "@scanly/core/qr";
-export interface SerializedPixelBuffer {
+import type { NormalizedFrame } from "@scanly/core";
+export interface SerializedNormalizedFrame {
+    id: string;
+    timestampMs: number;
     width: number;
     height: number;
-    /** Detached ArrayBuffer transferred to worker. */
+    rowStride: number;
+    pixelFormat: NormalizedFrame["pixelFormat"];
+    orientation: NormalizedFrame["orientation"];
+    sourceType: NormalizedFrame["sourceType"];
     buffer: ArrayBuffer;
 }
-export declare function toTransferable(buffer: PixelBuffer): {
-    serialized: SerializedPixelBuffer;
+export declare function toTransferableFrame(frame: NormalizedFrame): {
+    serialized: SerializedNormalizedFrame;
     transfer: Transferable[];
 };
-export declare function fromTransferable(serialized: SerializedPixelBuffer): PixelBuffer;
+export declare function fromTransferableFrame(frame: SerializedNormalizedFrame): NormalizedFrame;
 //# sourceMappingURL=transferable-buffer.d.ts.map

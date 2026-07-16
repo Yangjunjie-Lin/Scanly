@@ -20,7 +20,7 @@ export const DEFAULT_PIPELINE_CONFIG = {
         "threshold-115",
         "threshold-165",
     ],
-    decoders: { jsqr: true, zxing: true },
+    decoders: { order: [], execution: "sequential" },
     stallCandidateLimit: 12,
     failFastAfterAttempts: 48,
     enableLocalization: true,
@@ -44,6 +44,10 @@ export function validatePipelineConfig(config) {
         issues.push("rotations must not be empty.");
     if (config.preprocessOrder.length === 0)
         issues.push("preprocessOrder must not be empty.");
+    if (!Array.isArray(config.decoders.order) || config.decoders.order.length === 0)
+        issues.push("decoders.order must contain at least one registered engine id.");
+    if (config.decoders.execution !== "sequential" && config.decoders.execution !== "parallel")
+        issues.push("decoders.execution must be sequential or parallel.");
     return issues;
 }
 //# sourceMappingURL=types.js.map

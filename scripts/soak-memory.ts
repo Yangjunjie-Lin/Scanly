@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-import { decodePixelBuffer } from "@scanly/core/qr";
-import { loadPixelBufferFromPath } from "@scanly/core/node";
+import { decodePixelBufferWithNodeEngines as decodePixelBuffer } from "@scanly/node";
+import { loadPixelBufferFromPath } from "@scanly/node";
 
 const root = path.resolve(__dirname, "..");
 const argument = process.argv.find((item) => item.startsWith("--iterations="));
@@ -14,7 +14,7 @@ async function main(): Promise<void> {
   const before = process.memoryUsage();
   const started = Date.now();
   for (let index = 0; index < iterations; index++) {
-    const outcome = await decodePixelBuffer(pixels, { config: { findMultiple: false, maxCandidates: 2, maxAttempts: 18, decoders: { jsqr: true, zxing: false } } });
+    const outcome = await decodePixelBuffer(pixels, { config: { findMultiple: false, maxCandidates: 2, maxAttempts: 18, decoders: { order: ["jsqr"], execution: "sequential" } } });
     if (!outcome.ok || outcome.primary.payload !== "SCANLY_GAMMA_01") throw new Error(`Soak decode failed at iteration ${index}.`);
   }
   global.gc?.();

@@ -1,10 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
-import { decodePixelBuffer, decodeWithJsQR, decodeWithZXing, type PixelBuffer } from "@scanly/core/qr";
-import { loadPixelBufferFromPath } from "@scanly/core/node";
+import { createRgbaFrame, type CaptureRouter, type DecoderEngine } from "@scanly/core";
+import type { PixelBuffer } from "@scanly/core/qr";
+import { createNodeCaptureRouter, loadPixelBufferFromPath } from "@scanly/node";
+import { JsQrEngine } from "@scanly/engine-jsqr";
+import { ZxingJsEngine } from "@scanly/engine-zxing-js";
 import { getBuiltinScenario } from "@scanly/scenario-schema";
 import { evaluateFixture, type BenchmarkFixture } from "@scanly/benchmark";
-import { scenarioToPipelineConfig } from "@scanly/core";
 
 const root = path.resolve(__dirname, "..");
 const manifest = JSON.parse(fs.readFileSync(path.join(root, "fixtures/manifest.json"), "utf8")) as { fixtures: BenchmarkFixture[] };
@@ -24,18 +26,19 @@ interface ComparisonResult {
 }
 
 async function rawDecode(strategy: "raw-jsqr" | "raw-zxing-js", pixels: PixelBuffer): Promise<{ payloads: string[]; reason: string | null }> {
-  const result = strategy === "raw-jsqr" ? decodeWithJsQR(pixels) : decodeWithZXing(pixels);
-  return { payloads: result?.payload ? [result.payload] : [], reason: result ? null : "no_symbol_found" };
+  const engine: DecoderEngine = strategy === "raw-jsqr" ? new JsQrEngine() : new ZxingJsEngine();
+  const result = await engine.decode(createRgbaFrame(pixels.data, pixels.width, pixels.height), { formats: ["qr_code"], findMultiple: false });
+  return { payloads: result.ok ? result.results.map((item) => item.text) : [], reason: result.ok ? null : "no_symbol_found" };
 }
 
-async function scenarioDecode(strategy: "scanly-fast" | "scanly-balanced" | "scanly-robust", pixels: PixelBuffer): Promise<{ payloads: string[]; reason: string | null }> {
-  const id = strategy.replace("scanly-", "") as "fast" | "balanced" | "robust";
-  const outcome = await decodePixelBuffer(pixels, { config: scenarioToPipelineConfig(getBuiltinScenario(id)) });
-  return { payloads: outcome.ok ? outcome.results.map((result) => result.payload) : [], reason: outcome.ok ? null : outcome.reason };
+async function scenarioDecode(router: CaptureRouter, pixels: PixelBuffer): Promise<{ payloads: string[]; reason: string | null }> {
+  const outcome = await router.scan(createRgbaFrame(pixels.data, pixels.width, pixels.height, { sourceType: "upload" }));
+  return { payloads: outcome.ok ? outcome.results.map((result) => result.rawText) : [], reason: outcome.ok ? null : outcome.error.code };
 }
 
 async function main(): Promise<void> {
   const strategies: StrategyId[] = ["raw-jsqr", "raw-zxing-js", "scanly-fast", "scanly-balanced", "scanly-robust"];
+  const routers = Object.fromEntries((["fast", "balanced", "robust"] as const).map((id) => [`scanly-${id}`, createNodeCaptureRouter({ scenario: getBuiltinScenario(id) })])) as Record<"scanly-fast" | "scanly-balanced" | "scanly-robust", CaptureRouter>;
   const results: ComparisonResult[] = [];
   for (const fixture of manifest.fixtures) {
     const pixels = await loadPixelBufferFromPath(path.join(root, fixture.file));
@@ -43,7 +46,7 @@ async function main(): Promise<void> {
       const started = Date.now();
       const decoded = strategy.startsWith("raw-")
         ? await rawDecode(strategy as "raw-jsqr" | "raw-zxing-js", pixels)
-        : await scenarioDecode(strategy as "scanly-fast" | "scanly-balanced" | "scanly-robust", pixels);
+        : await scenarioDecode(routers[strategy as keyof typeof routers], pixels);
       const evaluation = evaluateFixture(fixture, decoded.payloads, decoded.payloads.length > 0);
       results.push({
         fixtureId: fixture.id,
@@ -79,6 +82,7 @@ async function main(): Promise<void> {
   await fs.promises.writeFile(output, JSON.stringify(report, null, 2));
   console.log(JSON.stringify(summaries, null, 2));
   console.log(`Wrote ${output}`);
+  await Promise.all(Object.values(routers).map((router) => router.dispose()));
 }
 
 main().catch((error) => { console.error(error); process.exit(1); });

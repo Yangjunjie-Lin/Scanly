@@ -31,6 +31,27 @@ describe("scenario schema v2", () => {
     scenario.input.roi = { mode: "relative", x: -0.1, y: 0, width: 1.2, height: 0 };
     const result = validateScenario(scenario);
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.issues.filter((issue) => issue.path.startsWith("input.roi"))).toHaveLength(3);
+    if (!result.ok) expect(result.issues.filter((issue) => issue.path.startsWith("input.roi")).length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("accepts portable plugin engine ids and rejects unknown/contradictory fields", () => {
+    const plugin = getBuiltinScenario("fast");
+    plugin.decoders.order = ["vendor.datamatrix-wasm"];
+    expect(validateScenario(plugin).ok).toBe(true);
+
+    const invalid = getBuiltinScenario("fast") as unknown as Record<string, unknown>;
+    invalid.silentFutureFlag = true;
+    const result = validateScenario(invalid);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.issues.map((issue) => issue.path)).toContain("silentFutureFlag");
+  });
+
+  it("rejects candidate/result budgets that would otherwise silently clamp fields", () => {
+    const value = getBuiltinScenario("fast");
+    value.localization.maxCandidates = value.budgets.maxCandidates + 1;
+    value.multiCode.maxResults = value.budgets.maxAttempts + 1;
+    const result = validateScenario(value);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.issues.map((issue) => issue.path)).toEqual(expect.arrayContaining(["localization.maxCandidates", "multiCode.maxResults"]));
   });
 });

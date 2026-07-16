@@ -1,6 +1,14 @@
-import { BrowserQRCodeReader, type IScannerControls } from "@zxing/browser";
-import { createExternalTextOutcome, sdkError, type ScanFailure, type ScanOutcome } from "@scanly/core";
+import {
+  CaptureSession,
+  DuplicateSuppressionPolicy,
+  createRgbaFrame,
+  sdkError,
+  type CaptureRouter,
+  type ScanFailure,
+  type ScanOutcome,
+} from "@scanly/core";
 import { getBuiltinScenario, type ScenarioDefinition } from "@scanly/scenario-schema";
+import { createBrowserCaptureRouter } from "./runtime.js";
 
 export interface CameraCapabilities { torch: boolean; minZoom?: number; maxZoom?: number; currentZoom?: number }
 export interface CameraStartOptions {
@@ -9,67 +17,90 @@ export interface CameraStartOptions {
   stopAfterResult?: boolean;
   duplicateWindowMs?: number;
   stopWhenPageHidden?: boolean;
+  frameCadenceMs?: number;
+  stableResultCount?: number;
   onResult(outcome: ScanOutcome): void;
   onError?(outcome: ScanFailure): void;
   onStateChange?(state: "starting" | "running" | "stopped"): void;
   onOrientationChange?(): void;
 }
 
+export interface BrowserCameraSourceOptions { router?: CaptureRouter; disposeRouter?: boolean }
+
 function cameraFailure(frameId: string, scenarioId: string, error: unknown): ScanFailure {
-  const message = error instanceof Error ? error.message : String(error);
+  const message = (error instanceof Error ? error.message : String(error)).slice(0, 2_048);
   const code = /NotAllowedError|permission denied/i.test(message) ? "camera_permission_denied" : /NotFoundError|DevicesNotFound|Requested device not found|no.*device/i.test(message) ? "camera_unavailable" : "source_disconnected";
   return { ok: false, error: sdkError(code, message), frameId, scenarioId, attemptCount: 0, timing: { totalMs: 0 } };
 }
 
+function orientation(): 0 | 90 | 180 | 270 {
+  const angle = typeof screen !== "undefined" ? screen.orientation?.angle ?? 0 : 0;
+  const normalized = ((angle % 360) + 360) % 360;
+  return normalized === 90 || normalized === 180 || normalized === 270 ? normalized : 0;
+}
+
+/** Default SDK v2 camera path: sampled RGBA frames -> CaptureSession -> CaptureRouter. */
 export class BrowserCameraSource {
-  private readonly reader = new BrowserQRCodeReader();
-  private controls: IScannerControls | null = null;
+  private readonly session: CaptureSession;
   private video: HTMLVideoElement | null = null;
   private options: CameraStartOptions | null = null;
-  private startedAt = 0;
+  private canvas: HTMLCanvasElement | null = null;
+  private timer: ReturnType<typeof setTimeout> | null = null;
+  private activeFrame = false;
   private sequence = 0;
-  private readonly recent = new Map<string, number>();
+  private generation = 0;
   private visibilityHandler: (() => void) | null = null;
   private orientationHandler: (() => void) | null = null;
+  private trackEndedHandler: (() => void) | null = null;
+  private duplicatePolicy = new DuplicateSuppressionPolicy(1_500);
+  private stableKey: string | null = null;
+  private stableCount = 0;
+  private stopped = true;
 
-  static listDevices(): Promise<MediaDeviceInfo[]> { return BrowserQRCodeReader.listVideoInputDevices(); }
+  constructor(options: BrowserCameraSourceOptions = {}) {
+    const router = options.router ?? createBrowserCaptureRouter();
+    this.session = new CaptureSession({ router, disposeRouter: options.disposeRouter ?? !options.router, concurrentCallPolicy: "reject", applyDuplicateSuppression: false });
+  }
+
+  static async listDevices(): Promise<MediaDeviceInfo[]> {
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.enumerateDevices) return [];
+    return (await navigator.mediaDevices.enumerateDevices()).filter((device) => device.kind === "videoinput");
+  }
 
   async start(video: HTMLVideoElement, options: CameraStartOptions): Promise<void> {
     this.stop();
+    const scenario = options.scenario ?? getBuiltinScenario("balanced");
+    this.generation += 1;
+    const generation = this.generation;
+    this.stopped = false;
     this.video = video;
     this.options = options;
-    this.startedAt = Date.now();
+    this.duplicatePolicy = new DuplicateSuppressionPolicy(options.duplicateWindowMs ?? (scenario.duplicateSuppression.enabled ? scenario.duplicateSuppression.windowMs : 0));
     options.onStateChange?.("starting");
-    if (options.stopWhenPageHidden !== false && typeof document !== "undefined") {
-      this.visibilityHandler = () => { if (document.visibilityState === "hidden") this.stop(); };
-      document.addEventListener("visibilitychange", this.visibilityHandler);
-    }
-    if (typeof window !== "undefined") {
-      this.orientationHandler = () => this.options?.onOrientationChange?.();
-      window.addEventListener("orientationchange", this.orientationHandler);
-    }
     try {
-      this.controls = await this.reader.decodeFromVideoDevice(options.deviceId, video, (result, error, controls) => {
-        if (result) {
-          const text = result.getText();
-          const now = Date.now();
-          const last = this.recent.get(text) ?? 0;
-          if (now - last >= (options.duplicateWindowMs ?? 1_500)) {
-            this.recent.set(text, now);
-            const scenario = options.scenario ?? getBuiltinScenario("balanced");
-            options.onResult(createExternalTextOutcome(`camera-frame-${++this.sequence}-${now}`, scenario, text, { id: "zxing-browser", version: "0.1.5" }, now - this.startedAt));
-          }
-          if (options.stopAfterResult !== false) { controls.stop(); this.cleanupStream(); this.controls = null; options.onStateChange?.("stopped"); }
-        } else if (error && /NotAllowedError|NotFoundError|DevicesNotFound|Requested device not found/i.test(String(error))) {
-          const failure = cameraFailure(`camera-frame-${++this.sequence}-${Date.now()}`, (options.scenario ?? getBuiltinScenario("balanced")).id, error);
-          options.onError?.(failure);
-        }
+      if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) throw new Error("Camera capture is not supported by this browser.");
+      this.session.updateConfiguration(scenario);
+      this.session.start("camera");
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: options.deviceId ? { deviceId: { exact: options.deviceId } } : { facingMode: { ideal: "environment" } },
+        audio: false,
       });
+      if (generation !== this.generation || this.stopped) { for (const track of stream.getTracks()) track.stop(); return; }
+      video.srcObject = stream;
+      await video.play();
+      this.canvas = document.createElement("canvas");
+      this.installListeners();
+      const track = stream.getVideoTracks()[0];
+      if (track) {
+        this.trackEndedHandler = () => this.handleSourceError(new Error("Camera track ended."));
+        track.addEventListener?.("ended", this.trackEndedHandler);
+      }
       options.onStateChange?.("running");
+      this.schedule(generation, 0);
     } catch (error) {
-      const failure = cameraFailure(`camera-frame-${++this.sequence}-${Date.now()}`, (options.scenario ?? getBuiltinScenario("balanced")).id, error);
+      const failure = cameraFailure(`camera-frame-${++this.sequence}-${Date.now()}`, scenario.id, error);
       options.onError?.(failure);
-      this.stop();
+      this.internalStop(true);
       throw error;
     }
   }
@@ -102,26 +133,114 @@ export class BrowserCameraSource {
     await track.applyConstraints({ advanced: [{ zoom } as MediaTrackConstraintSet] });
   }
 
-  stop(): void {
-    try { this.controls?.stop(); } catch { /* already stopped */ }
-    this.controls = null;
-    this.cleanupStream();
+  stop(): void { this.internalStop(true); }
+
+  async dispose(): Promise<void> {
+    this.internalStop(true);
+    await this.session.dispose();
+  }
+
+  private schedule(generation: number, delay?: number): void {
+    if (this.stopped || generation !== this.generation) return;
+    const cadence = Math.max(50, Math.min(5_000, this.options?.frameCadenceMs ?? 200));
+    this.timer = setTimeout(() => void this.sample(generation), delay ?? cadence);
+  }
+
+  private async sample(generation: number): Promise<void> {
+    if (this.stopped || generation !== this.generation) return;
+    if (this.activeFrame) { this.schedule(generation); return; }
+    const video = this.video;
+    const canvas = this.canvas;
+    if (!video || !canvas || video.videoWidth < 1 || video.videoHeight < 1) { this.schedule(generation); return; }
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context) { this.handleSourceError(new Error("Canvas 2D frame adapter is unavailable.")); return; }
+    this.activeFrame = true;
+    try {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const image = context.getImageData(0, 0, canvas.width, canvas.height);
+      const track = this.currentTrack();
+      const settings = track?.getSettings?.();
+      const now = Date.now();
+      const frame = createRgbaFrame(image.data, image.width, image.height, {
+        id: `camera-frame-${++this.sequence}-${now}`,
+        timestampMs: now,
+        sourceType: "camera",
+        ownership: "owned",
+        orientation: orientation(),
+        device: { deviceId: settings?.deviceId, facingMode: settings?.facingMode as "user" | "environment" | "left" | "right" | undefined },
+      });
+      const outcome = await this.session.scan(frame);
+      if (this.stopped || generation !== this.generation) return;
+      if (outcome.ok) this.handleResult(outcome);
+      else if (!["no_symbol_found", "timeout", "cancelled"].includes(outcome.error.code)) this.options?.onError?.(outcome);
+    } catch (error) {
+      if (!this.stopped && generation === this.generation) this.handleSourceError(error);
+    } finally {
+      this.activeFrame = false;
+      this.schedule(generation);
+    }
+  }
+
+  private handleResult(outcome: ScanOutcome & { ok: true }): void {
+    const key = outcome.results.map((result) => `${result.format}\u001f${result.rawText}`).sort().join("\u001e");
+    if (key === this.stableKey) this.stableCount += 1;
+    else { this.stableKey = key; this.stableCount = 1; }
+    if (this.stableCount < Math.max(1, Math.min(10, this.options?.stableResultCount ?? 1))) return;
+    const filtered = this.duplicatePolicy.filter(outcome);
+    if (!filtered.ok) return;
+    this.options?.onResult(filtered);
+    if (this.options?.stopAfterResult !== false) this.internalStop(true);
+  }
+
+  private handleSourceError(error: unknown): void {
+    const options = this.options;
+    const scenarioId = (options?.scenario ?? getBuiltinScenario("balanced")).id;
+    options?.onError?.(cameraFailure(`camera-frame-${++this.sequence}-${Date.now()}`, scenarioId, error));
+    this.internalStop(true);
+  }
+
+  private installListeners(): void {
+    if (this.options?.stopWhenPageHidden !== false && typeof document !== "undefined") {
+      this.visibilityHandler = () => { if (document.visibilityState === "hidden") this.internalStop(true); };
+      document.addEventListener("visibilitychange", this.visibilityHandler);
+    }
+    if (typeof window !== "undefined") {
+      this.orientationHandler = () => this.options?.onOrientationChange?.();
+      window.addEventListener("orientationchange", this.orientationHandler);
+    }
+  }
+
+  private internalStop(notify: boolean): void {
+    if (this.stopped && !this.video && !this.options) return;
+    const options = this.options;
+    this.stopped = true;
+    this.generation += 1;
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = null;
+    this.session.stop();
+    const track = this.currentTrack();
+    if (track && this.trackEndedHandler) track.removeEventListener?.("ended", this.trackEndedHandler);
+    this.trackEndedHandler = null;
+    if (this.video?.srcObject instanceof MediaStream) for (const streamTrack of this.video.srcObject.getTracks()) streamTrack.stop();
+    if (this.video) this.video.srcObject = null;
     if (this.visibilityHandler && typeof document !== "undefined") document.removeEventListener("visibilitychange", this.visibilityHandler);
     if (this.orientationHandler && typeof window !== "undefined") window.removeEventListener("orientationchange", this.orientationHandler);
     this.visibilityHandler = null;
     this.orientationHandler = null;
-    this.options?.onStateChange?.("stopped");
+    this.duplicatePolicy.clear();
+    this.stableKey = null;
+    this.stableCount = 0;
+    this.activeFrame = false;
+    if (this.canvas) { this.canvas.width = 0; this.canvas.height = 0; }
+    this.canvas = null;
     this.video = null;
     this.options = null;
-    this.recent.clear();
+    if (notify) options?.onStateChange?.("stopped");
   }
 
-  dispose(): void { this.stop(); }
-  private currentTrack(): MediaStreamTrack | undefined { return typeof MediaStream !== "undefined" && this.video?.srcObject instanceof MediaStream ? this.video.srcObject.getVideoTracks()[0] : undefined; }
-  private cleanupStream(): void {
-    if (typeof MediaStream !== "undefined" && this.video?.srcObject instanceof MediaStream) {
-      for (const track of this.video.srcObject.getTracks()) track.stop();
-      this.video.srcObject = null;
-    }
+  private currentTrack(): MediaStreamTrack | undefined {
+    return typeof MediaStream !== "undefined" && this.video?.srcObject instanceof MediaStream ? this.video.srcObject.getVideoTracks()[0] : undefined;
   }
 }

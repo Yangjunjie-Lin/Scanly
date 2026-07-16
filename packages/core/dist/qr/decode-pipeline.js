@@ -3,8 +3,6 @@ import { dedupeCandidates } from "./candidate-dedupe.js";
 import { generateCandidates } from "./candidate-generation.js";
 import { applyPreprocess } from "./preprocess.js";
 import { rotateBuffer } from "./rotate.js";
-import { decodeWithJsQR } from "./jsqr-decoder.js";
-import { decodeWithZXing } from "./zxing-decoder.js";
 import { dedupeResults, normalizePayload } from "./result-normalizer.js";
 function mergeConfig(partial) {
     return { ...DEFAULT_PIPELINE_CONFIG, ...partial };
@@ -25,12 +23,7 @@ async function cooperativeYield(signal) {
     throwIfAborted(signal);
 }
 function decoderEnabled(config, name) {
-    const d = config.decoders;
-    if (d?.decoderOrder?.length)
-        return d.decoderOrder.includes(name);
-    if (name === "jsqr")
-        return d?.jsqr !== false;
-    return d?.zxing !== false;
+    return config.decoders?.order.includes(name) ?? false;
 }
 function allRequiredFound(payloads, required) {
     if (!required?.length)
@@ -115,11 +108,12 @@ function shouldStopMultiple(ctx) {
         return false;
     if (payloads.length >= config.maxMultipleResults)
         return true;
-    if (payloads.length >= 2 && ctx.candidatesSinceNew >= (config.stallCandidateLimit ?? 8))
-        return true;
     if (payloads.length >= 3)
         return true;
-    if (ctx.candidatesSinceNew >= (config.stallCandidateLimit ?? 8) + 4)
+    const stall = config.stallCandidateLimit ?? 8;
+    if (payloads.length === 2 && ctx.candidatesSinceNew >= stall + 3)
+        return true;
+    if (payloads.length === 1 && ctx.candidatesSinceNew >= stall)
         return true;
     return false;
 }
@@ -145,19 +139,21 @@ function onCandidateDone(ctx, hadNewResult) {
     if (!hadNewResult)
         ctx.candidatesSinceNew += 1;
 }
-function tryJsQR(ctx, candidate, preprocessing, rotation, inversionAttempts = "attemptBoth") {
+async function tryEngine(ctx, engineId, candidate, preprocessing, rotation) {
     throwIfAborted(ctx.signal);
     if (timedOut(ctx.start, ctx.config.timeoutMs))
         return null;
     if (ctx.attempts.length >= ctx.config.maxAttempts)
         return null;
-    if (!decoderEnabled(ctx.config, "jsqr"))
+    if (!decoderEnabled(ctx.config, engineId))
         return null;
     const t0 = Date.now();
     const processed = processedFor(ctx, candidate, preprocessing, rotation);
     const t1 = Date.now();
-    const decoded = decodeWithJsQR(processed, inversionAttempts);
-    ctx.phaseTiming.jsqrMs += Date.now() - t1;
+    const decoded = await ctx.engineExecutor.decode(engineId, processed, { signal: ctx.signal, findMultiple: ctx.config.findMultiple });
+    const engineElapsed = Date.now() - t1;
+    const engineTiming = (ctx.phaseTiming.engineMs ??= {});
+    engineTiming[engineId] = (engineTiming[engineId] ?? 0) + engineElapsed;
     ctx.attempts.push({
         candidateIndex: candidate.candidateIndex,
         candidateScore: candidate.candidateScore,
@@ -166,76 +162,38 @@ function tryJsQR(ctx, candidate, preprocessing, rotation, inversionAttempts = "a
         scale: candidate.scale,
         scaleFactor: candidate.scaleFactor,
         rotation,
-        decoder: "jsqr",
+        decoder: engineId,
         elapsedMs: Date.now() - t0,
-        success: Boolean(decoded?.payload),
-        payload: decoded?.payload,
+        success: decoded.ok && decoded.results.length > 0,
     });
     ctx.onProgress?.({ attemptCount: ctx.attempts.length });
-    if (!decoded?.payload)
+    if (!decoded.ok)
         return null;
-    const payload = normalizePayload(decoded.payload);
-    if (!payload)
-        return null;
-    return pushResult(ctx, {
-        payload,
-        rawBytes: decoded.rawBytes,
-        decoder: "jsqr",
-        preprocessing,
-        candidateIndex: candidate.candidateIndex,
-        scale: candidate.scale,
-        rotation,
-        cropPadding: candidate.cropPadding,
-        attemptIndex: ctx.attempts.length - 1,
-        foundAtMs: Date.now() - ctx.start,
-    });
+    let completed = null;
+    for (const result of decoded.results) {
+        const payload = normalizePayload(result.text);
+        if (!payload)
+            continue;
+        completed = pushResult(ctx, {
+            payload,
+            format: result.format,
+            rawBytes: result.rawBytes,
+            decoder: engineId,
+            engineVersion: ctx.engineExecutor.versions?.[engineId],
+            cornerPoints: result.cornerPoints,
+            symbologyIdentifier: result.symbologyIdentifier,
+            preprocessing,
+            candidateIndex: candidate.candidateIndex,
+            scale: candidate.scale,
+            rotation,
+            cropPadding: candidate.cropPadding,
+            attemptIndex: ctx.attempts.length - 1,
+            foundAtMs: Date.now() - ctx.start,
+        }) ?? completed;
+    }
+    return completed;
 }
-function tryZXing(ctx, candidate, preprocessing) {
-    throwIfAborted(ctx.signal);
-    if (timedOut(ctx.start, ctx.config.timeoutMs))
-        return null;
-    if (ctx.attempts.length >= ctx.config.maxAttempts)
-        return null;
-    if (!decoderEnabled(ctx.config, "zxing"))
-        return null;
-    const t0 = Date.now();
-    const processed = processedFor(ctx, candidate, preprocessing, 0);
-    const t1 = Date.now();
-    const decoded = decodeWithZXing(processed);
-    ctx.phaseTiming.zxingMs += Date.now() - t1;
-    ctx.attempts.push({
-        candidateIndex: candidate.candidateIndex,
-        candidateScore: candidate.candidateScore,
-        cropPadding: candidate.cropPadding,
-        preprocessing,
-        scale: candidate.scale,
-        scaleFactor: candidate.scaleFactor,
-        rotation: 0,
-        decoder: "zxing",
-        elapsedMs: Date.now() - t0,
-        success: Boolean(decoded?.payload),
-        payload: decoded?.payload,
-    });
-    ctx.onProgress?.({ attemptCount: ctx.attempts.length });
-    if (!decoded?.payload)
-        return null;
-    const payload = normalizePayload(decoded.payload);
-    if (!payload)
-        return null;
-    return pushResult(ctx, {
-        payload,
-        rawBytes: decoded.rawBytes,
-        decoder: "zxing",
-        preprocessing,
-        candidateIndex: candidate.candidateIndex,
-        scale: candidate.scale,
-        rotation: 0,
-        cropPadding: candidate.cropPadding,
-        attemptIndex: ctx.attempts.length - 1,
-        foundAtMs: Date.now() - ctx.start,
-    });
-}
-function orderCandidates(candidates, findMultiple) {
+export function orderCandidates(candidates, findMultiple) {
     const earlyFull = candidates.filter((c) => c.cropPadding === "full");
     const splits = candidates.filter((c) => c.candidateIndex >= 100);
     const crops = candidates.filter((c) => c.cropPadding !== "full" && c.candidateIndex < 100);
@@ -252,6 +210,7 @@ export async function decodePixelBuffer(image, options = {}) {
     const attempts = [];
     const found = [];
     const signal = options.signal;
+    const engineExecutor = options.engineExecutor;
     const phaseTiming = {
         candidateGenerationMs: 0,
         jsqrMs: 0,
@@ -281,10 +240,16 @@ export async function decodePixelBuffer(image, options = {}) {
         candidatesSinceNew: 0,
         failFast: false,
         intermediateCache: new AttemptImageCache(config.maxIntermediateAllocations ?? 24, config.maxIntermediateBytes ?? 64 * 1024 * 1024),
+        engineExecutor: engineExecutor,
     };
     try {
         throwIfAborted(signal);
         const configurationIssues = validatePipelineConfig(config);
+        if (!engineExecutor)
+            configurationIssues.push("engineExecutor is required; register decoder plugins and execute through CaptureRouter.");
+        if (engineExecutor && config.decoders.order.some((id) => !engineExecutor.engineIds.includes(id))) {
+            configurationIssues.push("decoder order contains an engine that is not available from engineExecutor.");
+        }
         if (configurationIssues.length) {
             return fail("invalid_configuration", configurationIssues.join(" "));
         }
@@ -299,7 +264,7 @@ export async function decodePixelBuffer(image, options = {}) {
         }
         options.onStage?.("Detecting candidate regions…");
         const cgStart = Date.now();
-        const rawCandidates = generateCandidates(image, {
+        const rawCandidates = options.candidates ?? generateCandidates(image, {
             previewSize: config.previewSize,
             maxCandidates: config.maxCandidates,
             paddings: config.paddings,
@@ -312,6 +277,8 @@ export async function decodePixelBuffer(image, options = {}) {
         const candidates = dedupeCandidates(rawCandidates);
         phaseTiming.candidateGenerationMs = Date.now() - cgStart;
         const ordered = orderCandidates(candidates, config.findMultiple);
+        const primaryEngineId = config.decoders.order[0];
+        const fallbackEngineIds = config.decoders.order.slice(1);
         const cheap = ["original", "contrast", "invert"];
         const deep = config.preprocessOrder.filter((m) => !cheap.includes(m));
         const cheapTargets = config.findMultiple ? ordered : ordered.slice(0, 12);
@@ -336,8 +303,9 @@ export async function decodePixelBuffer(image, options = {}) {
                 ? "Trying full image…"
                 : `Decoding candidate ${Math.max(0, candidate.candidateIndex) + 1}…`);
             const before = found.length;
-            for (const preprocessing of cheap) {
-                const hit = tryJsQR(ctx, candidate, preprocessing, 0, "attemptBoth");
+            const candidateMethods = config.findMultiple && found.length > 0 ? ["original", "contrast"] : cheap;
+            for (const preprocessing of candidateMethods) {
+                const hit = await tryEngine(ctx, primaryEngineId, candidate, preprocessing, 0);
                 if (hit)
                     return hit;
                 if (config.findMultiple && shouldStopMultiple(ctx))
@@ -374,7 +342,7 @@ export async function decodePixelBuffer(image, options = {}) {
                     break;
                 const before = found.length;
                 for (const preprocessing of deep) {
-                    const hit = tryJsQR(ctx, candidate, preprocessing, 0);
+                    const hit = await tryEngine(ctx, primaryEngineId, candidate, preprocessing, 0);
                     if (hit)
                         return hit;
                 }
@@ -392,7 +360,7 @@ export async function decodePixelBuffer(image, options = {}) {
                 if (timedOut(start, config.timeoutMs) || attempts.length >= config.maxAttempts)
                     break;
                 for (const preprocessing of cheap) {
-                    const hit = tryJsQR(ctx, candidate, preprocessing, 0, "attemptBoth");
+                    const hit = await tryEngine(ctx, primaryEngineId, candidate, preprocessing, 0);
                     if (hit)
                         return hit;
                 }
@@ -407,25 +375,27 @@ export async function decodePixelBuffer(image, options = {}) {
                     break;
                 for (const rotation of rotations) {
                     for (const preprocessing of ["original", "contrast", "invert"]) {
-                        const hit = tryJsQR(ctx, candidate, preprocessing, rotation);
+                        const hit = await tryEngine(ctx, primaryEngineId, candidate, preprocessing, rotation);
                         if (hit)
                             return hit;
                     }
                 }
             }
         }
-        // Phase 4 — ZXing fallback
-        if (found.length === 0 && decoderEnabled(config, "zxing")) {
-            options.onStage?.("Backup decoder…");
+        // Phase 4 - registered fallback engines in scenario order.
+        if (found.length === 0 && fallbackEngineIds.length) {
+            options.onStage?.("Backup decoder...");
             const zxTargets = ordered.filter((c) => c.cropPadding === "full").slice(0, 2);
             if (zxTargets.length === 0) {
                 zxTargets.push(...ordered.slice(0, 2));
             }
-            for (const candidate of zxTargets) {
-                for (const preprocessing of ["original", "contrast", "invert"]) {
-                    const hit = tryZXing(ctx, candidate, preprocessing);
-                    if (hit)
-                        return hit;
+            for (const engineId of fallbackEngineIds) {
+                for (const candidate of zxTargets) {
+                    for (const preprocessing of ["original", "contrast", "invert"]) {
+                        const hit = await tryEngine(ctx, engineId, candidate, preprocessing, 0);
+                        if (hit)
+                            return hit;
+                    }
                 }
             }
         }

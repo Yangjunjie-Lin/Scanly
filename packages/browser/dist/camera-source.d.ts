@@ -1,4 +1,4 @@
-import { type ScanFailure, type ScanOutcome } from "@scanly/core";
+import { type CaptureRouter, type ScanFailure, type ScanOutcome } from "@scanly/core";
 import { type ScenarioDefinition } from "@scanly/scenario-schema";
 export interface CameraCapabilities {
     torch: boolean;
@@ -12,21 +12,35 @@ export interface CameraStartOptions {
     stopAfterResult?: boolean;
     duplicateWindowMs?: number;
     stopWhenPageHidden?: boolean;
+    frameCadenceMs?: number;
+    stableResultCount?: number;
     onResult(outcome: ScanOutcome): void;
     onError?(outcome: ScanFailure): void;
     onStateChange?(state: "starting" | "running" | "stopped"): void;
     onOrientationChange?(): void;
 }
+export interface BrowserCameraSourceOptions {
+    router?: CaptureRouter;
+    disposeRouter?: boolean;
+}
+/** Default SDK v2 camera path: sampled RGBA frames -> CaptureSession -> CaptureRouter. */
 export declare class BrowserCameraSource {
-    private readonly reader;
-    private controls;
+    private readonly session;
     private video;
     private options;
-    private startedAt;
+    private canvas;
+    private timer;
+    private activeFrame;
     private sequence;
-    private readonly recent;
+    private generation;
     private visibilityHandler;
     private orientationHandler;
+    private trackEndedHandler;
+    private duplicatePolicy;
+    private stableKey;
+    private stableCount;
+    private stopped;
+    constructor(options?: BrowserCameraSourceOptions);
     static listDevices(): Promise<MediaDeviceInfo[]>;
     start(video: HTMLVideoElement, options: CameraStartOptions): Promise<void>;
     switchDevice(deviceId: string): Promise<void>;
@@ -34,8 +48,13 @@ export declare class BrowserCameraSource {
     setTorch(enabled: boolean): Promise<void>;
     setZoom(zoom: number): Promise<void>;
     stop(): void;
-    dispose(): void;
+    dispose(): Promise<void>;
+    private schedule;
+    private sample;
+    private handleResult;
+    private handleSourceError;
+    private installListeners;
+    private internalStop;
     private currentTrack;
-    private cleanupStream;
 }
 //# sourceMappingURL=camera-source.d.ts.map

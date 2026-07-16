@@ -1,72 +1,23 @@
-import { decodePixelBuffer } from "@scanly/core/qr";
-import { loadPixelBufferFromFile } from "./image-loader.js";
-function canUseWorker() {
-    return typeof window !== "undefined" && typeof Worker !== "undefined";
-}
-async function decodeViaWorker(buffer, options) {
-    const { getDecodeWorkerClient, markDecodePath } = await import("./worker/worker-client.js");
-    markDecodePath("worker");
-    const client = getDecodeWorkerClient();
-    if (options.signal) {
-        const onAbort = () => client.cancel();
-        options.signal.addEventListener("abort", onAbort, { once: true });
-        try {
-            return await client.decode(buffer, options);
-        }
-        finally {
-            options.signal.removeEventListener("abort", onAbort);
-        }
-    }
-    return client.decode(buffer, options);
-}
+import { BrowserCaptureSession } from "./browser-session.js";
+let compatibilitySession = null;
+/**
+ * @deprecated Prefer BrowserCaptureSession. This compatibility wrapper executes
+ * the same CaptureRouter path and no longer owns a separate decode pipeline.
+ */
 export async function decodeUploadedFile(file, options = {}) {
-    try {
-        options.onStage?.("Loading image…");
-        const buffer = await loadPixelBufferFromFile(file);
-        if (canUseWorker() && !options.forceMainThread) {
-            return decodeViaWorker(buffer, options);
-        }
-        if (typeof window !== "undefined") {
-            const { markDecodePath } = await import("./worker/worker-client.js");
-            markDecodePath("main-thread");
-        }
-        return decodePixelBuffer(buffer, options);
+    if (!compatibilitySession) {
+        compatibilitySession = new BrowserCaptureSession({ scenario: options.scenario });
+        compatibilitySession.start();
     }
-    catch (e) {
-        const code = e && typeof e === "object" && "code" in e
-            ? String(e.code)
-            : "unsupported_image";
-        const message = e instanceof Error ? e.message : String(e);
-        const reason = code === "invalid_file" ||
-            code === "unsupported_image" ||
-            code === "empty_image" ||
-            code === "image_too_large" ||
-            code === "worker_error"
-            ? code
-            : "unsupported_image";
-        return {
-            ok: false,
-            reason,
-            message,
-            attempts: [],
-            attemptCount: 0,
-            elapsedMs: 0,
-            cancelled: false,
-        };
+    else if (options.scenario) {
+        compatibilitySession.updateConfiguration(options.scenario);
     }
+    return compatibilitySession.scanFile(file, options);
 }
-/** Cancel any in-flight worker decode (browser upload mode). */
-export async function cancelUploadedDecode() {
-    if (!canUseWorker())
-        return;
-    const { getDecodeWorkerClient } = await import("./worker/worker-client.js");
-    getDecodeWorkerClient().cancel();
-}
-/** Terminate the singleton worker when the upload UI unmounts. */
+export function cancelUploadedDecode() { compatibilitySession?.cancel(); }
 export async function disposeUploadedDecodeWorker() {
-    if (!canUseWorker())
-        return;
-    const { disposeDecodeWorkerClient } = await import("./worker/worker-client.js");
-    disposeDecodeWorkerClient();
+    const session = compatibilitySession;
+    compatibilitySession = null;
+    await session?.dispose();
 }
 //# sourceMappingURL=decode-upload.js.map
