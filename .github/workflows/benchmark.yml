@@ -2,18 +2,13 @@ name: Full Benchmark
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - main
       - architecture/sdk-v2-alpha3-industrial-validation
-    paths:
-      - "packages/**"
-      - "engines/**"
-      - "fixtures/**"
-      - "scenarios/**"
-      - "scripts/**"
-      - "package.json"
-      - "package-lock.json"
 
 permissions:
   contents: read
@@ -22,8 +17,12 @@ jobs:
   prepare:
     name: Prepare
     runs-on: windows-latest
+    outputs:
+      gate-mode: ${{ steps.gate-mode.outputs.mode }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
       - uses: actions/setup-node@v4
         with: { node-version: 24, cache: npm }
       - run: npm ci
@@ -33,6 +32,16 @@ jobs:
         run: git diff --exit-code -- fixtures scenarios
       - name: Verify clean checkout
         run: git status --porcelain --untracked-files=all | Tee-Object -Variable status; if ($status) { throw "prepare checkout is dirty" }
+      - name: Select benchmark gate mode
+        id: gate-mode
+        shell: pwsh
+        run: |
+          $registry = Get-Content benchmark-results/baselines/registry.json -Raw | ConvertFrom-Json
+          $active = $registry.activeBaselines.'node24-win32-x64'
+          $alpha3 = $active.fast -like 'v2-alpha3-r*' -and $active.balanced -like 'v2-alpha3-r*' -and $active.robust -like 'v2-alpha3-r*'
+          $mode = if ($alpha3) { 'active-baseline' } else { 'baseline-candidate' }
+          "mode=$mode" >> $env:GITHUB_OUTPUT
+          "Full Benchmark gate mode: **$mode**" >> $env:GITHUB_STEP_SUMMARY
 
   profile:
     needs: prepare
@@ -54,6 +63,8 @@ jobs:
             report: latest-robust
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
       - uses: actions/setup-node@v4
         with: { node-version: 24, cache: npm }
       - run: npm ci
@@ -62,10 +73,12 @@ jobs:
       - run: git diff --exit-code -- fixtures scenarios
       - name: Verify clean profile checkout
         run: git status --porcelain --untracked-files=all | Tee-Object -Variable status; if ($status) { throw "profile checkout is dirty" }
-      - run: npx tsx scripts/run-benchmark.ts --canonical-candidate --profile=${{ matrix.profile }} --gate --gate-mode=active-baseline --warmup-iterations=1 --measured-iterations=3
+      - run: npx tsx scripts/run-benchmark.ts --canonical-candidate --profile=${{ matrix.profile }} --gate --gate-mode=${{ needs.prepare.outputs.gate-mode }} --warmup-iterations=1 --measured-iterations=3
+      - run: npm run benchmark:summary -- --report=benchmark-results/candidates/${{ matrix.report }}.json
       - uses: actions/upload-artifact@v4
         with:
           name: benchmark-${{ matrix.profile }}
+          retention-days: 21
           if-no-files-found: error
           path: |
             benchmark-results/candidates/${{ matrix.report }}.json
@@ -78,6 +91,8 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
       - uses: actions/setup-node@v4
         with: { node-version: 24, cache: npm }
       - run: npm ci
@@ -87,9 +102,11 @@ jobs:
       - name: Verify clean comparison checkout
         run: git status --porcelain --untracked-files=all | Tee-Object -Variable status; if ($status) { throw "comparison checkout is dirty" }
       - run: npm run benchmark:compare -- --canonical-candidate --warmup-iterations=1 --measured-iterations=3
+      - run: npm run benchmark:summary -- --report=benchmark-results/candidates/comparison.json
       - uses: actions/upload-artifact@v4
         with:
           name: benchmark-comparison
+          retention-days: 21
           if-no-files-found: error
           path: benchmark-results/candidates/comparison.json
 
@@ -99,6 +116,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
       - uses: actions/setup-node@v4
         with: { node-version: 24, cache: npm }
       - run: npm ci
@@ -109,8 +128,10 @@ jobs:
           path: benchmark-artifacts
       - run: npm run benchmark:assemble-canonical -- --fast=benchmark-artifacts/latest-fast.json --balanced=benchmark-artifacts/latest.json --robust=benchmark-artifacts/latest-robust.json --comparison=benchmark-artifacts/comparison.json --output=benchmark-artifacts/canonical
       - run: npm run benchmark:verify-evidence -- --mode=baseline-bootstrap --canonical-manifest=benchmark-artifacts/canonical/canonical-evidence-manifest.json
+      - run: npm run benchmark:summary -- --manifest=benchmark-artifacts/canonical/canonical-evidence-manifest.json
       - uses: actions/upload-artifact@v4
         with:
           name: benchmark-assembled
+          retention-days: 21
           if-no-files-found: error
           path: benchmark-artifacts/canonical

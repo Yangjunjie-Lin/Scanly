@@ -13,6 +13,8 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
       - uses: actions/setup-node@v4
         with: { node-version: 24, cache: npm }
       - run: npm ci
@@ -20,9 +22,11 @@ jobs:
       - run: npm run scenarios:generate
       - run: git diff --exit-code -- fixtures scenarios
       - run: npx tsx scripts/run-benchmark.ts --canonical-candidate --profile=${{ inputs.profile }} --gate --gate-mode=baseline-candidate --warmup-iterations=1 --measured-iterations=3
+      - run: npm run benchmark:summary -- --report=benchmark-results/candidates/${{ inputs.report }}.json
       - uses: actions/upload-artifact@v4
         with:
           name: alpha3-${{ inputs.profile }}
+          retention-days: 21
           if-no-files-found: error
           path: |
             benchmark-results/candidates/${{ inputs.report }}.json

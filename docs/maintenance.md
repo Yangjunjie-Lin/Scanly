@@ -21,7 +21,7 @@ Dependabot opens small monthly npm and GitHub Actions groups. Merge security pat
 - Public issues must not include QR images containing credentials or personal data.
 - New multiple fixtures must declare every required payload and expected result count.
 
-Regenerate deterministic inputs with `npm run fixtures:generate`. Ordinary `npm run benchmark` writes ignored development evidence. Regenerate canonical JSON, CSV, Markdown, and the README benchmark block only with `npm run benchmark:canonical` from a clean committed revision.
+Regenerate deterministic inputs with `npm run fixtures:generate`. Ordinary `npm run benchmark` writes ignored development evidence. From a clean committed revision, `npm run benchmark:canonical-candidate -- --profile=<profile>` creates one candidate report; assemble all profiles plus Comparison with `benchmark:assemble-canonical`, install approved aliases/docs with `benchmark:update-canonical`, freeze immutable profile baselines with `benchmark:freeze`, and activate the complete three-profile set with `benchmark:activate`.
 
 ## Which benchmark to run
 

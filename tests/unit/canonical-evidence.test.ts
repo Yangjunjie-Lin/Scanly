@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { BenchmarkRunSummary, ComparisonReport } from "@scanly/benchmark";
-import { assembleCanonicalEvidence, computeCanonicalManifestHash, readCanonicalEvidence } from "../../scripts/canonical-evidence.js";
+import { assembleCanonicalEvidence, computeCanonicalManifestHash, readCanonicalEvidence, validateProfileReport } from "../../scripts/canonical-evidence.js";
 
 const roots: string[] = [];
 afterEach(() => { for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
@@ -66,5 +66,61 @@ describe("canonical evidence assembly", () => {
     const bundle = assembleCanonicalEvidence(fixture.paths, path.join(fixture.root, "out"));
     fs.appendFileSync(bundle.reportPaths.fast, " ");
     expect(() => readCanonicalEvidence(bundle.manifestPath)).toThrow(/hash mismatch/);
+  });
+});
+
+describe("canonical correctness policy", () => {
+  it("accepts the Balanced minimum and a report that fixes 14-damaged", () => {
+    const fixture = artifacts();
+    expect(validateProfileReport(fixture.reports.balanced, "balanced")).toEqual([]);
+    const report = fixture.reports.balanced;
+    const damaged = report.results.find((result) => result.id === "14-damaged")!;
+    damaged.pass = true;
+    damaged.actualPayload = typeof damaged.expectedPayload === "string" ? damaged.expectedPayload : damaged.expectedPayload[0];
+    damaged.failureReason = null;
+    damaged.iterationPassCount = 3;
+    damaged.iterationFailureCount = 0;
+    report.passed = 74;
+    report.failed = 0;
+    report.successRate = 1;
+    report.decodeRecall = 1;
+    report.exactPayloadAccuracy = 1;
+    report.remainingFailures = [];
+    expect(validateProfileReport(report, "balanced")).toEqual([]);
+  });
+
+  it("rejects an unexpected new failure and recall below the integer minimum", () => {
+    const fixture = artifacts();
+    const report = fixture.reports.balanced;
+    const newlyFailed = report.results.find((result) => result.pass && result.expectedOutcome === "decode")!;
+    newlyFailed.pass = false;
+    newlyFailed.actualPayload = null;
+    newlyFailed.failureReason = "no_symbol_found";
+    newlyFailed.iterationPassCount = 0;
+    newlyFailed.iterationFailureCount = 3;
+    report.passed = 72;
+    report.failed = 2;
+    report.successRate = 72 / 74;
+    report.decodeRecall = 61 / 63;
+    report.exactPayloadAccuracy = 61 / 63;
+    report.remainingFailures.push(newlyFailed.id);
+    const failures = validateProfileReport(report, "balanced").join(" ");
+    expect(failures).toContain("below the 73/74 minimum");
+    expect(failures).toContain("below the 62/63 minimum");
+    expect(failures).toContain(`unexpected remaining failure: ${newlyFailed.id}`);
+  });
+
+  it("uses integer pass counts with tolerance-safe reported recall", () => {
+    const report = artifacts().reports.balanced;
+    report.decodeRecall += 5e-13;
+    report.exactPayloadAccuracy += 5e-13;
+    expect(validateProfileReport(report, "balanced")).toEqual([]);
+  });
+
+  it("rejects a timeout even when it uses an allowed retained failure ID", () => {
+    const report = artifacts().reports.balanced;
+    report.results.find((result) => result.id === "14-damaged")!.failureReason = "timeout";
+    report.timeoutCount = 1;
+    expect(validateProfileReport(report, "balanced").join(" ")).toMatch(/timeouts|unexpected failure category/);
   });
 });

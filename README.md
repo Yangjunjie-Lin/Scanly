@@ -34,6 +34,7 @@ This is Scanly's internal regression suite—not universal accuracy, a third-par
 <!-- BENCHMARK_SUMMARY_START -->
 | Metric | Value |
 | --- | ---: |
+| Evidence status | **Legacy one-iteration development data; Alpha.3 canonical regeneration pending** |
 | Internal fixtures | 74 |
 | Generated fixtures | 65 |
 | Project-owned photos | 9 |
@@ -43,12 +44,13 @@ This is Scanly's internal regression suite—not universal accuracy, a third-par
 | Remaining failure | `14-damaged` |
 | Benchmark date | 2026-07-16 |
 | Manifest | [fixtures/manifest.json](fixtures/manifest.json) |
-| Canonical JSON | [benchmark-results/latest.json](benchmark-results/latest.json) |
+| Tracked JSON | [benchmark-results/latest.json](benchmark-results/latest.json) (not current canonical evidence) |
+| Parallel execution | **Pending final Alpha.3 comparison evidence** |
 <!-- BENCHMARK_SUMMARY_END -->
 
 See [the full benchmark](docs/benchmark.md) and [fixture methodology](docs/testing.md).
 
-Benchmark output is deliberately separated: ordinary local runs write ignored development reports, clean CI jobs write transient CI artifacts, and only `benchmark:canonical` may update committed canonical reports and balanced documentation. Canonical evidence requires at least one warmup, three measured iterations per fixture, and a clean Git repository.
+Benchmark output is deliberately separated: ordinary local runs write ignored development reports, while `benchmark:canonical-candidate` creates one clean candidate profile report (the deprecated `benchmark:canonical` name remains an alias). `benchmark:assemble-canonical` combines Fast, Balanced, Robust, and Comparison reports into a verified manifest; `benchmark:update-canonical` atomically updates tracked aliases and documentation; `benchmark:freeze` creates one immutable profile baseline; and `benchmark:activate` atomically activates all three baselines. Canonical evidence requires at least one warmup, three measured iterations per fixture, and a clean Git repository.
 
 Profile intent is explicit: `fast` is the latency-first camera pass and accepts lower recall; `balanced` is the upload and general-purpose default; `robust` is the highest-cost bounded batch/offline completeness profile. The reference app uses fast for initial camera frames, derived balanced-strength escalation after misses, balanced for uploads, and robust only when explicitly selected.
 
@@ -106,7 +108,7 @@ npm run benchmark:compare
 npm run bundle:analyze
 ```
 
-Run `npm run benchmark` for ignored development evidence after decoding-pipeline or fixture-contract changes. A clean, intentional release-evidence update uses `npm run benchmark:canonical -- --profile=<fast|balanced|robust>`.
+Run `npm run benchmark` for ignored development evidence after decoding-pipeline or fixture-contract changes. Create each clean candidate with `npm run benchmark:canonical-candidate -- --profile=<fast|balanced|robust>`, then follow the assemble, update, freeze, and activate lifecycle above. Candidate reports are not committed canonical evidence until a verified manifest has been approved and installed.
 
 ## Browser support
 

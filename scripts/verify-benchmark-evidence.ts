@@ -56,7 +56,9 @@ if (mode === "release") {
   }
   const readme = fs.readFileSync(path.join(ROOT, "README.md"), "utf8");
   const balanced = bundle.reports.balanced;
-  for (const expected of [`${balanced.passed}/${balanced.total} (${(balanced.successRate * 100).toFixed(1)}%)`, `${Math.round(balanced.decodeRecall * balanced.positiveCases)}/${balanced.positiveCases}`, `${balanced.falsePositiveCount}/${balanced.negativeCases}`, "`14-damaged`"]) if (!readme.includes(expected)) failures.push(`README benchmark summary is stale: ${expected}`);
+  const remainingFailures = balanced.remainingFailures.length ? balanced.remainingFailures.map((id) => `\`${id}\``).join(", ") : "None";
+  const parallelStatus = bundle.reports.comparison.parallelExecution.status;
+  for (const expected of [`${balanced.passed}/${balanced.total} (${(balanced.successRate * 100).toFixed(1)}%)`, `${balanced.results.filter((result) => result.expectedOutcome === "decode" && result.pass).length}/${balanced.positiveCases}`, `${balanced.falsePositiveCount}/${balanced.negativeCases}`, remainingFailures, `Parallel execution | **${parallelStatus}**`]) if (!readme.includes(expected)) failures.push(`README benchmark summary is stale: ${expected}`);
   const docs = fs.readFileSync(path.join(ROOT, "docs", "benchmark.md"), "utf8");
   if (!docs.includes(bundle.manifest.evidenceId) || !docs.includes(bundle.manifest.sourceIdentity.sourceCommitSha)) failures.push("benchmark documentation is not synchronized to canonical evidence");
 }

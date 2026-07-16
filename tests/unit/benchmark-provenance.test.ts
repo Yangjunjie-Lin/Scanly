@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { afterEach, describe, expect, it } from "vitest";
-import { assertCleanRepository, collectSourceIdentity, computeDatasetHash, verifyEvidenceCommitPolicy } from "../../scripts/benchmark-provenance.js";
+import { assertCleanRepository, collectSourceIdentity, computeDatasetHash, verifyEvidenceCommitPolicy, verifyEvidenceOnlyPaths, verifyEvidenceWorkingTreePolicy } from "../../scripts/benchmark-provenance.js";
 import { loadBaselineRegistry, resolveActiveBaseline, validateBaselineForActivation } from "../../scripts/baseline-registry.js";
 
 const roots: string[] = [];
@@ -57,16 +57,12 @@ describe("baseline registry", () => {
 
   it("accepts only clean canonical Alpha.3-compatible baseline evidence", () => {
     const expected = { sdkVersion: "2.0.0-alpha.3", fixtureCount: 74, datasetHash: "dataset", profile: "balanced" as const, runtimeFamily: "node24-win32-x64" };
-    const baseline = {
-      runtime: { kind: "node" as const, nodeVersion: "v24.1.0", platform: "win32", arch: "x64" },
-      sourceIdentity: { repositoryDirty: false, datasetHash: "dataset" },
-      environment: { sdkVersion: "2.0.0-alpha.3", fixtureCount: 74, datasetManifestHash: "dataset", scenario: "balanced" },
-      total: 74,
-      executionPolicy: { canonical: true, warmupIterations: 1, measuredIterations: 3 },
-      multipleCompleteness: { complete: 5, total: 5 }, timeoutCount: 0, falsePositiveCount: 0,
-      engineInitializationFailures: 0, engineExecutionFailures: 0, finalControlledMemoryBytes: 0,
-      remainingFailures: ["14-damaged"],
-    } as unknown as Parameters<typeof validateBaselineForActivation>[0];
+    const baseline = JSON.parse(fs.readFileSync(path.join(process.cwd(), "benchmark-results", "latest.json"), "utf8")) as Parameters<typeof validateBaselineForActivation>[0];
+    baseline.runtime = { kind: "node", nodeVersion: "v24.1.0", platform: "win32", arch: "x64" };
+    baseline.sourceIdentity = { ...baseline.sourceIdentity!, repositoryDirty: false, datasetHash: "dataset" };
+    baseline.environment = { ...baseline.environment!, sdkVersion: "2.0.0-alpha.3", fixtureCount: 74, datasetManifestHash: "dataset", scenario: "balanced" };
+    baseline.executionPolicy = { ...baseline.executionPolicy!, canonical: true, warmupIterations: 1, measuredIterations: 3 };
+    baseline.finalControlledMemoryBytes = 0;
     expect(validateBaselineForActivation(baseline, expected)).toEqual([]);
     expect(validateBaselineForActivation({ ...baseline, sourceIdentity: { ...baseline.sourceIdentity!, repositoryDirty: true } }, expected).join(" ")).toContain("dirty");
     expect(validateBaselineForActivation({ ...baseline, environment: { ...baseline.environment!, sdkVersion: "2.0.0-alpha.2", fixtureCount: 63 } }, expected).join(" ")).toMatch(/SDK version|fixture count/);
@@ -75,6 +71,25 @@ describe("baseline registry", () => {
 });
 
 describe("source/evidence commit policy", () => {
+  it("allows only canonical aliases, Alpha.3 baselines, registry, and benchmark documentation", () => {
+    expect(verifyEvidenceOnlyPaths([
+      "benchmark-results/latest-fast.json", "benchmark-results/latest-fast.csv", "benchmark-results/latest.json", "benchmark-results/latest.csv",
+      "benchmark-results/latest-robust.json", "benchmark-results/latest-robust.csv", "benchmark-results/comparison.json",
+      "benchmark-results/canonical/canonical-evidence-manifest.json", "benchmark-results/baselines/v2-alpha3-r1-fast-node24-windows-x64.json",
+      "benchmark-results/baselines/registry.json", "docs/benchmark.md", "README.md",
+    ])).toEqual([]);
+  });
+
+  it.each([
+    "benchmark-results/baselines/v2-alpha2-r3-balanced-node24-windows-x64.json",
+    "fixtures/manifest.json",
+    ".github/workflows/benchmark.yml",
+    "scripts/run-benchmark.ts",
+    "package-lock.json",
+  ])("rejects non-evidence path %s", (file) => {
+    expect(verifyEvidenceOnlyPaths([file])).toEqual([file]);
+  });
+
   it("allows report, benchmark documentation, and marked README summary changes", () => {
     const repo = repository();
     const source = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repo.root, encoding: "utf8" }).trim();
@@ -84,11 +99,30 @@ describe("source/evidence commit policy", () => {
     expect(verifyEvidenceCommitPolicy(repo.root, source, tree)).toEqual([]);
   });
 
+  it("checks tracked and untracked evidence paths before the evidence commit", () => {
+    const repo = repository();
+    const source = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repo.root, encoding: "utf8" }).trim();
+    const tree = execFileSync("git", ["rev-parse", "HEAD^{tree}"], { cwd: repo.root, encoding: "utf8" }).trim();
+    repo.write("benchmark-results/canonical/canonical-evidence-manifest.json", "{}");
+    expect(verifyEvidenceWorkingTreePolicy(repo.root, source, tree)).toEqual([]);
+    repo.write("fixtures/manifest.json", "changed");
+    expect(verifyEvidenceWorkingTreePolicy(repo.root, source, tree).join(" ")).toContain("fixtures/manifest.json");
+  });
+
   it("rejects runtime changes between source and evidence commits", () => {
     const repo = repository();
     const source = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repo.root, encoding: "utf8" }).trim();
     const tree = execFileSync("git", ["rev-parse", "HEAD^{tree}"], { cwd: repo.root, encoding: "utf8" }).trim();
     repo.write("source.ts", "export const value = 2;"); execFileSync("git", ["add", "."], { cwd: repo.root }); execFileSync("git", ["commit", "-m", "runtime"], { cwd: repo.root });
     expect(verifyEvidenceCommitPolicy(repo.root, source, tree).join(" ")).toContain("runtime/tooling");
+  });
+
+  it("rejects README changes outside the marked benchmark block", () => {
+    const repo = repository();
+    const source = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repo.root, encoding: "utf8" }).trim();
+    const tree = execFileSync("git", ["rev-parse", "HEAD^{tree}"], { cwd: repo.root, encoding: "utf8" }).trim();
+    repo.write("README.md", "changed outside\n<!-- BENCHMARK_SUMMARY_START -->\nold\n<!-- BENCHMARK_SUMMARY_END -->\nafter\n");
+    execFileSync("git", ["add", "."], { cwd: repo.root }); execFileSync("git", ["commit", "-m", "bad readme"], { cwd: repo.root });
+    expect(verifyEvidenceCommitPolicy(repo.root, source, tree).join(" ")).toContain("README changes outside");
   });
 });

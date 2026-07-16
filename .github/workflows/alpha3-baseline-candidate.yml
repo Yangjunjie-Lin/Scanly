@@ -25,6 +25,8 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
       - uses: actions/setup-node@v4
         with: { node-version: 24, cache: npm }
       - run: npm ci
@@ -32,20 +34,25 @@ jobs:
       - run: npm run scenarios:generate
       - run: git diff --exit-code -- fixtures scenarios
       - run: npm run benchmark:compare -- --canonical-candidate --warmup-iterations=1 --measured-iterations=3
+      - run: npm run benchmark:summary -- --report=benchmark-results/candidates/comparison.json
       - uses: actions/upload-artifact@v4
-        with: { name: alpha3-comparison, path: benchmark-results/candidates/comparison.json, if-no-files-found: error }
+        with: { name: alpha3-comparison, path: benchmark-results/candidates/comparison.json, if-no-files-found: error, retention-days: 21 }
   assemble:
     name: Assemble
     needs: [fast, balanced, robust, comparison]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
       - uses: actions/setup-node@v4
         with: { node-version: 24, cache: npm }
       - run: npm ci
       - uses: actions/download-artifact@v4
         with: { pattern: alpha3-*, merge-multiple: true, path: candidate }
       - run: npm run benchmark:assemble-canonical -- --fast=candidate/latest-fast.json --balanced=candidate/latest.json --robust=candidate/latest-robust.json --comparison=candidate/comparison.json --output=candidate/canonical
-      - run: npm run quality:gates -- --mode=baseline-bootstrap --canonical-manifest=candidate/canonical/canonical-evidence-manifest.json
+      - run: npm run quality:static
+      - run: npm run quality:evidence:bootstrap -- --canonical-manifest=candidate/canonical/canonical-evidence-manifest.json
+      - run: npm run benchmark:summary -- --manifest=candidate/canonical/canonical-evidence-manifest.json
       - uses: actions/upload-artifact@v4
-        with: { name: alpha3-baseline-candidate, path: candidate/canonical, if-no-files-found: error }
+        with: { name: alpha3-baseline-candidate, path: candidate/canonical, if-no-files-found: error, retention-days: 21 }

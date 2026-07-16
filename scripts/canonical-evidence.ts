@@ -7,11 +7,107 @@ export const PROFILE_KEYS = ["fast", "balanced", "robust"] as const;
 export type ProfileKey = typeof PROFILE_KEYS[number];
 export type EvidenceReportKey = ProfileKey | "comparison";
 
-export const EXPECTED_REMAINING_FAILURES: Record<ProfileKey, string[]> = {
+export const EXPECTED_REMAINING_FAILURES: Record<ProfileKey, readonly string[]> = {
   fast: ["14-damaged", "16-multiple-codes", "36-multiple-gen", "39-high-res", "40-moire", "50-multiple-three", "64-multiple-five", "65-multiple-eight", "66-multiple-twelve", "67-multiple-same-two", "68-multiple-same-three", "69-multiple-mixed-size"],
   balanced: ["14-damaged"],
   robust: ["14-damaged"],
 };
+
+export interface ProfileCorrectnessPolicy {
+  minimumPassed: number;
+  minimumPositivePasses: number;
+  minimumRecall: number;
+  maximumFalsePositives: number;
+  maximumTimeouts: number;
+  allowedFailures: readonly string[];
+}
+
+export const PROFILE_CORRECTNESS_POLICIES: Record<ProfileKey, ProfileCorrectnessPolicy> = {
+  fast: {
+    minimumPassed: 62,
+    minimumPositivePasses: 51,
+    minimumRecall: 51 / 63,
+    maximumFalsePositives: 0,
+    maximumTimeouts: 0,
+    allowedFailures: EXPECTED_REMAINING_FAILURES.fast,
+  },
+  balanced: {
+    minimumPassed: 73,
+    minimumPositivePasses: 62,
+    minimumRecall: 62 / 63,
+    maximumFalsePositives: 0,
+    maximumTimeouts: 0,
+    allowedFailures: EXPECTED_REMAINING_FAILURES.balanced,
+  },
+  robust: {
+    minimumPassed: 73,
+    minimumPositivePasses: 62,
+    minimumRecall: 62 / 63,
+    maximumFalsePositives: 0,
+    maximumTimeouts: 0,
+    allowedFailures: EXPECTED_REMAINING_FAILURES.robust,
+  },
+};
+
+const ALLOWED_FAILURE_DETAILS: Record<string, { category: string; reasons: readonly string[] }> = {
+  "14-damaged": { category: "damaged", reasons: ["no_symbol_found"] },
+  "16-multiple-codes": { category: "multiple", reasons: ["incomplete_multiple"] },
+  "36-multiple-gen": { category: "multiple", reasons: ["incomplete_multiple"] },
+  "39-high-res": { category: "high_resolution", reasons: ["resource_limit_exceeded"] },
+  "40-moire": { category: "screen_capture", reasons: ["no_symbol_found"] },
+  "50-multiple-three": { category: "multiple", reasons: ["incomplete_multiple"] },
+  "64-multiple-five": { category: "multiple", reasons: ["no_symbol_found"] },
+  "65-multiple-eight": { category: "multiple", reasons: ["no_symbol_found"] },
+  "66-multiple-twelve": { category: "multiple", reasons: ["incomplete_multiple"] },
+  "67-multiple-same-two": { category: "multiple", reasons: ["no_symbol_found"] },
+  "68-multiple-same-three": { category: "multiple", reasons: ["no_symbol_found"] },
+  "69-multiple-mixed-size": { category: "multiple", reasons: ["incomplete_multiple"] },
+};
+
+const FLOAT_TOLERANCE = 1e-12;
+
+function approximatelyEqual(left: number | undefined, right: number): boolean {
+  return typeof left === "number" && Number.isFinite(left) && Math.abs(left - right) <= FLOAT_TOLERANCE;
+}
+
+export function validateProfileCorrectness(report: Partial<BenchmarkRunSummary>, profile: ProfileKey): string[] {
+  const failures: string[] = [];
+  const policy = PROFILE_CORRECTNESS_POLICIES[profile];
+  const results = report.results ?? [];
+  const actualPassed = results.filter((result) => result.pass).length;
+  const positiveResults = results.filter((result) => result.expectedOutcome === "decode");
+  const positivePassed = positiveResults.filter((result) => result.pass).length;
+  const derivedRecall = positiveResults.length ? positivePassed / positiveResults.length : 0;
+  const actualFailures = results.filter((result) => !result.pass);
+  const actualFailureIds = actualFailures.map((result) => result.id);
+  const reportedFailureIds = report.remainingFailures ?? [];
+
+  if (report.total !== 74 || results.length !== 74) failures.push("fixture result set is not 74 entries");
+  if ((report.passed ?? -1) < policy.minimumPassed) failures.push(`passed fixtures are below the ${policy.minimumPassed}/74 minimum`);
+  if (report.passed !== actualPassed || report.failed !== 74 - actualPassed) failures.push("passed/failed totals do not match fixture results");
+  if (!approximatelyEqual(report.successRate, actualPassed / 74)) failures.push("success rate does not match integer fixture results");
+  if (report.positiveCases !== 63 || positiveResults.length !== 63) failures.push("positive fixture result set is not 63 entries");
+  if (positivePassed < policy.minimumPositivePasses || derivedRecall + FLOAT_TOLERANCE < policy.minimumRecall) failures.push(`positive passes are below the ${policy.minimumPositivePasses}/63 minimum`);
+  if (!approximatelyEqual(report.decodeRecall, derivedRecall) || !approximatelyEqual(report.exactPayloadAccuracy, derivedRecall)) failures.push("positive recall/exact accuracy does not match integer pass counts");
+  if (report.negativeCases !== 11 || (report.falsePositiveCount ?? Number.POSITIVE_INFINITY) > policy.maximumFalsePositives) failures.push("negative/false-positive contract failed");
+  if ((report.timeoutCount ?? Number.POSITIVE_INFINITY) > policy.maximumTimeouts) failures.push("report contains timeouts");
+  if (new Set(reportedFailureIds).size !== reportedFailureIds.length || JSON.stringify(reportedFailureIds) !== JSON.stringify(actualFailureIds)) failures.push("remaining failures do not match failed fixture results");
+
+  const allowed = new Set(policy.allowedFailures);
+  for (const result of actualFailures) {
+    if (!allowed.has(result.id)) {
+      failures.push(`unexpected remaining failure: ${result.id}`);
+      continue;
+    }
+    const expected = ALLOWED_FAILURE_DETAILS[result.id];
+    if (!expected || result.category !== expected.category) failures.push(`retained failure '${result.id}' has an unexpected fixture category`);
+    if (!expected?.reasons.includes(result.failureReason ?? "")) failures.push(`retained failure '${result.id}' has an unexpected failure category`);
+    if (["timeout", "engine_initialization_failure", "engine_execution_failure", "internal_invariant_failure", "worker_initialization_failure"].includes(result.failureReason ?? "")) {
+      failures.push(`retained failure '${result.id}' is an internal, engine, or timeout failure`);
+    }
+  }
+  return failures;
+}
 
 export interface EvidenceCommitIdentity {
   sourceCommitSha: string;
@@ -78,18 +174,12 @@ export function validateProfileReport(report: Partial<BenchmarkRunSummary>, prof
   if (report.environment?.scenario !== profile) failures.push("profile metadata is incompatible");
   if (report.environment?.sdkVersion !== "2.0.0-alpha.3") failures.push("SDK version is not 2.0.0-alpha.3");
   if (report.environment?.fixtureCount !== 74 || report.total !== 74) failures.push("fixture count is not 74");
-  const expectedPassed = profile === "fast" ? 62 : 73;
-  const expectedPositivePasses = profile === "fast" ? 51 : 62;
-  if (report.passed !== expectedPassed || report.failed !== 74 - expectedPassed) failures.push(`expected correctness result is not ${expectedPassed}/74`);
-  if (report.positiveCases !== 63 || report.decodeRecall !== expectedPositivePasses / 63 || report.exactPayloadAccuracy !== expectedPositivePasses / 63) failures.push(`positive recall/exact accuracy is not ${expectedPositivePasses}/63`);
-  if (report.negativeCases !== 11 || report.falsePositiveCount !== 0) failures.push("negative/false-positive contract failed");
-  if (report.timeoutCount !== 0) failures.push("report contains timeouts");
+  failures.push(...validateProfileCorrectness(report, profile));
   if ((report.engineInitializationFailures ?? -1) !== 0 || (report.engineExecutionFailures ?? -1) !== 0) failures.push("report contains engine failures");
   if (report.cancellationCorrectness?.passed !== report.cancellationCorrectness?.total) failures.push("cancellation correctness failed");
   if (report.phaseTimingAvailability?.passed !== report.phaseTimingAvailability?.total) failures.push("phase timing is incomplete");
   if (profile !== "fast" && report.multipleCompleteness?.complete !== report.multipleCompleteness?.total) failures.push("multi-code completeness failed");
   if (report.finalControlledMemoryBytes !== 0) failures.push("final controlled memory is nonzero");
-  if (JSON.stringify(report.remainingFailures) !== JSON.stringify(EXPECTED_REMAINING_FAILURES[profile])) failures.push("remaining failures do not match the profile policy");
   if (!report.results?.every((result) => (result.iterationPassCount ?? 0) + (result.iterationFailureCount ?? 0) >= 3 && (result.runTimingsMs?.length ?? 0) >= 3)) failures.push("per-fixture iteration evidence is incomplete");
   return failures;
 }

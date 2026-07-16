@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { BuiltinScenarioId } from "@scanly/scenario-schema";
 import type { BenchmarkRunSummary } from "@scanly/benchmark";
+import { validateProfileCorrectness } from "./canonical-evidence.js";
 
 export interface BaselineRegistry {
   schemaVersion: "1.0" | "2.0";
@@ -73,9 +74,6 @@ export function validateBaselineForActivation(baseline: Partial<BenchmarkRunSumm
   if (baseline.cancellationCorrectness?.passed !== baseline.cancellationCorrectness?.total) failures.push("baseline cancellation checks failed");
   if (baseline.phaseTimingAvailability?.passed !== baseline.phaseTimingAvailability?.total) failures.push("baseline phase timing is incomplete");
   if ((baseline.finalControlledMemoryBytes ?? -1) !== 0) failures.push("baseline does not prove zero final controlled bytes");
-  const expectedFailures = expected.profile === "fast"
-    ? ["14-damaged", "16-multiple-codes", "36-multiple-gen", "39-high-res", "40-moire", "50-multiple-three", "64-multiple-five", "65-multiple-eight", "66-multiple-twelve", "67-multiple-same-two", "68-multiple-same-three", "69-multiple-mixed-size"]
-    : ["14-damaged"];
-  if (JSON.stringify(baseline.remainingFailures) !== JSON.stringify(expectedFailures)) failures.push("baseline retained-failure policy is incompatible");
+  failures.push(...validateProfileCorrectness(baseline, expected.profile).map((failure) => `baseline correctness: ${failure}`));
   return failures;
 }

@@ -41,7 +41,14 @@ jobs:
         run: npm run quality:static
 
       - name: Canonical evidence contracts
-        run: npm run quality:evidence
+        shell: bash
+        run: |
+          if [[ -f benchmark-results/canonical/canonical-evidence-manifest.json ]]; then
+            echo "Canonical manifest present; enforcing strict release evidence mode."
+            npm run quality:evidence:release
+          else
+            echo "::notice::Alpha.3 evidence bootstrap state: strict release evidence will become mandatory when the canonical manifest is committed."
+          fi
 
       - name: Lint
         run: npm run lint

@@ -71,7 +71,7 @@ const canonicalProfiles = (["fast", "balanced", "robust"] as const).map((profile
 }));
 for (const { profile, report } of canonicalProfiles) {
   if (report.sourceIdentity?.repositoryDirty) fail(`Canonical ${profile} benchmark was generated from a dirty repository.`);
-  if (!report.executionPolicy?.canonical || report.executionPolicy.mode !== "canonical") fail(`Canonical ${profile} artifact was produced from development mode.`);
+  if (!report.executionPolicy?.canonical || report.executionPolicy.dirtyDevelopmentAllowed) fail(`Canonical ${profile} artifact is not canonical-compatible.`);
   if ((report.executionPolicy?.warmupIterations ?? 0) < 1) fail(`Canonical ${profile} benchmark warmup is below one iteration.`);
   if ((report.executionPolicy?.measuredIterations ?? 0) < 3) fail(`Canonical ${profile} benchmark measured iterations are below three.`);
   if (report.environment.sdkVersion !== pkg.version) fail(`Canonical ${profile} SDK version is stale.`);
@@ -100,7 +100,7 @@ if (!canonical.sourceIdentity || canonical.sourceIdentity.datasetHash !== canoni
 const comparison = JSON.parse(read("benchmark-results/comparison.json")) as ComparisonReport;
 if (comparison.schemaVersion !== "2.0") fail("Comparison report schema must be 2.0");
 if (comparison.sourceIdentity?.repositoryDirty) fail("Comparison report was generated from a dirty repository.");
-if (!comparison.executionPolicy?.canonical || comparison.executionPolicy.mode !== "canonical") fail("Comparison report was produced from development mode.");
+if (!comparison.executionPolicy?.canonical || comparison.executionPolicy.dirtyDevelopmentAllowed) fail("Comparison report is not canonical-compatible.");
 for (const [label, actual, expected] of [
   ["datasetHash", comparison.sourceIdentity.datasetHash, canonical.sourceIdentity.datasetHash],
   ["fixtureCount", comparison.fixtureCount, canonical.environment.fixtureCount],

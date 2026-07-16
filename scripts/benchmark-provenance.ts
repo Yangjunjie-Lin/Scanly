@@ -66,10 +66,24 @@ export async function collectSourceIdentity(options: SourceIdentityOptions): Pro
   };
 }
 
-const EVIDENCE_ONLY_PATH = /^(benchmark-results\/|docs\/benchmark\.md$|README\.md$)/;
+const EVIDENCE_ONLY_PATHS = [
+  /^benchmark-results\/(?:latest-fast|latest|latest-robust)\.(?:json|csv)$/,
+  /^benchmark-results\/comparison\.json$/,
+  /^benchmark-results\/canonical\/.+$/,
+  /^benchmark-results\/baselines\/v2-alpha3-r\d+-(?:fast|balanced|robust)-node24-windows-x64\.json$/,
+  /^benchmark-results\/baselines\/registry\.json$/,
+  /^docs\/benchmark\.md$/,
+  /^README\.md$/,
+] as const;
 
 function stripReadmeBenchmarkBlock(value: string): string {
   return value.replace(/<!-- BENCHMARK_SUMMARY_START -->[\s\S]*?<!-- BENCHMARK_SUMMARY_END -->/, "<!-- BENCHMARK_SUMMARY -->");
+}
+
+export function verifyEvidenceOnlyPaths(changedPaths: readonly string[]): string[] {
+  return changedPaths
+    .map((file) => file.replace(/\\/g, "/"))
+    .filter((file) => !EVIDENCE_ONLY_PATHS.some((allowed) => allowed.test(file)));
 }
 
 export function verifyEvidenceCommitPolicy(root: string, sourceCommitSha: string, sourceTreeSha: string, evidenceCommitSha = "HEAD"): string[] {
@@ -83,12 +97,37 @@ export function verifyEvidenceCommitPolicy(root: string, sourceCommitSha: string
     return failures;
   }
   const changed = git(["diff", "--name-only", sourceCommitSha, evidenceCommitSha]).split(/\r?\n/).filter(Boolean).map((file) => file.replace(/\\/g, "/"));
-  const forbidden = changed.filter((file) => !EVIDENCE_ONLY_PATH.test(file));
+  const forbidden = verifyEvidenceOnlyPaths(changed);
   if (forbidden.length) failures.push(`runtime/tooling paths changed after source commit: ${forbidden.join(", ")}`);
   if (changed.includes("README.md")) {
     try {
       const source = execFileSync("git", ["show", `${sourceCommitSha}:README.md`], { cwd: root, encoding: "utf8" });
       const evidence = execFileSync("git", ["show", `${evidenceCommitSha}:README.md`], { cwd: root, encoding: "utf8" });
+      if (stripReadmeBenchmarkBlock(source) !== stripReadmeBenchmarkBlock(evidence)) failures.push("README changes outside the benchmark summary block are not evidence-only");
+    } catch { failures.push("README benchmark-only policy could not be verified"); }
+  }
+  return failures;
+}
+
+export function verifyEvidenceWorkingTreePolicy(root: string, sourceCommitSha: string, sourceTreeSha: string): string[] {
+  const failures: string[] = [];
+  const git = (args: string[]) => execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
+  try {
+    if (git(["rev-parse", `${sourceCommitSha}^{tree}`]) !== sourceTreeSha) failures.push("source tree does not match source commit");
+    execFileSync("git", ["merge-base", "--is-ancestor", sourceCommitSha, "HEAD"], { cwd: root, stdio: "pipe" });
+  } catch {
+    failures.push("source commit is not an ancestor of the working tree HEAD");
+    return failures;
+  }
+  const tracked = git(["diff", "--name-only", sourceCommitSha]).split(/\r?\n/).filter(Boolean);
+  const untracked = git(["ls-files", "--others", "--exclude-standard"]).split(/\r?\n/).filter(Boolean);
+  const changed = [...new Set([...tracked, ...untracked].map((file) => file.replace(/\\/g, "/")))];
+  const forbidden = verifyEvidenceOnlyPaths(changed);
+  if (forbidden.length) failures.push(`runtime/tooling paths changed after source commit: ${forbidden.join(", ")}`);
+  if (changed.includes("README.md")) {
+    try {
+      const source = execFileSync("git", ["show", `${sourceCommitSha}:README.md`], { cwd: root, encoding: "utf8" });
+      const evidence = fs.readFileSync(path.join(root, "README.md"), "utf8");
       if (stripReadmeBenchmarkBlock(source) !== stripReadmeBenchmarkBlock(evidence)) failures.push("README changes outside the benchmark summary block are not evidence-only");
     } catch { failures.push("README benchmark-only policy could not be verified"); }
   }
