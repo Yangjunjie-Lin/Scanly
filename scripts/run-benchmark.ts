@@ -4,8 +4,6 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import crypto from "node:crypto";
-import { execFileSync } from "node:child_process";
 import { SDK_VERSION, createRgbaFrame, type CaptureRouter } from "@scanly/core";
 import { createNodeCaptureRouter, loadPixelBufferFromPath } from "@scanly/node";
 import { getBuiltinScenario, type BuiltinScenarioId } from "@scanly/scenario-schema";
@@ -14,16 +12,19 @@ import { toCsvRow } from "@scanly/benchmark";
 import {
   evaluateFixture,
   requiredPayloads,
+  requiredPayloadsForProfile,
 } from "@scanly/benchmark";
 import {
   evaluateBenchmarkGates,
   type BenchmarkBaseline,
 } from "@scanly/benchmark";
+import { assertCleanRepository, collectSourceIdentity } from "./benchmark-provenance.js";
+import { resolveActiveBaseline, runtimeFamily } from "./baseline-registry.js";
 
 const ROOT = path.resolve(__dirname, "..");
 const MANIFEST_PATH = path.join(ROOT, "fixtures", "manifest.json");
 const OUT_DIR = path.join(ROOT, "benchmark-results");
-function baselinePath(profile: BuiltinScenarioId): string { return path.join(OUT_DIR, "baselines", `v2-alpha2-r3-${profile}-node24-windows-x64.json`); }
+const BASELINE_REGISTRY_PATH = path.join(OUT_DIR, "baselines", "registry.json");
 
 interface ManifestFile {
   seed: number;
@@ -75,6 +76,7 @@ function toCsv(results: BenchmarkFixtureResult[]): string {
     "preprocessMs",
     "rotationMs",
     "timeToFirstResultMs",
+    "controlledMemoryPeakBytes",
   ];
   const rows = results.map((r) =>
     toCsvRow([
@@ -99,6 +101,7 @@ function toCsv(results: BenchmarkFixtureResult[]): string {
       r.phaseTiming?.preprocessMs ?? "",
       r.phaseTiming?.rotationMs ?? "",
       r.timeToFirstResultMs ?? "",
+      r.controlledMemoryPeakBytes ?? "",
     ])
   );
   return [header.join(","), ...rows].join("\n");
@@ -249,8 +252,9 @@ function updateReadmeSummary(summary: BenchmarkRunSummary, manifest: ManifestFil
   return fs.promises.writeFile(readmePath, updated);
 }
 
-async function loadBaseline(profile: BuiltinScenarioId): Promise<{ passedIds: Set<string>; metrics: BenchmarkBaseline }> {
-  const selected = baselinePath(profile);
+async function loadBaseline(profile: BuiltinScenarioId, smoke = false): Promise<{ passedIds: Set<string>; metrics: BenchmarkBaseline }> {
+  const selected = await resolveActiveBaseline(BASELINE_REGISTRY_PATH, profile, smoke ? "node24-win32-x64" : runtimeFamily());
+  console.log(`Selected immutable baseline ${path.relative(ROOT, selected)}`);
   if (!fs.existsSync(selected)) {
     throw new Error(`Missing required benchmark baseline: ${selected}`);
   }
@@ -265,11 +269,19 @@ async function runFixture(router: CaptureRouter, fixture: BenchmarkFixture): Pro
   const t0 = Date.now();
   try {
     const buffer = await loadPixelBufferFromPath(filePath);
-    const outcome = await router.scan(createRgbaFrame(buffer.data, buffer.width, buffer.height, { id: `benchmark-${fixture.id}`, sourceType: "upload" }));
+    const scenario = router.getScenario();
+    scenario.output.includeDebugTrace = true;
+    const outcome = await router.scan(createRgbaFrame(buffer.data, buffer.width, buffer.height, { id: `benchmark-${fixture.id}`, sourceType: "upload" }), { scenario });
     const payloads = outcome.ok ? outcome.results.map((r) => r.rawText) : [];
     const primary = outcome.ok ? outcome.primary : null;
-    const evalResult = evaluateFixture(fixture, payloads, { ok: outcome.ok, errorCode: outcome.ok ? undefined : outcome.error.code });
-    const required = requiredPayloads(fixture);
+    const completeRequired = requiredPayloads(fixture);
+    const profile = router.getScenario().id as "fast" | "balanced" | "robust";
+    const effectiveRequired = requiredPayloadsForProfile(fixture, profile);
+    const evaluatedFixture = effectiveRequired.length !== completeRequired.length
+      ? { ...fixture, requiredPayloads: effectiveRequired, requiredInstances: undefined, expectedResultCount: effectiveRequired.length }
+      : fixture;
+    const evalResult = evaluateFixture(evaluatedFixture, payloads, { ok: outcome.ok, errorCode: outcome.ok ? undefined : outcome.error.code });
+    const required = requiredPayloads(evaluatedFixture);
     return {
       id: fixture.id,
       category: fixture.category,
@@ -289,6 +301,8 @@ async function runFixture(router: CaptureRouter, fixture: BenchmarkFixture): Pro
       requiredPayloadCount: required.length || undefined,
       decodedPayloadCount: payloads.length,
       timeToFirstResultMs: outcome.ok ? outcome.timing.timeToFirstResultMs : undefined,
+      heuristicMetrics: outcome.heuristics,
+      controlledMemoryPeakBytes: outcome.timing.controlledMemory?.peakControlledBytes,
       phaseTiming: {
         frameNormalizationMs: outcome.timing.frameNormalizationMs,
         roiMs: outcome.timing.roiMs,
@@ -321,14 +335,40 @@ async function runFixture(router: CaptureRouter, fixture: BenchmarkFixture): Pro
   }
 }
 
+async function runMeasuredFixture(router: CaptureRouter, fixture: BenchmarkFixture, iterations: number, measuredTimes: number[]): Promise<BenchmarkFixtureResult> {
+  const runs: BenchmarkFixtureResult[] = [];
+  for (let iteration = 0; iteration < iterations; iteration++) {
+    const result = await runFixture(router, fixture);
+    runs.push(result);
+    measuredTimes.push(result.elapsedMs);
+  }
+  const ordered = [...runs].sort((left, right) => left.elapsedMs - right.elapsedMs);
+  const representative = ordered[Math.floor(ordered.length / 2)];
+  const failed = runs.find((result) => !result.pass);
+  return { ...(failed ?? representative), elapsedMs: median(runs.map((result) => result.elapsedMs)), attemptCount: Math.round(median(runs.map((result) => result.attemptCount))), pass: runs.every((result) => result.pass) };
+}
+
 async function main() {
   const smoke = process.argv.includes("--smoke");
   const failOnRegression = process.argv.includes("--gate");
   const freezeBaseline = process.argv.includes("--freeze-baseline");
+  const canonical = process.argv.includes("--canonical") || freezeBaseline;
+  const allowDirtyDevelopment = process.argv.includes("--allow-dirty-development");
+  if (canonical && allowDirtyDevelopment) throw new Error("Canonical and baseline-freeze runs cannot use --allow-dirty-development.");
+  if (!allowDirtyDevelopment) assertCleanRepository(ROOT);
+  const baselineId = process.argv.find((argument) => argument.startsWith("--baseline-id="))?.split("=")[1];
+  if (freezeBaseline && (!process.argv.includes("--approve-baseline") || !baselineId || !/^v2-alpha3-r\d+$/.test(baselineId))) {
+    throw new Error("Baseline freeze requires --approve-baseline and --baseline-id=v2-alpha3-rN.");
+  }
   const profileArgument = process.argv.find((argument) => argument.startsWith("--profile="))?.split("=")[1] ?? "balanced";
   if (!["fast", "balanced", "robust"].includes(profileArgument)) throw new Error(`Unknown benchmark profile '${profileArgument}'.`);
   const profile = profileArgument as BuiltinScenarioId;
-  const router = createNodeCaptureRouter({ scenario: getBuiltinScenario(profile) });
+  const measuredIterations = Number(process.argv.find((argument) => argument.startsWith("--measured-iterations="))?.split("=")[1] ?? (canonical ? 3 : 1));
+  const warmupIterations = Number(process.argv.find((argument) => argument.startsWith("--warmup-iterations="))?.split("=")[1] ?? (smoke ? 0 : 1));
+  if (!Number.isInteger(measuredIterations) || measuredIterations < 1 || measuredIterations > 10) throw new Error("--measured-iterations must be an integer from 1 to 10.");
+  if (!Number.isInteger(warmupIterations) || warmupIterations < 0 || warmupIterations > 5) throw new Error("--warmup-iterations must be an integer from 0 to 5.");
+  const selectedScenario = getBuiltinScenario(profile);
+  const router = createNodeCaptureRouter({ scenario: selectedScenario });
 
   if (!fs.existsSync(MANIFEST_PATH)) {
     console.error("Missing fixtures/manifest.json — run npm run fixtures:generate first.");
@@ -357,12 +397,17 @@ async function main() {
     fixtures = fixtures.filter((f) => smokeIds.has(f.id));
   }
 
-  console.log(`Running benchmark on ${fixtures.length} fixtures${smoke ? " (smoke)" : ""}…`);
+  const initializationStarted = performance.now();
+  await router.engines.initializeAll();
+  const coldInitializationMs = performance.now() - initializationStarted;
+  for (let iteration = 0; iteration < warmupIterations; iteration++) await runFixture(router, fixtures[iteration % fixtures.length]);
+  console.log(`Running benchmark on ${fixtures.length} fixtures${smoke ? " (smoke)" : ""}; measured iterations=${measuredIterations}…`);
 
   const results: BenchmarkFixtureResult[] = [];
+  const allMeasuredTimes: number[] = [];
   for (const fixture of fixtures) {
     process.stdout.write(`  ${fixture.id}… `);
-    const result = await runFixture(router, fixture);
+    const result = await runMeasuredFixture(router, fixture, measuredIterations, allMeasuredTimes);
     results.push(result);
     console.log(result.pass ? `PASS ${(result.elapsedMs / 1000).toFixed(2)}s` : `FAIL ${(result.elapsedMs / 1000).toFixed(2)}s`);
   }
@@ -403,7 +448,7 @@ async function main() {
 
   const baseline = freezeBaseline
     ? { passedIds: new Set<string>(), metrics: null }
-    : await loadBaseline(profile);
+    : await loadBaseline(profile, smoke);
   const baselinePassed = baseline.passedIds;
   let regressionCount = 0;
   if (baselinePassed.size > 0) {
@@ -463,25 +508,30 @@ async function main() {
   const disposalOutcome = await disposalPromise;
   await disposing;
   cancellationChecks.push(!disposalOutcome.ok && disposalOutcome.error.code === "cancelled");
-  const gitCommit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" }).trim();
-
-  const datasetHash = crypto.createHash("sha256").update(manifestBytes);
-  for (const fixture of [...manifest.fixtures].sort((left, right) => left.file.localeCompare(right.file))) {
-    datasetHash.update(fixture.file).update(await fs.promises.readFile(path.join(ROOT, fixture.file)));
-  }
+  const sourceIdentity = await collectSourceIdentity({
+    root: ROOT,
+    scenario: selectedScenario,
+    engines: router.engines.list().map((engine) => ({ id: engine.id, version: engine.version, capabilities: engine.capabilities })),
+    manifestPath: MANIFEST_PATH,
+    fixtureFiles: manifest.fixtures.map((fixture) => fixture.file),
+    runnerPath: path.join(ROOT, "scripts", "run-benchmark.ts"),
+    allowDirty: allowDirtyDevelopment,
+  });
 
   const summary: BenchmarkRunSummary = {
     schemaVersion: "2.0",
     runtime: { kind: "node", nodeVersion: process.version, platform: process.platform, arch: process.arch },
+    sourceIdentity,
     environment: {
-      gitCommit,
+      gitCommit: sourceIdentity.commitSha,
       sdkVersion: SDK_VERSION,
       scenario: profile,
-      datasetManifestHash: datasetHash.digest("hex"),
+      datasetManifestHash: sourceIdentity.datasetHash,
       fixtureCount: fixtures.length,
       date: new Date().toISOString().slice(0, 10),
-      warmupPolicy: "No excluded warmup; lazy engine initialization is included in the first measured fixture.",
-      iterationCount: 1,
+      warmupPolicy: `${warmupIterations} explicit warmup fixture run(s); measured fixtures exclude warmup.`,
+      iterationCount: measuredIterations,
+      coldInitializationMs,
     },
     generatedAt: new Date().toISOString(),
     total: results.length,
@@ -492,6 +542,7 @@ async function main() {
     medianMs: median(times),
     p95Ms: percentile(sortedTimes, 95),
     p99Ms: times.length >= 100 ? percentile(sortedTimes, 99) : null,
+    runToRunStdDevMs: standardDeviation(allMeasuredTimes),
     positiveCases: positive.length,
     decodeRecall: positive.length ? positivePasses / positive.length : 0,
     exactPayloadAccuracy: positive.length ? positivePasses / positive.length : 0,
@@ -519,7 +570,8 @@ async function main() {
     preprocessingDistribution,
     candidateDistribution,
     perFormatRecall: { qr_code: { total: positive.length, decoded: positivePasses, recall: positive.length ? positivePasses / positive.length : 0 } },
-    memoryObservations: ["Node benchmark does not expose reliable per-case retained-memory measurements; use the local soak utility for heap observation."],
+    memoryObservations: ["Controlled peak covers Scanly-accounted frame artifacts, caches, and scratch leases; it does not claim exact decoder or process heap usage."],
+    controlledMemoryPeakBytes: Math.max(0, ...results.map((result) => result.controlledMemoryPeakBytes ?? 0)),
     phaseTiming: Object.fromEntries(Object.entries(phaseValues).map(([phase, values]) => [phase, distribution(values)])),
     perCategory,
     multipleCompleteness: {
@@ -556,18 +608,40 @@ async function main() {
   console.log(`Wrote ${jsonPath}`);
   console.log(`Wrote ${csvPath}`);
 
+  const gateFailures = baseline.metrics ? evaluateBenchmarkGates(summary, baseline.metrics, { fullSuite: !smoke }) : [];
   if (freezeBaseline) {
-    const destination = baselinePath(profile);
+    const freezeFailures = [
+      ...(sourceIdentity.repositoryDirty ? ["source repository is dirty"] : []),
+      ...(summary.timeoutCount ? ["benchmark contains timeouts"] : []),
+      ...(summary.engineInitializationFailures ? ["benchmark contains engine initialization failures"] : []),
+      ...(summary.engineExecutionFailures ? ["benchmark contains engine execution failures"] : []),
+      ...(summary.falsePositiveCount ? ["false-positive gate failed"] : []),
+      ...(summary.multipleCompleteness.complete !== summary.multipleCompleteness.total ? ["multiple completeness gate failed"] : []),
+      ...gateFailures,
+    ];
+    const comparisonPath = path.join(OUT_DIR, "comparison.json");
+    if (!fs.existsSync(comparisonPath)) freezeFailures.push("comparison report is missing");
+    else {
+      const comparison = JSON.parse(await fs.promises.readFile(comparisonPath, "utf8")) as { sdkVersion?: string; fixtureCount?: number; sourceIdentity?: { commitSha?: string; treeSha?: string; datasetHash?: string } };
+      if (comparison.sdkVersion !== SDK_VERSION || comparison.fixtureCount !== summary.total || comparison.sourceIdentity?.commitSha !== sourceIdentity.commitSha || comparison.sourceIdentity?.treeSha !== sourceIdentity.treeSha || comparison.sourceIdentity?.datasetHash !== sourceIdentity.datasetHash) freezeFailures.push("comparison report is stale");
+    }
+    if (freezeFailures.length) throw new Error(`Baseline freeze policy failed:\n- ${freezeFailures.join("\n- ")}`);
+    const destination = path.join(OUT_DIR, "baselines", `${baselineId}-${profile}-${runtimeFamily().replace("win32", "windows")}.json`);
     await fs.promises.mkdir(path.dirname(destination), { recursive: true });
     await fs.promises.writeFile(destination, JSON.stringify({ ...summary, passedIds: passed.map((result) => result.id) }, null, 2), { flag: "wx" });
     console.log(`Frozen immutable baseline ${destination}`);
   }
-  const gateFailures = baseline.metrics ? evaluateBenchmarkGates(summary, baseline.metrics, { fullSuite: !smoke }) : [];
   await router.dispose();
   if (failOnRegression && gateFailures.length > 0) {
     console.error(`Benchmark gate failed:\n- ${gateFailures.join("\n- ")}`);
     process.exitCode = 1;
   }
+}
+
+function standardDeviation(values: number[]): number {
+  if (values.length < 2) return 0;
+  const average = values.reduce((sum, value) => sum + value, 0) / values.length;
+  return Math.sqrt(values.reduce((sum, value) => sum + (value - average) ** 2, 0) / values.length);
 }
 
 main().catch((e) => {

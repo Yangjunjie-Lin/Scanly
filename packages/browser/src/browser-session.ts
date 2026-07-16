@@ -72,6 +72,17 @@ export class BrowserCaptureSession {
       if (workerPath) {
         markDecodePath("worker");
         outcome = await this.worker.scan(frame, this.scenario, { signal: controller.signal, onStage: options.onStage, onProgress: options.onProgress });
+        if (!outcome.ok && outcome.error.code === "worker_initialization_failure" && !controller.signal.aborted && owner === this.owner) {
+          markDecodePath("main-thread");
+          options.onStage?.("Worker unavailable; retrying on main thread...");
+          const fallbackPixels = await loadPixelBufferFromFile(file);
+          if (controller.signal.aborted || owner !== this.owner) return this.failure(frameId, "cancelled", "Decode cancelled.");
+          outcome = await this.router.scan(
+            createRgbaFrame(fallbackPixels.data, fallbackPixels.width, fallbackPixels.height, { id: frameId, sourceType: "upload", ownership: "owned" }),
+            { signal: controller.signal, scenario: this.scenario },
+          );
+          options.onProgress?.({ attemptCount: outcome.attemptCount });
+        }
       } else {
         markDecodePath("main-thread");
         options.onStage?.("Routing normalized frame...");

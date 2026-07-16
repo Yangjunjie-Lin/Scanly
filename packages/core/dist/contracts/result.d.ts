@@ -1,6 +1,7 @@
 import type { StructuredPayload } from "@scanly/parsers";
 import type { BarcodeFormat } from "@scanly/scenario-schema";
 import type { SdkError } from "./errors.js";
+import type { MemoryObservation } from "../runtime/memory-budget.js";
 export interface CornerPoint {
     x: number;
     y: number;
@@ -13,6 +14,14 @@ export interface ValidationResult {
 export interface HeuristicQualitySignal {
     value: number;
     definition: string;
+}
+export interface HeuristicDebugMetrics {
+    entropyScore: number;
+    highFrequencyRatio: number;
+    candidateCountBeforeCap: number;
+    pathologicalPathActivated: boolean;
+    fallbackAttemptsUsed: number;
+    finalResult: "success" | "not-found" | "failure";
 }
 export interface ScanTiming {
     totalMs: number;
@@ -30,6 +39,7 @@ export interface ScanTiming {
     semanticParsingMs?: number;
     workerSetupMs?: number;
     workerTransferMs?: number;
+    controlledMemory?: MemoryObservation;
 }
 export interface CandidateMetadata {
     index: number;
@@ -76,6 +86,16 @@ export interface ScanAttempt {
     elapsedMs: number;
     success: boolean;
 }
+export type EngineDiagnosticStatus = "success" | "not-found" | "unsupported" | "cancelled" | "timeout" | "initialization-failure" | "execution-failure";
+export interface EngineDiagnostic {
+    engineId: string;
+    engineVersion: string;
+    status: EngineDiagnosticStatus;
+    elapsedMs: number;
+    attemptCount: number;
+    resultCount: number;
+    message?: string;
+}
 export interface ScanSuccess {
     ok: true;
     results: NonEmptyArray<ScanResult>;
@@ -86,6 +106,8 @@ export interface ScanSuccess {
     timing: ScanTiming;
     trace?: DebugTraceEvent[];
     attempts?: ScanAttempt[];
+    engineDiagnostics?: EngineDiagnostic[];
+    heuristics?: HeuristicDebugMetrics;
 }
 export interface ScanFailure {
     ok: false;
@@ -96,6 +118,8 @@ export interface ScanFailure {
     timing: ScanTiming;
     trace?: DebugTraceEvent[];
     attempts?: ScanAttempt[];
+    engineDiagnostics?: EngineDiagnostic[];
+    heuristics?: HeuristicDebugMetrics;
 }
 export type ScanOutcome = ScanSuccess | ScanFailure;
 //# sourceMappingURL=result.d.ts.map

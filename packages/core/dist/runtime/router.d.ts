@@ -6,6 +6,7 @@ import { OperatorRegistry } from "./operator-registry.js";
 import { ScenarioCompiler } from "./scenario-compiler.js";
 import { scenarioToPipelineConfig } from "./scenario-runtime.js";
 import { ValidatorRegistry } from "./validator-registry.js";
+import { type ScanlyCapabilities } from "./capabilities.js";
 export interface CaptureRouterOptions {
     scenario?: ScenarioDefinition;
     engines?: EngineRegistry;
@@ -28,6 +29,7 @@ export declare class CaptureRouter {
     constructor(options?: CaptureRouterOptions);
     updateScenario(scenario: ScenarioDefinition): void;
     getScenario(): ScenarioDefinition;
+    getCapabilities(): ScanlyCapabilities;
     scan(frame: NormalizedFrame, options?: {
         signal?: AbortSignal;
         scenario?: ScenarioDefinition;

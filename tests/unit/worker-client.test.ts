@@ -45,6 +45,21 @@ describe("normalized Worker runtime", () => {
     expect(outcome.timing.workerSetupMs).toBeTypeOf("number");
   });
 
+  it("reuses one initialized Worker across sequential camera-style frames", async () => {
+    const workers: FakeWorker[] = [];
+    const client = new DecodeWorkerClient(() => { const worker = new FakeWorker(); workers.push(worker); return worker; });
+    for (const id of ["camera-one", "camera-two"]) {
+      const pending = client.scan(frame(id), getBuiltinScenario("fast"));
+      const request = workers[0].posted.at(-1)!;
+      if (request.type !== "scan") throw new Error("expected scan request");
+      workers[0].emit({ type: "result", jobId: request.jobId, outcome: success(id) });
+      expect((await pending).frameId).toBe(id);
+    }
+    expect(workers).toHaveLength(1);
+    expect(workers[0].terminate).not.toHaveBeenCalled();
+    client.dispose();
+  });
+
   it("ignores stale responses from replaced jobs", async () => {
     const workers: FakeWorker[] = [];
     const client = new DecodeWorkerClient(() => { const worker = new FakeWorker(); workers.push(worker); return worker; });
@@ -77,7 +92,7 @@ describe("normalized Worker runtime", () => {
     worker.onerror?.({ message: "boom" } as ErrorEvent);
     const crashOutcome = await crashed;
     expect(crashOutcome.ok).toBe(false);
-    if (!crashOutcome.ok) expect(crashOutcome.error.code).toBe("engine_execution_failure");
+    if (!crashOutcome.ok) expect(crashOutcome.error.code).toBe("worker_initialization_failure");
   });
 
   it("maps Worker construction failure without leaking a job", async () => {

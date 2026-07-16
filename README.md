@@ -34,11 +34,11 @@ This is Scanly's internal regression suite—not universal accuracy, a third-par
 <!-- BENCHMARK_SUMMARY_START -->
 | Metric | Value |
 | --- | ---: |
-| Internal fixtures | 63 |
-| Generated fixtures | 54 |
+| Internal fixtures | 74 |
+| Generated fixtures | 65 |
 | Project-owned photos | 9 |
-| Success on fixture suite | **62/63 (98.4%)** on the current 63-case project fixture suite |
-| Positive decode recall | **51/52 (98.1%)** |
+| Success on fixture suite | **73/74 (98.6%)** on the current 74-case project fixture suite |
+| Positive decode recall | **62/63 (98.4%)** |
 | Negative false positives | **0/11 (0.0%)** |
 | Remaining failure | `14-damaged` |
 | Benchmark date | 2026-07-16 |

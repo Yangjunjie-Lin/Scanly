@@ -17,6 +17,7 @@ export default function QRTool() {
   const [deviceId, setDeviceId] = useState<string>("");
   const [isScanning, setIsScanning] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [uploadReady, setUploadReady] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const uploadAbortRef = useRef<AbortController | null>(null);
@@ -68,7 +69,9 @@ export default function QRTool() {
   useEffect(() => {
     uploadSession.initialize();
     uploadSession.start();
+    setUploadReady(true);
     return () => {
+      setUploadReady(false);
       void cameraSource.dispose();
       uploadAbortRef.current?.abort();
       void uploadSession.dispose();
@@ -368,6 +371,7 @@ export default function QRTool() {
               accept="image/*"
               aria-label="Upload QR code image"
               data-testid="upload-input"
+              disabled={!uploadReady}
               onChange={(e) => onUpload(e.target.files?.[0] ?? null)}
               style={{
                 width: "100%",

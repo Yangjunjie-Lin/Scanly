@@ -130,6 +130,56 @@ describe("scenario-compiled Router", () => {
   });
 
   it.each([
+    ["success-wins", true, undefined],
+    ["required-engine-fails", false, "engine_execution_failure"],
+    ["any-engine-fails", false, "engine_execution_failure"],
+  ] as const)("applies the %s parallel engine failure policy", async (failurePolicy, expectedOk, expectedCode) => {
+    const engines = new EngineRegistry();
+    const required = new FakeEngine("required");
+    required.decodeSpy.mockResolvedValue({ ok: false, category: "execution", message: "required failed", elapsedMs: 1 });
+    const fallback = new FakeEngine("fallback");
+    fallback.decodeSpy.mockResolvedValue({ ok: true, results: [{ text: "FALLBACK_RESULT", format: "qr_code", elapsedMs: 1 }] });
+    engines.register(required); engines.register(fallback);
+    const value = scenario("required");
+    value.decoders.order = ["required", "fallback"];
+    value.decoders.execution = "parallel";
+    value.decoders.failurePolicy = failurePolicy;
+    value.output.includeDebugTrace = true;
+    const outcome = await new CaptureRouter({ scenario: value, engines }).scan(createRgbaFrame(new Uint8ClampedArray(64 * 64 * 4).fill(255), 64, 64));
+    expect(outcome.ok).toBe(expectedOk);
+    if (outcome.ok) {
+      expect(outcome.primary.rawText).toBe("FALLBACK_RESULT");
+    } else {
+      expect(outcome.error.code).toBe(expectedCode);
+    }
+    expect(outcome.engineDiagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ engineId: "required", status: "execution-failure" }),
+      expect.objectContaining({ engineId: "fallback", status: "success" }),
+    ]));
+  });
+
+  it("reports cancellation of a losing parallel branch", async () => {
+    const engines = new EngineRegistry();
+    const winner = new FakeEngine("winner");
+    const loser = new FakeEngine("loser");
+    loser.decodeSpy.mockImplementation((_frame, options) => new Promise<EngineOutcome>((resolve) => {
+      const cancel = () => resolve({ ok: false, category: "cancelled", message: "branch cancelled", elapsedMs: 1 });
+      if (options.signal?.aborted) cancel(); else options.signal?.addEventListener("abort", cancel, { once: true });
+    }));
+    engines.register(winner); engines.register(loser);
+    const value = scenario("winner");
+    value.decoders.order = ["winner", "loser"];
+    value.decoders.execution = "parallel";
+    value.output.includeDebugTrace = true;
+    const outcome = await new CaptureRouter({ scenario: value, engines }).scan(createRgbaFrame(new Uint8ClampedArray(64 * 64 * 4).fill(255), 64, 64));
+    expect(outcome.ok).toBe(true);
+    expect(outcome.engineDiagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ engineId: "winner", status: "success" }),
+      expect.objectContaining({ engineId: "loser", status: "cancelled" }),
+    ]));
+  });
+
+  it.each([
     ["execution", "engine_execution_failure"],
     ["timeout", "timeout"],
     ["invalid-input", "invalid_image"],
@@ -159,7 +209,7 @@ describe("scenario-compiled Router", () => {
     expect(engine.dispose).toHaveBeenCalledOnce();
   });
 
-  it("rejects missing operators, engines, unsafe parallelism, quality, and required validators before execution", () => {
+  it("rejects missing operators, engines, quality, and required validators while allowing registry-serialized parallel engines", () => {
     const engines = new EngineRegistry();
     engines.register(new FakeEngine("unsafe", false));
     engines.register(new FakeEngine("safe", true));
@@ -172,7 +222,7 @@ describe("scenario-compiled Router", () => {
 
     const complete = new ScenarioCompiler(createDefaultOperatorRegistry(), engines, validators);
     const parallel = scenario("safe"); parallel.decoders.order = ["safe", "unsafe"]; parallel.decoders.execution = "parallel";
-    expect(() => complete.compile(parallel)).toThrow(/non-thread-safe/);
+    expect(() => complete.compile(parallel)).not.toThrow();
     const quality = scenario("safe"); quality.quality.minimumHeuristicQuality = 0.5;
     expect(() => complete.compile(quality)).toThrow(/unsupported/);
     const requiredValidator = scenario("safe"); requiredValidator.validation = [{ id: "sku", required: true }];

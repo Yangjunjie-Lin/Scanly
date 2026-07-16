@@ -16,6 +16,8 @@ import { scenarioToPipelineConfig } from "./scenario-runtime.js";
 import type { ValidatorRegistry } from "./validator-registry.js";
 import { createCoordinateTransform, IDENTITY_MATRIX, type CoordinateTransform } from "../qr/geometry.js";
 import { monotonicNow } from "./execution-budget.js";
+import { normalizeRgbaOrientation, type OrientationNormalization } from "./frame-normalization.js";
+import type { FrameMemoryBudget, MemoryLease } from "./memory-budget.js";
 
 export const BUILTIN_OPERATOR_IDS = [
   "scanly.frame-normalization",
@@ -44,7 +46,7 @@ const MAX_MESSAGE_LENGTH = 512;
 function descriptor(id: string, accepts: string[], produces: string[], cpu: "low" | "medium" | "high" = "low"): OperatorDescriptor {
   return {
     id,
-    version: "2.0.0-alpha.2",
+    version: "2.0.0-alpha.3",
     accepts,
     produces,
     configurationSchemaId: "https://scanly.dev/schema/scenario/2.1",
@@ -61,18 +63,19 @@ function read<T>(context: OperatorContext, key: string): T {
   return value;
 }
 
-function rgbaFromFrame(frame: NormalizedFrame): PixelBuffer {
+function rgbaFromFrame(frame: NormalizedFrame, memory: FrameMemoryBudget): { buffer: PixelBuffer; lease?: MemoryLease } {
   const bpp = bytesPerPixel(frame.pixelFormat);
   if (frame.pixelFormat === "yuv420" || bpp === null) {
     throw Object.assign(new Error("YUV420 input is unsupported until a YUV normalization operator is registered."), { code: "unsupported_format" });
   }
   if (frame.pixelFormat === "rgba8888" && frame.rowStride === frame.width * 4) {
-    return {
+    return { buffer: {
       data: frame.data instanceof Uint8ClampedArray ? frame.data : new Uint8ClampedArray(frame.data.buffer, frame.data.byteOffset, frame.data.byteLength),
       width: frame.width,
       height: frame.height,
-    };
+    } };
   }
+  const lease = memory.reserveScratch(frame.width * frame.height * 4, "frame-rgba-normalization");
   const output = new Uint8ClampedArray(frame.width * frame.height * 4);
   for (let y = 0; y < frame.height; y++) {
     const row = y * frame.rowStride;
@@ -88,29 +91,42 @@ function rgbaFromFrame(frame: NormalizedFrame): PixelBuffer {
       output[target + 3] = frame.pixelFormat === "rgba8888" ? frame.data[source + 3] : 255;
     }
   }
-  return { data: output, width: frame.width, height: frame.height };
+  return { buffer: { data: output, width: frame.width, height: frame.height }, lease };
 }
 
-function roi(buffer: PixelBuffer, scenario: ScenarioDefinition): { buffer: PixelBuffer; transform: CoordinateTransform } {
+function roi(buffer: PixelBuffer, scenario: ScenarioDefinition, memory: FrameMemoryBudget): { buffer: PixelBuffer; transform: CoordinateTransform; lease?: MemoryLease } {
   const value = scenario.input.roi;
   if (value.mode === "full-frame") return { buffer, transform: createCoordinateTransform(IDENTITY_MATRIX, buffer.width, buffer.height, buffer.width, buffer.height) };
   const x = Math.floor((value.x ?? 0) * buffer.width);
   const y = Math.floor((value.y ?? 0) * buffer.height);
   const width = Math.min(Math.max(1, Math.floor((value.width ?? 1) * buffer.width)), buffer.width - x);
   const height = Math.min(Math.max(1, Math.floor((value.height ?? 1) * buffer.height)), buffer.height - y);
-  return {
-    buffer: cropBuffer(buffer, { x, y, width, height }),
-    transform: createCoordinateTransform([1, 0, x, 0, 1, y, 0, 0, 1], width, height, buffer.width, buffer.height),
-  };
+  const lease = memory.reserveScratch(width * height * 4, "roi-crop");
+  try {
+    return {
+      buffer: cropBuffer(buffer, { x, y, width, height }),
+      transform: createCoordinateTransform([1, 0, x, 0, 1, y, 0, 0, 1], width, height, buffer.width, buffer.height),
+      lease,
+    };
+  } catch (error) {
+    lease.release();
+    throw error;
+  }
 }
 
 class FrameNormalizationOperator implements Operator<void, void, RuntimeOperatorConfiguration> {
   readonly descriptor = descriptor(BUILTIN_OPERATOR_IDS[0], ["frame.normalized"], ["pixel-buffer.rgba8888"], "medium");
   async execute(_input: void, _configuration: RuntimeOperatorConfiguration, context: OperatorContext): Promise<void> {
     const frame = read<NormalizedFrame>(context, "input.frame");
-    const buffer = rgbaFromFrame(frame);
-    context.artifacts.set("frame.rgba", buffer, buffer.data === frame.data ? 0 : buffer.data.byteLength);
-    context.trace("operator.frame-normalization");
+    const converted = rgbaFromFrame(frame, context.artifacts.memoryBudget);
+    let orientationLease: MemoryLease | undefined;
+    if (frame.orientation !== 0) orientationLease = context.artifacts.memoryBudget.reserveScratch(converted.buffer.data.byteLength, "frame-orientation-normalization");
+    const normalized = normalizeRgbaOrientation(converted.buffer, frame.orientation, context.budget);
+    if (orientationLease) converted.lease?.release();
+    const retainedLease = orientationLease ?? converted.lease;
+    context.artifacts.set("frame.rgba", normalized.buffer, retainedLease ? normalized.buffer.data.byteLength : 0, retainedLease);
+    context.artifacts.set("frame.orientation", normalized);
+    context.trace("operator.frame-normalization", `source=${frame.width}x${frame.height}@${frame.orientation};upright=${normalized.buffer.width}x${normalized.buffer.height}`);
   }
 }
 
@@ -118,8 +134,8 @@ class RoiOperator implements Operator<void, void, RuntimeOperatorConfiguration> 
   readonly descriptor = descriptor(BUILTIN_OPERATOR_IDS[1], ["pixel-buffer.rgba8888"], ["pixel-buffer.roi", "frame.roi-transform"], "medium");
   async execute(_input: void, configuration: RuntimeOperatorConfiguration, context: OperatorContext): Promise<void> {
     const source = read<PixelBuffer>(context, "frame.rgba");
-    const output = roi(source, configuration.scenario);
-    context.artifacts.set("frame.roi", output.buffer, output.buffer === source ? 0 : output.buffer.data.byteLength);
+    const output = roi(source, configuration.scenario, context.artifacts.memoryBudget);
+    context.artifacts.set("frame.roi", output.buffer, output.lease ? output.buffer.data.byteLength : 0, output.lease);
     context.artifacts.set("frame.roi-transform", output.transform);
     context.trace("operator.roi", configuration.scenario.input.roi.mode);
   }
@@ -149,12 +165,14 @@ class CandidateGenerationOperator implements Operator<void, void, RuntimeOperato
       enableLocalization: config.enableLocalization,
       enableFullImageFallback: config.enableFullImageFallback,
       enableSplitImageFallback: config.enableSplitImageFallback,
+      enableGridImageFallback: config.enableGridImageFallback,
       budget: context.budget,
       sourceToFrame,
     });
     const retainedBytes = candidates.reduce((sum, candidate) => sum + candidate.buffer.data.byteLength, 0);
     context.artifacts.set("candidates.raw", candidates, retainedBytes);
-    context.trace("operator.candidate-generation", String(candidates.length));
+    const first = candidates[0];
+    context.trace("operator.candidate-generation", `retained=${candidates.length};beforeCap=${first?.candidateCountBeforeCap ?? candidates.length};highFrequency=${(first?.highFrequencyRatio ?? 0).toFixed(4)};pathological=${Boolean(first?.pathologicalInput)}`);
   }
 }
 
@@ -198,9 +216,11 @@ function engineExecutor(registry: EngineRegistry, scenario: ScenarioDefinition):
   };
 }
 
-function mergeParallel(outcomes: DecodeOutcome[], started: number, deduplication: PipelineConfig["resultDeduplication"]): DecodeOutcome {
+function mergeParallel(outcomes: DecodeOutcome[], started: number, deduplication: PipelineConfig["resultDeduplication"], failurePolicy: NonNullable<PipelineConfig["decoders"]["failurePolicy"]>): DecodeOutcome {
   const attempts = outcomes.flatMap((outcome) => outcome.attempts);
+  const engineDiagnostics = outcomes.flatMap((outcome) => outcome.engineDiagnostics ?? []).slice(0, 16);
   const successes = outcomes.filter((outcome): outcome is DecodeSuccess => outcome.ok);
+  const materialFailures = outcomes.filter((outcome): outcome is DecodeFailure => !outcome.ok && !["no_qr_found", "cancelled"].includes(outcome.reason));
   const phaseTiming: PhaseTiming = { candidateGenerationMs: 0, preprocessMs: 0, rotationMs: 0, engineMs: {} };
   for (const outcome of outcomes) {
     const phase = outcome.phaseTiming;
@@ -209,7 +229,8 @@ function mergeParallel(outcomes: DecodeOutcome[], started: number, deduplication
     phaseTiming.rotationMs += phase.rotationMs;
     for (const [id, elapsed] of Object.entries(phase.engineMs ?? {})) phaseTiming.engineMs![id] = (phaseTiming.engineMs![id] ?? 0) + elapsed;
   }
-  if (successes.length) {
+  const policyFailure = failurePolicy === "any-engine-fails" ? materialFailures[0] : failurePolicy === "required-engine-fails" && !outcomes[0]?.ok ? materialFailures.find((failure) => failure === outcomes[0]) : undefined;
+  if (successes.length && !policyFailure) {
     const results = dedupeResults(successes.flatMap((outcome) => outcome.results), deduplication);
     const nonEmpty = results as DecodeSuccess["results"];
     return {
@@ -221,11 +242,12 @@ function mergeParallel(outcomes: DecodeOutcome[], started: number, deduplication
       elapsedMs: monotonicNow() - started,
       timeToFirstResultMs: Math.min(...successes.map((outcome) => outcome.timeToFirstResultMs ?? outcome.elapsedMs)),
       cancelled: false,
+      engineDiagnostics,
       phaseTiming,
     };
   }
-  const representative = outcomes.find((outcome): outcome is DecodeFailure => !outcome.ok && outcome.reason !== "no_qr_found") ?? outcomes[0] as DecodeFailure;
-  return { ...representative, attempts, attemptCount: attempts.length, elapsedMs: monotonicNow() - started, phaseTiming };
+  const representative = policyFailure ?? outcomes.find((outcome): outcome is DecodeFailure => !outcome.ok && outcome.reason !== "no_qr_found") ?? outcomes[0] as DecodeFailure;
+  return { ...representative, attempts, attemptCount: attempts.length, elapsedMs: monotonicNow() - started, engineDiagnostics, phaseTiming };
 }
 
 class DecoderExecutionOperator implements Operator<void, void, RuntimeOperatorConfiguration> {
@@ -257,9 +279,22 @@ class DecoderExecutionOperator implements Operator<void, void, RuntimeOperatorCo
           if (result.ok && !configuration.scenario.multiCode.enabled) {
             controllers.slice(index + 1).forEach((controller) => controller.abort());
           }
+          if (!result.ok && result.reason === "cancelled" && !result.engineDiagnostics?.some((diagnostic) => diagnostic.engineId === id)) {
+            return {
+              ...result,
+              engineDiagnostics: [...(result.engineDiagnostics ?? []), {
+                engineId: id,
+                engineVersion: executor.versions?.[id] ?? "unknown",
+                status: "cancelled" as const,
+                elapsedMs: result.elapsedMs,
+                attemptCount: result.attemptCount,
+                resultCount: 0,
+              }],
+            };
+          }
           return result;
         }));
-        outcome = mergeParallel(await Promise.all(branches), started, base.resultDeduplication);
+        outcome = mergeParallel(await Promise.all(branches), started, base.resultDeduplication, base.decoders.failurePolicy ?? "success-wins");
       } finally {
         context.signal?.removeEventListener("abort", abortAll);
       }
@@ -286,8 +321,8 @@ function timing(outcome: DecodeOutcome): ScanTiming {
   };
 }
 
-function failure(frameId: string, scenarioId: string, code: SdkErrorCode, message: string, outcome: DecodeOutcome): ScanFailure {
-  return { ok: false, error: sdkError(code, message), frameId, scenarioId, attemptCount: outcome.attemptCount, timing: timing(outcome) };
+function failure(frameId: string, scenarioId: string, code: SdkErrorCode, message: string, outcome: DecodeOutcome, includeDiagnostics = false): ScanFailure {
+  return { ok: false, error: sdkError(code, message), frameId, scenarioId, attemptCount: outcome.attemptCount, timing: timing(outcome), ...(includeDiagnostics && outcome.engineDiagnostics ? { engineDiagnostics: outcome.engineDiagnostics.slice(0, 16) } : {}) };
 }
 
 function failureCode(outcome: DecodeFailure): SdkErrorCode {
@@ -305,16 +340,25 @@ class ResultAggregationOperator implements Operator<void, void, RuntimeOperatorC
   async execute(_input: void, configuration: RuntimeOperatorConfiguration, context: OperatorContext): Promise<void> {
     const frame = read<NormalizedFrame>(context, "input.frame");
     const outcome = read<DecodeOutcome>(context, "decode.outcome");
+    const candidates = read<CandidateImage[]>(context, "candidates.unique");
+    const heuristicMetrics = configuration.scenario.output.includeDebugTrace ? {
+      entropyScore: candidates[0]?.highFrequencyRatio ?? 0,
+      highFrequencyRatio: candidates[0]?.highFrequencyRatio ?? 0,
+      candidateCountBeforeCap: candidates[0]?.candidateCountBeforeCap ?? candidates.length,
+      pathologicalPathActivated: candidates.some((candidate) => candidate.pathologicalInput),
+      fallbackAttemptsUsed: outcome.attempts.filter((attempt) => attempt.decoder !== configuration.scenario.decoders.order[0]).length,
+      finalResult: outcome.ok ? "success" as const : outcome.reason === "no_qr_found" ? "not-found" as const : "failure" as const,
+    } : undefined;
     if (!outcome.ok) {
-      context.artifacts.set("scan.outcome", failure(frame.id, configuration.scenario.id, failureCode(outcome), outcome.message, outcome));
+      context.artifacts.set("scan.outcome", { ...failure(frame.id, configuration.scenario.id, failureCode(outcome), outcome.message, outcome, configuration.scenario.output.includeDebugTrace), ...(heuristicMetrics ? { heuristics: heuristicMetrics } : {}) });
       return;
     }
     if (!outcome.results.length) {
-      context.artifacts.set("scan.outcome", failure(frame.id, configuration.scenario.id, "internal_invariant_failure", "Decoder aggregation produced an empty success.", outcome));
+      context.artifacts.set("scan.outcome", failure(frame.id, configuration.scenario.id, "internal_invariant_failure", "Decoder aggregation produced an empty success.", outcome, configuration.scenario.output.includeDebugTrace));
       return;
     }
     if (outcome.results.some((code) => code.payload.length > MAX_DECODED_TEXT_LENGTH)) {
-      context.artifacts.set("scan.outcome", failure(frame.id, configuration.scenario.id, "resource_limit_exceeded", `Decoded text exceeds the ${MAX_DECODED_TEXT_LENGTH}-character output limit.`, outcome));
+      context.artifacts.set("scan.outcome", failure(frame.id, configuration.scenario.id, "resource_limit_exceeded", `Decoded text exceeds the ${MAX_DECODED_TEXT_LENGTH}-character output limit.`, outcome, configuration.scenario.output.includeDebugTrace));
       return;
     }
     const resultTiming = timing(outcome);
@@ -353,6 +397,8 @@ class ResultAggregationOperator implements Operator<void, void, RuntimeOperatorC
       attemptCount: outcome.attemptCount,
       timing: resultTiming,
       ...(publicAttempts ? { attempts: publicAttempts } : {}),
+      ...(configuration.scenario.output.includeDebugTrace && outcome.engineDiagnostics ? { engineDiagnostics: outcome.engineDiagnostics.slice(0, 16) } : {}),
+      ...(heuristicMetrics ? { heuristics: heuristicMetrics } : {}),
     } satisfies ScanSuccess);
     context.trace("operator.result-aggregation", String(results.length));
   }

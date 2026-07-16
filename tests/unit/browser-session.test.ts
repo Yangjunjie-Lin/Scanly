@@ -20,7 +20,7 @@ class TestRouter extends CaptureRouter {
   override updateScenario(): void {}
 }
 
-afterEach(() => vi.clearAllMocks());
+afterEach(() => { vi.clearAllMocks(); vi.unstubAllGlobals(); });
 
 describe("BrowserCaptureSession", () => {
   it("rejects malformed constructor configuration", () => {
@@ -49,6 +49,30 @@ describe("BrowserCaptureSession", () => {
     const outcome = await session.scanFile(file, { forceMainThread: true });
     expect(outcome.ok).toBe(false);
     if (!outcome.ok) expect(outcome.error.code).toBe("resource_limit_exceeded");
+  });
+
+  it("falls back to the main-thread Router after Worker bootstrap failure", async () => {
+    vi.stubGlobal("Worker", class {});
+    const router = new TestRouter();
+    const worker = {
+      onmessage: null,
+      onerror: null,
+      postMessage: vi.fn(function (this: { onerror: ((event: ErrorEvent) => void) | null }) {
+        queueMicrotask(() => this.onerror?.({ message: "chunk failed to load" } as ErrorEvent));
+      }),
+      terminate: vi.fn(),
+    };
+    const session = new BrowserCaptureSession({ router, workerFactory: () => worker });
+    const routerSpy = vi.spyOn(router, "scan");
+    session.start();
+    loadPixelBufferFromFile.mockResolvedValue(pixels);
+    const stages: string[] = [];
+    const outcome = await session.scanFile(file, { onStage: (stage) => stages.push(stage) });
+    expect(outcome.ok).toBe(true);
+    expect(loadPixelBufferFromFile).toHaveBeenCalledTimes(2);
+    expect(stages).toContain("Worker unavailable; retrying on main thread...");
+    expect(routerSpy).toHaveBeenCalledOnce();
+    await session.dispose();
   });
 
   it("rejects concurrent work and prevents superseded results", async () => {

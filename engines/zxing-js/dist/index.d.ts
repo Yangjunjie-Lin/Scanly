@@ -8,6 +8,8 @@ export declare class ZxingJsEngine implements DecoderEngine {
         returnsRawBytes: boolean;
         returnsCornerPoints: boolean;
         threadSafe: boolean;
+        estimatedScratchBytesPerPixel: number;
+        copiesInputBuffer: boolean;
     };
     private readonly reader;
     decode(frame: NormalizedFrame, options: EngineDecodeOptions): Promise<EngineOutcome>;

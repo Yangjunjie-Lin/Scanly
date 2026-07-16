@@ -1,13 +1,21 @@
 import { type CaptureRouter, type ScanFailure, type ScanOutcome } from "@scanly/core";
 import { type ScenarioDefinition } from "@scanly/scenario-schema";
+import { type DecodeWorkerFactory } from "./worker/worker-client.js";
+import { type CameraEscalationOptions } from "./camera-strategy.js";
 export interface CameraCapabilities {
     torch: boolean;
     minZoom?: number;
     maxZoom?: number;
     currentZoom?: number;
+    focusModes?: string[];
+    width?: number;
+    height?: number;
 }
 export interface CameraStartOptions {
     deviceId?: string;
+    facingMode?: "user" | "environment";
+    preferredWidth?: number;
+    preferredHeight?: number;
     scenario?: ScenarioDefinition;
     stopAfterResult?: boolean;
     duplicateWindowMs?: number;
@@ -16,6 +24,8 @@ export interface CameraStartOptions {
     stableResultCount?: number;
     /** Longest sampled RGBA side before Canvas readback. Defaults to 960. */
     sampleMaxSide?: number;
+    forceMainThread?: boolean;
+    escalation?: CameraEscalationOptions;
     onResult(outcome: ScanOutcome): void;
     onError?(outcome: ScanFailure): void;
     onStateChange?(state: "starting" | "running" | "stopped"): void;
@@ -24,10 +34,12 @@ export interface CameraStartOptions {
 export interface BrowserCameraSourceOptions {
     router?: CaptureRouter;
     disposeRouter?: boolean;
+    workerFactory?: DecodeWorkerFactory;
 }
 /** Default SDK v2 camera path: sampled RGBA frames -> CaptureSession -> CaptureRouter. */
 export declare class BrowserCameraSource {
     private readonly session;
+    private readonly worker;
     private video;
     private options;
     private canvas;
@@ -43,6 +55,9 @@ export declare class BrowserCameraSource {
     private stableKey;
     private stableCount;
     private stopped;
+    private workerAvailable;
+    private workerRetryFrames;
+    private strategy;
     constructor(options?: BrowserCameraSourceOptions);
     static listDevices(): Promise<MediaDeviceInfo[]>;
     start(video: HTMLVideoElement, options: CameraStartOptions): Promise<void>;

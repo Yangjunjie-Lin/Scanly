@@ -2,6 +2,8 @@
 
 Scanly v2 has one local-only capture execution model. Framework adapters compose the runtime; they do not own decoding business logic.
 
+Alpha.3 validation contracts are detailed in [frame orientation](frame-orientation.md), [benchmark provenance](benchmarking/provenance.md), [camera Worker architecture](camera-worker.md), [device validation](device-validation.md), and [API stability](sdk/api-stability.md).
+
 Benchmark outcome and timing rules are documented in [benchmark methodology](benchmark-methodology.md).
 
 ## Authoritative execution paths
@@ -16,7 +18,7 @@ Camera track -> video/canvas sampler -> CaptureSession    -> dependency-ready op
                                                             -> deterministic ScanOutcome
 ```
 
-The Worker and main-thread fallback both invoke `CaptureRouter.scan(frame, { scenario })`. The deprecated upload helper constructs a `BrowserCaptureSession`; it does not call the legacy pixel pipeline. Camera frames are sampled at a bounded cadence, never queued behind an active frame, and routed through `CaptureSession` and the same Router.
+The Worker and main-thread fallback both invoke `CaptureRouter.scan(frame, { scenario })`. The deprecated upload helper constructs a `BrowserCaptureSession`; it does not call the legacy pixel pipeline. If an upload Worker fails to bootstrap or load its module chunks, the session reloads the local `File` and retries once through the main-thread Router; ordinary decoder failures are not masked by this fallback. Camera frames are sampled at a bounded cadence and sent to a persistent transferable-buffer Worker; unsupported or recovering Worker environments use CaptureSession and the same Router on the main thread.
 
 ## Dependency direction
 

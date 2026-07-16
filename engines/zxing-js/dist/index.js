@@ -2,7 +2,7 @@ import { BarcodeFormat, BinaryBitmap, DecodeHintType, HybridBinarizer, QRCodeRea
 export class ZxingJsEngine {
     id = "zxing-js";
     version = "0.21.3";
-    capabilities = { formats: ["qr_code"], supportsMultiple: false, returnsRawBytes: true, returnsCornerPoints: false, threadSafe: false };
+    capabilities = { formats: ["qr_code"], supportsMultiple: false, returnsRawBytes: true, returnsCornerPoints: false, threadSafe: false, estimatedScratchBytesPerPixel: 1, copiesInputBuffer: true };
     reader = new QRCodeReader();
     async decode(frame, options) {
         const started = Date.now();

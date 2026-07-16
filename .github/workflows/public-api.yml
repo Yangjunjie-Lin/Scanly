@@ -1,0 +1,23 @@
+name: Public API
+
+on:
+  pull_request:
+  push:
+    branches:
+      - architecture/sdk-v2-alpha3-industrial-validation
+
+jobs:
+  public-api:
+    name: Public API declarations and package exports
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build:packages
+      - run: npm run api:snapshot
+      - run: npm run packages:smoke
+      - run: npm run packages:tarball

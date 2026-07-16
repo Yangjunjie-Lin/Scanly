@@ -47,6 +47,25 @@ export function buildAttemptPlan(preprocessOrder, rotations, budgetRemaining) {
     }
     return plan.slice(0, Math.max(0, budgetRemaining));
 }
+const DIAGNOSTIC_STATUS_PRIORITY = {
+    "not-found": 0, cancelled: 1, unsupported: 2, timeout: 3, "initialization-failure": 4, "execution-failure": 5, success: 6,
+};
+function recordDiagnostic(ctx, engineId, status, elapsedMs, resultCount, message) {
+    let diagnostic = ctx.diagnostics.find((entry) => entry.engineId === engineId);
+    if (!diagnostic) {
+        if (ctx.diagnostics.length >= 16)
+            return;
+        diagnostic = { engineId, engineVersion: ctx.engineExecutor.versions?.[engineId] ?? "unknown", status, elapsedMs: 0, attemptCount: 0, resultCount: 0 };
+        ctx.diagnostics.push(diagnostic);
+    }
+    diagnostic.elapsedMs += Math.max(0, elapsedMs);
+    diagnostic.attemptCount += 1;
+    diagnostic.resultCount += Math.max(0, resultCount);
+    if (DIAGNOSTIC_STATUS_PRIORITY[status] >= DIAGNOSTIC_STATUS_PRIORITY[diagnostic.status])
+        diagnostic.status = status;
+    if (message && status !== "not-found")
+        diagnostic.message = message.slice(0, 256);
+}
 class AttemptImageCache {
     maxEntries;
     maxBytes;
@@ -77,7 +96,7 @@ class AttemptImageCache {
         const bytes = value.data.byteLength;
         const sharedCapacity = !this.memoryBudget || this.memoryBudget.remainingBytes >= bytes;
         if (this.entries.size < this.maxEntries && this.retainedBytes + bytes <= this.maxBytes && sharedCapacity) {
-            const lease = this.memoryBudget?.reserve(bytes, `preprocess-cache:${key}`);
+            const lease = this.memoryBudget?.reserve(bytes, `preprocess-cache:${key}`, "cache");
             this.entries.set(key, value);
             this.retainedBytes += bytes;
             if (lease)
@@ -135,17 +154,16 @@ function pushResult(ctx, code) {
     const prevSize = ctx.found.length;
     ctx.found.push(code);
     const unique = dedupeResults(ctx.found, ctx.config.resultDeduplication);
-    unique.sort((a, b) => a.candidateIndex - b.candidateIndex);
     ctx.found.length = 0;
     ctx.found.push(...unique);
     if (unique.length > prevSize) {
         ctx.candidatesSinceNew = 0;
     }
     if (!ctx.config.findMultiple) {
-        return successOutcome(unique, ctx.attempts, ctx.start, false, ctx.phaseTiming);
+        return successOutcome(unique, ctx.attempts, ctx.start, false, ctx.phaseTiming, ctx.diagnostics);
     }
     if (shouldStopMultiple(ctx)) {
-        return successOutcome(unique, ctx.attempts, ctx.start, false, ctx.phaseTiming);
+        return successOutcome(unique, ctx.attempts, ctx.start, false, ctx.phaseTiming, ctx.diagnostics);
     }
     return null;
 }
@@ -165,11 +183,22 @@ async function tryEngine(ctx, engineId, candidate, preprocessing, rotation) {
     const t0 = ctx.now();
     const processed = processedFor(ctx, candidate, preprocessing, rotation);
     const t1 = ctx.now();
-    const decoded = await ctx.engineExecutor.decode(engineId, processed, {
-        signal: ctx.signal,
-        findMultiple: ctx.config.findMultiple,
-        inversion: preprocessing === "invert" ? "inverted" : "original",
-    });
+    let decoded;
+    try {
+        decoded = await ctx.engineExecutor.decode(engineId, processed, {
+            signal: ctx.signal,
+            findMultiple: ctx.config.findMultiple,
+            inversion: preprocessing === "invert" ? "inverted" : "original",
+        });
+    }
+    catch (error) {
+        const nestedCode = error && typeof error === "object" && "error" in error ? String(error.error?.code ?? "") : "";
+        const directCode = error && typeof error === "object" && "code" in error ? String(error.code ?? "") : "";
+        const code = nestedCode || directCode;
+        const status = code.includes("initialization") ? "initialization-failure" : code === "cancelled" ? "cancelled" : "execution-failure";
+        recordDiagnostic(ctx, engineId, status, ctx.now() - t1, 0, error instanceof Error ? error.message : String(error));
+        throw error;
+    }
     const engineElapsed = ctx.now() - t1;
     const engineTiming = (ctx.phaseTiming.engineMs ??= {});
     engineTiming[engineId] = (engineTiming[engineId] ?? 0) + engineElapsed;
@@ -187,6 +216,8 @@ async function tryEngine(ctx, engineId, candidate, preprocessing, rotation) {
     });
     ctx.onProgress?.({ attemptCount: ctx.attempts.length });
     if (!decoded.ok) {
+        const status = decoded.category === "not-found" ? "not-found" : decoded.category === "unsupported-format" || decoded.category === "invalid-input" ? "unsupported" : decoded.category === "initialization" ? "initialization-failure" : decoded.category === "execution" ? "execution-failure" : decoded.category;
+        recordDiagnostic(ctx, engineId, status, engineElapsed, 0, decoded.message);
         if (decoded.category === "not-found")
             return null;
         const reasons = {
@@ -201,6 +232,7 @@ async function tryEngine(ctx, engineId, candidate, preprocessing, rotation) {
         const error = Object.assign(new Error(decoded.message), { code: reason, name: reason === "cancelled" ? "AbortError" : reason === "timeout" ? "TimeoutError" : "EngineError" });
         throw error;
     }
+    recordDiagnostic(ctx, engineId, "success", engineElapsed, decoded.results.length);
     let completed = null;
     for (const result of decoded.results) {
         const payload = normalizePayload(result.text);
@@ -250,6 +282,7 @@ export async function decodePixelBuffer(image, options = {}) {
     const start = now();
     const attempts = [];
     const found = [];
+    const diagnostics = [];
     const signal = options.signal;
     const engineExecutor = options.engineExecutor;
     const phaseTiming = {
@@ -265,6 +298,7 @@ export async function decodePixelBuffer(image, options = {}) {
         attemptCount: attempts.length,
         elapsedMs: now() - start,
         cancelled,
+        engineDiagnostics: diagnostics,
         phaseTiming,
     });
     const ctx = {
@@ -288,6 +322,7 @@ export async function decodePixelBuffer(image, options = {}) {
             memory: options.memoryBudget,
         }),
         now,
+        diagnostics,
     };
     try {
         throwIfAborted(signal);
@@ -320,6 +355,7 @@ export async function decodePixelBuffer(image, options = {}) {
             enableLocalization: config.enableLocalization,
             enableFullImageFallback: config.enableFullImageFallback,
             enableSplitImageFallback: config.enableSplitImageFallback,
+            enableGridImageFallback: config.enableGridImageFallback,
             budget: ctx.budget,
         });
         const candidates = dedupeCandidates(rawCandidates);
@@ -328,7 +364,7 @@ export async function decodePixelBuffer(image, options = {}) {
         const primaryEngineId = config.decoders.order[0];
         const fallbackEngineIds = config.decoders.order.slice(1);
         const pathological = ordered.some((candidate) => candidate.pathologicalInput);
-        const cheap = pathological ? ["original"] : ["original", "contrast", "invert"];
+        const cheap = ["original", "contrast", "invert"];
         const deep = pathological ? [] : config.preprocessOrder.filter((m) => !cheap.includes(m));
         const cheapTargets = config.findMultiple ? ordered : ordered.slice(0, 12);
         // Phase 1 — cheap pass
@@ -338,15 +374,15 @@ export async function decodePixelBuffer(image, options = {}) {
             if (timedOut(start, config.timeoutMs, now)) {
                 if (signal?.aborted) {
                     if (found.length)
-                        return successOutcome(dedupeResults(found, config.resultDeduplication), attempts, start, true, phaseTiming);
+                        return successOutcome(dedupeResults(found, config.resultDeduplication), attempts, start, true, phaseTiming, diagnostics);
                     return fail("cancelled", "Decode cancelled.", true);
                 }
                 if (found.length)
-                    return successOutcome(dedupeResults(found, config.resultDeduplication), attempts, start, false, phaseTiming);
+                    return successOutcome(dedupeResults(found, config.resultDeduplication), attempts, start, false, phaseTiming, diagnostics);
                 return fail("timeout", "Decode timed out. Try cropping closer to the QR code, using a clearer image, or reducing image size.");
             }
             if (shouldStopMultiple(ctx)) {
-                return successOutcome(dedupeResults(found, config.resultDeduplication), attempts, start, false, phaseTiming);
+                return successOutcome(dedupeResults(found, config.resultDeduplication), attempts, start, false, phaseTiming, diagnostics);
             }
             options.onStage?.(candidate.cropPadding === "full"
                 ? "Trying full image…"
@@ -362,7 +398,7 @@ export async function decodePixelBuffer(image, options = {}) {
             }
             onCandidateDone(ctx, found.length > before);
             if (!config.findMultiple && found.length > 0) {
-                return successOutcome(dedupeResults(found, config.resultDeduplication), attempts, start, false, phaseTiming);
+                return successOutcome(dedupeResults(found, config.resultDeduplication), attempts, start, false, phaseTiming, diagnostics);
             }
             if (ctx.failFast)
                 continue;
@@ -371,7 +407,7 @@ export async function decodePixelBuffer(image, options = {}) {
             }
         }
         if (found.length > 0 && shouldStopMultiple(ctx)) {
-            return successOutcome(dedupeResults(found, config.resultDeduplication), attempts, start, false, phaseTiming);
+            return successOutcome(dedupeResults(found, config.resultDeduplication), attempts, start, false, phaseTiming, diagnostics);
         }
         // Phase 2 — deep preprocess (skip if fail-fast with no results)
         if (!pathological && (!ctx.failFast || found.length > 0)) {
@@ -399,7 +435,7 @@ export async function decodePixelBuffer(image, options = {}) {
             }
         }
         if (found.length > 0 && shouldStopMultiple(ctx)) {
-            return successOutcome(dedupeResults(found, config.resultDeduplication), attempts, start, false, phaseTiming);
+            return successOutcome(dedupeResults(found, config.resultDeduplication), attempts, start, false, phaseTiming, diagnostics);
         }
         // Return to lower-ranked candidates only after high-value deep preprocessing.
         if (!config.findMultiple && found.length === 0) {
@@ -432,15 +468,15 @@ export async function decodePixelBuffer(image, options = {}) {
             }
         }
         // Phase 4 - registered fallback engines in scenario order.
-        if (!pathological && found.length === 0 && fallbackEngineIds.length) {
+        if (found.length === 0 && fallbackEngineIds.length) {
             options.onStage?.("Backup decoder...");
-            const zxTargets = ordered.filter((c) => c.cropPadding === "full").slice(0, 2);
+            const zxTargets = ordered.filter((c) => c.cropPadding === "full").slice(0, pathological ? 1 : 2);
             if (zxTargets.length === 0) {
                 zxTargets.push(...ordered.slice(0, 2));
             }
             for (const engineId of fallbackEngineIds) {
                 for (const candidate of zxTargets) {
-                    for (const preprocessing of ["original", "contrast", "invert"]) {
+                    for (const preprocessing of (pathological ? ["original"] : ["original", "contrast", "invert"])) {
                         const hit = await tryEngine(ctx, engineId, candidate, preprocessing, 0);
                         if (hit)
                             return hit;
@@ -449,7 +485,7 @@ export async function decodePixelBuffer(image, options = {}) {
             }
         }
         if (found.length > 0) {
-            return successOutcome(dedupeResults(found, config.resultDeduplication), attempts, start, false, phaseTiming);
+            return successOutcome(dedupeResults(found, config.resultDeduplication), attempts, start, false, phaseTiming, diagnostics);
         }
         if (timedOut(start, config.timeoutMs, now)) {
             if (signal?.aborted) {
@@ -462,7 +498,7 @@ export async function decodePixelBuffer(image, options = {}) {
     catch (e) {
         if (e instanceof Error && (e.name === "AbortError" || e.message === "cancelled")) {
             if (found.length > 0) {
-                return successOutcome(dedupeResults(found, config.resultDeduplication), attempts, start, true, phaseTiming);
+                return successOutcome(dedupeResults(found, config.resultDeduplication), attempts, start, true, phaseTiming, diagnostics);
             }
             return fail("cancelled", "Decode cancelled.", true);
         }
@@ -478,7 +514,7 @@ export async function decodePixelBuffer(image, options = {}) {
         ctx.intermediateCache.dispose();
     }
 }
-export function successOutcome(results, attempts, start, cancelled, phaseTiming) {
+export function successOutcome(results, attempts, start, cancelled, phaseTiming, engineDiagnostics = []) {
     if (results.length === 0) {
         throw new Error("Decode success invariant violated: results must be non-empty.");
     }
@@ -495,6 +531,7 @@ export function successOutcome(results, attempts, start, cancelled, phaseTiming)
         elapsedMs: (start > 10_000_000_000 ? Date.now() : monotonicNow()) - start,
         ...(foundOffsets.length ? { timeToFirstResultMs: Math.min(...foundOffsets) } : {}),
         cancelled,
+        engineDiagnostics,
         phaseTiming,
     };
 }

@@ -6,6 +6,7 @@ export interface FixtureEvaluation {
 }
 export declare function expectedPayloads(fixture: BenchmarkFixture): string[];
 export declare function requiredPayloads(fixture: BenchmarkFixture): string[];
+export declare function requiredPayloadsForProfile(fixture: BenchmarkFixture, profile: "fast" | "balanced" | "robust"): string[];
 export declare function evaluateFixture(fixture: BenchmarkFixture, payloads: string[], actual: boolean | {
     ok: boolean;
     errorCode?: string;

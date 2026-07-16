@@ -2,6 +2,17 @@
 
 All notable changes follow semantic versioning.
 
+## [2.0.0-alpha.3] - 2026-07-16
+
+- Added reproducible source identity, clean-tree enforcement, and a validated active-baseline registry.
+- Added comparison schema 2.0 with raw, single-engine, sequential, and parallel ablations.
+- Normalized frame orientation into canonical upright pixels before ROI and candidate processing.
+- Added real 5/8/12-code, repeated-payload, high-version, high-frequency-positive, and ZXing-contribution fixtures.
+- Added bounded engine diagnostics, explicit parallel failure policy, and controlled peak-memory observations.
+- Routed sampled camera frames through a persistent transferable-buffer Worker with fallback and bounded escalation.
+- Added browser benchmark, device-result schema, public declaration snapshots, and separate CI workflows.
+- Stable remains unsupported: QR Code Model 2 only, no calibrated confidence, native bindings, certified device lab, or industrial certification.
+
 ## [2.0.0-alpha.2] - 2026-07-16
 
 - Bounded adversarial candidate generation and cooperative monotonic execution deadlines.

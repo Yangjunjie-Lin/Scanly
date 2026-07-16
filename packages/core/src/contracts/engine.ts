@@ -8,6 +8,8 @@ export interface EngineCapabilities {
   returnsRawBytes: boolean;
   returnsCornerPoints: boolean;
   threadSafe: boolean;
+  estimatedScratchBytesPerPixel?: number;
+  copiesInputBuffer?: boolean;
 }
 export type EngineFailureCategory = "not-found" | "unsupported-format" | "invalid-input" | "initialization" | "execution" | "cancelled" | "timeout";
 export interface EngineDecodeResult {

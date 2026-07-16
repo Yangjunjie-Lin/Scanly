@@ -3,6 +3,7 @@ export type BarcodeFormat = "qr_code" | "micro_qr" | "rmqr" | "data_matrix" | "g
 export type PixelFormatPreference = "rgba8888" | "rgb888" | "gray8" | "yuv420";
 /** Decoder ids are plugin-defined; the schema validates their portable id shape. */
 export type DecoderId = string;
+export type ParallelEngineFailurePolicy = "success-wins" | "required-engine-fails" | "any-engine-fails";
 export type EnhancementId = "contrast" | "gamma" | "invert" | "otsu" | "threshold-115" | "threshold-140" | "threshold-165" | "sharpen";
 export type SemanticParserId = "url" | "wifi" | "vcard" | "email" | "telephone" | "sms" | "geo" | "calendar" | "gs1" | "gs1-digital-link";
 export interface ScenarioDefinition {
@@ -34,6 +35,7 @@ export interface ScenarioDefinition {
     decoders: {
         order: DecoderId[];
         execution: "sequential" | "parallel";
+        failurePolicy?: ParallelEngineFailurePolicy;
     };
     multiCode: {
         enabled: boolean;

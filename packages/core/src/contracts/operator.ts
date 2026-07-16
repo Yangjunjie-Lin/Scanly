@@ -28,7 +28,7 @@ export interface FrameArtifactStore {
   readonly retainedBytes: number;
   readonly memoryBudget: FrameMemoryBudget;
   get<T>(key: string): T | undefined;
-  set<T>(key: string, value: T, estimatedBytes?: number): void;
+  set<T>(key: string, value: T, estimatedBytes?: number, lease?: MemoryLease): void;
   dispose(): void;
 }
 export interface TaskGraphNode {
@@ -49,4 +49,4 @@ export async function executeTaskGraph(nodes: TaskGraphNode[], context: Operator
   }
 }
 import type { ExecutionBudget } from "../runtime/execution-budget.js";
-import type { FrameMemoryBudget } from "../runtime/memory-budget.js";
+import type { FrameMemoryBudget, MemoryLease } from "../runtime/memory-budget.js";

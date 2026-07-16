@@ -21,6 +21,7 @@ export interface NormalizedFrame {
   height: number;
   rowStride: number;
   pixelFormat: FramePixelFormat;
+  /** Clockwise rotation required to display source-buffer pixels upright. */
   orientation: FrameOrientation;
   sourceType: FrameSourceType;
   data: Uint8Array | Uint8ClampedArray;

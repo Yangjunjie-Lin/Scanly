@@ -90,7 +90,7 @@ export function validateScenario(input) {
     unknownKeys(value.input?.roi, "input.roi", ["mode", "x", "y", "width", "height"], issues);
     unknownKeys(value.localization, "localization", ["strategy", "maxCandidates", "cropPaddings", "scales"], issues);
     unknownKeys(value.enhancement, "enhancement", ["operators", "rotations"], issues);
-    unknownKeys(value.decoders, "decoders", ["order", "execution"], issues);
+    unknownKeys(value.decoders, "decoders", ["order", "execution", "failurePolicy"], issues);
     unknownKeys(value.multiCode, "multiCode", ["enabled", "maxResults", "deduplication"], issues);
     unknownKeys(value.duplicateSuppression, "duplicateSuppression", ["enabled", "windowMs"], issues);
     unknownKeys(value.budgets, "budgets", ["maxPixels", "maxCandidates", "maxAttempts", "maxIntermediateAllocations", "maxIntermediateBytes", "maxExecutionMs", "maxConcurrentFrames"], issues);
@@ -109,6 +109,9 @@ export function validateScenario(input) {
     recordArrayIssues(value.acceptedFormats, "acceptedFormats", FORMAT_VALUES, issues);
     recordArrayIssues(value.input?.preferredPixelFormats, "input.preferredPixelFormats", PIXEL_VALUES, issues);
     decoderArrayIssues(value.decoders?.order, "decoders.order", issues);
+    if (value.decoders?.failurePolicy !== undefined && !["success-wins", "required-engine-fails", "any-engine-fails"].includes(value.decoders.failurePolicy)) {
+        issues.push({ code: "enum", path: "decoders.failurePolicy", message: "decoders.failurePolicy is not supported." });
+    }
     recordArrayIssues(value.localization?.cropPaddings, "localization.cropPaddings", PADDING_VALUES, issues);
     recordArrayIssues(value.enhancement?.operators, "enhancement.operators", ENHANCEMENT_VALUES, issues, false);
     recordArrayIssues(value.semanticParsers, "semanticParsers", PARSER_VALUES, issues, false);

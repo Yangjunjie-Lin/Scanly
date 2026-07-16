@@ -81,7 +81,7 @@ export class DecodeWorkerClient {
   }
 
   private handleWorkerError(message: string): void {
-    if (this.pending) this.finish(this.pending, workerFailure(this.pending, message));
+    if (this.pending) this.finish(this.pending, workerFailure(this.pending, message, "worker_initialization_failure"));
     this.restartWorker();
   }
 

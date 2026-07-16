@@ -1,88 +1,225 @@
 import fs from "node:fs";
 import path from "node:path";
-import { createRgbaFrame, type CaptureRouter, type DecoderEngine } from "@scanly/core";
+import { CaptureRouter, SDK_VERSION, createRgbaFrame, type DecoderEngine, type EngineDiagnostic } from "@scanly/core";
 import type { PixelBuffer } from "@scanly/core/qr";
-import { createNodeCaptureRouter, loadPixelBufferFromPath } from "@scanly/node";
+import { createNodeEngineRegistry, loadPixelBufferFromPath } from "@scanly/node";
 import { JsQrEngine } from "@scanly/engine-jsqr";
 import { ZxingJsEngine } from "@scanly/engine-zxing-js";
-import { getBuiltinScenario } from "@scanly/scenario-schema";
-import { evaluateFixture, type BenchmarkFixture } from "@scanly/benchmark";
+import { getBuiltinScenario, type ScenarioDefinition } from "@scanly/scenario-schema";
+import { evaluateFixture, type BenchmarkFixture, type ComparisonReport, type StrategyFixtureResult, type StrategySummary } from "@scanly/benchmark";
+import { assertCleanRepository, collectSourceIdentity } from "./benchmark-provenance.js";
 
 const root = path.resolve(__dirname, "..");
-const manifest = JSON.parse(fs.readFileSync(path.join(root, "fixtures/manifest.json"), "utf8")) as { fixtures: BenchmarkFixture[] };
-type StrategyId = "raw-jsqr" | "raw-zxing-js" | "scanly-fast" | "scanly-balanced" | "scanly-robust";
-interface ComparisonResult {
-  fixtureId: string;
-  strategy: StrategyId;
-  success: boolean;
-  exactPayload: boolean;
-  multipleCase: boolean;
-  multipleComplete: boolean;
-  payloads: string[];
-  latencyMs: number;
-  failureReason: string | null;
-  unsupportedFormat: boolean;
-  falsePositive: boolean;
+const manifestPath = path.join(root, "fixtures", "manifest.json");
+const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as { fixtures: BenchmarkFixture[] };
+type StrategyId = "raw-jsqr" | "raw-zxing-js" | "scanly-fast" | "scanly-balanced" | "scanly-robust" | "scanly-jsqr-only" | "scanly-zxing-only" | "scanly-multi-sequential" | "scanly-multi-parallel";
+
+interface StrategyRuntime {
+  id: StrategyId;
+  engineIds: Array<{ id: string; version: string }>;
+  scenario?: ScenarioDefinition;
+  router?: CaptureRouter;
+  rawEngine?: DecoderEngine;
+  packageSizeBytes: number;
+  initializationMs: number;
 }
 
-async function rawDecode(strategy: "raw-jsqr" | "raw-zxing-js", pixels: PixelBuffer): Promise<{ payloads: string[]; reason: string | null }> {
-  const engine: DecoderEngine = strategy === "raw-jsqr" ? new JsQrEngine() : new ZxingJsEngine();
-  const result = await engine.decode(createRgbaFrame(pixels.data, pixels.width, pixels.height), { formats: ["qr_code"], findMultiple: false });
-  return { payloads: result.ok ? result.results.map((item) => item.text) : [], reason: result.ok ? null : "no_symbol_found" };
+function cloneScenario(id: "fast" | "balanced" | "robust", strategyId: string, engines?: string[], execution?: "sequential" | "parallel"): ScenarioDefinition {
+  const scenario = getBuiltinScenario(id);
+  scenario.id = strategyId;
+  scenario.revision += 1;
+  if (engines) scenario.decoders.order = engines;
+  if (execution) scenario.decoders.execution = execution;
+  scenario.decoders.failurePolicy = "success-wins";
+  scenario.ablation.multiEngineFallback = (engines?.length ?? scenario.decoders.order.length) > 1;
+  scenario.output.includeDebugTrace = true;
+  return scenario;
 }
 
-async function scenarioDecode(router: CaptureRouter, pixels: PixelBuffer): Promise<{ payloads: string[]; reason: string | null }> {
-  const outcome = await router.scan(createRgbaFrame(pixels.data, pixels.width, pixels.height, { sourceType: "upload" }));
-  return { payloads: outcome.ok ? outcome.results.map((result) => result.rawText) : [], reason: outcome.ok ? null : outcome.error.code };
+function elapsedMs(started: bigint): number {
+  return Number(process.hrtime.bigint() - started) / 1_000_000;
+}
+
+function directorySize(directory: string): number {
+  if (!fs.existsSync(directory)) return 0;
+  return fs.readdirSync(directory, { withFileTypes: true }).reduce((total, entry) => total + (entry.isDirectory() ? directorySize(path.join(directory, entry.name)) : fs.statSync(path.join(directory, entry.name)).size), 0);
+}
+
+function percentile(values: number[], p: number): number {
+  if (!values.length) return 0;
+  const sorted = [...values].sort((left, right) => left - right);
+  return sorted[Math.max(0, Math.ceil(sorted.length * p / 100) - 1)];
+}
+
+function median(values: number[]): number {
+  if (!values.length) return 0;
+  const sorted = [...values].sort((left, right) => left - right);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+function packageCost(engineIds: string[]): number {
+  return engineIds.reduce((total, id) => total + directorySize(id === "jsqr" ? path.join(root, "node_modules", "jsqr") : path.join(root, "node_modules", "@zxing", "library")), 0);
+}
+
+function engineFailureCode(category: string): string {
+  const codes: Record<string, string> = {
+    "not-found": "no_symbol_found",
+    "invalid-input": "invalid_image",
+    "unsupported-format": "unsupported_format",
+    "initialization": "engine_initialization_failure",
+    "execution": "engine_execution_failure",
+  };
+  return codes[category] ?? category;
+}
+
+async function execute(runtime: StrategyRuntime, pixels: PixelBuffer): Promise<{ payloads: string[]; reason: string | null; attempts: number; peak?: number; diagnostics?: EngineDiagnostic[] }> {
+  if (runtime.rawEngine) {
+    const outcome = await runtime.rawEngine.decode(createRgbaFrame(pixels.data, pixels.width, pixels.height), { formats: ["qr_code"], findMultiple: false });
+    return { payloads: outcome.ok ? outcome.results.map((result) => result.text) : [], reason: outcome.ok ? null : engineFailureCode(outcome.category), attempts: 1 };
+  }
+  const outcome = await runtime.router!.scan(createRgbaFrame(pixels.data, pixels.width, pixels.height, { sourceType: "upload" }), { scenario: runtime.scenario });
+  return {
+    payloads: outcome.ok ? outcome.results.map((result) => result.rawText) : [],
+    reason: outcome.ok ? null : outcome.error.code,
+    attempts: outcome.attemptCount,
+    peak: outcome.timing.controlledMemory?.peakControlledBytes,
+    diagnostics: outcome.engineDiagnostics,
+  };
 }
 
 async function main(): Promise<void> {
-  const strategies: StrategyId[] = ["raw-jsqr", "raw-zxing-js", "scanly-fast", "scanly-balanced", "scanly-robust"];
-  const routers = Object.fromEntries((["fast", "balanced", "robust"] as const).map((id) => [`scanly-${id}`, createNodeCaptureRouter({ scenario: getBuiltinScenario(id) })])) as Record<"scanly-fast" | "scanly-balanced" | "scanly-robust", CaptureRouter>;
-  const results: ComparisonResult[] = [];
+  const allowDirty = process.argv.includes("--allow-dirty-development");
+  if (!allowDirty) assertCleanRepository(root);
+  const jsqrSize = packageCost(["jsqr"]);
+  const zxingSize = packageCost(["zxing-js"]);
+  const definitions: Array<{ id: StrategyId; raw?: DecoderEngine; scenario?: ScenarioDefinition }> = [
+    { id: "raw-jsqr", raw: new JsQrEngine() },
+    { id: "raw-zxing-js", raw: new ZxingJsEngine() },
+    { id: "scanly-fast", scenario: cloneScenario("fast", "comparison-fast") },
+    { id: "scanly-balanced", scenario: cloneScenario("balanced", "comparison-balanced") },
+    { id: "scanly-robust", scenario: cloneScenario("robust", "comparison-robust") },
+    { id: "scanly-jsqr-only", scenario: cloneScenario("balanced", "comparison-jsqr-only", ["jsqr"]) },
+    { id: "scanly-zxing-only", scenario: cloneScenario("balanced", "comparison-zxing-only", ["zxing-js"]) },
+    { id: "scanly-multi-sequential", scenario: cloneScenario("balanced", "comparison-multi-sequential", ["jsqr", "zxing-js"], "sequential") },
+    { id: "scanly-multi-parallel", scenario: cloneScenario("balanced", "comparison-multi-parallel", ["jsqr", "zxing-js"], "parallel") },
+  ];
+  const runtimes: StrategyRuntime[] = [];
+  for (const definition of definitions) {
+    const ids = definition.raw ? [definition.raw.id] : definition.scenario!.decoders.order;
+    const registry = createNodeEngineRegistry();
+    const versions = Object.fromEntries(registry.list().map((engine) => [engine.id, engine.version]));
+    const initializationStarted = process.hrtime.bigint();
+    if (definition.raw) {
+      await definition.raw.initialize?.();
+      await registry.disposeAll();
+    } else {
+      await registry.initializeAll();
+    }
+    const initializationMs = elapsedMs(initializationStarted);
+    runtimes.push({
+      id: definition.id,
+      engineIds: ids.map((id) => ({ id, version: definition.raw?.version ?? versions[id] ?? "unknown" })),
+      scenario: definition.scenario,
+      rawEngine: definition.raw,
+      router: definition.scenario ? new CaptureRouter({ scenario: definition.scenario, engines: registry }) : undefined,
+      packageSizeBytes: ids.includes("jsqr") && ids.includes("zxing-js") ? jsqrSize + zxingSize : ids.includes("jsqr") ? jsqrSize : zxingSize,
+      initializationMs,
+    });
+  }
+
+  const perFixture: StrategyFixtureResult[] = [];
   for (const fixture of manifest.fixtures) {
     const pixels = await loadPixelBufferFromPath(path.join(root, fixture.file));
-    for (const strategy of strategies) {
+    for (const runtime of runtimes) {
       const started = Date.now();
-      const decoded = strategy.startsWith("raw-")
-        ? await rawDecode(strategy as "raw-jsqr" | "raw-zxing-js", pixels)
-        : await scenarioDecode(routers[strategy as keyof typeof routers], pixels);
-      const evaluation = evaluateFixture(fixture, decoded.payloads, { ok: decoded.payloads.length > 0, errorCode: decoded.reason ?? undefined });
-      results.push({
+      let actual: Awaited<ReturnType<typeof execute>>;
+      try { actual = await execute(runtime, pixels); }
+      catch (error) { actual = { payloads: [], reason: error instanceof Error ? error.message : String(error), attempts: 0 }; }
+      const evaluation = evaluateFixture(fixture, actual.payloads, { ok: actual.payloads.length > 0, errorCode: actual.reason ?? undefined });
+      perFixture.push({
         fixtureId: fixture.id,
-        strategy,
-        success: decoded.payloads.length > 0,
+        strategyId: runtime.id,
+        expectedOutcome: fixture.expectedOutcome,
+        payloads: actual.payloads,
+        pass: evaluation.pass,
         exactPayload: fixture.expectedOutcome === "decode" && evaluation.pass,
-        multipleCase: fixture.category === "multiple",
+        falsePositive: fixture.expectedOutcome !== "decode" && actual.payloads.length > 0,
         multipleComplete: fixture.category !== "multiple" || evaluation.missingPayloads.length === 0,
-        payloads: decoded.payloads,
-        latencyMs: Date.now() - started,
-        failureReason: decoded.reason,
-        unsupportedFormat: false,
-        falsePositive: fixture.expectedOutcome !== "decode" && decoded.payloads.length > 0,
+        elapsedMs: Date.now() - started,
+        attemptCount: actual.attempts,
+        failureReason: actual.reason,
+        controlledMemoryPeakBytes: actual.peak,
+        engineDiagnostics: actual.diagnostics?.map(({ engineId, status, elapsedMs, attemptCount, resultCount }) => ({ engineId, status, elapsedMs, attemptCount, resultCount })),
       });
     }
   }
-  const summaries = Object.fromEntries(strategies.map((strategy) => {
-    const subset = results.filter((result) => result.strategy === strategy);
-    const sorted = subset.map((result) => result.latencyMs).sort((a, b) => a - b);
-    return [strategy, {
-      cases: subset.length,
-      positiveCases: subset.filter((result) => manifest.fixtures.find((fixture) => fixture.id === result.fixtureId)?.expectedOutcome === "decode").length,
-      negativeCases: subset.filter((result) => manifest.fixtures.find((fixture) => fixture.id === result.fixtureId)?.expectedOutcome !== "decode").length,
-      exact: subset.filter((result) => result.exactPayload).length,
-      multipleComplete: `${subset.filter((result) => result.multipleCase && result.multipleComplete).length}/${subset.filter((result) => result.multipleCase).length}`,
-      falsePositives: subset.filter((result) => result.falsePositive).length,
-      averageMs: subset.reduce((sum, result) => sum + result.latencyMs, 0) / Math.max(1, subset.length),
-      p95Ms: sorted[Math.max(0, Math.ceil(sorted.length * 0.95) - 1)] ?? 0,
-    }];
-  }));
-  const report = { schemaVersion: "1.0", generatedAt: new Date().toISOString(), methodology: "All strategies process the same decoded RGBA pixel buffer for each fixture. Timings are Node-only and are not browser-device timings.", summaries, results };
-  const output = path.join(root, "benchmark-results/comparison.json");
+
+  const passersByFixture = new Map(manifest.fixtures.map((fixture) => [fixture.id, perFixture.filter((result) => result.fixtureId === fixture.id && result.exactPayload).map((result) => result.strategyId)]));
+  const strategies: StrategySummary[] = runtimes.map((runtime) => {
+    const subset = perFixture.filter((result) => result.strategyId === runtime.id);
+    const positives = subset.filter((result) => result.expectedOutcome === "decode");
+    const multiple = subset.filter((result) => manifest.fixtures.find((fixture) => fixture.id === result.fixtureId)?.category === "multiple");
+    const peaks = subset.flatMap((result) => result.controlledMemoryPeakBytes === undefined ? [] : [result.controlledMemoryPeakBytes]);
+    return {
+      strategyId: runtime.id,
+      engineIds: runtime.engineIds,
+      scenario: runtime.scenario ? { id: runtime.scenario.id, revision: runtime.scenario.revision } : undefined,
+      fixtureCount: subset.length,
+      positiveRecall: positives.length ? positives.filter((result) => result.payloads.length > 0).length / positives.length : 0,
+      exactPayloadAccuracy: positives.length ? positives.filter((result) => result.exactPayload).length / positives.length : 0,
+      falsePositiveCount: subset.filter((result) => result.falsePositive).length,
+      multiCodeCompleteness: { complete: multiple.filter((result) => result.multipleComplete).length, total: multiple.length },
+      averageMs: subset.reduce((sum, result) => sum + result.elapsedMs, 0) / Math.max(1, subset.length),
+      medianMs: median(subset.map((result) => result.elapsedMs)),
+      p95Ms: percentile(subset.map((result) => result.elapsedMs), 95),
+      averageAttempts: subset.reduce((sum, result) => sum + result.attemptCount, 0) / Math.max(1, subset.length),
+      p95Attempts: percentile(subset.map((result) => result.attemptCount), 95),
+      timeoutCount: subset.filter((result) => result.failureReason === "timeout").length,
+      unsupportedCases: subset.filter((result) => /unsupported/.test(result.failureReason ?? "")).length,
+      initializationFailures: subset.filter((result) => /initialization/.test(result.failureReason ?? "")).length,
+      executionFailures: subset.filter((result) => /execution/.test(result.failureReason ?? "")).length,
+      uniqueWins: subset.filter((result) => {
+        if (!result.exactPayload) return false;
+        if (runtime.id === "raw-jsqr" || runtime.id === "raw-zxing-js") {
+          const counterpart = runtime.id === "raw-jsqr" ? "raw-zxing-js" : "raw-jsqr";
+          return !perFixture.find((entry) => entry.fixtureId === result.fixtureId && entry.strategyId === counterpart)?.exactPayload;
+        }
+        return passersByFixture.get(result.fixtureId)?.length === 1;
+      }).map((result) => result.fixtureId),
+      packageSizeBytes: runtime.packageSizeBytes,
+      initializationMs: runtime.initializationMs,
+      averageControlledMemoryPeakBytes: peaks.reduce((sum, value) => sum + value, 0) / Math.max(1, peaks.length),
+    };
+  });
+  const identityRegistry = createNodeEngineRegistry();
+  const sourceIdentity = await collectSourceIdentity({
+    root,
+    scenario: definitions.map(({ id, scenario }) => ({ id, scenario })),
+    engines: identityRegistry.list().map((engine) => ({ id: engine.id, version: engine.version, capabilities: engine.capabilities })),
+    manifestPath,
+    fixtureFiles: manifest.fixtures.map((fixture) => fixture.file),
+    runnerPath: path.join(root, "scripts", "compare-engines.ts"),
+    allowDirty,
+  });
+  await identityRegistry.disposeAll();
+  const report: ComparisonReport = {
+    schemaVersion: "2.0",
+    generatedAt: new Date().toISOString(),
+    sdkVersion: SDK_VERSION,
+    sourceIdentity,
+    fixtureCount: manifest.fixtures.length,
+    positiveCases: manifest.fixtures.filter((fixture) => fixture.expectedOutcome === "decode").length,
+    negativeCases: manifest.fixtures.filter((fixture) => fixture.expectedOutcome !== "decode").length,
+    methodology: "Internal Node comparison over identical RGBA fixture bytes. Raw engines, Scanly preprocessing, and multi-engine orchestration are separate strategies; this is not a commercial third-party comparison.",
+    strategies,
+    perFixture,
+  };
+  const output = path.join(root, "benchmark-results", "comparison.json");
   await fs.promises.writeFile(output, JSON.stringify(report, null, 2));
-  console.log(JSON.stringify(summaries, null, 2));
+  console.log(JSON.stringify(strategies, null, 2));
   console.log(`Wrote ${output}`);
-  await Promise.all(Object.values(routers).map((router) => router.dispose()));
+  await Promise.all(runtimes.flatMap((runtime) => runtime.router ? [runtime.router.dispose()] : []));
 }
 
 main().catch((error) => { console.error(error); process.exit(1); });

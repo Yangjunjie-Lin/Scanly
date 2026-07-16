@@ -69,7 +69,7 @@ export class DecodeWorkerClient {
     }
     handleWorkerError(message) {
         if (this.pending)
-            this.finish(this.pending, workerFailure(this.pending, message));
+            this.finish(this.pending, workerFailure(this.pending, message, "worker_initialization_failure"));
         this.restartWorker();
     }
     finish(job, outcome) {

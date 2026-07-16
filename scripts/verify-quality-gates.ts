@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import type { BenchmarkRunSummary } from "@scanly/benchmark";
+import type { BenchmarkRunSummary, ComparisonReport } from "@scanly/benchmark";
 import { validateScenario } from "@scanly/scenario-schema";
 
 const ROOT = path.resolve(__dirname, "..");
@@ -15,7 +15,7 @@ const pkg = JSON.parse(read("package.json")) as {
   engines?: { node?: string; npm?: string };
 };
 if (pkg.license !== "MIT") fail("package.json license must be MIT");
-if (pkg.name !== "scanly" || pkg.version !== "2.0.0-alpha.2") fail("package metadata must identify the Scanly SDK v2 alpha.2 foundation");
+if (pkg.name !== "scanly" || pkg.version !== "2.0.0-alpha.3") fail("package metadata must identify the Scanly SDK v2 alpha.3 validation platform");
 if (pkg.engines?.node !== ">=20 <25" || pkg.engines?.npm !== ">=10") {
   fail("package engines must pin the verified Node/npm maintenance range");
 }
@@ -33,6 +33,7 @@ const manifest = JSON.parse(read("fixtures/manifest.json")) as {
     id: string;
     category: string;
     requiredPayloads?: string[];
+    requiredInstances?: Array<{ payload: string; count: number }>;
     expectedResultCount?: number;
     sourceType: "generated" | "project-photo";
     file: string;
@@ -53,10 +54,10 @@ for (const fixture of manifest.fixtures) {
 if (!manifest.fixtures.some((fixture) => fixture.id === "14-damaged")) fail("Retained hard fixture 14-damaged is missing");
 if (manifest.fixtures.filter((fixture) => fixture.category === "negative" || fixture.category === "adversarial").length < 10) fail("Negative/adversarial suite must contain at least 10 deterministic fixtures");
 for (const fixture of manifest.fixtures.filter((item) => item.category === "multiple")) {
-  const required = fixture.requiredPayloads ?? [];
-  if (!required.length) fail(`${fixture.id} has no requiredPayloads contract`);
-  if (fixture.expectedResultCount !== required.length) {
-    fail(`${fixture.id} expectedResultCount must equal requiredPayloads length`);
+  const requiredCount = fixture.requiredInstances?.reduce((sum, entry) => sum + entry.count, 0) ?? fixture.requiredPayloads?.length ?? 0;
+  if (!requiredCount) fail(`${fixture.id} has no required multi-instance contract`);
+  if (fixture.expectedResultCount !== requiredCount) {
+    fail(`${fixture.id} expectedResultCount must equal required instance count`);
   }
 }
 
@@ -76,6 +77,24 @@ for (const expected of [
 }
 if (canonical.multipleCompleteness.complete !== canonical.multipleCompleteness.total) {
   fail(`Multiple completeness is ${canonical.multipleCompleteness.complete}/${canonical.multipleCompleteness.total}`);
+}
+if (!canonical.sourceIdentity || canonical.sourceIdentity.datasetHash !== canonical.environment.datasetManifestHash) fail("Canonical benchmark source identity is missing or inconsistent");
+const comparison = JSON.parse(read("benchmark-results/comparison.json")) as ComparisonReport;
+if (comparison.schemaVersion !== "2.0") fail("Comparison report schema must be 2.0");
+for (const [label, actual, expected] of [
+  ["datasetHash", comparison.sourceIdentity.datasetHash, canonical.sourceIdentity.datasetHash],
+  ["fixtureCount", comparison.fixtureCount, canonical.environment.fixtureCount],
+  ["commitSha", comparison.sourceIdentity.commitSha, canonical.sourceIdentity.commitSha],
+  ["treeSha", comparison.sourceIdentity.treeSha, canonical.sourceIdentity.treeSha],
+  ["sdkVersion", comparison.sdkVersion, canonical.environment.sdkVersion],
+] as const) if (actual !== expected) fail(`Comparison report is stale: ${label} does not match canonical benchmark`);
+for (const strategy of ["raw-jsqr", "raw-zxing-js", "scanly-fast", "scanly-balanced", "scanly-robust", "scanly-jsqr-only", "scanly-zxing-only", "scanly-multi-sequential", "scanly-multi-parallel"]) {
+  const summary = comparison.strategies.find((entry) => entry.strategyId === strategy);
+  if (!summary || summary.fixtureCount !== comparison.fixtureCount) fail(`Comparison strategy '${strategy}' is missing or incomplete`);
+}
+for (const engineStrategy of ["raw-jsqr", "raw-zxing-js"]) {
+  const contribution = comparison.strategies.find((entry) => entry.strategyId === engineStrategy)?.uniqueWins.length ?? 0;
+  if (contribution < 1) fail(`Production engine strategy '${engineStrategy}' has no unique contribution fixture`);
 }
 
 for (const id of ["fast", "balanced", "robust"]) {

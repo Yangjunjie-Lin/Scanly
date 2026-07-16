@@ -4,7 +4,7 @@ import jsQR from "jsqr";
 export class JsQrEngine implements DecoderEngine {
   readonly id = "jsqr";
   readonly version = "1.4.0";
-  readonly capabilities = { formats: ["qr_code" as const], supportsMultiple: false, returnsRawBytes: true, returnsCornerPoints: true, threadSafe: true };
+  readonly capabilities = { formats: ["qr_code" as const], supportsMultiple: false, returnsRawBytes: true, returnsCornerPoints: true, threadSafe: true, estimatedScratchBytesPerPixel: 5, copiesInputBuffer: false };
   async decode(frame: NormalizedFrame, options: EngineDecodeOptions): Promise<EngineOutcome> {
     const started = Date.now();
     if (options.signal?.aborted) return { ok: false, category: "cancelled", message: "Decode cancelled.", elapsedMs: 0 };

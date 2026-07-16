@@ -1,5 +1,5 @@
 import type { FrameArtifactStore } from "../contracts/operator.js";
-import { FrameMemoryBudget } from "./memory-budget.js";
+import { FrameMemoryBudget, type MemoryLease } from "./memory-budget.js";
 export declare class BoundedFrameArtifactStore implements FrameArtifactStore {
     private readonly maxAllocations;
     private readonly entries;
@@ -10,7 +10,7 @@ export declare class BoundedFrameArtifactStore implements FrameArtifactStore {
     get allocationCount(): number;
     get retainedBytes(): number;
     get<T>(key: string): T | undefined;
-    set<T>(key: string, value: T, estimatedBytes?: number): void;
+    set<T>(key: string, value: T, estimatedBytes?: number, suppliedLease?: MemoryLease): void;
     dispose(): void;
 }
 //# sourceMappingURL=artifacts.d.ts.map

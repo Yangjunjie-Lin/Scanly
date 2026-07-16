@@ -8,6 +8,8 @@ export declare class JsQrEngine implements DecoderEngine {
         returnsRawBytes: boolean;
         returnsCornerPoints: boolean;
         threadSafe: boolean;
+        estimatedScratchBytesPerPixel: number;
+        copiesInputBuffer: boolean;
     };
     decode(frame: NormalizedFrame, options: EngineDecodeOptions): Promise<EngineOutcome>;
 }

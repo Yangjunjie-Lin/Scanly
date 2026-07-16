@@ -96,9 +96,9 @@ function pushCandidate(out, full, region, originalRect, padding, scaleFactor, ma
     return true;
 }
 /** Conservative high-frequency rejection for independently random pixels. */
-export function isPathologicalHighEntropy(image, budget) {
+export function highFrequencyRatio(image, budget) {
     if (image.width < 64 || image.height < 64)
-        return false;
+        return 0;
     let high = 0;
     let samples = 0;
     const step = Math.max(1, Math.floor(Math.max(image.width, image.height) / 256));
@@ -119,7 +119,10 @@ export function isPathologicalHighEntropy(image, budget) {
     }
     // The retained corpus peaks at 0.235 for valid QR imagery (moire); seeded
     // independent random noise is 0.436. Keep a substantial deterministic gap.
-    return samples > 2_000 && high / samples > 0.4;
+    return samples > 2_000 ? high / samples : 0;
+}
+export function isPathologicalHighEntropy(image, budget) {
+    return highFrequencyRatio(image, budget) > 0.3;
 }
 /**
  * Prioritized candidates:
@@ -131,12 +134,14 @@ export function generateCandidates(full, options) {
     const budget = options.budget;
     const sourceToFrame = options.sourceToFrame ?? createCoordinateTransform(IDENTITY_MATRIX, full.width, full.height, full.width, full.height);
     const preview = fitMaxSide(full, options.previewSize, budget);
-    if (isPathologicalHighEntropy(preview.buffer, budget)) {
+    const frequencyRatio = highFrequencyRatio(preview.buffer, budget);
+    if (frequencyRatio > 0.3) {
         const fitted = fitMaxSide(full, Math.min(600, options.previewSize * 2), budget);
         const local = cropToSourceTransform({ x: 0, y: 0, width: full.width, height: full.height }, fitted.buffer.width, fitted.buffer.height, full.width, full.height);
         return [{
                 buffer: fitted.buffer, candidateIndex: -1, candidateScore: 0, cropPadding: "full", scale: "full",
                 scaleFactor: fitted.scale, region: null, pathologicalInput: true,
+                highFrequencyRatio: frequencyRatio, candidateCountBeforeCap: 1,
                 transform: createCoordinateTransform(multiplyMatrices(sourceToFrame.matrix, local.matrix), fitted.buffer.width, fitted.buffer.height, sourceToFrame.targetWidth, sourceToFrame.targetHeight),
             }];
     }
@@ -231,6 +236,41 @@ export function generateCandidates(full, options) {
             scaleFactor: preview.scale, region: null,
             transform: createCoordinateTransform(multiplyMatrices(sourceToFrame.matrix, local.matrix), preview.buffer.width, preview.buffer.height, sourceToFrame.targetWidth, sourceToFrame.targetHeight),
         });
+    }
+    // Multi-code-only grid candidates provide one-symbol crops for dense boards.
+    if (options.enableGridImageFallback && full.width >= 500 && full.height >= 300) {
+        const columns = full.width >= 650 ? 4 : 3;
+        const rows = Math.max(2, Math.min(3, Math.round(columns / (full.width / full.height))));
+        const overlap = Math.max(8, Math.floor(Math.min(full.width / columns, full.height / rows) * 0.08));
+        for (let row = 0; row < rows; row++) {
+            for (let column = 0; column < columns; column++) {
+                budget?.throwIfExceeded("grid-image-candidate");
+                const left = Math.max(0, Math.floor(column * full.width / columns) - overlap);
+                const top = Math.max(0, Math.floor(row * full.height / rows) - overlap);
+                const right = Math.min(full.width, Math.ceil((column + 1) * full.width / columns) + overlap);
+                const bottom = Math.min(full.height, Math.ceil((row + 1) * full.height / rows) + overlap);
+                const rect = { x: left, y: top, width: right - left, height: bottom - top };
+                if (!hasCandidateCapacity(out, rect.width * rect.height * 4, rect.width * rect.height * 4, budget))
+                    continue;
+                const cropped = cropBuffer(full, rect, budget);
+                const local = cropToSourceTransform(rect, cropped.width, cropped.height, full.width, full.height);
+                const index = 200 + row * columns + column;
+                out.push({
+                    buffer: cropped,
+                    candidateIndex: index,
+                    candidateScore: 1,
+                    cropPadding: "medium",
+                    scale: "original",
+                    scaleFactor: 1,
+                    region: { ...rect, score: 1, index },
+                    transform: createCoordinateTransform(multiplyMatrices(sourceToFrame.matrix, local.matrix), cropped.width, cropped.height, sourceToFrame.targetWidth, sourceToFrame.targetHeight),
+                });
+            }
+        }
+    }
+    for (const candidate of out) {
+        candidate.highFrequencyRatio = frequencyRatio;
+        candidate.candidateCountBeforeCap = regions.length;
     }
     return out;
 }

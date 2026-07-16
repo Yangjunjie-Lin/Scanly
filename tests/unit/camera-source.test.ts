@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CaptureRouter, type NormalizedFrame, type ScanOutcome } from "@scanly/core";
 import { BrowserCameraSource } from "../../packages/browser/src/camera-source";
+import type { DecodeWorkerLike } from "../../packages/browser/src/worker/worker-client";
+import type { WorkerRequest, WorkerResponse } from "../../packages/browser/src/worker/worker-messages";
 
 function success(frameId: string): ScanOutcome {
   const result = { format: "qr_code" as const, rawText: "CAMERA", engine: { id: "fake", version: "1" }, preprocessingPath: [], frameId, structuredPayload: null, validation: { valid: true, validatorIds: [], messages: [] }, warnings: [], timing: { totalMs: 1 } };
@@ -73,6 +75,30 @@ describe("Router camera source", () => {
     expect([...listeners.values()].every((set) => set.size === 0)).toBe(true);
     source.stop();
     expect(results).toHaveBeenCalledOnce();
+  });
+
+  it("routes sampled camera frames through one persistent Worker when available", async () => {
+    installMedia();
+    vi.stubGlobal("Worker", class {});
+    class AutoWorker implements DecodeWorkerLike {
+      onmessage: ((event: MessageEvent<WorkerResponse>) => void) | null = null;
+      onerror: ((event: ErrorEvent) => void) | null = null;
+      posted: WorkerRequest[] = [];
+      terminate = vi.fn();
+      postMessage(message: WorkerRequest): void {
+        this.posted.push(message);
+        if (message.type === "scan") queueMicrotask(() => this.onmessage?.({ data: { type: "result", jobId: message.jobId, outcome: success(message.frame.id) } } as MessageEvent<WorkerResponse>));
+      }
+    }
+    const worker = new AutoWorker();
+    const router = new TestRouter();
+    const onResult = vi.fn();
+    const source = new BrowserCameraSource({ router, workerFactory: () => worker });
+    await source.start(video(), { onResult, stopAfterResult: true, frameCadenceMs: 50 });
+    await vi.advanceTimersByTimeAsync(1);
+    expect(worker.posted.filter((message) => message.type === "scan")).toHaveLength(1);
+    expect(router.frames).toHaveLength(0);
+    expect(onResult).toHaveBeenCalledOnce();
   });
 
   it("page-hide cleanup is authoritative and idempotent", async () => {

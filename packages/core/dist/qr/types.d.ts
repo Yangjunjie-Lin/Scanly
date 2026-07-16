@@ -2,6 +2,7 @@ import type { BarcodeFormat } from "@scanly/scenario-schema";
 import type { EngineOutcome } from "../contracts/engine.js";
 import type { ExecutionBudget } from "../runtime/execution-budget.js";
 import type { FrameMemoryBudget } from "../runtime/memory-budget.js";
+import type { EngineDiagnostic } from "../contracts/result.js";
 /** Shared pixel buffer compatible with browser ImageData and Node raw buffers. */
 export interface PixelBuffer {
     data: Uint8ClampedArray;
@@ -71,6 +72,7 @@ export interface DecodeSuccess {
     elapsedMs: number;
     timeToFirstResultMs?: number;
     cancelled: boolean;
+    engineDiagnostics?: EngineDiagnostic[];
     phaseTiming?: PhaseTiming;
 }
 export interface DecodeFailure {
@@ -81,6 +83,7 @@ export interface DecodeFailure {
     attemptCount: number;
     elapsedMs: number;
     cancelled: boolean;
+    engineDiagnostics?: EngineDiagnostic[];
     phaseTiming?: PhaseTiming;
 }
 export type DecodeOutcome = DecodeSuccess | DecodeFailure;
@@ -88,6 +91,7 @@ export interface DecoderConfig {
     /** Plugin ids, in deterministic aggregation order. */
     order: DecoderName[];
     execution: "sequential" | "parallel";
+    failurePolicy?: "success-wins" | "required-engine-fails" | "any-engine-fails";
 }
 export interface PhaseTiming {
     frameNormalizationMs?: number;
@@ -133,6 +137,7 @@ export interface PipelineConfig {
     enableLocalization?: boolean;
     enableFullImageFallback?: boolean;
     enableSplitImageFallback?: boolean;
+    enableGridImageFallback?: boolean;
     /** Bounded per-frame retained preprocessing cache; never global. */
     maxIntermediateAllocations?: number;
     maxIntermediateBytes?: number;

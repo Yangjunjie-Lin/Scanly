@@ -13,17 +13,21 @@ function samePhysicalInstance(left, right) {
     const b = bounds(right);
     if (!a || !b)
         return true;
-    if (iou(a, b) >= 0.3)
+    const overlap = iou(a, b);
+    if (overlap >= 0.55)
         return true;
     const ax = a.x + a.width / 2;
     const ay = a.y + a.height / 2;
     const bx = b.x + b.width / 2;
     const by = b.y + b.height / 2;
+    const areaRatio = Math.min(a.width * a.height, b.width * b.height) / Math.max(a.width * a.height, b.width * b.height);
     const distance = Math.hypot(ax - bx, ay - by);
-    return distance <= Math.min(Math.hypot(a.width, a.height), Math.hypot(b.width, b.height)) * 0.25;
+    return overlap >= 0.25 && areaRatio >= 0.5 && distance <= Math.min(Math.hypot(a.width, a.height), Math.hypot(b.width, b.height)) * 0.35;
 }
 /** Deduplicate semantic results while preserving geometry-proven physical instances. */
 export function dedupeResults(results, policy = "payload-format-spatial") {
+    if (policy === "tracked-instance")
+        throw new Error("tracked-instance requires a temporal tracking operator.");
     const out = [];
     for (const r of results) {
         const duplicate = out.some((prior) => {
@@ -31,7 +35,7 @@ export function dedupeResults(results, policy = "payload-format-spatial") {
                 return false;
             if (policy !== "payload" && (prior.format ?? "qr_code") !== (r.format ?? "qr_code"))
                 return false;
-            return policy === "payload-format-spatial" || policy === "tracked-instance" ? samePhysicalInstance(prior, r) : true;
+            return policy === "payload-format-spatial" ? samePhysicalInstance(prior, r) : true;
         });
         if (duplicate)
             continue;

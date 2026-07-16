@@ -2,6 +2,8 @@
 
 Every production scenario field is either executed or rejected before execution. There are no accepted-but-ignored fields.
 
+`tracked-instance` is retained only for schema migration compatibility and is rejected by ScenarioCompiler because no temporal tracking operator is registered. `CaptureRouter.getCapabilities()` reports installed formats, pixel formats, engines, operators, ROI, parallel orchestration, spatial deduplication, temporal tracking, heuristic quality, and YUV normalization before scenario construction.
+
 | Field | Status | Enforcement |
 |---|---|---|
 | `schemaVersion` | Implemented | Schema `2.1` is current; deterministic migration from `2.0` is supported. |
@@ -19,7 +21,7 @@ Every production scenario field is either executed or rejected before execution.
 | `decoders.order` | Implemented | Plugin ids are resolved exactly and determine deterministic aggregation order. |
 | `decoders.execution` | Implemented | Sequential or real parallel branches; unsafe parallel engines are rejected. |
 | `multiCode.enabled`, `maxResults` | Implemented | Controls adaptive multi-result collection and hard result bound. |
-| `duplicateSuppression` | Implemented | Bounded session/camera policy with payload, format, and optional spatial/track identity support. |
+| `duplicateSuppression` | Implemented | Bounded session/camera policy with payload, format, and spatial identity support. Temporal track identity is rejected. |
 | All `budgets.*` | Implemented | Pixels, candidates, attempts, retained allocations/bytes, execution deadline, and concurrent frames are enforced. |
 | `validation[]` | Implemented | Required validators resolve at compile time; optional misses become warnings. |
 | `semanticParsers` | Implemented | Only enabled parser kinds are attached to results. |

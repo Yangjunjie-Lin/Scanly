@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateFixture, requiredPayloads, type BenchmarkFixture } from "@scanly/benchmark";
+import { evaluateFixture, requiredPayloads, requiredPayloadsForProfile, type BenchmarkFixture } from "@scanly/benchmark";
 
 function fixture(overrides: Partial<BenchmarkFixture> = {}): BenchmarkFixture {
   return {
@@ -33,6 +33,15 @@ describe("benchmark fixture contract", () => {
     const result = evaluateFixture(strict, ["PRIMARY", "SECONDARY", "EXTRA"], true);
     expect(result.pass).toBe(false);
     expect(result.unexpectedPayloads).toEqual(["EXTRA"]);
+  });
+
+  it("uses only an explicitly declared profile-specific completeness contract", () => {
+    const payloads = Array.from({ length: 12 }, (_, index) => `CODE-${index + 1}`);
+    const multiple = fixture({ requiredPayloads: payloads, profileExpectedResultCount: { balanced: 8, robust: 12 } });
+    expect(requiredPayloadsForProfile(multiple, "balanced")).toEqual(payloads.slice(0, 8));
+    expect(requiredPayloadsForProfile(multiple, "robust")).toEqual(payloads);
+    expect(requiredPayloadsForProfile(multiple, "fast")).toEqual(payloads);
+    expect(() => requiredPayloadsForProfile({ ...multiple, profileExpectedResultCount: { balanced: 13 } }, "balanced")).toThrow(/invalid balanced/);
   });
 
   it("uses an exact single-code payload contract", () => {

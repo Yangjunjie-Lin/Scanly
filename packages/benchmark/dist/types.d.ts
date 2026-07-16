@@ -19,10 +19,25 @@ export interface BenchmarkFixture {
     primaryPayload?: string;
     /** All payloads that must appear for a full pass (multiple fixtures). */
     requiredPayloads?: string[];
+    /** Required physical instances, including repeated payloads. */
+    requiredInstances?: Array<{
+        payload: string;
+        count: number;
+    }>;
     /** Expected unique decode count (benchmark stop hint). */
     expectedResultCount?: number;
+    /** Explicit profile-specific completeness contract; omitted profiles require the full fixture truth. */
+    profileExpectedResultCount?: Partial<Record<"fast" | "balanced" | "robust", number>>;
     /** Allow extra payloads beyond required set. */
     allowExtraPayloads?: boolean;
+    primaryResultRule?: "top-to-bottom-left-to-right";
+    geometryMetadata?: Array<{
+        payload: string;
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+    }>;
     notes?: string;
 }
 export interface BenchmarkFixtureResult {
@@ -44,6 +59,15 @@ export interface BenchmarkFixtureResult {
     requiredPayloadCount?: number;
     decodedPayloadCount?: number;
     timeToFirstResultMs?: number;
+    heuristicMetrics?: {
+        entropyScore: number;
+        highFrequencyRatio: number;
+        candidateCountBeforeCap: number;
+        pathologicalPathActivated: boolean;
+        fallbackAttemptsUsed: number;
+        finalResult: "success" | "not-found" | "failure";
+    };
+    controlledMemoryPeakBytes?: number;
     phaseTiming?: {
         frameNormalizationMs?: number;
         roiMs?: number;
@@ -62,6 +86,16 @@ export interface BenchmarkDistribution {
     median: number;
     p95: number;
 }
+export interface BenchmarkSourceIdentity {
+    commitSha: string;
+    treeSha: string;
+    repositoryDirty: boolean;
+    packageLockHash: string;
+    scenarioHash: string;
+    datasetHash: string;
+    engineCompositionHash: string;
+    benchmarkRunnerHash: string;
+}
 export interface BenchmarkRunSummary {
     schemaVersion: "2.0";
     runtime: {
@@ -70,6 +104,7 @@ export interface BenchmarkRunSummary {
         platform: string;
         arch: string;
     };
+    sourceIdentity: BenchmarkSourceIdentity;
     environment: {
         gitCommit: string;
         sdkVersion: string;
@@ -79,6 +114,7 @@ export interface BenchmarkRunSummary {
         date: string;
         warmupPolicy: string;
         iterationCount: number;
+        coldInitializationMs?: number;
     };
     generatedAt: string;
     total: number;
@@ -89,6 +125,7 @@ export interface BenchmarkRunSummary {
     medianMs: number;
     p95Ms: number;
     p99Ms: number | null;
+    runToRunStdDevMs?: number;
     positiveCases: number;
     decodeRecall: number;
     exactPayloadAccuracy: number;
@@ -119,6 +156,7 @@ export interface BenchmarkRunSummary {
         recall: number;
     }>;
     memoryObservations: string[];
+    controlledMemoryPeakBytes: number;
     phaseTiming: Record<string, BenchmarkDistribution>;
     perCategory: Record<string, {
         total: number;
@@ -140,5 +178,104 @@ export interface BenchmarkRunSummary {
     regressionCount: number;
     remainingFailures: string[];
     results: BenchmarkFixtureResult[];
+}
+export interface StrategySummary {
+    strategyId: string;
+    engineIds: Array<{
+        id: string;
+        version: string;
+    }>;
+    scenario?: {
+        id: string;
+        revision: number;
+    };
+    fixtureCount: number;
+    positiveRecall: number;
+    exactPayloadAccuracy: number;
+    falsePositiveCount: number;
+    multiCodeCompleteness: {
+        complete: number;
+        total: number;
+    };
+    averageMs: number;
+    medianMs: number;
+    p95Ms: number;
+    averageAttempts: number;
+    p95Attempts: number;
+    timeoutCount: number;
+    unsupportedCases: number;
+    initializationFailures: number;
+    executionFailures: number;
+    uniqueWins: string[];
+    packageSizeBytes: number;
+    initializationMs: number;
+    averageControlledMemoryPeakBytes: number;
+}
+export interface StrategyFixtureResult {
+    fixtureId: string;
+    strategyId: string;
+    expectedOutcome: BenchmarkExpectedOutcome;
+    payloads: string[];
+    pass: boolean;
+    exactPayload: boolean;
+    falsePositive: boolean;
+    multipleComplete: boolean;
+    elapsedMs: number;
+    attemptCount: number;
+    failureReason: string | null;
+    controlledMemoryPeakBytes?: number;
+    engineDiagnostics?: Array<{
+        engineId: string;
+        status: string;
+        elapsedMs: number;
+        attemptCount: number;
+        resultCount: number;
+    }>;
+}
+export interface ComparisonReport {
+    schemaVersion: "2.0";
+    generatedAt: string;
+    sdkVersion: string;
+    sourceIdentity: BenchmarkSourceIdentity;
+    fixtureCount: number;
+    positiveCases: number;
+    negativeCases: number;
+    methodology: string;
+    strategies: StrategySummary[];
+    perFixture: StrategyFixtureResult[];
+}
+export interface BrowserBenchmarkMetadata {
+    browserName: string;
+    browserVersion: string;
+    operatingSystem: string;
+    architecture: string;
+    workerAvailable: boolean;
+    offscreenCanvasAvailable: boolean;
+    imageBitmapAvailable: boolean;
+}
+export interface DeviceBenchmarkMetadata {
+    deviceModel: string;
+    operatingSystem: string;
+    browserOrRuntime: string;
+    cameraResolution?: string;
+    thermalState?: string;
+    powerMode?: string;
+}
+export interface BrowserBenchmarkReport {
+    schemaVersion: "1.0";
+    generatedAt: string;
+    metadata: BrowserBenchmarkMetadata;
+    fixtureCount: number;
+    positiveRecall: number;
+    falsePositiveCount: number;
+    averageMs: number;
+    p95Ms: number;
+    memoryObservation: string;
+    results: Array<{
+        fixtureId: string;
+        pass: boolean;
+        elapsedMs: number;
+        payloads: string[];
+    }>;
 }
 //# sourceMappingURL=types.d.ts.map

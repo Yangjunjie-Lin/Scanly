@@ -11,6 +11,7 @@ import { scenarioToPipelineConfig } from "./scenario-runtime.js";
 import { ValidatorRegistry } from "./validator-registry.js";
 import { ExecutionBudget, monotonicNow } from "./execution-budget.js";
 import { FrameMemoryBudget } from "./memory-budget.js";
+import { inspectCapabilities } from "./capabilities.js";
 const MAX_TRACE_EVENTS = 256;
 const MAX_TRACE_DETAIL_LENGTH = 512;
 function failure(frameId, scenarioId, code, message, totalMs, trace, cause) {
@@ -64,6 +65,7 @@ export class CaptureRouter {
         this.scenario = validated.value;
     }
     getScenario() { return JSON.parse(JSON.stringify(this.scenario)); }
+    getCapabilities() { return inspectCapabilities(this.engines, this.operators); }
     async scan(frame, options = {}) {
         const lease = new FrameLease(frame);
         const scenario = options.scenario ?? this.scenario;
@@ -87,6 +89,8 @@ export class CaptureRouter {
         const traceOutput = () => scenario?.output?.includeDebugTrace ? trace : undefined;
         let active = false;
         let artifacts;
+        let memoryBudget;
+        const memoryObservation = { currentControlledBytes: 0, peakControlledBytes: 0, retainedArtifactBytes: 0, retainedCacheBytes: 0, transientScratchBytes: 0 };
         let timeoutId;
         let timedOut = false;
         let onAbort;
@@ -113,7 +117,7 @@ export class CaptureRouter {
             const graph = this.compiler.compile(validatedScenario);
             this.activeFrames += 1;
             active = true;
-            const memoryBudget = new FrameMemoryBudget(validatedScenario.budgets.maxIntermediateBytes);
+            memoryBudget = new FrameMemoryBudget(validatedScenario.budgets.maxIntermediateBytes);
             artifacts = new BoundedFrameArtifactStore(validatedScenario.budgets.maxIntermediateAllocations, validatedScenario.budgets.maxIntermediateBytes, memoryBudget);
             artifacts.set("input.frame", frame);
             onAbort = () => operationController.abort();
@@ -139,13 +143,16 @@ export class CaptureRouter {
                     candidateDeduplicationMs: phaseTimings["scanly.candidate-deduplication"],
                     validationMs: phaseTimings["scanly.validation"],
                     semanticParsingMs: phaseTimings["scanly.semantic-parsing"],
+                    controlledMemory: memoryObservation,
                 } };
             return validatedScenario.output.includeDebugTrace ? { ...result, trace } : result;
         }
         catch (error) {
             const code = errorCode(error, operationController.signal, timedOut);
             const message = error instanceof SdkException ? error.error.message : error instanceof Error ? error.message : String(error);
-            return failure(frameId, scenarioId, code, message, this.now() - started, traceOutput(), error);
+            const failed = failure(frameId, scenarioId, code, message, this.now() - started, traceOutput(), error);
+            failed.timing.controlledMemory = memoryObservation;
+            return failed;
         }
         finally {
             if (timeoutId !== undefined)
@@ -153,6 +160,8 @@ export class CaptureRouter {
             if (onAbort)
                 options.signal?.removeEventListener("abort", onAbort);
             artifacts?.dispose();
+            if (memoryBudget)
+                Object.assign(memoryObservation, memoryBudget.observation);
             if (active)
                 this.activeFrames -= 1;
             lease.release();

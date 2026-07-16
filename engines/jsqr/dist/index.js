@@ -2,7 +2,7 @@ import jsQR from "jsqr";
 export class JsQrEngine {
     id = "jsqr";
     version = "1.4.0";
-    capabilities = { formats: ["qr_code"], supportsMultiple: false, returnsRawBytes: true, returnsCornerPoints: true, threadSafe: true };
+    capabilities = { formats: ["qr_code"], supportsMultiple: false, returnsRawBytes: true, returnsCornerPoints: true, threadSafe: true, estimatedScratchBytesPerPixel: 5, copiesInputBuffer: false };
     async decode(frame, options) {
         const started = Date.now();
         if (options.signal?.aborted)

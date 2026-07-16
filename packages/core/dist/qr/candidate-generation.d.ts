@@ -12,6 +12,8 @@ export interface CandidateImage {
     /** Exact candidate-buffer -> original normalized-frame transform. */
     transform: CoordinateTransform;
     pathologicalInput?: boolean;
+    highFrequencyRatio?: number;
+    candidateCountBeforeCap?: number;
 }
 /** Nearest-neighbor resize for RGBA buffers. */
 export declare function resizeBuffer(src: PixelBuffer, targetW: number, targetH: number, budget?: ExecutionBudget): PixelBuffer;
@@ -20,6 +22,7 @@ export declare function fitMaxSide(src: PixelBuffer, maxSide: number, budget?: E
     scale: number;
 };
 /** Conservative high-frequency rejection for independently random pixels. */
+export declare function highFrequencyRatio(image: PixelBuffer, budget?: ExecutionBudget): number;
 export declare function isPathologicalHighEntropy(image: PixelBuffer, budget?: ExecutionBudget): boolean;
 /**
  * Prioritized candidates:
@@ -36,6 +39,7 @@ export declare function generateCandidates(full: PixelBuffer, options: {
     enableLocalization?: boolean;
     enableFullImageFallback?: boolean;
     enableSplitImageFallback?: boolean;
+    enableGridImageFallback?: boolean;
     budget?: ExecutionBudget;
     sourceToFrame?: CoordinateTransform;
 }): CandidateImage[];

@@ -9,10 +9,15 @@ import {
 } from "@scanly/core";
 import { getBuiltinScenario, type ScenarioDefinition } from "@scanly/scenario-schema";
 import { createBrowserCaptureRouter } from "./runtime.js";
+import { DecodeWorkerClient, markDecodePath, type DecodeWorkerFactory } from "./worker/worker-client.js";
+import { CameraEscalationController, type CameraEscalationOptions } from "./camera-strategy.js";
 
-export interface CameraCapabilities { torch: boolean; minZoom?: number; maxZoom?: number; currentZoom?: number }
+export interface CameraCapabilities { torch: boolean; minZoom?: number; maxZoom?: number; currentZoom?: number; focusModes?: string[]; width?: number; height?: number }
 export interface CameraStartOptions {
   deviceId?: string;
+  facingMode?: "user" | "environment";
+  preferredWidth?: number;
+  preferredHeight?: number;
   scenario?: ScenarioDefinition;
   stopAfterResult?: boolean;
   duplicateWindowMs?: number;
@@ -21,13 +26,15 @@ export interface CameraStartOptions {
   stableResultCount?: number;
   /** Longest sampled RGBA side before Canvas readback. Defaults to 960. */
   sampleMaxSide?: number;
+  forceMainThread?: boolean;
+  escalation?: CameraEscalationOptions;
   onResult(outcome: ScanOutcome): void;
   onError?(outcome: ScanFailure): void;
   onStateChange?(state: "starting" | "running" | "stopped"): void;
   onOrientationChange?(): void;
 }
 
-export interface BrowserCameraSourceOptions { router?: CaptureRouter; disposeRouter?: boolean }
+export interface BrowserCameraSourceOptions { router?: CaptureRouter; disposeRouter?: boolean; workerFactory?: DecodeWorkerFactory }
 
 function cameraFailure(frameId: string, scenarioId: string, error: unknown): ScanFailure {
   const message = (error instanceof Error ? error.message : String(error)).slice(0, 2_048);
@@ -44,6 +51,7 @@ function orientation(): 0 | 90 | 180 | 270 {
 /** Default SDK v2 camera path: sampled RGBA frames -> CaptureSession -> CaptureRouter. */
 export class BrowserCameraSource {
   private readonly session: CaptureSession;
+  private readonly worker: DecodeWorkerClient;
   private video: HTMLVideoElement | null = null;
   private options: CameraStartOptions | null = null;
   private canvas: HTMLCanvasElement | null = null;
@@ -59,10 +67,14 @@ export class BrowserCameraSource {
   private stableKey: string | null = null;
   private stableCount = 0;
   private stopped = true;
+  private workerAvailable = true;
+  private workerRetryFrames = 0;
+  private strategy = new CameraEscalationController();
 
   constructor(options: BrowserCameraSourceOptions = {}) {
     const router = options.router ?? createBrowserCaptureRouter();
     this.session = new CaptureSession({ router, disposeRouter: options.disposeRouter ?? !options.router, concurrentCallPolicy: "reject", applyDuplicateSuppression: false });
+    this.worker = new DecodeWorkerClient(options.workerFactory);
   }
 
   static async listDevices(): Promise<MediaDeviceInfo[]> {
@@ -78,6 +90,8 @@ export class BrowserCameraSource {
     this.stopped = false;
     this.video = video;
     this.options = options;
+    this.strategy = new CameraEscalationController(options.escalation);
+    this.workerAvailable = !options.forceMainThread && typeof Worker !== "undefined";
     this.duplicatePolicy = new DuplicateSuppressionPolicy(options.duplicateWindowMs ?? (scenario.duplicateSuppression.enabled ? scenario.duplicateSuppression.windowMs : 0));
     options.onStateChange?.("starting");
     try {
@@ -85,7 +99,11 @@ export class BrowserCameraSource {
       this.session.updateConfiguration(scenario);
       this.session.start("camera");
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: options.deviceId ? { deviceId: { exact: options.deviceId } } : { facingMode: { ideal: "environment" } },
+        video: options.deviceId ? { deviceId: { exact: options.deviceId } } : {
+          facingMode: { ideal: options.facingMode ?? "environment" },
+          ...(options.preferredWidth ? { width: { ideal: options.preferredWidth } } : {}),
+          ...(options.preferredHeight ? { height: { ideal: options.preferredHeight } } : {}),
+        },
         audio: false,
       });
       if (generation !== this.generation || this.stopped) { for (const track of stream.getTracks()) track.stop(); return; }
@@ -119,9 +137,17 @@ export class BrowserCameraSource {
 
   getCapabilities(): CameraCapabilities {
     const track = this.currentTrack();
-    const capabilities = track?.getCapabilities?.() as MediaTrackCapabilities & { torch?: boolean; zoom?: { min?: number; max?: number } } | undefined;
+    const capabilities = track?.getCapabilities?.() as MediaTrackCapabilities & { torch?: boolean; zoom?: { min?: number; max?: number }; focusMode?: string[] } | undefined;
     const settings = track?.getSettings?.() as MediaTrackSettings & { zoom?: number } | undefined;
-    return { torch: Boolean(capabilities?.torch), minZoom: capabilities?.zoom?.min, maxZoom: capabilities?.zoom?.max, currentZoom: settings?.zoom };
+    return {
+      torch: Boolean(capabilities?.torch),
+      ...(capabilities?.zoom?.min !== undefined ? { minZoom: capabilities.zoom.min } : {}),
+      ...(capabilities?.zoom?.max !== undefined ? { maxZoom: capabilities.zoom.max } : {}),
+      ...(settings?.zoom !== undefined ? { currentZoom: settings.zoom } : {}),
+      ...(capabilities?.focusMode?.length ? { focusModes: capabilities.focusMode } : {}),
+      ...(settings?.width !== undefined ? { width: settings.width } : {}),
+      ...(settings?.height !== undefined ? { height: settings.height } : {}),
+    };
   }
 
   async setTorch(enabled: boolean): Promise<void> {
@@ -142,6 +168,7 @@ export class BrowserCameraSource {
 
   async dispose(): Promise<void> {
     this.internalStop(true);
+    this.worker.dispose();
     await this.session.dispose();
   }
 
@@ -185,10 +212,23 @@ export class BrowserCameraSource {
         timestampMs: now,
         sourceType: "camera",
         ownership: "owned",
-        orientation: orientation(),
-        device: { deviceId: settings?.deviceId, facingMode: settings?.facingMode as "user" | "environment" | "left" | "right" | undefined },
+        orientation: 0,
+        device: { deviceId: settings?.deviceId, facingMode: settings?.facingMode as "user" | "environment" | "left" | "right" | undefined, displayOrientation: orientation() },
       });
-      const outcome = await this.session.scan(frame);
+      const scenario = this.strategy.nextScenario(this.options?.scenario ?? getBuiltinScenario("fast"), { width: frame.width, height: frame.height });
+      let outcome: ScanOutcome;
+      if (!this.workerAvailable && this.workerRetryFrames > 0) this.workerRetryFrames -= 1;
+      if (!this.workerAvailable && this.workerRetryFrames === 0 && !this.options?.forceMainThread && typeof Worker !== "undefined") this.workerAvailable = true;
+      if (this.workerAvailable) {
+        markDecodePath("worker");
+        outcome = await this.worker.scan(frame, scenario);
+        if (!outcome.ok && ["worker_initialization_failure", "engine_execution_failure"].includes(outcome.error.code) && outcome.error.message.startsWith("Image decoder Worker failed:")) { this.workerAvailable = false; this.workerRetryFrames = 2; }
+      } else {
+        markDecodePath("main-thread");
+        this.session.updateConfiguration(scenario);
+        outcome = await this.session.scan(frame);
+      }
+      this.strategy.observe(outcome);
       if (this.stopped || generation !== this.generation) return;
       if (outcome.ok) this.handleResult(outcome);
       else if (!["no_symbol_found", "timeout", "cancelled"].includes(outcome.error.code)) this.options?.onError?.(outcome);
@@ -240,6 +280,7 @@ export class BrowserCameraSource {
     if (this.videoFrameCallbackId !== null) videoWithFrames?.cancelVideoFrameCallback?.(this.videoFrameCallbackId);
     this.videoFrameCallbackId = null;
     this.session.stop();
+    this.worker.cancel();
     const track = this.currentTrack();
     if (track && this.trackEndedHandler) track.removeEventListener?.("ended", this.trackEndedHandler);
     this.trackEndedHandler = null;
@@ -253,6 +294,7 @@ export class BrowserCameraSource {
     this.stableKey = null;
     this.stableCount = 0;
     this.activeFrame = false;
+    this.strategy.reset();
     if (this.canvas) { this.canvas.width = 0; this.canvas.height = 0; }
     this.canvas = null;
     this.video = null;

@@ -1,4 +1,4 @@
-export const SDK_VERSION = "2.0.0-alpha.2";
+export const SDK_VERSION = "2.0.0-alpha.3";
 export * from "./contracts/frame.js";
 export * from "./contracts/errors.js";
 export * from "./contracts/result.js";
@@ -15,6 +15,8 @@ export * from "./runtime/scenario-compiler.js";
 export * from "./runtime/builtin-operators.js";
 export * from "./runtime/result-policies.js";
 export * from "./runtime/frame-lease.js";
+export * from "./runtime/frame-normalization.js";
+export * from "./runtime/capabilities.js";
 export * from "./runtime/router.js";
 export * from "./runtime/session.js";
 export { SCENARIO_SCHEMA_VERSION, BUILTIN_SCENARIOS, getBuiltinScenario, validateScenario, migrateScenario } from "@scanly/scenario-schema";

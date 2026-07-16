@@ -79,6 +79,9 @@ export class ScenarioCompiler {
     clearCache() { this.cache.clear(); }
     get cacheSize() { return this.cache.size; }
     validateCapabilities(scenario) {
+        if (scenario.multiCode.deduplication === "tracked-instance") {
+            throw new SdkException(sdkError("invalid_configuration", "tracked-instance requires a temporal tracking operator, which is not registered."));
+        }
         const requested = scenario.decoders.order.map((id) => {
             const engine = this.engines.get(id);
             if (!engine)
@@ -88,11 +91,6 @@ export class ScenarioCompiler {
         const unsupported = scenario.acceptedFormats.filter((format) => !requested.some((engine) => engine.capabilities.formats.includes(format)));
         if (unsupported.length) {
             throw new SdkException(sdkError("unsupported_format", `No requested decoder engine supports: ${unsupported.join(", ")}.`, { scenarioId: scenario.id, formats: unsupported.join(",") }));
-        }
-        if (scenario.decoders.execution === "parallel" && requested.length > 1) {
-            const unsafe = requested.filter((engine) => !engine.capabilities.threadSafe).map((engine) => engine.id);
-            if (unsafe.length)
-                throw new SdkException(sdkError("invalid_configuration", `Parallel decoder execution is incompatible with non-thread-safe engine(s): ${unsafe.join(", ")}.`, { engineIds: unsafe.join(",") }));
         }
         const missingValidators = scenario.validation.filter((entry) => entry.required && !this.validators.get(entry.id)).map((entry) => entry.id);
         if (missingValidators.length) {

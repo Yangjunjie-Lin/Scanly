@@ -53,6 +53,26 @@ function noiseBuffer(width: number, height: number, strength: number): Buffer {
   return data;
 }
 
+async function versionedQrPng(text: string, version: number, size = 720): Promise<Buffer> {
+  return QRCode.toBuffer(text, { type: "png", width: size, margin: 2, version, errorCorrectionLevel: "M" });
+}
+
+async function multiQrCanvas(payloads: string[], columns: number, cellSize = 180, background = "#ffffff"): Promise<{ image: Buffer; geometry: Array<{ payload: string; x: number; y: number; width: number; height: number }> }> {
+  const rows = Math.ceil(payloads.length / columns);
+  const gap = 24;
+  const width = columns * cellSize + (columns + 1) * gap;
+  const height = rows * cellSize + (rows + 1) * gap;
+  const geometry = payloads.map((payload, index) => ({ payload, x: gap + (index % columns) * (cellSize + gap), y: gap + Math.floor(index / columns) * (cellSize + gap), width: cellSize, height: cellSize }));
+  const inputs = await Promise.all(geometry.map(async (entry) => ({ input: await qrPng(entry.payload, cellSize), left: entry.x, top: entry.y })));
+  const image = await sharp({ create: { width, height, channels: 3, background } }).composite(inputs).png().toBuffer();
+  return { image, geometry };
+}
+
+function gridGeometry(payloads: string[], columns: number, cellSize: number) {
+  const gap = 24;
+  return payloads.map((payload, index) => ({ payload, x: gap + (index % columns) * (cellSize + gap), y: gap + Math.floor(index / columns) * (cellSize + gap), width: cellSize, height: cellSize }));
+}
+
 /** Host-font-independent pseudo text for deterministic adversarial fixtures. */
 function glyphRunSvg(text: string, x: number, y: number, scale = 3): string {
   const rectangles: string[] = [];
@@ -234,6 +254,7 @@ async function copyLegacy() {
 
 async function main() {
   await ensureDir(FIXTURES_DIR);
+  await fs.promises.rm(path.join(FIXTURES_DIR, "73-dense-noise-background.png"), { force: true });
   await copyLegacy();
 
   const manifest: BenchmarkFixture[] = [...legacyFixtures];
@@ -246,6 +267,12 @@ async function main() {
     payload: string;
     build: () => Promise<Buffer>;
     expectedOutcome?: "decode" | "no-symbol" | "invalid-input";
+    requiredPayloads?: string[];
+    requiredInstances?: Array<{ payload: string; count: number }>;
+    expectedResultCount?: number;
+    profileExpectedResultCount?: Partial<Record<"fast" | "balanced" | "robust", number>>;
+    primaryPayload?: string;
+    geometryMetadata?: Array<{ payload: string; x: number; y: number; width: number; height: number }>;
   }> = [
     {
       id: "17-clear-url-02",
@@ -831,6 +858,111 @@ async function main() {
       expectedOutcome: "no-symbol",
       build: async () => sharp(await qrPng("SHOULD_NOT_DECODE_TRUNCATED", 360)).extract({ left: 0, top: 0, width: 135, height: 360 }).extend({ right: 225, background: "#ffffff" }).png().toBuffer(),
     },
+    {
+      id: "64-multiple-five",
+      file: "fixtures/64-multiple-five.png",
+      category: "multiple",
+      payload: "SCANLY_MULTI5_01",
+      requiredPayloads: Array.from({ length: 5 }, (_, index) => `SCANLY_MULTI5_${String(index + 1).padStart(2, "0")}`),
+      expectedResultCount: 5,
+      primaryPayload: "SCANLY_MULTI5_01",
+      geometryMetadata: gridGeometry(Array.from({ length: 5 }, (_, index) => `SCANLY_MULTI5_${String(index + 1).padStart(2, "0")}`), 3, 170),
+      build: async () => (await multiQrCanvas(Array.from({ length: 5 }, (_, index) => `SCANLY_MULTI5_${String(index + 1).padStart(2, "0")}`), 3, 170)).image,
+    },
+    {
+      id: "65-multiple-eight",
+      file: "fixtures/65-multiple-eight.png",
+      category: "multiple",
+      payload: "SCANLY_MULTI8_01",
+      requiredPayloads: Array.from({ length: 8 }, (_, index) => `SCANLY_MULTI8_${String(index + 1).padStart(2, "0")}`),
+      expectedResultCount: 8,
+      primaryPayload: "SCANLY_MULTI8_01",
+      geometryMetadata: gridGeometry(Array.from({ length: 8 }, (_, index) => `SCANLY_MULTI8_${String(index + 1).padStart(2, "0")}`), 4, 160),
+      build: async () => (await multiQrCanvas(Array.from({ length: 8 }, (_, index) => `SCANLY_MULTI8_${String(index + 1).padStart(2, "0")}`), 4, 160)).image,
+    },
+    {
+      id: "66-multiple-twelve",
+      file: "fixtures/66-multiple-twelve.png",
+      category: "multiple",
+      payload: "SCANLY_MULTI12_01",
+      requiredPayloads: Array.from({ length: 12 }, (_, index) => `SCANLY_MULTI12_${String(index + 1).padStart(2, "0")}`),
+      expectedResultCount: 12,
+      profileExpectedResultCount: { balanced: 8, robust: 12 },
+      primaryPayload: "SCANLY_MULTI12_01",
+      geometryMetadata: gridGeometry(Array.from({ length: 12 }, (_, index) => `SCANLY_MULTI12_${String(index + 1).padStart(2, "0")}`), 4, 150),
+      build: async () => (await multiQrCanvas(Array.from({ length: 12 }, (_, index) => `SCANLY_MULTI12_${String(index + 1).padStart(2, "0")}`), 4, 150)).image,
+    },
+    {
+      id: "67-multiple-same-two",
+      file: "fixtures/67-multiple-same-two.png",
+      category: "multiple",
+      payload: "SCANLY_SAME_INSTANCE",
+      requiredInstances: [{ payload: "SCANLY_SAME_INSTANCE", count: 2 }],
+      expectedResultCount: 2,
+      primaryPayload: "SCANLY_SAME_INSTANCE",
+      geometryMetadata: gridGeometry(["SCANLY_SAME_INSTANCE", "SCANLY_SAME_INSTANCE"], 2, 220),
+      build: async () => (await multiQrCanvas(["SCANLY_SAME_INSTANCE", "SCANLY_SAME_INSTANCE"], 2, 220)).image,
+    },
+    {
+      id: "68-multiple-same-three",
+      file: "fixtures/68-multiple-same-three.png",
+      category: "multiple",
+      payload: "SCANLY_SAME_TRIPLE",
+      requiredInstances: [{ payload: "SCANLY_SAME_TRIPLE", count: 3 }],
+      expectedResultCount: 3,
+      primaryPayload: "SCANLY_SAME_TRIPLE",
+      geometryMetadata: gridGeometry(["SCANLY_SAME_TRIPLE", "SCANLY_SAME_TRIPLE", "SCANLY_SAME_TRIPLE"], 3, 180),
+      build: async () => sharp((await multiQrCanvas(["SCANLY_SAME_TRIPLE", "SCANLY_SAME_TRIPLE", "SCANLY_SAME_TRIPLE"], 3, 180)).image).extend({ bottom: 204, background: "#ffffff" }).png().toBuffer(),
+    },
+    {
+      id: "69-multiple-mixed-size",
+      file: "fixtures/69-multiple-mixed-size.png",
+      category: "multiple",
+      payload: "SCANLY_MIXED_LARGE",
+      requiredPayloads: ["SCANLY_MIXED_LARGE", "SCANLY_MIXED_MEDIUM", "SCANLY_MIXED_SMALL"],
+      expectedResultCount: 3,
+      primaryPayload: "SCANLY_MIXED_LARGE",
+      build: async () => sharp({ create: { width: 900, height: 600, channels: 3, background: "#eef1f5" } }).composite([
+        { input: await qrPng("SCANLY_MIXED_LARGE", 300), left: 30, top: 30 },
+        { input: await qrPng("SCANLY_MIXED_MEDIUM", 210), left: 630, top: 40 },
+        { input: await qrPng("SCANLY_MIXED_SMALL", 140), left: 390, top: 420 },
+      ]).png().toBuffer(),
+    },
+    {
+      id: "70-version-20",
+      file: "fixtures/70-version-20.png",
+      category: "high_resolution",
+      payload: "SCANLY_VERSION_20_DENSE_VALID_PAYLOAD",
+      build: () => versionedQrPng("SCANLY_VERSION_20_DENSE_VALID_PAYLOAD", 20),
+    },
+    {
+      id: "71-version-30",
+      file: "fixtures/71-version-30.png",
+      category: "high_resolution",
+      payload: "SCANLY_VERSION_30_DENSE_VALID_PAYLOAD",
+      build: () => versionedQrPng("SCANLY_VERSION_30_DENSE_VALID_PAYLOAD", 30, 900),
+    },
+    {
+      id: "72-version-40",
+      file: "fixtures/72-version-40.png",
+      category: "high_resolution",
+      payload: "SCANLY_VERSION_40_DENSE_VALID_PAYLOAD",
+      build: () => versionedQrPng("SCANLY_VERSION_40_DENSE_VALID_PAYLOAD", 40, 1080),
+    },
+    {
+      id: "73-dense-checker-background",
+      file: "fixtures/73-dense-checker-background.png",
+      category: "complex_background",
+      payload: "SCANLY_DENSE_CHECKER_POSITIVE",
+      build: async () => sharp(Buffer.from(`<svg width="1000" height="700" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="c" width="12" height="12" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="#20242c"/><rect x="6" y="6" width="6" height="6" fill="#20242c"/><rect x="6" width="6" height="6" fill="#dce2ec"/><rect y="6" width="6" height="6" fill="#dce2ec"/></pattern></defs><rect width="1000" height="700" fill="url(#c)"/></svg>`)).composite([{ input: await qrPng("SCANLY_DENSE_CHECKER_POSITIVE", 460), left: 270, top: 120 }]).png().toBuffer(),
+    },
+    {
+      id: "74-zxing-contribution-blur",
+      file: "fixtures/74-zxing-contribution-blur.png",
+      category: "blur",
+      payload: "ZXING_UNIQUE_3_2_L",
+      build: async () => sharp(await QRCode.toBuffer("ZXING_UNIQUE_3_2_L", { type: "png", version: 3, margin: 2, errorCorrectionLevel: "L", width: 128 })).blur(1).png().toBuffer(),
+    },
   ];
 
   for (const g of generated) {
@@ -845,6 +977,16 @@ async function main() {
       sourceType: "generated",
       license: "project-generated",
     };
+    if (g.requiredPayloads) entry.requiredPayloads = g.requiredPayloads;
+    if (g.requiredInstances) entry.requiredInstances = g.requiredInstances;
+    if (g.expectedResultCount) entry.expectedResultCount = g.expectedResultCount;
+    if (g.profileExpectedResultCount) entry.profileExpectedResultCount = g.profileExpectedResultCount;
+    if (g.primaryPayload) entry.primaryPayload = g.primaryPayload;
+    if (g.geometryMetadata) entry.geometryMetadata = g.geometryMetadata;
+    if (g.requiredPayloads || g.requiredInstances) {
+      entry.allowExtraPayloads = false;
+      entry.primaryResultRule = "top-to-bottom-left-to-right";
+    }
     if (g.id === "36-multiple-gen") {
       entry.primaryPayload = "SCANLY_MULTI_PRIMARY";
       entry.requiredPayloads = ["SCANLY_MULTI_PRIMARY", "SCANLY_MULTI_SECONDARY"];
@@ -878,7 +1020,7 @@ async function main() {
     JSON.stringify(
       {
         seed: SEED,
-        generatorVersion: 2,
+        generatorVersion: 3,
         stamp: hash,
         fixtures: manifest,
       },

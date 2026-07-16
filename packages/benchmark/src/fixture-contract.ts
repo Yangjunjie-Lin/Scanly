@@ -13,9 +13,20 @@ export function expectedPayloads(fixture: BenchmarkFixture): string[] {
 }
 
 export function requiredPayloads(fixture: BenchmarkFixture): string[] {
+  if (fixture.requiredInstances?.length) return fixture.requiredInstances.flatMap((entry) => Array.from({ length: entry.count }, () => entry.payload));
   return fixture.requiredPayloads?.length
     ? fixture.requiredPayloads
     : expectedPayloads(fixture);
+}
+
+export function requiredPayloadsForProfile(fixture: BenchmarkFixture, profile: "fast" | "balanced" | "robust"): string[] {
+  const required = requiredPayloads(fixture);
+  const count = fixture.profileExpectedResultCount?.[profile];
+  if (count === undefined) return required;
+  if (!Number.isInteger(count) || count < 1 || count > required.length) {
+    throw new RangeError(`Fixture '${fixture.id}' has invalid ${profile} profileExpectedResultCount ${String(count)} for ${required.length} required payload(s).`);
+  }
+  return required.slice(0, count);
 }
 
 export function evaluateFixture(
@@ -37,8 +48,14 @@ export function evaluateFixture(
     return { pass: false, missingPayloads: required, unexpectedPayloads: [] };
   }
 
-  if (fixture.requiredPayloads?.length) {
-    const missing = required.filter((payload) => !payloads.includes(payload));
+  if (fixture.requiredPayloads?.length || fixture.requiredInstances?.length) {
+    const remaining = [...payloads];
+    const missing = required.filter((payload) => {
+      const index = remaining.indexOf(payload);
+      if (index < 0) return true;
+      remaining.splice(index, 1);
+      return false;
+    });
     const allowed = new Set([...required, ...expectedPayloads(fixture)]);
     const unexpected = fixture.allowExtraPayloads === false
       ? payloads.filter((payload) => !allowed.has(payload))
