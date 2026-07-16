@@ -23,7 +23,7 @@ import {
 const ROOT = path.resolve(__dirname, "..");
 const MANIFEST_PATH = path.join(ROOT, "fixtures", "manifest.json");
 const OUT_DIR = path.join(ROOT, "benchmark-results");
-function baselinePath(profile: BuiltinScenarioId): string { return path.join(OUT_DIR, "baselines", `v2-alpha2-r2-${profile}-node24-windows-x64.json`); }
+function baselinePath(profile: BuiltinScenarioId): string { return path.join(OUT_DIR, "baselines", `v2-alpha2-r3-${profile}-node24-windows-x64.json`); }
 
 interface ManifestFile {
   seed: number;

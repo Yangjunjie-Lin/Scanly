@@ -797,7 +797,7 @@ async function main() {
       category: "negative",
       payload: "",
       expectedOutcome: "no-symbol",
-      build: () => sharp(Buffer.from(`<svg width="600" height="400" xmlns="http://www.w3.org/2000/svg"><rect width="600" height="400" fill="#f6f8ff"/><g transform="translate(170 70)"><circle cx="130" cy="130" r="120" fill="#315efb"/><circle cx="130" cy="130" r="70" fill="#f6f8ff"/><path d="M130 25L230 205H30Z" fill="#111" opacity=".75"/></g><text x="210" y="350" font-family="sans-serif" font-size="44" font-weight="700">SCANLY</text></svg>`)).png().toBuffer(),
+      build: () => sharp(Buffer.from(`<svg width="600" height="400" xmlns="http://www.w3.org/2000/svg"><rect width="600" height="400" fill="#f6f8ff"/><g transform="translate(170 70)"><circle cx="130" cy="130" r="120" fill="#315efb"/><circle cx="130" cy="130" r="70" fill="#f6f8ff"/><path d="M130 25L230 205H30Z" fill="#111" opacity=".75"/></g>${glyphRunSvg("SCANLY", 228, 330, 4)}</svg>`)).png().toBuffer(),
     },
     {
       id: "60-negative-grid",
