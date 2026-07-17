@@ -24,6 +24,10 @@ export function sha256(value: string | Buffer): string {
   return crypto.createHash("sha256").update(value).digest("hex");
 }
 
+export function sha256Text(value: string | Buffer): string {
+  return sha256(value.toString().replace(/\r\n/g, "\n"));
+}
+
 export function stableJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
   if (value && typeof value === "object") {
@@ -45,7 +49,7 @@ export function assertCleanRepository(root: string): void {
 }
 
 export async function computeDatasetHash(manifestPath: string, fixtureFiles: readonly string[], root: string): Promise<string> {
-  const hash = crypto.createHash("sha256").update(await fs.promises.readFile(manifestPath));
+  const hash = crypto.createHash("sha256").update((await fs.promises.readFile(manifestPath, "utf8")).replace(/\r\n/g, "\n"));
   for (const file of [...fixtureFiles].sort()) hash.update(file).update(await fs.promises.readFile(path.join(root, file)));
   return hash.digest("hex");
 }
@@ -58,7 +62,7 @@ export async function collectSourceIdentity(options: SourceIdentityOptions): Pro
     commitSha: git(["rev-parse", "HEAD"]),
     treeSha: git(["rev-parse", "HEAD^{tree}"]),
     repositoryDirty: Boolean(status),
-    packageLockHash: sha256(await fs.promises.readFile(path.join(options.root, "package-lock.json"))),
+    packageLockHash: sha256Text(await fs.promises.readFile(path.join(options.root, "package-lock.json"))),
     scenarioHash: sha256(stableJson(options.scenario)),
     datasetHash: await computeDatasetHash(options.manifestPath, options.fixtureFiles, options.root),
     engineCompositionHash: sha256(stableJson(options.engines.map((engine) => ({ id: engine.id, version: engine.version, capabilities: engine.capabilities })))),
@@ -70,7 +74,7 @@ const EVIDENCE_ONLY_PATHS = [
   /^benchmark-results\/(?:latest-fast|latest|latest-robust)\.(?:json|csv)$/,
   /^benchmark-results\/comparison\.json$/,
   /^benchmark-results\/canonical\/.+$/,
-  /^benchmark-results\/baselines\/v2-alpha3-r\d+-(?:fast|balanced|robust)-node24-windows-x64\.json$/,
+  /^benchmark-results\/baselines\/v2-alpha3-r1-(?:fast|balanced|robust)-node24-windows-x64\.json$/,
   /^benchmark-results\/baselines\/registry\.json$/,
   /^docs\/benchmark\.md$/,
   /^README\.md$/,

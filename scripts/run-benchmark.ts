@@ -9,7 +9,6 @@ import { SDK_VERSION, createRgbaFrame, type CaptureRouter } from "@scanly/core";
 import { createNodeCaptureRouter, loadPixelBufferFromPath } from "@scanly/node";
 import { getBuiltinScenario, type BuiltinScenarioId } from "@scanly/scenario-schema";
 import type { BenchmarkExecutionMode, BenchmarkFixture, BenchmarkFixtureResult, BenchmarkRunSummary } from "@scanly/benchmark";
-import { toCsvRow } from "@scanly/benchmark";
 import { summarizeBenchmarkVariance, summarizeIterationCorrectness } from "@scanly/benchmark";
 import {
   evaluateFixture,
@@ -23,6 +22,7 @@ import {
 import { assertCleanRepository, collectSourceIdentity } from "./benchmark-provenance.js";
 import { resolveActiveBaseline, runtimeFamily } from "./baseline-registry.js";
 import { validateProfileReport } from "./canonical-evidence.js";
+import { benchmarkResultsToCsv } from "./benchmark-csv.js";
 
 const ROOT = path.resolve(__dirname, "..");
 const MANIFEST_PATH = path.join(ROOT, "fixtures", "manifest.json");
@@ -54,60 +54,6 @@ function distribution(values: number[]) {
     median: median(values),
     p95: percentile(sorted, 95),
   };
-}
-
-function toCsv(results: BenchmarkFixtureResult[]): string {
-  const header = [
-    "id",
-    "category",
-    "expectedPayload",
-    "actualPayload",
-    "allPayloads",
-    "pass",
-    "elapsedMs",
-    "successfulDecoder",
-    "preprocessingPath",
-    "candidateIndex",
-    "attemptCount",
-    "failureReason",
-    "missingPayloads",
-    "unexpectedPayloads",
-    "requiredPayloadCount",
-    "decodedPayloadCount",
-    "candidateGenerationMs",
-    "engineMs",
-    "preprocessMs",
-    "rotationMs",
-    "timeToFirstResultMs",
-    "controlledMemoryPeakBytes",
-  ];
-  const rows = results.map((r) =>
-    toCsvRow([
-      r.id,
-      r.category,
-      Array.isArray(r.expectedPayload) ? r.expectedPayload.join("|") : r.expectedPayload,
-      r.actualPayload ?? "",
-      r.allPayloads.join("|"),
-      r.pass ? "pass" : "fail",
-      r.elapsedMs.toFixed(1),
-      r.successfulDecoder ?? "",
-      r.preprocessingPath ?? "",
-      r.candidateIndex ?? "",
-      r.attemptCount,
-      r.failureReason ?? "",
-      (r.missingPayloads ?? []).join("|"),
-      (r.unexpectedPayloads ?? []).join("|"),
-      r.requiredPayloadCount ?? "",
-      r.decodedPayloadCount ?? "",
-      r.phaseTiming?.candidateGenerationMs ?? "",
-      r.phaseTiming?.engineMs ? JSON.stringify(r.phaseTiming.engineMs) : "",
-      r.phaseTiming?.preprocessMs ?? "",
-      r.phaseTiming?.rotationMs ?? "",
-      r.timeToFirstResultMs ?? "",
-      r.controlledMemoryPeakBytes ?? "",
-    ])
-  );
-  return [header.join(","), ...rows].join("\n");
 }
 
 function renderMarkdown(summary: BenchmarkRunSummary, smoke: boolean): string {
@@ -620,7 +566,7 @@ async function main() {
   const jsonPath = path.join(outputDirectory, `${outputStem}.json`);
   const csvPath = path.join(outputDirectory, `${outputStem}.csv`);
   await fs.promises.writeFile(jsonPath, JSON.stringify(summary, null, 2));
-  await fs.promises.writeFile(csvPath, toCsv(results));
+  await fs.promises.writeFile(csvPath, benchmarkResultsToCsv(results));
 
   console.log("");
   console.log(

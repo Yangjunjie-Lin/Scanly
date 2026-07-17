@@ -2,10 +2,27 @@ import fs from "node:fs";
 import path from "node:path";
 import type { BenchmarkRunSummary, ComparisonReport } from "@scanly/benchmark";
 import { sha256, stableJson } from "./benchmark-provenance.js";
+import { validateBenchmarkCsv } from "./benchmark-csv.js";
 
 export const PROFILE_KEYS = ["fast", "balanced", "robust"] as const;
 export type ProfileKey = typeof PROFILE_KEYS[number];
-export type EvidenceReportKey = ProfileKey | "comparison";
+export type EvidenceReportKey =
+  | "fastJson"
+  | "fastCsv"
+  | "balancedJson"
+  | "balancedCsv"
+  | "robustJson"
+  | "robustCsv"
+  | "comparisonJson";
+export const EVIDENCE_REPORT_KEYS: readonly EvidenceReportKey[] = [
+  "fastJson", "fastCsv", "balancedJson", "balancedCsv", "robustJson", "robustCsv", "comparisonJson",
+];
+
+export const PROFILE_REPORT_KEYS: Record<ProfileKey, { json: EvidenceReportKey; csv: EvidenceReportKey }> = {
+  fast: { json: "fastJson", csv: "fastCsv" },
+  balanced: { json: "balancedJson", csv: "balancedCsv" },
+  robust: { json: "robustJson", csv: "robustCsv" },
+};
 
 export const EXPECTED_REMAINING_FAILURES: Record<ProfileKey, readonly string[]> = {
   fast: ["14-damaged", "16-multiple-codes", "36-multiple-gen", "39-high-res", "40-moire", "50-multiple-three", "64-multiple-five", "65-multiple-eight", "66-multiple-twelve", "67-multiple-same-two", "68-multiple-same-three", "69-multiple-mixed-size"],
@@ -116,7 +133,7 @@ export interface EvidenceCommitIdentity {
 }
 
 export interface CanonicalEvidenceManifest {
-  schemaVersion: "1.0";
+  schemaVersion: "2.0";
   evidenceId: string;
   sdkVersion: string;
   sourceIdentity: EvidenceCommitIdentity & {
@@ -173,6 +190,7 @@ export function validateProfileReport(report: Partial<BenchmarkRunSummary>, prof
   if ((report.executionPolicy?.measuredIterations ?? 0) < 3) failures.push("measured iterations are below three");
   if (report.environment?.scenario !== profile) failures.push("profile metadata is incompatible");
   if (report.environment?.sdkVersion !== "2.0.0-alpha.3") failures.push("SDK version is not 2.0.0-alpha.3");
+  if (report.runtime?.kind !== "node" || !/^v?24\./.test(report.runtime?.nodeVersion ?? "") || report.runtime?.platform !== "win32" || report.runtime?.arch !== "x64") failures.push("runtime is not Node 24 Windows x64");
   if (report.environment?.fixtureCount !== 74 || report.total !== 74) failures.push("fixture count is not 74");
   failures.push(...validateProfileCorrectness(report, profile));
   if ((report.engineInitializationFailures ?? -1) !== 0 || (report.engineExecutionFailures ?? -1) !== 0) failures.push("report contains engine failures");
@@ -180,18 +198,28 @@ export function validateProfileReport(report: Partial<BenchmarkRunSummary>, prof
   if (report.phaseTimingAvailability?.passed !== report.phaseTimingAvailability?.total) failures.push("phase timing is incomplete");
   if (profile !== "fast" && report.multipleCompleteness?.complete !== report.multipleCompleteness?.total) failures.push("multi-code completeness failed");
   if (report.finalControlledMemoryBytes !== 0) failures.push("final controlled memory is nonzero");
-  if (!report.results?.every((result) => (result.iterationPassCount ?? 0) + (result.iterationFailureCount ?? 0) >= 3 && (result.runTimingsMs?.length ?? 0) >= 3)) failures.push("per-fixture iteration evidence is incomplete");
+  const measuredIterations = report.executionPolicy?.measuredIterations ?? 3;
+  if (!report.results?.every((result) =>
+    (result.iterationPassCount ?? 0) + (result.iterationFailureCount ?? 0) >= measuredIterations
+    && (result.runTimingsMs?.length ?? 0) >= measuredIterations
+    && (!result.pass || ((result.iterationPassCount ?? 0) >= measuredIterations && result.iterationFailureCount === 0))
+    && result.unstablePayload === false
+    && result.finalControlledMemoryBytes === 0
+  )) failures.push("per-fixture iteration, payload stability, or final-memory evidence is incomplete");
+  if (profile === "robust" && !report.results?.find((result) => result.id === "66-multiple-twelve")?.pass) failures.push("Robust 12-code completeness failed");
   return failures;
 }
 
 export function validateComparisonReport(report: Partial<ComparisonReport>): string[] {
   const failures: string[] = [];
+  const runtime = (report as Partial<ComparisonReport> & { runtime?: { kind?: string; nodeVersion?: string; platform?: string; arch?: string } }).runtime;
   if (report.schemaVersion !== "2.0") failures.push("schema version is not 2.0");
   if (!report.sourceIdentity || report.sourceIdentity.repositoryDirty !== false) failures.push("source repository is dirty or provenance is missing");
   if (!report.executionPolicy?.canonical) failures.push("execution policy is not canonical-compatible");
   if ((report.executionPolicy?.warmupIterations ?? 0) < 1) failures.push("warmup is below one iteration");
   if ((report.executionPolicy?.measuredIterations ?? 0) < 3) failures.push("measured iterations are below three");
   if (report.sdkVersion !== "2.0.0-alpha.3") failures.push("SDK version is not 2.0.0-alpha.3");
+  if (runtime?.kind !== "node" || !/^v?24\./.test(runtime?.nodeVersion ?? "") || runtime?.platform !== "win32" || runtime?.arch !== "x64") failures.push("runtime is not Node 24 Windows x64");
   if (report.fixtureCount !== 74 || report.positiveCases !== 63 || report.negativeCases !== 11) failures.push("fixture contract is incompatible");
   if (report.finalControlledMemoryBytes !== 0) failures.push("final controlled memory is nonzero");
   for (const id of STRATEGIES) {
@@ -210,7 +238,14 @@ export function validateComparisonReport(report: Partial<ComparisonReport>): str
       && parallel.multiCodeCompleteness.complete >= sequential.multiCodeCompleteness.complete;
     if (!parity && (report.parallelExecution?.status !== "experimental" || report.parallelExecution?.builtInScenarioUsage)) failures.push("parallel correctness parity failed without experimental isolation");
   } else failures.push("sequential/parallel strategies are missing");
-  if (!report.perFixture?.every((result) => (result.iterationPassCount ?? 0) + (result.iterationFailureCount ?? 0) >= 3 && (result.runTimingsMs?.length ?? 0) >= 3 && result.finalControlledMemoryBytes === 0)) failures.push("comparison iteration or memory evidence is incomplete");
+  const measuredIterations = report.executionPolicy?.measuredIterations ?? 3;
+  if (!report.perFixture?.every((result) =>
+    (result.iterationPassCount ?? 0) + (result.iterationFailureCount ?? 0) >= measuredIterations
+    && (result.runTimingsMs?.length ?? 0) >= measuredIterations
+    && (!result.pass || ((result.iterationPassCount ?? 0) >= measuredIterations && result.iterationFailureCount === 0))
+    && result.unstablePayload === false
+    && result.finalControlledMemoryBytes === 0
+  )) failures.push("comparison iteration, payload stability, or memory evidence is incomplete");
   return failures;
 }
 
@@ -230,12 +265,16 @@ function readJson<T>(file: string): T {
 
 export function assembleCanonicalEvidence(inputs: Record<EvidenceReportKey, string>, outputDirectory: string): CanonicalEvidenceBundle {
   const reports = {
-    fast: readJson<BenchmarkRunSummary>(inputs.fast),
-    balanced: readJson<BenchmarkRunSummary>(inputs.balanced),
-    robust: readJson<BenchmarkRunSummary>(inputs.robust),
-    comparison: readJson<ComparisonReport>(inputs.comparison),
+    fast: readJson<BenchmarkRunSummary>(inputs.fastJson),
+    balanced: readJson<BenchmarkRunSummary>(inputs.balancedJson),
+    robust: readJson<BenchmarkRunSummary>(inputs.robustJson),
+    comparison: readJson<ComparisonReport>(inputs.comparisonJson),
   };
   const failures = PROFILE_KEYS.flatMap((profile) => validateProfileReport(reports[profile], profile).map((failure) => `${profile}: ${failure}`));
+  for (const profile of PROFILE_KEYS) {
+    const csv = fs.readFileSync(inputs[PROFILE_REPORT_KEYS[profile].csv], "utf8");
+    failures.push(...validateBenchmarkCsv(csv, reports[profile]).map((failure) => `${profile} CSV: ${failure}`));
+  }
   failures.push(...validateComparisonReport(reports.comparison).map((failure) => `comparison: ${failure}`));
   failures.push(...validateCompatibleSources([reports.fast, reports.balanced, reports.robust, reports.comparison]));
   if (failures.length) throw new Error(`Canonical evidence assembly failed:\n- ${failures.join("\n- ")}`);
@@ -243,11 +282,19 @@ export function assembleCanonicalEvidence(inputs: Record<EvidenceReportKey, stri
   const reportHashes = Object.fromEntries(Object.entries(inputs).map(([key, file]) => [key, sha256(fs.readFileSync(file))])) as Record<EvidenceReportKey, string>;
   const identity = sourceFields(reports.fast);
   const evidenceId = `alpha3-${sha256(stableJson({ reportHashes, identity })).slice(0, 16)}`;
-  const reportNames: Record<EvidenceReportKey, string> = { fast: "latest-fast.json", balanced: "latest.json", robust: "latest-robust.json", comparison: "comparison.json" };
+  const reportNames: Record<EvidenceReportKey, string> = {
+    fastJson: "latest-fast.json",
+    fastCsv: "latest-fast.csv",
+    balancedJson: "latest.json",
+    balancedCsv: "latest.csv",
+    robustJson: "latest-robust.json",
+    robustCsv: "latest-robust.csv",
+    comparisonJson: "comparison.json",
+  };
   fs.mkdirSync(outputDirectory, { recursive: true });
   for (const key of Object.keys(reportNames) as EvidenceReportKey[]) fs.copyFileSync(inputs[key], path.join(outputDirectory, reportNames[key]));
   const withoutHash: Omit<CanonicalEvidenceManifest, "manifestHash"> = {
-    schemaVersion: "1.0",
+    schemaVersion: "2.0",
     evidenceId,
     sdkVersion: reports.fast.environment.sdkVersion,
     sourceIdentity: {
@@ -268,7 +315,11 @@ export function assembleCanonicalEvidence(inputs: Record<EvidenceReportKey, stri
 export function readCanonicalEvidence(manifestPath: string): CanonicalEvidenceBundle {
   const resolvedManifest = path.resolve(manifestPath);
   const manifest = readJson<CanonicalEvidenceManifest>(resolvedManifest);
-  if (manifest.schemaVersion !== "1.0" || computeCanonicalManifestHash(manifest) !== manifest.manifestHash) throw new Error("Canonical evidence manifest hash or schema is invalid.");
+  if (manifest.schemaVersion !== "2.0" || computeCanonicalManifestHash(manifest) !== manifest.manifestHash) throw new Error("Canonical evidence manifest hash or schema is invalid.");
+  if (JSON.stringify(Object.keys(manifest.reports).sort()) !== JSON.stringify([...EVIDENCE_REPORT_KEYS].sort())
+    || JSON.stringify(Object.keys(manifest.reportHashes).sort()) !== JSON.stringify([...EVIDENCE_REPORT_KEYS].sort())) {
+    throw new Error("Canonical evidence manifest report set is incomplete or contains unexpected entries.");
+  }
   const base = path.dirname(resolvedManifest);
   const reportPaths = Object.fromEntries(Object.entries(manifest.reports).map(([key, file]) => [key, path.resolve(base, file)])) as Record<EvidenceReportKey, string>;
   for (const key of Object.keys(reportPaths) as EvidenceReportKey[]) {
@@ -280,7 +331,10 @@ export function readCanonicalEvidence(manifestPath: string): CanonicalEvidenceBu
     manifest,
     reportPaths,
     reports: {
-      fast: readJson(reportPaths.fast), balanced: readJson(reportPaths.balanced), robust: readJson(reportPaths.robust), comparison: readJson(reportPaths.comparison),
+      fast: readJson(reportPaths.fastJson),
+      balanced: readJson(reportPaths.balancedJson),
+      robust: readJson(reportPaths.robustJson),
+      comparison: readJson(reportPaths.comparisonJson),
     },
   };
 }

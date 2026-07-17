@@ -4,6 +4,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { BenchmarkRunSummary, ComparisonReport } from "@scanly/benchmark";
 import { assembleCanonicalEvidence, computeCanonicalManifestHash, readCanonicalEvidence, validateProfileReport } from "../../scripts/canonical-evidence.js";
+import { benchmarkResultsToCsv } from "../../scripts/benchmark-csv.js";
 
 const roots: string[] = [];
 afterEach(() => { for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
@@ -22,20 +23,31 @@ function artifacts() {
     report.sourceIdentity = { ...identity, scenarioHash: profile.repeat(64).slice(0, 64) };
     report.executionPolicy = { mode: "canonical-candidate", evidenceType: "canonical-candidate", canonical: true, warmupIterations: 1, measuredIterations: 3, dirtyDevelopmentAllowed: false, updatesDocumentation: false };
     report.finalControlledMemoryBytes = 0;
-    report.results = report.results.map((result) => ({ ...result, iterationPassCount: result.pass ? 3 : 0, iterationFailureCount: result.pass ? 0 : 3, unstablePayload: false, runTimingsMs: [1, 2, 3] }));
+    report.results = report.results.map((result) => ({ ...result, iterationPassCount: result.pass ? 3 : 0, iterationFailureCount: result.pass ? 0 : 3, unstablePayload: false, runTimingsMs: [1, 2, 3], finalControlledMemoryBytes: 0 }));
     reports[profile] = report;
   }
-  const comparison = JSON.parse(fs.readFileSync(path.join(process.cwd(), "benchmark-results", "comparison.json"), "utf8")) as ComparisonReport;
+  const comparison = JSON.parse(fs.readFileSync(path.join(process.cwd(), "benchmark-results", "comparison.json"), "utf8")) as ComparisonReport & { runtime: { kind: "node"; nodeVersion: string; platform: string; arch: string } };
   comparison.sourceIdentity = { ...identity, scenarioHash: "2".repeat(64) };
+  comparison.runtime = { kind: "node", nodeVersion: "v24.15.0", platform: "win32", arch: "x64" };
   comparison.executionPolicy = { mode: "canonical-candidate", evidenceType: "canonical-candidate", canonical: true, warmupIterations: 1, measuredIterations: 3, dirtyDevelopmentAllowed: false, updatesDocumentation: false };
   comparison.finalControlledMemoryBytes = 0;
   comparison.parallelExecution = { ...comparison.parallelExecution, status: "experimental", builtInScenarioUsage: false };
   comparison.perFixture = comparison.perFixture.map((result) => ({ ...result, iterationPassCount: result.pass ? 3 : 0, iterationFailureCount: result.pass ? 0 : 3, unstablePayload: false, runTimingsMs: [1, 2, 3], finalControlledMemoryBytes: 0 }));
   const paths = {
-    fast: path.join(root, "fast.json"), balanced: path.join(root, "balanced.json"), robust: path.join(root, "robust.json"), comparison: path.join(root, "comparison.json"),
+    fastJson: path.join(root, "fast.json"),
+    fastCsv: path.join(root, "fast.csv"),
+    balancedJson: path.join(root, "balanced.json"),
+    balancedCsv: path.join(root, "balanced.csv"),
+    robustJson: path.join(root, "robust.json"),
+    robustCsv: path.join(root, "robust.csv"),
+    comparisonJson: path.join(root, "comparison.json"),
   };
-  for (const profile of ["fast", "balanced", "robust"] as const) fs.writeFileSync(paths[profile], JSON.stringify(reports[profile]));
-  fs.writeFileSync(paths.comparison, JSON.stringify(comparison));
+  for (const profile of ["fast", "balanced", "robust"] as const) {
+    const prefix = profile === "fast" ? "fast" : profile === "balanced" ? "balanced" : "robust";
+    fs.writeFileSync(paths[`${prefix}Json`], JSON.stringify(reports[profile]));
+    fs.writeFileSync(paths[`${prefix}Csv`], benchmarkResultsToCsv(reports[profile].results));
+  }
+  fs.writeFileSync(paths.comparisonJson, JSON.stringify(comparison));
   return { root, paths, reports, comparison };
 }
 
@@ -54,18 +66,34 @@ describe("canonical evidence assembly", () => {
     ["development report", (fixture: ReturnType<typeof artifacts>) => { fixture.reports.fast.executionPolicy.canonical = false; fixture.reports.fast.executionPolicy.mode = "development"; }],
     ["low warmup", (fixture: ReturnType<typeof artifacts>) => { fixture.reports.fast.executionPolicy.warmupIterations = 0; }],
     ["low measured iterations", (fixture: ReturnType<typeof artifacts>) => { fixture.reports.fast.executionPolicy.measuredIterations = 2; }],
+    ["different commit", (fixture: ReturnType<typeof artifacts>) => { fixture.reports.fast.sourceIdentity.commitSha = "8".repeat(40); }],
     ["different tree", (fixture: ReturnType<typeof artifacts>) => { fixture.reports.fast.sourceIdentity.treeSha = "9".repeat(40); }],
     ["different dataset", (fixture: ReturnType<typeof artifacts>) => { fixture.reports.fast.sourceIdentity.datasetHash = "9".repeat(64); }],
+    ["different engine composition", (fixture: ReturnType<typeof artifacts>) => { fixture.reports.fast.sourceIdentity.engineCompositionHash = "7".repeat(64); }],
   ])("rejects %s", (_label, mutate) => {
-    const fixture = artifacts(); mutate(fixture); fs.writeFileSync(fixture.paths.fast, JSON.stringify(fixture.reports.fast));
+    const fixture = artifacts(); mutate(fixture); fs.writeFileSync(fixture.paths.fastJson, JSON.stringify(fixture.reports.fast));
     expect(() => assembleCanonicalEvidence(fixture.paths, path.join(fixture.root, "out"))).toThrow(/assembly failed/);
   });
 
   it("rejects report substitution after assembly", () => {
     const fixture = artifacts();
     const bundle = assembleCanonicalEvidence(fixture.paths, path.join(fixture.root, "out"));
-    fs.appendFileSync(bundle.reportPaths.fast, " ");
+    fs.appendFileSync(bundle.reportPaths.fastJson, " ");
     expect(() => readCanonicalEvidence(bundle.manifestPath)).toThrow(/hash mismatch/);
+  });
+
+  it("rejects a missing canonical report", () => {
+    const fixture = artifacts();
+    const bundle = assembleCanonicalEvidence(fixture.paths, path.join(fixture.root, "out"));
+    fs.rmSync(bundle.reportPaths.robustCsv);
+    expect(() => readCanonicalEvidence(bundle.manifestPath)).toThrow(/missing/);
+  });
+
+  it("rejects stale CSV metadata even when fixture IDs and row counts still match", () => {
+    const fixture = artifacts();
+    const csv = fs.readFileSync(fixture.paths.balancedCsv, "utf8").replace(",pass,", ",fail,");
+    fs.writeFileSync(fixture.paths.balancedCsv, csv);
+    expect(() => assembleCanonicalEvidence(fixture.paths, path.join(fixture.root, "out"))).toThrow(/CSV fixture metadata/);
   });
 });
 
@@ -122,5 +150,12 @@ describe("canonical correctness policy", () => {
     report.results.find((result) => result.id === "14-damaged")!.failureReason = "timeout";
     report.timeoutCount = 1;
     expect(validateProfileReport(report, "balanced").join(" ")).toMatch(/timeouts|unexpected failure category/);
+  });
+
+  it("rejects an engine execution failure even when it uses an allowed retained failure ID", () => {
+    const report = artifacts().reports.balanced;
+    report.results.find((result) => result.id === "14-damaged")!.failureReason = "engine_execution_failure";
+    report.engineExecutionFailures = 1;
+    expect(validateProfileReport(report, "balanced").join(" ")).toMatch(/engine failures|unexpected failure category/);
   });
 });

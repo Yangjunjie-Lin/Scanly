@@ -3,8 +3,8 @@ import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { afterEach, describe, expect, it } from "vitest";
-import { assertCleanRepository, collectSourceIdentity, computeDatasetHash, verifyEvidenceCommitPolicy, verifyEvidenceOnlyPaths, verifyEvidenceWorkingTreePolicy } from "../../scripts/benchmark-provenance.js";
-import { loadBaselineRegistry, resolveActiveBaseline, validateBaselineForActivation } from "../../scripts/baseline-registry.js";
+import { assertCleanRepository, collectSourceIdentity, computeDatasetHash, sha256Text, verifyEvidenceCommitPolicy, verifyEvidenceOnlyPaths, verifyEvidenceWorkingTreePolicy } from "../../scripts/benchmark-provenance.js";
+import { loadBaselineRegistry, resolveActiveBaseline, validateBaselineForActivation, writeImmutableBaseline } from "../../scripts/baseline-registry.js";
 
 const roots: string[] = [];
 afterEach(() => { for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
@@ -23,6 +23,16 @@ function identity(root: string, scenario: unknown, version = "1") {
 }
 
 describe("benchmark source provenance", () => {
+  it("normalizes checkout-specific line endings in reproducibility hashes", async () => {
+    expect(sha256Text("lock\nfile\n")).toBe(sha256Text("lock\r\nfile\r\n"));
+    const left = repository();
+    const right = repository();
+    left.write("fixtures/manifest.json", "{\"fixtures\":[]}\n");
+    right.write("fixtures/manifest.json", "{\"fixtures\":[]}\r\n");
+    expect(await computeDatasetHash(path.join(left.root, "fixtures/manifest.json"), ["fixtures/a.bin"], left.root))
+      .toBe(await computeDatasetHash(path.join(right.root, "fixtures/manifest.json"), ["fixtures/a.bin"], right.root));
+  });
+
   it("blocks canonical work from a dirty repository", () => {
     const repo = repository(); repo.write("source.ts", "changed");
     expect(() => assertCleanRepository(repo.root)).toThrow(/clean repository/);
@@ -47,6 +57,14 @@ describe("benchmark source provenance", () => {
 });
 
 describe("baseline registry", () => {
+  it("never overwrites an immutable baseline", () => {
+    const repo = repository();
+    const file = path.join(repo.root, "baselines", "v2-alpha3-r1-fast-node24-windows-x64.json");
+    writeImmutableBaseline(file, { evidenceId: "first" });
+    expect(() => writeImmutableBaseline(file, { evidenceId: "second" })).toThrow();
+    expect(JSON.parse(fs.readFileSync(file, "utf8"))).toEqual({ evidenceId: "first" });
+  });
+
   it("validates and resolves an exact runtime/profile baseline", async () => {
     const repo = repository();
     repo.write("baselines/base.json", "{}");
@@ -82,6 +100,7 @@ describe("source/evidence commit policy", () => {
 
   it.each([
     "benchmark-results/baselines/v2-alpha2-r3-balanced-node24-windows-x64.json",
+    "benchmark-results/baselines/v2-alpha3-r2-balanced-node24-windows-x64.json",
     "fixtures/manifest.json",
     ".github/workflows/benchmark.yml",
     "scripts/run-benchmark.ts",

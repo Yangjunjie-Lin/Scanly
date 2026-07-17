@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { BenchmarkRunSummary } from "@scanly/benchmark";
 import { loadBaselineRegistry, runtimeFamily, validateBaselineForActivation } from "./baseline-registry.js";
-import { PROFILE_KEYS, readCanonicalEvidence } from "./canonical-evidence.js";
+import { PROFILE_KEYS, PROFILE_REPORT_KEYS, readCanonicalEvidence } from "./canonical-evidence.js";
 import { sha256 } from "./benchmark-provenance.js";
 
 const ROOT = path.resolve(__dirname, "..");
@@ -30,7 +30,7 @@ for (const profile of PROFILE_KEYS) {
   const actualFamily = baseline.runtime?.nodeVersion && baseline.runtime.platform && baseline.runtime.arch
     ? runtimeFamily(baseline.runtime.nodeVersion, baseline.runtime.platform as NodeJS.Platform, baseline.runtime.arch as NodeJS.Architecture) : "";
   if (actualFamily !== expectedFamily) failures.push("baseline runtime family is not Node 24 Windows x64");
-  if (baseline.evidenceId !== bundle.manifest.evidenceId || baseline.canonicalManifestHash !== bundle.manifest.manifestHash || baseline.reportHash !== bundle.manifest.reportHashes[profile]) failures.push("baseline source evidence set is incompatible");
+  if (baseline.evidenceId !== bundle.manifest.evidenceId || baseline.canonicalManifestHash !== bundle.manifest.manifestHash || baseline.reportHash !== bundle.manifest.reportHashes[PROFILE_REPORT_KEYS[profile].json]) failures.push("baseline source evidence set is incompatible");
   if (failures.length) throw new Error(`Baseline activation policy failed for ${profile}:\n- ${failures.join("\n- ")}`);
   hashes[profile] = sha256(raw);
 }

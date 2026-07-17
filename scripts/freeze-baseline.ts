@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { BenchmarkRunSummary } from "@scanly/benchmark";
-import { readCanonicalEvidence, PROFILE_KEYS, type ProfileKey } from "./canonical-evidence.js";
-import { runtimeFamily, validateBaselineForActivation } from "./baseline-registry.js";
+import { readCanonicalEvidence, PROFILE_KEYS, PROFILE_REPORT_KEYS, type ProfileKey } from "./canonical-evidence.js";
+import { runtimeFamily, validateBaselineForActivation, writeImmutableBaseline } from "./baseline-registry.js";
 
 const ROOT = path.resolve(__dirname, "..");
 const value = (name: string) => process.argv.find((argument) => argument.startsWith(`--${name}=`))?.slice(name.length + 3);
@@ -30,9 +30,8 @@ const baseline: BenchmarkRunSummary & { evidenceId: string; canonicalManifestHas
   executionPolicy: { ...report.executionPolicy, evidenceType: "baseline-candidate" },
   evidenceId: bundle.manifest.evidenceId,
   canonicalManifestHash: bundle.manifest.manifestHash,
-  reportHash: bundle.manifest.reportHashes[profile],
+  reportHash: bundle.manifest.reportHashes[PROFILE_REPORT_KEYS[profile].json],
   passedIds: report.results.filter((result) => result.pass).map((result) => result.id),
 };
-fs.mkdirSync(path.dirname(destination), { recursive: true });
-fs.writeFileSync(destination, JSON.stringify(baseline, null, 2) + "\n", { flag: "wx" });
+writeImmutableBaseline(destination, baseline);
 console.log(`Frozen immutable baseline ${destination}`);

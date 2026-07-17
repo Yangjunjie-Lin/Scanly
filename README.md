@@ -22,7 +22,7 @@ Scanly is a local-first barcode capture SDK foundation with a working browser QR
 - Per-frame bounded intermediate cache shared by repeated preprocessing/decoder attempts
 - Multiple-code completeness contracts rather than “one code found” success
 - Local-only semantic parsing for URL, Wi-Fi, vCard, email, telephone, SMS, geo, calendar, and prepared GS1 forms
-- Canonical benchmark reports, regression/performance gates, coverage, and cross-browser Playwright checks
+- Reproducible canonical benchmark, immutable baseline, regression-gate, coverage, and cross-browser Playwright infrastructure
 - Local-only privacy: no image upload API, storage, account, analytics, or tracking
 
 QR Code Model 2 is the only format currently implemented and tested. Other symbologies in the public capability vocabulary are unsupported, not hidden support claims.

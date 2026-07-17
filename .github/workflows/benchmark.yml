@@ -126,7 +126,7 @@ jobs:
           pattern: benchmark-*
           merge-multiple: true
           path: benchmark-artifacts
-      - run: npm run benchmark:assemble-canonical -- --fast=benchmark-artifacts/latest-fast.json --balanced=benchmark-artifacts/latest.json --robust=benchmark-artifacts/latest-robust.json --comparison=benchmark-artifacts/comparison.json --output=benchmark-artifacts/canonical
+      - run: npm run benchmark:assemble-canonical -- --fast=benchmark-artifacts/latest-fast.json --fast-csv=benchmark-artifacts/latest-fast.csv --balanced=benchmark-artifacts/latest.json --balanced-csv=benchmark-artifacts/latest.csv --robust=benchmark-artifacts/latest-robust.json --robust-csv=benchmark-artifacts/latest-robust.csv --comparison=benchmark-artifacts/comparison.json --output=benchmark-artifacts/canonical
       - run: npm run benchmark:verify-evidence -- --mode=baseline-bootstrap --canonical-manifest=benchmark-artifacts/canonical/canonical-evidence-manifest.json
       - run: npm run benchmark:summary -- --manifest=benchmark-artifacts/canonical/canonical-evidence-manifest.json
       - uses: actions/upload-artifact@v4

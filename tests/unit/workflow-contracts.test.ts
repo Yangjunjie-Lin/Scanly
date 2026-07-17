@@ -7,10 +7,16 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), ".github
 describe("benchmark workflow contracts", () => {
   it("keeps stable full-benchmark checks and requires artifact assembly", () => {
     const workflow = read("benchmark.yml");
-    for (const name of ["Prepare", "Fast", "Balanced", "Robust", "Comparison", "Assemble"]) expect(workflow).toContain(name);
+    expect(workflow).toContain("name: Full Benchmark");
+    for (const name of ["Prepare", "Comparison", "Assemble"]) {
+      expect(workflow).toContain(`name: ${name}`);
+    }
+    expect(workflow).toContain("name: ${{ matrix.label }}");
+    for (const name of ["Fast", "Balanced", "Robust"]) expect(workflow).toContain(`label: ${name}`);
     expect(workflow).not.toContain("--allow-dirty-development");
     expect(workflow).toContain("--warmup-iterations=1 --measured-iterations=3");
     expect(workflow).toContain("benchmark:assemble-canonical");
+    for (const argument of ["--fast-csv=", "--balanced-csv=", "--robust-csv="]) expect(workflow).toContain(argument);
     expect(workflow).toContain("needs: [profile, comparison]");
     expect(workflow).toContain("pull_request:");
     expect(workflow).toContain("- main");
@@ -35,6 +41,16 @@ describe("benchmark workflow contracts", () => {
     expect(profile).toContain("actions/checkout@v4");
     expect(profile).toContain("ref: ${{ github.sha }}");
     expect(profile).toContain("--gate-mode=baseline-candidate");
+    expect(profile).toContain("Verify clean profile checkout");
+    for (const argument of ["--fast-csv=", "--balanced-csv=", "--robust-csv="]) expect(workflow).toContain(argument);
+  });
+
+  it("enforces release evidence when a manifest exists without automatic bootstrap fallback", () => {
+    const workflow = read("ci.yml");
+    expect(workflow).toContain("if [[ -f benchmark-results/canonical/canonical-evidence-manifest.json ]]");
+    expect(workflow).toContain("npm run quality:evidence:release");
+    expect(workflow).not.toContain("npm run quality:evidence:bootstrap");
+    expect(workflow).not.toMatch(/quality:evidence:release\s*\|\|/);
   });
 
   it("assembles all three browser reports", () => {

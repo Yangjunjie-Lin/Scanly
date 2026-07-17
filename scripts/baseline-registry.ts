@@ -43,6 +43,11 @@ export async function resolveActiveBaseline(registryFile: string, profile: Built
   return resolved;
 }
 
+export function writeImmutableBaseline(file: string, value: unknown): void {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(value, null, 2) + "\n", { flag: "wx" });
+}
+
 export interface BaselineCompatibility {
   sdkVersion: string;
   fixtureCount: number;

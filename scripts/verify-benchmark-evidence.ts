@@ -1,9 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { BenchmarkFixture, BenchmarkRunSummary } from "@scanly/benchmark";
-import { computeDatasetHash, sha256, verifyEvidenceCommitPolicy } from "./benchmark-provenance.js";
+import { computeDatasetHash, sha256, sha256Text, verifyEvidenceCommitPolicy } from "./benchmark-provenance.js";
 import { loadBaselineRegistry, validateBaselineForActivation } from "./baseline-registry.js";
-import { PROFILE_KEYS, readCanonicalEvidence, validateComparisonReport, validateProfileReport } from "./canonical-evidence.js";
+import { PROFILE_KEYS, PROFILE_REPORT_KEYS, readCanonicalEvidence, validateComparisonReport, validateProfileReport } from "./canonical-evidence.js";
 
 const ROOT = path.resolve(__dirname, "..");
 const value = (name: string) => process.argv.find((argument) => argument.startsWith(`--${name}=`))?.slice(name.length + 3);
@@ -23,19 +23,26 @@ const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"))
 const fixtureManifestPath = path.join(ROOT, "fixtures", "manifest.json");
 const fixtureManifest = JSON.parse(fs.readFileSync(fixtureManifestPath, "utf8")) as { fixtures: BenchmarkFixture[] };
 const datasetHash = await computeDatasetHash(fixtureManifestPath, fixtureManifest.fixtures.map((fixture) => fixture.file), ROOT);
-const lockHash = sha256(fs.readFileSync(path.join(ROOT, "package-lock.json")));
+const lockHash = sha256Text(fs.readFileSync(path.join(ROOT, "package-lock.json")));
 if (pkg.version !== bundle.manifest.sdkVersion) failures.push("SDK version does not match canonical manifest");
 if (fixtureManifest.fixtures.length !== bundle.manifest.fixtureCount) failures.push("fixture count does not match canonical manifest");
 if (datasetHash !== bundle.manifest.sourceIdentity.datasetHash) failures.push("dataset hash does not match canonical manifest");
 if (lockHash !== bundle.manifest.sourceIdentity.packageLockHash) failures.push("package-lock hash does not match canonical manifest");
 
 if (mode === "release") {
-  for (const [profile, alias] of [["fast", "latest-fast.json"], ["balanced", "latest.json"], ["robust", "latest-robust.json"]] as const) {
-    const aliasPath = path.join(ROOT, "benchmark-results", alias);
-    if (!fs.existsSync(aliasPath) || sha256(fs.readFileSync(aliasPath)) !== bundle.manifest.reportHashes[profile]) failures.push(`canonical ${profile} alias hash is stale`);
+  for (const [profile, jsonAlias, csvAlias] of [
+    ["fast", "latest-fast.json", "latest-fast.csv"],
+    ["balanced", "latest.json", "latest.csv"],
+    ["robust", "latest-robust.json", "latest-robust.csv"],
+  ] as const) {
+    const keys = PROFILE_REPORT_KEYS[profile];
+    const jsonAliasPath = path.join(ROOT, "benchmark-results", jsonAlias);
+    const csvAliasPath = path.join(ROOT, "benchmark-results", csvAlias);
+    if (!fs.existsSync(jsonAliasPath) || sha256(fs.readFileSync(jsonAliasPath)) !== bundle.manifest.reportHashes[keys.json]) failures.push(`canonical ${profile} JSON alias hash is stale`);
+    if (!fs.existsSync(csvAliasPath) || sha256(fs.readFileSync(csvAliasPath)) !== bundle.manifest.reportHashes[keys.csv]) failures.push(`canonical ${profile} CSV alias hash is stale`);
   }
   const comparisonAlias = path.join(ROOT, "benchmark-results", "comparison.json");
-  if (!fs.existsSync(comparisonAlias) || sha256(fs.readFileSync(comparisonAlias)) !== bundle.manifest.reportHashes.comparison) failures.push("canonical comparison alias hash is stale");
+  if (!fs.existsSync(comparisonAlias) || sha256(fs.readFileSync(comparisonAlias)) !== bundle.manifest.reportHashes.comparisonJson) failures.push("canonical comparison alias hash is stale");
   failures.push(...verifyEvidenceCommitPolicy(ROOT, bundle.manifest.sourceIdentity.sourceCommitSha, bundle.manifest.sourceIdentity.sourceTreeSha, bundle.manifest.sourceIdentity.evidenceCommitSha ?? "HEAD"));
 
   const registryPath = path.join(ROOT, "benchmark-results", "baselines", "registry.json");
@@ -52,7 +59,7 @@ if (mode === "release") {
     if (evidence?.baselineHashes[profile] !== sha256(raw)) failures.push(`active ${profile} baseline hash mismatch`);
     const baseline = JSON.parse(raw.toString("utf8")) as Partial<BenchmarkRunSummary> & { evidenceId?: string; canonicalManifestHash?: string; reportHash?: string };
     failures.push(...validateBaselineForActivation(baseline, { sdkVersion: pkg.version, fixtureCount: 74, datasetHash, profile, runtimeFamily: family }).map((failure) => `${profile} baseline: ${failure}`));
-    if (baseline.evidenceId !== bundle.manifest.evidenceId || baseline.canonicalManifestHash !== bundle.manifest.manifestHash || baseline.reportHash !== bundle.manifest.reportHashes[profile]) failures.push(`${profile} baseline belongs to a different evidence set`);
+    if (baseline.evidenceId !== bundle.manifest.evidenceId || baseline.canonicalManifestHash !== bundle.manifest.manifestHash || baseline.reportHash !== bundle.manifest.reportHashes[PROFILE_REPORT_KEYS[profile].json]) failures.push(`${profile} baseline belongs to a different evidence set`);
   }
   const readme = fs.readFileSync(path.join(ROOT, "README.md"), "utf8");
   const balanced = bundle.reports.balanced;

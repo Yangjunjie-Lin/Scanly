@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import type { BenchmarkFixture } from "@scanly/benchmark";
 import { assertCleanRepository } from "./benchmark-provenance.js";
 import { PROFILE_KEYS, readCanonicalEvidence, validateComparisonReport, validateProfileReport } from "./canonical-evidence.js";
+import { installFilesAtomically } from "./atomic-file-install.js";
 
 const ROOT = path.resolve(__dirname, "..");
 const value = (name: string) => process.argv.find((argument) => argument.startsWith(`--${name}=`))?.slice(name.length + 3);
@@ -32,6 +33,7 @@ const readmePath = path.join(ROOT, "README.md");
 const readme = fs.readFileSync(readmePath, "utf8");
 const block = [
   "<!-- BENCHMARK_SUMMARY_START -->", "| Metric | Value |", "| --- | ---: |",
+  "| Evidence status | **Alpha.3 canonical evidence** |",
   `| Internal fixtures | ${balanced.total} |`, `| Generated fixtures | ${generated} |`, `| Project-owned photos | ${photos} |`,
   `| Success on fixture suite | **${balanced.passed}/${balanced.total} (${(balanced.successRate * 100).toFixed(1)}%)** on the current ${balanced.total}-case project fixture suite |`,
   `| Positive decode recall | **${positivePassed}/${balanced.positiveCases} (${(balanced.decodeRecall * 100).toFixed(1)}%)** |`,
@@ -39,7 +41,9 @@ const block = [
   `| Remaining failure | ${remainingFailures} |`,
   `| Parallel execution | **${bundle.reports.comparison.parallelExecution.status}** (measured against sequential parity policy) |`,
   `| Benchmark date | ${balanced.generatedAt.slice(0, 10)} |`,
-  "| Manifest | [fixtures/manifest.json](fixtures/manifest.json) |", "| Canonical JSON | [benchmark-results/latest.json](benchmark-results/latest.json) |",
+  "| Fixture manifest | [fixtures/manifest.json](fixtures/manifest.json) |",
+  "| Canonical JSON | [benchmark-results/latest.json](benchmark-results/latest.json) |",
+  "| Canonical CSV | [benchmark-results/latest.csv](benchmark-results/latest.csv) |",
   "<!-- BENCHMARK_SUMMARY_END -->",
 ].join("\n");
 if (!readme.includes("<!-- BENCHMARK_SUMMARY_START -->") || !readme.includes("<!-- BENCHMARK_SUMMARY_END -->")) throw new Error("README benchmark summary markers are missing.");
@@ -48,34 +52,16 @@ const docs = `# Benchmark\n\nThis document is generated only by the approved can
 
 const canonicalDir = path.join(ROOT, "benchmark-results", "canonical");
 const destinations: Array<[string, Buffer | string]> = [
-  [path.join(ROOT, "benchmark-results", "latest-fast.json"), fs.readFileSync(bundle.reportPaths.fast)],
-  [path.join(ROOT, "benchmark-results", "latest.json"), fs.readFileSync(bundle.reportPaths.balanced)],
-  [path.join(ROOT, "benchmark-results", "latest-robust.json"), fs.readFileSync(bundle.reportPaths.robust)],
-  [path.join(ROOT, "benchmark-results", "comparison.json"), fs.readFileSync(bundle.reportPaths.comparison)],
+  [path.join(ROOT, "benchmark-results", "latest-fast.json"), fs.readFileSync(bundle.reportPaths.fastJson)],
+  [path.join(ROOT, "benchmark-results", "latest-fast.csv"), fs.readFileSync(bundle.reportPaths.fastCsv)],
+  [path.join(ROOT, "benchmark-results", "latest.json"), fs.readFileSync(bundle.reportPaths.balancedJson)],
+  [path.join(ROOT, "benchmark-results", "latest.csv"), fs.readFileSync(bundle.reportPaths.balancedCsv)],
+  [path.join(ROOT, "benchmark-results", "latest-robust.json"), fs.readFileSync(bundle.reportPaths.robustJson)],
+  [path.join(ROOT, "benchmark-results", "latest-robust.csv"), fs.readFileSync(bundle.reportPaths.robustCsv)],
+  [path.join(ROOT, "benchmark-results", "comparison.json"), fs.readFileSync(bundle.reportPaths.comparisonJson)],
   [readmePath, updatedReadme], [path.join(ROOT, "docs", "benchmark.md"), docs],
   [path.join(canonicalDir, "canonical-evidence-manifest.json"), JSON.stringify(bundle.manifest, null, 2) + "\n"],
   ...Object.entries(bundle.reportPaths).map(([key, source]) => [path.join(canonicalDir, path.basename(source)), fs.readFileSync(source)] as [string, Buffer]),
 ];
-const staged = destinations.map(([destination, contents]) => {
-  fs.mkdirSync(path.dirname(destination), { recursive: true });
-  const temporary = `${destination}.${process.pid}.tmp`;
-  fs.writeFileSync(temporary, contents, { flag: "wx" });
-  return { destination, temporary, backup: `${destination}.${process.pid}.bak`, existed: fs.existsSync(destination) };
-});
-const installed: typeof staged = [];
-try {
-  for (const entry of staged) {
-    if (entry.existed) fs.renameSync(entry.destination, entry.backup);
-    fs.renameSync(entry.temporary, entry.destination);
-    installed.push(entry);
-  }
-  for (const entry of staged) if (entry.existed) fs.rmSync(entry.backup);
-} catch (error) {
-  for (const entry of installed.reverse()) {
-    if (fs.existsSync(entry.destination)) fs.rmSync(entry.destination);
-    if (entry.existed && fs.existsSync(entry.backup)) fs.renameSync(entry.backup, entry.destination);
-  }
-  for (const entry of staged) if (fs.existsSync(entry.temporary)) fs.rmSync(entry.temporary);
-  throw error;
-}
+installFilesAtomically(destinations);
 console.log(`Updated all canonical aliases atomically from ${bundle.manifest.evidenceId}.`);

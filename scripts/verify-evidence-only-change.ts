@@ -5,8 +5,9 @@ const ROOT = path.resolve(__dirname, "..");
 const value = (name: string) => process.argv.find((argument) => argument.startsWith(`--${name}=`))?.slice(name.length + 3);
 const sourceCommit = value("source-commit");
 const sourceTree = value("source-tree");
-const evidenceCommit = value("evidence-commit") ?? "HEAD";
-const workingTree = process.argv.includes("--working-tree");
+const suppliedEvidenceCommit = value("evidence-commit");
+const evidenceCommit = suppliedEvidenceCommit ?? "HEAD";
+const workingTree = process.argv.includes("--working-tree") || !suppliedEvidenceCommit;
 
 if (!sourceCommit || !sourceTree) throw new Error("Evidence-only verification requires --source-commit=<sha> and --source-tree=<sha>.");
 const failures = workingTree

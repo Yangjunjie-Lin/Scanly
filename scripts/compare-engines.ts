@@ -240,10 +240,11 @@ async function main(): Promise<void> {
     && parallel.timeoutCount === 0
     && parallel.initializationFailures === 0
     && parallel.executionFailures === 0;
-  const report: ComparisonReport = {
+  const report: ComparisonReport & { runtime: { kind: "node"; nodeVersion: string; platform: string; arch: string } } = {
     schemaVersion: "2.0",
     generatedAt: new Date().toISOString(),
     sdkVersion: SDK_VERSION,
+    runtime: { kind: "node", nodeVersion: process.version, platform: process.platform, arch: process.arch },
     sourceIdentity,
     executionPolicy: {
       mode: canonicalCandidate ? "canonical-candidate" : canonical ? "canonical" : ciArtifact ? "ci-artifact" : "development",

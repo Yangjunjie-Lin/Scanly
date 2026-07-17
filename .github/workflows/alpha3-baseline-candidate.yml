@@ -33,6 +33,8 @@ jobs:
       - run: npm run fixtures:generate
       - run: npm run scenarios:generate
       - run: git diff --exit-code -- fixtures scenarios
+      - name: Verify clean comparison checkout
+        run: git status --porcelain --untracked-files=all | Tee-Object -Variable status; if ($status) { throw "comparison checkout is dirty" }
       - run: npm run benchmark:compare -- --canonical-candidate --warmup-iterations=1 --measured-iterations=3
       - run: npm run benchmark:summary -- --report=benchmark-results/candidates/comparison.json
       - uses: actions/upload-artifact@v4
@@ -50,7 +52,7 @@ jobs:
       - run: npm ci
       - uses: actions/download-artifact@v4
         with: { pattern: alpha3-*, merge-multiple: true, path: candidate }
-      - run: npm run benchmark:assemble-canonical -- --fast=candidate/latest-fast.json --balanced=candidate/latest.json --robust=candidate/latest-robust.json --comparison=candidate/comparison.json --output=candidate/canonical
+      - run: npm run benchmark:assemble-canonical -- --fast=candidate/latest-fast.json --fast-csv=candidate/latest-fast.csv --balanced=candidate/latest.json --balanced-csv=candidate/latest.csv --robust=candidate/latest-robust.json --robust-csv=candidate/latest-robust.csv --comparison=candidate/comparison.json --output=candidate/canonical
       - run: npm run quality:static
       - run: npm run quality:evidence:bootstrap -- --canonical-manifest=candidate/canonical/canonical-evidence-manifest.json
       - run: npm run benchmark:summary -- --manifest=candidate/canonical/canonical-evidence-manifest.json
