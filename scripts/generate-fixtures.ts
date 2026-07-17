@@ -7,7 +7,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import QRCode from "qrcode";
 import sharp from "sharp";
-import type { BenchmarkFixture } from "../lib/qr/benchmark-types";
+import type { BenchmarkFixture } from "@scanly/benchmark";
 
 const ROOT = path.resolve(__dirname, "..");
 const FIXTURES_DIR = path.join(ROOT, "fixtures");
@@ -51,6 +51,51 @@ function noiseBuffer(width: number, height: number, strength: number): Buffer {
     data[i] = Math.floor(rand() * strength);
   }
   return data;
+}
+
+async function writeTextIfChanged(file: string, content: string): Promise<void> {
+  if (fs.existsSync(file)) {
+    const existing = await fs.promises.readFile(file, "utf8");
+    if (existing.replace(/\r\n/g, "\n") === content.replace(/\r\n/g, "\n")) return;
+  }
+  await fs.promises.writeFile(file, content);
+}
+
+async function versionedQrPng(text: string, version: number, size = 720): Promise<Buffer> {
+  return QRCode.toBuffer(text, { type: "png", width: size, margin: 2, version, errorCorrectionLevel: "M" });
+}
+
+async function multiQrCanvas(payloads: string[], columns: number, cellSize = 180, background = "#ffffff"): Promise<{ image: Buffer; geometry: Array<{ payload: string; x: number; y: number; width: number; height: number }> }> {
+  const rows = Math.ceil(payloads.length / columns);
+  const gap = 24;
+  const width = columns * cellSize + (columns + 1) * gap;
+  const height = rows * cellSize + (rows + 1) * gap;
+  const geometry = payloads.map((payload, index) => ({ payload, x: gap + (index % columns) * (cellSize + gap), y: gap + Math.floor(index / columns) * (cellSize + gap), width: cellSize, height: cellSize }));
+  const inputs = await Promise.all(geometry.map(async (entry) => ({ input: await qrPng(entry.payload, cellSize), left: entry.x, top: entry.y })));
+  const image = await sharp({ create: { width, height, channels: 3, background } }).composite(inputs).png().toBuffer();
+  return { image, geometry };
+}
+
+function gridGeometry(payloads: string[], columns: number, cellSize: number) {
+  const gap = 24;
+  return payloads.map((payload, index) => ({ payload, x: gap + (index % columns) * (cellSize + gap), y: gap + Math.floor(index / columns) * (cellSize + gap), width: cellSize, height: cellSize }));
+}
+
+/** Host-font-independent pseudo text for deterministic adversarial fixtures. */
+function glyphRunSvg(text: string, x: number, y: number, scale = 3): string {
+  const rectangles: string[] = [];
+  for (let index = 0; index < text.length; index++) {
+    const code = text.charCodeAt(index);
+    if (text[index] === " ") continue;
+    for (let row = 0; row < 7; row++) {
+      for (let column = 0; column < 5; column++) {
+        const mixed = Math.imul(code + row * 17 + column * 31, 0x45d9f3b) ^ (code << ((row + column) % 5));
+        if (((mixed >>> ((row * 5 + column) % 23)) & 1) === 0) continue;
+        rectangles.push(`<rect x="${x + index * scale * 6 + column * scale}" y="${y + row * scale}" width="${scale}" height="${scale}"/>`);
+      }
+    }
+  }
+  return `<g fill="#111">${rectangles.join("")}</g>`;
 }
 
 const legacyFixtures: BenchmarkFixture[] = [
@@ -217,6 +262,7 @@ async function copyLegacy() {
 
 async function main() {
   await ensureDir(FIXTURES_DIR);
+  await fs.promises.rm(path.join(FIXTURES_DIR, "73-dense-noise-background.png"), { force: true });
   await copyLegacy();
 
   const manifest: BenchmarkFixture[] = [...legacyFixtures];
@@ -228,6 +274,13 @@ async function main() {
     category: BenchmarkFixture["category"];
     payload: string;
     build: () => Promise<Buffer>;
+    expectedOutcome?: "decode" | "no-symbol" | "invalid-input";
+    requiredPayloads?: string[];
+    requiredInstances?: Array<{ payload: string; count: number }>;
+    expectedResultCount?: number;
+    profileExpectedResultCount?: Partial<Record<"fast" | "balanced" | "robust", number>>;
+    primaryPayload?: string;
+    geometryMetadata?: Array<{ payload: string; x: number; y: number; width: number; height: number }>;
   }> = [
     {
       id: "17-clear-url-02",
@@ -725,6 +778,199 @@ async function main() {
       payload: "WIFI:T:nopass;S:GuestScanly;P:;;",
       build: () => qrPng("WIFI:T:nopass;S:GuestScanly;P:;;", 320),
     },
+    {
+      id: "53-negative-blank",
+      file: "fixtures/53-negative-blank.png",
+      category: "negative",
+      payload: "",
+      expectedOutcome: "no-symbol",
+      build: () => sharp({ create: { width: 480, height: 320, channels: 3, background: "#f7f7f7" } }).png().toBuffer(),
+    },
+    {
+      id: "54-negative-pattern",
+      file: "fixtures/54-negative-pattern.png",
+      category: "adversarial",
+      payload: "",
+      expectedOutcome: "no-symbol",
+      build: () => sharp(Buffer.from(`<svg width="480" height="320" xmlns="http://www.w3.org/2000/svg"><rect width="480" height="320" fill="white"/><g fill="#111"><rect x="30" y="30" width="70" height="70"/><rect x="45" y="45" width="40" height="40" fill="white"/><rect x="380" y="30" width="70" height="70"/><rect x="395" y="45" width="40" height="40" fill="white"/><path d="M30 150h420v12H30zm0 35h420v8H30zm0 30h420v15H30zm0 45h420v7H30z"/></g></svg>`)).png().toBuffer(),
+    },
+    {
+      id: "55-negative-checker",
+      file: "fixtures/55-negative-checker.png",
+      category: "adversarial",
+      payload: "",
+      expectedOutcome: "no-symbol",
+      build: () => sharp(Buffer.from(`<svg width="480" height="480" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="c" width="16" height="16" patternUnits="userSpaceOnUse"><rect width="8" height="8"/><rect x="8" y="8" width="8" height="8"/></pattern></defs><rect width="480" height="480" fill="white"/><rect width="480" height="480" fill="url(#c)"/></svg>`)).png().toBuffer(),
+    },
+    {
+      id: "56-negative-random-noise",
+      file: "fixtures/56-negative-random-noise.png",
+      category: "adversarial",
+      payload: "",
+      expectedOutcome: "no-symbol",
+      build: () => sharp(noiseBuffer(480, 360, 256), { raw: { width: 480, height: 360, channels: 3 } }).png().toBuffer(),
+    },
+    {
+      id: "57-negative-text-blocks",
+      file: "fixtures/57-negative-text-blocks.png",
+      category: "negative",
+      payload: "",
+      expectedOutcome: "no-symbol",
+      build: () => sharp(Buffer.from(`<svg width="640" height="420" xmlns="http://www.w3.org/2000/svg"><rect width="640" height="420" fill="white"/>${glyphRunSvg("SCANLY LOCAL ONLY BARCODE CAPTURE", 24, 30)}${glyphRunSvg("0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ", 24, 75)}${glyphRunSvg("HTTPS EXAMPLE INVALID NOT A CODE", 24, 120)}${glyphRunSvg("|||| ||| || ||||| || ||||", 24, 165)}<g fill="#333">${Array.from({ length: 7 }, (_, index) => `<rect x="24" y="${220 + index * 24}" width="${560 - index * 37}" height="9"/>`).join("")}</g></svg>`)).png().toBuffer(),
+    },
+    {
+      id: "58-negative-datamatrix-like",
+      file: "fixtures/58-negative-datamatrix-like.png",
+      category: "adversarial",
+      payload: "",
+      expectedOutcome: "no-symbol",
+      build: () => sharp(Buffer.from(`<svg width="400" height="400" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="400" fill="white"/><g transform="translate(70 70)" fill="#111"><rect width="18" height="270"/><rect y="252" width="270" height="18"/>${Array.from({ length: 13 }, (_, y) => Array.from({ length: 13 }, (_, x) => ((x * 7 + y * 11 + x * y) % 5 < 2 ? `<rect x="${24 + x * 18}" y="${y * 18}" width="14" height="14"/>` : "")).join("")).join("")}</g></svg>`)).png().toBuffer(),
+    },
+    {
+      id: "59-negative-logo",
+      file: "fixtures/59-negative-logo.png",
+      category: "negative",
+      payload: "",
+      expectedOutcome: "no-symbol",
+      build: () => sharp(Buffer.from(`<svg width="600" height="400" xmlns="http://www.w3.org/2000/svg"><rect width="600" height="400" fill="#f6f8ff"/><g transform="translate(170 70)"><circle cx="130" cy="130" r="120" fill="#315efb"/><circle cx="130" cy="130" r="70" fill="#f6f8ff"/><path d="M130 25L230 205H30Z" fill="#111" opacity=".75"/></g>${glyphRunSvg("SCANLY", 228, 330, 4)}</svg>`)).png().toBuffer(),
+    },
+    {
+      id: "60-negative-grid",
+      file: "fixtures/60-negative-grid.png",
+      category: "adversarial",
+      payload: "",
+      expectedOutcome: "no-symbol",
+      build: () => sharp(Buffer.from(`<svg width="600" height="420" xmlns="http://www.w3.org/2000/svg"><rect width="600" height="420" fill="white"/><g stroke="#111" stroke-width="3">${Array.from({ length: 20 }, (_, index) => `<path d="M${index * 30} 0V420"/><path d="M0 ${index * 22}H600"/>`).join("")}</g></svg>`)).png().toBuffer(),
+    },
+    {
+      id: "61-negative-screenshot",
+      file: "fixtures/61-negative-screenshot.png",
+      category: "screen_capture",
+      payload: "",
+      expectedOutcome: "no-symbol",
+      build: () => sharp(Buffer.from(`<svg width="900" height="600" xmlns="http://www.w3.org/2000/svg"><rect width="900" height="600" fill="#101522"/><rect x="25" y="25" width="850" height="64" rx="12" fill="#252d40"/><circle cx="60" cy="57" r="12" fill="#ff5f57"/><circle cx="95" cy="57" r="12" fill="#febc2e"/><rect x="45" y="125" width="260" height="430" rx="18" fill="#1d2535"/><rect x="340" y="125" width="515" height="190" rx="18" fill="#1d2535"/><rect x="340" y="345" width="245" height="210" rx="18" fill="#1d2535"/><rect x="610" y="345" width="245" height="210" rx="18" fill="#1d2535"/><g fill="#7f8aa3">${Array.from({ length: 11 }, (_, index) => `<rect x="70" y="${155 + index * 32}" width="${120 + (index % 4) * 24}" height="10" rx="5"/>`).join("")}</g></svg>`)).png().toBuffer(),
+    },
+    {
+      id: "62-negative-linear-barcode-like",
+      file: "fixtures/62-negative-linear-barcode-like.png",
+      category: "adversarial",
+      payload: "",
+      expectedOutcome: "no-symbol",
+      build: () => sharp(Buffer.from(`<svg width="720" height="360" xmlns="http://www.w3.org/2000/svg"><rect width="720" height="360" fill="white"/><g fill="#111">${Array.from({ length: 80 }, (_, index) => `<rect x="${60 + index * 7}" y="60" width="${1 + ((index * 13) % 5)}" height="220"/>`).join("")}</g>${glyphRunSvg("0123456789012", 250, 300, 3)}</svg>`)).png().toBuffer(),
+    },
+    {
+      id: "63-negative-truncated",
+      file: "fixtures/63-negative-truncated.png",
+      category: "adversarial",
+      payload: "",
+      expectedOutcome: "no-symbol",
+      build: async () => sharp(await qrPng("SHOULD_NOT_DECODE_TRUNCATED", 360)).extract({ left: 0, top: 0, width: 135, height: 360 }).extend({ right: 225, background: "#ffffff" }).png().toBuffer(),
+    },
+    {
+      id: "64-multiple-five",
+      file: "fixtures/64-multiple-five.png",
+      category: "multiple",
+      payload: "SCANLY_MULTI5_01",
+      requiredPayloads: Array.from({ length: 5 }, (_, index) => `SCANLY_MULTI5_${String(index + 1).padStart(2, "0")}`),
+      expectedResultCount: 5,
+      primaryPayload: "SCANLY_MULTI5_01",
+      geometryMetadata: gridGeometry(Array.from({ length: 5 }, (_, index) => `SCANLY_MULTI5_${String(index + 1).padStart(2, "0")}`), 3, 170),
+      build: async () => (await multiQrCanvas(Array.from({ length: 5 }, (_, index) => `SCANLY_MULTI5_${String(index + 1).padStart(2, "0")}`), 3, 170)).image,
+    },
+    {
+      id: "65-multiple-eight",
+      file: "fixtures/65-multiple-eight.png",
+      category: "multiple",
+      payload: "SCANLY_MULTI8_01",
+      requiredPayloads: Array.from({ length: 8 }, (_, index) => `SCANLY_MULTI8_${String(index + 1).padStart(2, "0")}`),
+      expectedResultCount: 8,
+      primaryPayload: "SCANLY_MULTI8_01",
+      geometryMetadata: gridGeometry(Array.from({ length: 8 }, (_, index) => `SCANLY_MULTI8_${String(index + 1).padStart(2, "0")}`), 4, 160),
+      build: async () => (await multiQrCanvas(Array.from({ length: 8 }, (_, index) => `SCANLY_MULTI8_${String(index + 1).padStart(2, "0")}`), 4, 160)).image,
+    },
+    {
+      id: "66-multiple-twelve",
+      file: "fixtures/66-multiple-twelve.png",
+      category: "multiple",
+      payload: "SCANLY_MULTI12_01",
+      requiredPayloads: Array.from({ length: 12 }, (_, index) => `SCANLY_MULTI12_${String(index + 1).padStart(2, "0")}`),
+      expectedResultCount: 12,
+      profileExpectedResultCount: { balanced: 8, robust: 12 },
+      primaryPayload: "SCANLY_MULTI12_01",
+      geometryMetadata: gridGeometry(Array.from({ length: 12 }, (_, index) => `SCANLY_MULTI12_${String(index + 1).padStart(2, "0")}`), 4, 150),
+      build: async () => (await multiQrCanvas(Array.from({ length: 12 }, (_, index) => `SCANLY_MULTI12_${String(index + 1).padStart(2, "0")}`), 4, 150)).image,
+    },
+    {
+      id: "67-multiple-same-two",
+      file: "fixtures/67-multiple-same-two.png",
+      category: "multiple",
+      payload: "SCANLY_SAME_INSTANCE",
+      requiredInstances: [{ payload: "SCANLY_SAME_INSTANCE", count: 2 }],
+      expectedResultCount: 2,
+      primaryPayload: "SCANLY_SAME_INSTANCE",
+      geometryMetadata: gridGeometry(["SCANLY_SAME_INSTANCE", "SCANLY_SAME_INSTANCE"], 2, 220),
+      build: async () => (await multiQrCanvas(["SCANLY_SAME_INSTANCE", "SCANLY_SAME_INSTANCE"], 2, 220)).image,
+    },
+    {
+      id: "68-multiple-same-three",
+      file: "fixtures/68-multiple-same-three.png",
+      category: "multiple",
+      payload: "SCANLY_SAME_TRIPLE",
+      requiredInstances: [{ payload: "SCANLY_SAME_TRIPLE", count: 3 }],
+      expectedResultCount: 3,
+      primaryPayload: "SCANLY_SAME_TRIPLE",
+      geometryMetadata: gridGeometry(["SCANLY_SAME_TRIPLE", "SCANLY_SAME_TRIPLE", "SCANLY_SAME_TRIPLE"], 3, 180),
+      build: async () => sharp((await multiQrCanvas(["SCANLY_SAME_TRIPLE", "SCANLY_SAME_TRIPLE", "SCANLY_SAME_TRIPLE"], 3, 180)).image).extend({ bottom: 204, background: "#ffffff" }).png().toBuffer(),
+    },
+    {
+      id: "69-multiple-mixed-size",
+      file: "fixtures/69-multiple-mixed-size.png",
+      category: "multiple",
+      payload: "SCANLY_MIXED_LARGE",
+      requiredPayloads: ["SCANLY_MIXED_LARGE", "SCANLY_MIXED_MEDIUM", "SCANLY_MIXED_SMALL"],
+      expectedResultCount: 3,
+      primaryPayload: "SCANLY_MIXED_LARGE",
+      build: async () => sharp({ create: { width: 900, height: 600, channels: 3, background: "#eef1f5" } }).composite([
+        { input: await qrPng("SCANLY_MIXED_LARGE", 300), left: 30, top: 30 },
+        { input: await qrPng("SCANLY_MIXED_MEDIUM", 210), left: 630, top: 40 },
+        { input: await qrPng("SCANLY_MIXED_SMALL", 140), left: 390, top: 420 },
+      ]).png().toBuffer(),
+    },
+    {
+      id: "70-version-20",
+      file: "fixtures/70-version-20.png",
+      category: "high_resolution",
+      payload: "SCANLY_VERSION_20_DENSE_VALID_PAYLOAD",
+      build: () => versionedQrPng("SCANLY_VERSION_20_DENSE_VALID_PAYLOAD", 20),
+    },
+    {
+      id: "71-version-30",
+      file: "fixtures/71-version-30.png",
+      category: "high_resolution",
+      payload: "SCANLY_VERSION_30_DENSE_VALID_PAYLOAD",
+      build: () => versionedQrPng("SCANLY_VERSION_30_DENSE_VALID_PAYLOAD", 30, 900),
+    },
+    {
+      id: "72-version-40",
+      file: "fixtures/72-version-40.png",
+      category: "high_resolution",
+      payload: "SCANLY_VERSION_40_DENSE_VALID_PAYLOAD",
+      build: () => versionedQrPng("SCANLY_VERSION_40_DENSE_VALID_PAYLOAD", 40, 1080),
+    },
+    {
+      id: "73-dense-checker-background",
+      file: "fixtures/73-dense-checker-background.png",
+      category: "complex_background",
+      payload: "SCANLY_DENSE_CHECKER_POSITIVE",
+      build: async () => sharp(Buffer.from(`<svg width="1000" height="700" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="c" width="12" height="12" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="#20242c"/><rect x="6" y="6" width="6" height="6" fill="#20242c"/><rect x="6" width="6" height="6" fill="#dce2ec"/><rect y="6" width="6" height="6" fill="#dce2ec"/></pattern></defs><rect width="1000" height="700" fill="url(#c)"/></svg>`)).composite([{ input: await qrPng("SCANLY_DENSE_CHECKER_POSITIVE", 460), left: 270, top: 120 }]).png().toBuffer(),
+    },
+    {
+      id: "74-zxing-contribution-blur",
+      file: "fixtures/74-zxing-contribution-blur.png",
+      category: "blur",
+      payload: "ZXING_UNIQUE_3_2_L",
+      build: async () => sharp(await QRCode.toBuffer("ZXING_UNIQUE_3_2_L", { type: "png", version: 3, margin: 2, errorCorrectionLevel: "L", width: 128 })).blur(1).png().toBuffer(),
+    },
   ];
 
   for (const g of generated) {
@@ -735,10 +981,20 @@ async function main() {
       file: g.file,
       category: g.category,
       expectedPayload: g.payload,
-      expectedOutcome: "decode",
+      expectedOutcome: g.expectedOutcome ?? "decode",
       sourceType: "generated",
       license: "project-generated",
     };
+    if (g.requiredPayloads) entry.requiredPayloads = g.requiredPayloads;
+    if (g.requiredInstances) entry.requiredInstances = g.requiredInstances;
+    if (g.expectedResultCount) entry.expectedResultCount = g.expectedResultCount;
+    if (g.profileExpectedResultCount) entry.profileExpectedResultCount = g.profileExpectedResultCount;
+    if (g.primaryPayload) entry.primaryPayload = g.primaryPayload;
+    if (g.geometryMetadata) entry.geometryMetadata = g.geometryMetadata;
+    if (g.requiredPayloads || g.requiredInstances) {
+      entry.allowExtraPayloads = false;
+      entry.primaryResultRule = "top-to-bottom-left-to-right";
+    }
     if (g.id === "36-multiple-gen") {
       entry.primaryPayload = "SCANLY_MULTI_PRIMARY";
       entry.requiredPayloads = ["SCANLY_MULTI_PRIMARY", "SCANLY_MULTI_SECONDARY"];
@@ -767,12 +1023,12 @@ async function main() {
   // checksum stamp
   const hash = crypto.createHash("sha256").update(SEED.toString()).digest("hex").slice(0, 12);
   const manifestPath = path.join(FIXTURES_DIR, "manifest.json");
-  await fs.promises.writeFile(
+  await writeTextIfChanged(
     manifestPath,
     JSON.stringify(
       {
         seed: SEED,
-        generatorVersion: 1,
+        generatorVersion: 3,
         stamp: hash,
         fixtures: manifest,
       },

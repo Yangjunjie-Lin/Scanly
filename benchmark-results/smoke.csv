@@ -1,0 +1,12 @@
+id,category,expectedPayload,actualPayload,allPayloads,pass,elapsedMs,successfulDecoder,preprocessingPath,candidateIndex,attemptCount,failureReason,missingPayloads,unexpectedPayloads,requiredPayloadCount,decodedPayloadCount,candidateGenerationMs,jsqrMs,zxingMs,preprocessMs,rotationMs,timeToFirstResultMs
+01-clear-url,url,https://scanly.example/clear,https://scanly.example/clear,https://scanly.example/clear,pass,119.0,jsqr,original,-1,10,,,,1,1,14,71,0,2,0,104
+02-clear-text,text,SCANLY_CLEAR_TEXT,SCANLY_CLEAR_TEXT,SCANLY_CLEAR_TEXT,pass,102.0,jsqr,original,-1,10,,,,1,1,12,54,0,2,0,97
+05-low-contrast,low_contrast,https://scanly.example/low-contrast,https://scanly.example/low-contrast,https://scanly.example/low-contrast,pass,133.0,jsqr,contrast,-1,11,,,,1,1,15,78,0,12,0,119
+10-small-in-large,small_in_large,https://scanly.example/small,https://scanly.example/small,https://scanly.example/small,pass,108.0,jsqr,original,0,1,,,,1,1,56,17,0,1,0,74
+11-complex-background,complex_background,https://scanly.example/background,https://scanly.example/background,https://scanly.example/background,pass,173.0,jsqr,original,-1,10,,,,1,1,18,100,0,5,0,162
+14-damaged,damaged,https://scanly.example/damaged,,,fail,836.0,,,,96,no_qr_found,https://scanly.example/damaged,,1,0,10,592,0,64,0,
+15-inverted,inverted,https://scanly.example/inverted,https://scanly.example/inverted,https://scanly.example/inverted,pass,94.0,jsqr,original,-1,10,,,,1,1,9,59,0,2,0,80
+16-multiple-codes,multiple,https://scanly.example/primary,https://scanly.example/primary,https://scanly.example/primary|https://scanly.example/secondary,pass,221.0,jsqr,original,100,10,,,,2,2,16,135,0,10,0,108
+27-inverted-01,inverted,SCANLY_INVERTED_01,SCANLY_INVERTED_01,SCANLY_INVERTED_01,pass,66.0,jsqr,original,-1,10,,,,1,1,4,21,0,1,0,56
+33-small-in-large-gen,small_in_large,SCANLY_SMALL_01,SCANLY_SMALL_01,SCANLY_SMALL_01,pass,185.0,jsqr,original,0,1,,,,1,1,112,44,0,1,0,157
+36-multiple-gen,multiple,SCANLY_MULTI_PRIMARY,SCANLY_MULTI_PRIMARY,SCANLY_MULTI_PRIMARY|SCANLY_MULTI_SECONDARY,pass,95.0,jsqr,original,100,10,,,,2,2,5,40,0,3,0,58

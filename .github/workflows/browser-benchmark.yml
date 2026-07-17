@@ -1,0 +1,72 @@
+name: Browser Benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Browser benchmark scope
+        required: true
+        default: full
+        type: choice
+        options: [smoke, full]
+  pull_request:
+  push:
+    branches: [architecture/sdk-v2-alpha3-industrial-validation]
+  schedule:
+    - cron: "17 3 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  browser-benchmark:
+    name: ${{ matrix.label }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - browser: chromium
+            label: Chromium
+          - browser: firefox
+            label: Firefox
+          - browser: webkit
+            label: WebKit
+    env:
+      BROWSER_BENCHMARK_KIND: ${{ github.event_name == 'workflow_dispatch' && inputs.suite || github.event_name == 'schedule' && 'full' || 'smoke' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: npm run fixtures:generate
+      - run: git diff --exit-code -- fixtures
+      - run: npm run build
+      - run: npx playwright install --with-deps ${{ matrix.browser }}
+      - run: npx playwright test -c playwright.benchmark.config.ts --project=${{ matrix.browser }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-${{ env.BROWSER_BENCHMARK_KIND }}-${{ matrix.browser }}
+          if-no-files-found: error
+          path: benchmark-results/browser/${{ matrix.browser }}.json
+
+  assemble:
+    needs: browser-benchmark
+    name: Assemble
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: browser-*
+          path: browser-artifacts
+      - run: npx tsx scripts/assemble-browser-benchmarks.ts --directory=browser-artifacts --output=browser-artifacts/browser-evidence-manifest.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: browser-${{ github.event_name == 'workflow_dispatch' && inputs.suite || github.event_name == 'schedule' && 'full' || 'smoke' }}-assembled
+          if-no-files-found: error
+          path: browser-artifacts/browser-evidence-manifest.json

@@ -1,26 +1,33 @@
 /**
  * Upload-mode decode benchmark against fixtures/manifest.json.
- * Writes benchmark-results/latest.json|csv and regenerates docs/benchmark.md.
+ * Writes development, CI, or canonical-candidate artifacts. Tracked canonical aliases
+ * are updated only by update-canonical-evidence.ts.
  */
 import fs from "node:fs";
 import path from "node:path";
-import { loadPixelBufferFromPath } from "../lib/qr/image-loader-node";
-import { decodePixelBuffer } from "../lib/qr/decode-pipeline";
-import type { BenchmarkFixture, BenchmarkFixtureResult, BenchmarkRunSummary } from "../lib/qr/benchmark-types";
-import { toCsvRow } from "../lib/benchmark/csv";
+import { SDK_VERSION, createRgbaFrame, type CaptureRouter } from "@scanly/core";
+import { createNodeCaptureRouter, loadPixelBufferFromPath } from "@scanly/node";
+import { getBuiltinScenario, type BuiltinScenarioId } from "@scanly/scenario-schema";
+import type { BenchmarkExecutionMode, BenchmarkFixture, BenchmarkFixtureResult, BenchmarkRunSummary } from "@scanly/benchmark";
+import { summarizeBenchmarkVariance, summarizeIterationCorrectness } from "@scanly/benchmark";
 import {
   evaluateFixture,
   requiredPayloads,
-} from "../lib/benchmark/fixture-contract";
+  requiredPayloadsForProfile,
+} from "@scanly/benchmark";
 import {
   evaluateBenchmarkGates,
   type BenchmarkBaseline,
-} from "../lib/benchmark/quality-gates";
+} from "@scanly/benchmark";
+import { assertCleanRepository, collectSourceIdentity } from "./benchmark-provenance.js";
+import { resolveActiveBaseline, runtimeFamily } from "./baseline-registry.js";
+import { validateProfileReport } from "./canonical-evidence.js";
+import { benchmarkResultsToCsv } from "./benchmark-csv.js";
 
 const ROOT = path.resolve(__dirname, "..");
 const MANIFEST_PATH = path.join(ROOT, "fixtures", "manifest.json");
 const OUT_DIR = path.join(ROOT, "benchmark-results");
-const BASELINE_PATH = path.join(OUT_DIR, "baseline-pre-polish.json");
+const BASELINE_REGISTRY_PATH = path.join(OUT_DIR, "baselines", "registry.json");
 
 interface ManifestFile {
   seed: number;
@@ -49,58 +56,6 @@ function distribution(values: number[]) {
   };
 }
 
-function toCsv(results: BenchmarkFixtureResult[]): string {
-  const header = [
-    "id",
-    "category",
-    "expectedPayload",
-    "actualPayload",
-    "allPayloads",
-    "pass",
-    "elapsedMs",
-    "successfulDecoder",
-    "preprocessingPath",
-    "candidateIndex",
-    "attemptCount",
-    "failureReason",
-    "missingPayloads",
-    "unexpectedPayloads",
-    "requiredPayloadCount",
-    "decodedPayloadCount",
-    "candidateGenerationMs",
-    "jsqrMs",
-    "zxingMs",
-    "preprocessMs",
-    "rotationMs",
-  ];
-  const rows = results.map((r) =>
-    toCsvRow([
-      r.id,
-      r.category,
-      Array.isArray(r.expectedPayload) ? r.expectedPayload.join("|") : r.expectedPayload,
-      r.actualPayload ?? "",
-      r.allPayloads.join("|"),
-      r.pass ? "pass" : "fail",
-      r.elapsedMs.toFixed(1),
-      r.successfulDecoder ?? "",
-      r.preprocessingPath ?? "",
-      r.candidateIndex ?? "",
-      r.attemptCount,
-      r.failureReason ?? "",
-      (r.missingPayloads ?? []).join("|"),
-      (r.unexpectedPayloads ?? []).join("|"),
-      r.requiredPayloadCount ?? "",
-      r.decodedPayloadCount ?? "",
-      r.phaseTiming?.candidateGenerationMs ?? "",
-      r.phaseTiming?.jsqrMs ?? "",
-      r.phaseTiming?.zxingMs ?? "",
-      r.phaseTiming?.preprocessMs ?? "",
-      r.phaseTiming?.rotationMs ?? "",
-    ])
-  );
-  return [header.join(","), ...rows].join("\n");
-}
-
 function renderMarkdown(summary: BenchmarkRunSummary, smoke: boolean): string {
   const lines: string[] = [];
   lines.push(`# Benchmark`);
@@ -122,6 +77,9 @@ function renderMarkdown(summary: BenchmarkRunSummary, smoke: boolean): string {
   lines.push(`| Average elapsed | ${(summary.averageMs / 1000).toFixed(2)}s |`);
   lines.push(`| Median elapsed | ${(summary.medianMs / 1000).toFixed(2)}s |`);
   lines.push(`| P95 elapsed | ${(summary.p95Ms / 1000).toFixed(2)}s |`);
+  lines.push(`| P99 elapsed | ${summary.p99Ms === null ? "insufficient sample (<100)" : `${(summary.p99Ms / 1000).toFixed(2)}s`} |`);
+  lines.push(`| Decode recall | ${(summary.decodeRecall * 100).toFixed(1)}% (${summary.positiveCases - summary.results.filter((result) => result.expectedOutcome === "decode" && !result.pass).length}/${summary.positiveCases}) |`);
+  lines.push(`| False positives | ${summary.falsePositiveCount}/${summary.negativeCases} (${(summary.falsePositiveRate * 100).toFixed(1)}%) |`);
   lines.push(`| Average attempts | ${summary.averageAttempts.toFixed(1)} |`);
   lines.push(`| Median attempts | ${summary.medianAttempts.toFixed(1)} |`);
   lines.push(`| P95 attempts | ${summary.p95Attempts.toFixed(1)} |`);
@@ -199,7 +157,7 @@ function renderMarkdown(summary: BenchmarkRunSummary, smoke: boolean): string {
   lines.push(`## Notes`);
   lines.push("");
   lines.push(
-    `- Results measure the shared \`lib/qr\` decode pipeline (same logic used by Upload mode).`
+    `- Results measure the shared \`@scanly/core\` QR pipeline (same logic used by Upload mode).`
   );
   lines.push(
     `- These numbers are not a claim that Scanly is faster than third-party scanners.`
@@ -224,6 +182,8 @@ function updateReadmeSummary(summary: BenchmarkRunSummary, manifest: ManifestFil
     `| Generated fixtures | ${generated} |`,
     `| Project-owned photos | ${projectPhotos} |`,
     `| Success on fixture suite | **${summary.passed}/${summary.total} (${(summary.successRate * 100).toFixed(1)}%)** on the current ${summary.total}-case project fixture suite |`,
+    `| Positive decode recall | **${summary.results.filter((result) => result.expectedOutcome === "decode" && result.pass).length}/${summary.positiveCases} (${(summary.decodeRecall * 100).toFixed(1)}%)** |`,
+    `| Negative false positives | **${summary.falsePositiveCount}/${summary.negativeCases} (${(summary.falsePositiveRate * 100).toFixed(1)}%)** |`,
     `| Remaining failure | ${failures} |`,
     `| Benchmark date | ${summary.generatedAt.slice(0, 10)} |`,
     "| Manifest | [fixtures/manifest.json](fixtures/manifest.json) |",
@@ -241,53 +201,71 @@ function updateReadmeSummary(summary: BenchmarkRunSummary, manifest: ManifestFil
   return fs.promises.writeFile(readmePath, updated);
 }
 
-async function loadBaseline(): Promise<{ passedIds: Set<string>; metrics: BenchmarkBaseline }> {
-  if (!fs.existsSync(BASELINE_PATH)) {
-    throw new Error(`Missing required benchmark baseline: ${BASELINE_PATH}`);
+async function loadBaseline(profile: BuiltinScenarioId, smoke = false): Promise<{ passedIds: Set<string>; metrics: BenchmarkBaseline }> {
+  const selected = await resolveActiveBaseline(BASELINE_REGISTRY_PATH, profile, smoke ? "node24-win32-x64" : runtimeFamily());
+  console.log(`Selected immutable baseline ${path.relative(ROOT, selected)}`);
+  if (!fs.existsSync(selected)) {
+    throw new Error(`Missing required benchmark baseline: ${selected}`);
   }
-  const raw = JSON.parse(await fs.promises.readFile(BASELINE_PATH, "utf8")) as BenchmarkBaseline & {
+  const raw = JSON.parse(await fs.promises.readFile(selected, "utf8")) as BenchmarkBaseline & {
     passedIds?: string[];
   };
   return { passedIds: new Set(raw.passedIds ?? []), metrics: raw };
 }
 
-async function runFixture(fixture: BenchmarkFixture): Promise<BenchmarkFixtureResult> {
+async function runFixture(router: CaptureRouter, fixture: BenchmarkFixture): Promise<BenchmarkFixtureResult> {
   const filePath = path.join(ROOT, fixture.file);
   const t0 = Date.now();
   try {
     const buffer = await loadPixelBufferFromPath(filePath);
-    const outcome = await decodePixelBuffer(buffer, {
-      config: {
-        findMultiple: fixture.category === "multiple" || Boolean(fixture.requiredPayloads?.length),
-        maxMultipleResults: fixture.expectedResultCount ?? fixture.requiredPayloads?.length ?? 8,
-        requiredPayloads: fixture.requiredPayloads,
-        expectedResultCount: fixture.expectedResultCount,
-        timeoutMs: 15_000,
-      },
-    });
-    const payloads = outcome.ok ? outcome.results.map((r) => r.payload) : [];
+    const scenario = router.getScenario();
+    scenario.output.includeDebugTrace = true;
+    const profile = scenario.id as "fast" | "balanced" | "robust";
+    const completeRequired = requiredPayloads(fixture);
+    const effectiveRequired = requiredPayloadsForProfile(fixture, profile);
+    if (scenario.multiCode.enabled && fixture.category === "multiple" && effectiveRequired.length > 0) scenario.multiCode.maxResults = effectiveRequired.length;
+    const outcome = await router.scan(createRgbaFrame(buffer.data, buffer.width, buffer.height, { id: `benchmark-${fixture.id}`, sourceType: "upload" }), { scenario });
+    const payloads = outcome.ok ? outcome.results.map((r) => r.rawText) : [];
     const primary = outcome.ok ? outcome.primary : null;
-    const evalResult = evaluateFixture(fixture, payloads, outcome.ok);
-    const required = requiredPayloads(fixture);
+    const evaluatedFixture = effectiveRequired.length !== completeRequired.length
+      ? { ...fixture, requiredPayloads: effectiveRequired, requiredInstances: undefined, expectedResultCount: effectiveRequired.length }
+      : fixture;
+    const evalResult = evaluateFixture(evaluatedFixture, payloads, { ok: outcome.ok, errorCode: outcome.ok ? undefined : outcome.error.code });
+    const required = requiredPayloads(evaluatedFixture);
     return {
       id: fixture.id,
       category: fixture.category,
       expectedPayload: fixture.expectedPayload,
-      actualPayload: primary?.payload ?? null,
+      actualPayload: primary?.rawText ?? null,
       allPayloads: payloads,
       pass: evalResult.pass,
       elapsedMs: Date.now() - t0,
-      successfulDecoder: primary?.decoder ?? null,
-      preprocessingPath: primary?.preprocessing ?? null,
-      candidateIndex: primary?.candidateIndex ?? null,
+      successfulDecoder: primary?.engine.id ?? null,
+      preprocessingPath: primary?.preprocessingPath.join(">") ?? null,
+      candidateIndex: primary?.candidate?.index ?? null,
       attemptCount: outcome.attemptCount,
-      failureReason: outcome.ok ? (evalResult.pass ? null : "incomplete_multiple") : outcome.reason,
+      failureReason: outcome.ok ? (evalResult.pass ? null : "incomplete_multiple") : outcome.error.code,
       expectedOutcome: fixture.expectedOutcome,
       missingPayloads: evalResult.missingPayloads,
       unexpectedPayloads: evalResult.unexpectedPayloads,
       requiredPayloadCount: required.length || undefined,
       decodedPayloadCount: payloads.length,
-      phaseTiming: outcome.phaseTiming,
+      timeToFirstResultMs: outcome.ok ? outcome.timing.timeToFirstResultMs : undefined,
+      heuristicMetrics: outcome.heuristics,
+      controlledMemoryPeakBytes: outcome.timing.controlledMemory?.peakControlledBytes,
+      finalControlledMemoryBytes: outcome.timing.controlledMemory?.currentControlledBytes,
+      phaseTiming: {
+        frameNormalizationMs: outcome.timing.frameNormalizationMs,
+        roiMs: outcome.timing.roiMs,
+        localizationMs: outcome.timing.localizationMs,
+        candidateGenerationMs: outcome.timing.candidateGenerationMs ?? 0,
+        candidateDeduplicationMs: outcome.timing.candidateDeduplicationMs,
+        preprocessMs: outcome.timing.preprocessingMs ?? 0,
+        rotationMs: outcome.timing.rotationMs ?? 0,
+        engineMs: outcome.timing.engineMs ?? {},
+        validationMs: outcome.timing.validationMs,
+        semanticParsingMs: outcome.timing.semanticParsingMs,
+      },
     };
   } catch (e) {
     return {
@@ -296,7 +274,7 @@ async function runFixture(fixture: BenchmarkFixture): Promise<BenchmarkFixtureRe
       expectedPayload: fixture.expectedPayload,
       actualPayload: null,
       allPayloads: [],
-      pass: fixture.expectedOutcome === "fail",
+      pass: false,
       elapsedMs: Date.now() - t0,
       successfulDecoder: null,
       preprocessingPath: null,
@@ -308,16 +286,62 @@ async function runFixture(fixture: BenchmarkFixture): Promise<BenchmarkFixtureRe
   }
 }
 
+async function runMeasuredFixture(router: CaptureRouter, fixture: BenchmarkFixture, iterations: number): Promise<BenchmarkFixtureResult> {
+  const runs: BenchmarkFixtureResult[] = [];
+  for (let iteration = 0; iteration < iterations; iteration++) {
+    const result = await runFixture(router, fixture);
+    runs.push(result);
+  }
+  const ordered = [...runs].sort((left, right) => left.elapsedMs - right.elapsedMs);
+  const representative = ordered[Math.floor(ordered.length / 2)];
+  const failed = runs.find((result) => !result.pass);
+  const correctness = summarizeIterationCorrectness(runs);
+  return {
+    ...(failed ?? representative),
+    elapsedMs: median(runs.map((result) => result.elapsedMs)),
+    attemptCount: Math.round(median(runs.map((result) => result.attemptCount))),
+    ...correctness,
+    runTimingsMs: correctness.runTimingsMs.slice(0, iterations),
+    controlledMemoryPeakBytes: Math.max(0, ...runs.map((result) => result.controlledMemoryPeakBytes ?? 0)),
+    finalControlledMemoryBytes: Math.max(0, ...runs.map((result) => result.finalControlledMemoryBytes ?? 0)),
+  };
+}
+
 async function main() {
   const smoke = process.argv.includes("--smoke");
   const failOnRegression = process.argv.includes("--gate");
+  if (process.argv.includes("--freeze-baseline")) throw new Error("Benchmark collection no longer freezes baselines. Use npm run benchmark:freeze with an external canonical manifest.");
+  const canonical = process.argv.includes("--canonical");
+  const canonicalCandidate = process.argv.includes("--canonical-candidate");
+  const ciArtifact = process.argv.includes("--ci-artifact");
+  const selectedModes = [canonical, canonicalCandidate, ciArtifact].filter(Boolean).length;
+  const allowDirtyDevelopment = process.argv.includes("--allow-dirty-development") || selectedModes === 0;
+  if (selectedModes > 1) throw new Error("Choose exactly one benchmark execution mode.");
+  if ((canonical || canonicalCandidate) && allowDirtyDevelopment) throw new Error("Canonical candidate runs cannot use --allow-dirty-development.");
+  if (canonical || canonicalCandidate || ciArtifact) assertCleanRepository(ROOT);
+  const gateMode = process.argv.find((argument) => argument.startsWith("--gate-mode="))?.split("=")[1] ?? "active-baseline";
+  if (!(["active-baseline", "baseline-candidate"] as const).includes(gateMode as "active-baseline")) throw new Error("--gate-mode must be active-baseline or baseline-candidate.");
+  const profileArgument = process.argv.find((argument) => argument.startsWith("--profile="))?.split("=")[1] ?? "balanced";
+  if (!["fast", "balanced", "robust"].includes(profileArgument)) throw new Error(`Unknown benchmark profile '${profileArgument}'.`);
+  const profile = profileArgument as BuiltinScenarioId;
+  const canonicalCompatible = canonical || canonicalCandidate;
+  const measuredIterations = Number(process.argv.find((argument) => argument.startsWith("--measured-iterations="))?.split("=")[1] ?? (canonicalCompatible ? 3 : 1));
+  const warmupIterations = Number(process.argv.find((argument) => argument.startsWith("--warmup-iterations="))?.split("=")[1] ?? (smoke ? 0 : 1));
+  if (!Number.isInteger(measuredIterations) || measuredIterations < 1 || measuredIterations > 10) throw new Error("--measured-iterations must be an integer from 1 to 10.");
+  if (!Number.isInteger(warmupIterations) || warmupIterations < 0 || warmupIterations > 5) throw new Error("--warmup-iterations must be an integer from 0 to 5.");
+  if (canonicalCompatible && warmupIterations < 1) throw new Error("Canonical-compatible benchmark requires at least one warmup iteration.");
+  if (canonicalCompatible && measuredIterations < 3) throw new Error("Canonical-compatible benchmark requires at least three measured iterations.");
+  const executionMode: BenchmarkExecutionMode = canonicalCandidate ? "canonical-candidate" : canonical ? "canonical" : ciArtifact ? "ci-artifact" : "development";
+  const selectedScenario = getBuiltinScenario(profile);
+  const router = createNodeCaptureRouter({ scenario: selectedScenario });
 
   if (!fs.existsSync(MANIFEST_PATH)) {
     console.error("Missing fixtures/manifest.json — run npm run fixtures:generate first.");
     process.exit(1);
   }
 
-  const manifest = JSON.parse(await fs.promises.readFile(MANIFEST_PATH, "utf8")) as ManifestFile;
+  const manifestBytes = await fs.promises.readFile(MANIFEST_PATH);
+  const manifest = JSON.parse(manifestBytes.toString("utf8")) as ManifestFile;
   let fixtures = manifest.fixtures;
 
   if (smoke) {
@@ -338,12 +362,16 @@ async function main() {
     fixtures = fixtures.filter((f) => smokeIds.has(f.id));
   }
 
-  console.log(`Running benchmark on ${fixtures.length} fixtures${smoke ? " (smoke)" : ""}…`);
+  const initializationStarted = performance.now();
+  await router.engines.initializeAll();
+  const coldInitializationMs = performance.now() - initializationStarted;
+  for (let iteration = 0; iteration < warmupIterations; iteration++) await runFixture(router, fixtures[iteration % fixtures.length]);
+  console.log(`Running benchmark on ${fixtures.length} fixtures${smoke ? " (smoke)" : ""}; measured iterations=${measuredIterations}…`);
 
   const results: BenchmarkFixtureResult[] = [];
   for (const fixture of fixtures) {
     process.stdout.write(`  ${fixture.id}… `);
-    const result = await runFixture(fixture);
+    const result = await runMeasuredFixture(router, fixture, measuredIterations);
     results.push(result);
     console.log(result.pass ? `PASS ${(result.elapsedMs / 1000).toFixed(2)}s` : `FAIL ${(result.elapsedMs / 1000).toFixed(2)}s`);
   }
@@ -355,6 +383,7 @@ async function main() {
 
   const decoderDistribution: Record<string, number> = {};
   const preprocessingDistribution: Record<string, number> = {};
+  const candidateDistribution: Record<string, number> = {};
   for (const r of passed) {
     if (r.successfulDecoder) {
       decoderDistribution[r.successfulDecoder] = (decoderDistribution[r.successfulDecoder] ?? 0) + 1;
@@ -362,6 +391,10 @@ async function main() {
     if (r.preprocessingPath) {
       preprocessingDistribution[r.preprocessingPath] =
         (preprocessingDistribution[r.preprocessingPath] ?? 0) + 1;
+    }
+    if (r.candidateIndex !== null) {
+      const key = String(r.candidateIndex);
+      candidateDistribution[key] = (candidateDistribution[key] ?? 0) + 1;
     }
   }
 
@@ -377,7 +410,9 @@ async function main() {
     slot.successRate = slot.total ? slot.passed / slot.total : 0;
   }
 
-  const baseline = await loadBaseline();
+  const baseline = gateMode === "baseline-candidate"
+    ? { passedIds: new Set<string>(), metrics: null }
+    : await loadBaseline(profile, smoke);
   const baselinePassed = baseline.passedIds;
   let regressionCount = 0;
   if (baselinePassed.size > 0) {
@@ -400,15 +435,77 @@ async function main() {
     .slice(0, 5)
     .map((r) => ({ id: r.id, elapsedMs: r.elapsedMs, attemptCount: r.attemptCount, pass: r.pass }));
 
-  const phaseValues = {
+  const phaseValues: Record<string, number[]> = {
     candidateGenerationMs: results.map((r) => r.phaseTiming?.candidateGenerationMs ?? 0),
-    jsqrMs: results.map((r) => r.phaseTiming?.jsqrMs ?? 0),
-    zxingMs: results.map((r) => r.phaseTiming?.zxingMs ?? 0),
     preprocessMs: results.map((r) => r.phaseTiming?.preprocessMs ?? 0),
     rotationMs: results.map((r) => r.phaseTiming?.rotationMs ?? 0),
+    frameNormalizationMs: results.map((r) => r.phaseTiming?.frameNormalizationMs ?? 0),
+    roiMs: results.map((r) => r.phaseTiming?.roiMs ?? 0),
+    localizationMs: results.map((r) => r.phaseTiming?.localizationMs ?? 0),
+    candidateDeduplicationMs: results.map((r) => r.phaseTiming?.candidateDeduplicationMs ?? 0),
+    validationMs: results.map((r) => r.phaseTiming?.validationMs ?? 0),
+    semanticParsingMs: results.map((r) => r.phaseTiming?.semanticParsingMs ?? 0),
   };
+  for (const engineId of [...new Set(results.flatMap((result) => Object.keys(result.phaseTiming?.engineMs ?? {})))].sort()) {
+    phaseValues[`engine:${engineId}`] = results.map((result) => result.phaseTiming?.engineMs[engineId] ?? 0);
+  }
+  const positive = results.filter((result) => result.expectedOutcome === "decode");
+  const negative = results.filter((result) => result.expectedOutcome !== "decode");
+  const positivePasses = positive.filter((result) => result.pass).length;
+  const falsePositiveCount = negative.filter((result) => result.actualPayload !== null).length;
+  const timeToFirstValues = results.flatMap((result) => result.timeToFirstResultMs === undefined ? [] : [result.timeToFirstResultMs]);
+  const cancellationChecks: boolean[] = [];
+  const beforeController = new AbortController();
+  beforeController.abort();
+  const beforeOutcome = await router.scan(createRgbaFrame(new Uint8ClampedArray(4), 1, 1, { id: "benchmark-cancellation-before" }), { signal: beforeController.signal });
+  cancellationChecks.push(!beforeOutcome.ok && beforeOutcome.error.code === "cancelled");
+  const activeController = new AbortController();
+  const activePixels = new Uint8ClampedArray(512 * 512 * 4);
+  for (let index = 0; index < activePixels.length; index += 4) { const value = (index * 1103515245 + 12345) >>> 24; activePixels[index] = activePixels[index + 1] = activePixels[index + 2] = value; activePixels[index + 3] = 255; }
+  const activePromise = router.scan(createRgbaFrame(activePixels, 512, 512, { id: "benchmark-cancellation-active" }), { signal: activeController.signal });
+  setTimeout(() => activeController.abort(), 0);
+  const activeOutcome = await activePromise;
+  cancellationChecks.push(!activeOutcome.ok && activeOutcome.error.code === "cancelled");
+  const disposalRouter = createNodeCaptureRouter({ scenario: getBuiltinScenario(profile) });
+  const disposalPromise = disposalRouter.scan(createRgbaFrame(activePixels.slice(), 512, 512, { id: "benchmark-cancellation-dispose" }));
+  const disposing = disposalRouter.dispose();
+  const disposalOutcome = await disposalPromise;
+  await disposing;
+  cancellationChecks.push(!disposalOutcome.ok && disposalOutcome.error.code === "cancelled");
+  const sourceIdentity = await collectSourceIdentity({
+    root: ROOT,
+    scenario: selectedScenario,
+    engines: router.engines.list().map((engine) => ({ id: engine.id, version: engine.version, capabilities: engine.capabilities })),
+    manifestPath: MANIFEST_PATH,
+    fixtureFiles: manifest.fixtures.map((fixture) => fixture.file),
+    runnerPath: path.join(ROOT, "scripts", "run-benchmark.ts"),
+    allowDirty: allowDirtyDevelopment,
+  });
 
   const summary: BenchmarkRunSummary = {
+    schemaVersion: "2.0",
+    runtime: { kind: "node", nodeVersion: process.version, platform: process.platform, arch: process.arch },
+    sourceIdentity,
+    executionPolicy: {
+      mode: executionMode,
+      evidenceType: canonicalCandidate ? "canonical-candidate" : ciArtifact ? "ci-artifact" : canonical ? "canonical-committed" : "development",
+      canonical: canonicalCompatible,
+      warmupIterations,
+      measuredIterations,
+      dirtyDevelopmentAllowed: executionMode === "development",
+      updatesDocumentation: false,
+    },
+    environment: {
+      gitCommit: sourceIdentity.commitSha,
+      sdkVersion: SDK_VERSION,
+      scenario: profile,
+      datasetManifestHash: sourceIdentity.datasetHash,
+      fixtureCount: fixtures.length,
+      date: new Date().toISOString().slice(0, 10),
+      warmupPolicy: `${warmupIterations} explicit warmup fixture run(s); measured fixtures exclude warmup.`,
+      iterationCount: measuredIterations,
+      coldInitializationMs,
+    },
     generatedAt: new Date().toISOString(),
     total: results.length,
     passed: passed.length,
@@ -417,6 +514,26 @@ async function main() {
     averageMs: times.length ? times.reduce((a, b) => a + b, 0) / times.length : 0,
     medianMs: median(times),
     p95Ms: percentile(sortedTimes, 95),
+    p99Ms: times.length >= 100 ? percentile(sortedTimes, 99) : null,
+    variance: summarizeBenchmarkVariance(results),
+    positiveCases: positive.length,
+    decodeRecall: positive.length ? positivePasses / positive.length : 0,
+    exactPayloadAccuracy: positive.length ? positivePasses / positive.length : 0,
+    negativeCases: negative.length,
+    falsePositiveCount,
+    falsePositiveRate: negative.length ? falsePositiveCount / negative.length : 0,
+    timeoutCount: results.filter((result) => result.failureReason === "timeout").length,
+    cancellationCorrectness: { passed: cancellationChecks.filter(Boolean).length, total: cancellationChecks.length },
+    engineInitializationFailures: results.filter((result) => result.failureReason === "engine_initialization_failure").length,
+    engineExecutionFailures: results.filter((result) => result.failureReason === "engine_execution_failure").length,
+    phaseTimingAvailability: (() => {
+      const routed = results.filter((result) => result.failureReason !== "resource_limit_exceeded" || result.attemptCount > 0);
+      return {
+        passed: routed.filter((result) => result.phaseTiming && result.phaseTiming.candidateGenerationMs >= 0 && Object.values(result.phaseTiming.engineMs).some((value) => value > 0)).length,
+        total: routed.length,
+      };
+    })(),
+    timeToFirstResult: distribution(timeToFirstValues),
     averageAttempts: attemptCounts.length
       ? attemptCounts.reduce((a, b) => a + b, 0) / attemptCounts.length
       : 0,
@@ -424,13 +541,12 @@ async function main() {
     p95Attempts: percentile(sortedAttempts, 95),
     decoderDistribution,
     preprocessingDistribution,
-    phaseTiming: {
-      candidateGenerationMs: distribution(phaseValues.candidateGenerationMs),
-      jsqrMs: distribution(phaseValues.jsqrMs),
-      zxingMs: distribution(phaseValues.zxingMs),
-      preprocessMs: distribution(phaseValues.preprocessMs),
-      rotationMs: distribution(phaseValues.rotationMs),
-    },
+    candidateDistribution,
+    perFormatRecall: { qr_code: { total: positive.length, decoded: positivePasses, recall: positive.length ? positivePasses / positive.length : 0 } },
+    memoryObservations: ["Controlled peak covers Scanly-accounted frame artifacts, caches, and scratch leases; it does not claim exact decoder or process heap usage."],
+    controlledMemoryPeakBytes: Math.max(0, ...results.map((result) => result.controlledMemoryPeakBytes ?? 0)),
+    finalControlledMemoryBytes: Math.max(0, ...results.map((result) => result.finalControlledMemoryBytes ?? 0)),
+    phaseTiming: Object.fromEntries(Object.entries(phaseValues).map(([phase, values]) => [phase, distribution(values)])),
     perCategory,
     multipleCompleteness: {
       total: multipleResults.length,
@@ -443,17 +559,14 @@ async function main() {
     results,
   };
 
-  await fs.promises.mkdir(OUT_DIR, { recursive: true });
-  const jsonPath = path.join(OUT_DIR, smoke ? "smoke.json" : "latest.json");
-  const csvPath = path.join(OUT_DIR, smoke ? "smoke.csv" : "latest.csv");
+  const explicitOutput = process.argv.find((argument) => argument.startsWith("--output="))?.slice("--output=".length);
+  const outputDirectory = explicitOutput ? path.resolve(explicitOutput) : canonicalCompatible ? path.join(OUT_DIR, "candidates") : path.join(OUT_DIR, executionMode === "ci-artifact" ? "ci" : "development");
+  await fs.promises.mkdir(outputDirectory, { recursive: true });
+  const outputStem = smoke ? `smoke-${profile}` : profile === "balanced" ? "latest" : `latest-${profile}`;
+  const jsonPath = path.join(outputDirectory, `${outputStem}.json`);
+  const csvPath = path.join(outputDirectory, `${outputStem}.csv`);
   await fs.promises.writeFile(jsonPath, JSON.stringify(summary, null, 2));
-  await fs.promises.writeFile(csvPath, toCsv(results));
-
-  if (!smoke) {
-    const md = renderMarkdown(summary, false);
-    await fs.promises.writeFile(path.join(ROOT, "docs", "benchmark.md"), md);
-    await updateReadmeSummary(summary, manifest);
-  }
+  await fs.promises.writeFile(csvPath, benchmarkResultsToCsv(results));
 
   console.log("");
   console.log(
@@ -465,10 +578,12 @@ async function main() {
   console.log(`Wrote ${jsonPath}`);
   console.log(`Wrote ${csvPath}`);
 
-  const gateFailures = evaluateBenchmarkGates(summary, baseline.metrics, { fullSuite: !smoke });
+  const gateFailures = baseline.metrics ? evaluateBenchmarkGates(summary, baseline.metrics, { fullSuite: !smoke }) : [];
+  if (gateMode === "baseline-candidate") gateFailures.push(...validateProfileReport(summary, profile));
+  await router.dispose();
   if (failOnRegression && gateFailures.length > 0) {
     console.error(`Benchmark gate failed:\n- ${gateFailures.join("\n- ")}`);
-    process.exit(1);
+    process.exitCode = 1;
   }
 }
 

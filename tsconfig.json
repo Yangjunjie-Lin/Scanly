@@ -21,6 +21,36 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "@scanly/scenario-schema": [
+        "./packages/scenario-schema/src/index.ts"
+      ],
+      "@scanly/parsers": [
+        "./packages/parsers/src/index.ts"
+      ],
+      "@scanly/benchmark": [
+        "./packages/benchmark/src/index.ts"
+      ],
+      "@scanly/core": [
+        "./packages/core/src/index.ts"
+      ],
+      "@scanly/core/*": [
+        "./packages/core/src/*"
+      ],
+      "@scanly/browser": [
+        "./packages/browser/src/index.ts"
+      ],
+      "@scanly/react": [
+        "./packages/react/src/index.ts"
+      ],
+      "@scanly/engine-jsqr": [
+        "./engines/jsqr/src/index.ts"
+      ],
+      "@scanly/engine-zxing-js": [
+        "./engines/zxing-js/src/index.ts"
+      ],
+      "@scanly/node": [
+        "./packages/node/src/index.ts"
       ]
     },
     "esModuleInterop": true,
@@ -35,14 +65,10 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts"
+    "apps/web-demo/.next/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",
-    "tests",
-    "scripts",
-    "coverage",
-    "playwright.config.ts",
-    "vitest.config.ts"
+    "coverage"
   ]
 }

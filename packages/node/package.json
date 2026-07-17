@@ -1,0 +1,29 @@
+{
+  "name": "@scanly/node",
+  "version": "2.0.0-alpha.3",
+  "description": "Node-only Scanly image loading and configured capture runtime",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@scanly/core": "2.0.0-alpha.3",
+    "@scanly/engine-jsqr": "2.0.0-alpha.3",
+    "@scanly/engine-zxing-js": "2.0.0-alpha.3",
+    "sharp": "^0.34.5"
+  }
+}

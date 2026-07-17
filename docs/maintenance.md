@@ -1,6 +1,6 @@
 # Maintenance policy
 
-Scanly is considered feature-complete. Future work should focus on security, browser compatibility, dependency maintenance, and verified decoding improvements rather than unrelated feature expansion.
+Scanly v1 remains a feature-complete browser scanner baseline. SDK v2 is an alpha foundation: future work should prioritize stable contracts, lifecycle safety, external datasets, physical-device evidence, security, optional engines, and verified format expansion rather than unrelated product features.
 
 ## Supported toolchain
 
@@ -21,18 +21,18 @@ Dependabot opens small monthly npm and GitHub Actions groups. Merge security pat
 - Public issues must not include QR images containing credentials or personal data.
 - New multiple fixtures must declare every required payload and expected result count.
 
-Regenerate deterministic inputs with `npm run fixtures:generate`. Regenerate canonical JSON, CSV, Markdown, and the README benchmark block with `npm run benchmark`.
+Regenerate deterministic inputs with `npm run fixtures:generate`. Ordinary `npm run benchmark` writes ignored development evidence. From a clean committed revision, `npm run benchmark:canonical-candidate -- --profile=<profile>` creates one candidate report; assemble all profiles plus Comparison with `benchmark:assemble-canonical`, install approved aliases/docs with `benchmark:update-canonical`, freeze immutable profile baselines with `benchmark:freeze`, and activate the complete three-profile set with `benchmark:activate`.
 
 ## Which benchmark to run
 
-Run `npm run benchmark:smoke` for UI-only, documentation, safe dependency patch, and Worker-client changes that do not alter decoding logic. Run the full `npm run benchmark` for any change to the loader, pixel representation, region/candidate logic, preprocessing, decoder adapters/order, result normalization, fixture manifest/generator, or benchmark contract.
+Run `npm run benchmark:smoke` for UI-only, documentation, safe dependency patch, and Worker-client changes that do not alter decoding logic. Run all development profiles for any change to the loader, pixel representation, region/candidate logic, preprocessing, decoder adapters/order, result normalization, fixture manifest/generator, or benchmark contract; reserve canonical mode for intentional release-evidence regeneration.
 
 ## Release checklist
 
 1. Confirm a clean intended diff and update `CHANGELOG.md`.
-2. Run `npm ci` and `npm run fixtures:generate`.
+2. Run `npm ci`, `npm run fixtures:generate`, and `npm run scenarios:generate`.
 3. Run `npm run check` and all three Playwright project commands.
-4. Run smoke and, when required, full benchmark gates.
+4. Run smoke/full benchmark gates and the identical-input comparison harness.
 5. Run `npm audit` and `npm audit --omit=dev`; resolve high/critical production findings.
 6. Confirm canonical benchmark/README synchronization and retain known failures.
 7. Verify the Vercel production deployment, Worker chunk, console/network, representative fixtures, cancel/recovery, camera denial, and mobile viewport.
@@ -52,8 +52,13 @@ Accepted future work:
 
 - security vulnerabilities;
 - unsupported dependencies or Next.js/Vercel compatibility;
+
 - browser API changes;
 - reproducible, tested QR decoding improvements;
 - real user-reported bugs.
 
 Out of scope: accounts, cloud uploads, history, databases, analytics, ads, social features, unrelated utilities, AI/ML branding, and feature work intended only to create contribution activity.
+
+## Required merge checks
+
+Branch protection should require the stable check names `CI`, `Full Benchmark / Fast`, `Full Benchmark / Balanced`, `Full Benchmark / Robust`, `Full Benchmark / Comparison`, `Full Benchmark / Assemble`, `Browser Benchmark / Chromium`, `Browser Benchmark / Firefox`, `Browser Benchmark / WebKit`, `Public API`, and `Vercel`. A skipped, missing, or stale check is not a pass. Full Benchmark uses independent clean checkouts and assembles only source-compatible machine-readable reports; browser pull requests use the smoke suite while manual/scheduled runs may select the full suite.

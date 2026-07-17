@@ -8,12 +8,14 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reportsDirectory: "coverage",
-      include: ["lib/qr/**/*.ts", "lib/benchmark/**/*.ts"],
+      include: ["packages/core/src/**/*.ts", "packages/browser/src/**/*.ts", "packages/node/src/**/*.ts", "engines/*/src/**/*.ts", "packages/scenario-schema/src/**/*.ts", "packages/parsers/src/**/*.ts", "packages/benchmark/src/**/*.ts"],
       exclude: [
-        "lib/qr/index.ts",
-        "lib/qr/benchmark-types.ts",
-        "lib/qr/image-loader.ts",
-        "lib/qr/worker/decode-worker.ts",
+        "packages/**/src/index.ts",
+        "packages/**/src/types.ts",
+        "packages/core/src/contracts/engine.ts",
+        "packages/core/src/contracts/result.ts",
+        "packages/browser/src/image-loader.ts",
+        "packages/browser/src/worker/decode-worker.ts",
       ],
       thresholds: {
         lines: 85,
@@ -25,6 +27,15 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      "@scanly/core/qr": path.resolve(__dirname, "packages/core/src/qr/index.ts"),
+      "@scanly/core": path.resolve(__dirname, "packages/core/src/index.ts"),
+      "@scanly/node": path.resolve(__dirname, "packages/node/src/index.ts"),
+      "@scanly/engine-jsqr": path.resolve(__dirname, "engines/jsqr/src/index.ts"),
+      "@scanly/engine-zxing-js": path.resolve(__dirname, "engines/zxing-js/src/index.ts"),
+      "@scanly/browser": path.resolve(__dirname, "packages/browser/src/index.ts"),
+      "@scanly/scenario-schema": path.resolve(__dirname, "packages/scenario-schema/src/index.ts"),
+      "@scanly/parsers": path.resolve(__dirname, "packages/parsers/src/index.ts"),
+      "@scanly/benchmark": path.resolve(__dirname, "packages/benchmark/src/index.ts"),
       "@": path.resolve(__dirname, "."),
     },
   },

@@ -2,55 +2,136 @@ name: Full Benchmark
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - main
-      - master
-    paths:
-      - "lib/qr/**"
-      - "lib/benchmark/**"
-      - "fixtures/**"
-      - "scripts/run-benchmark.ts"
-      - "scripts/generate-fixtures.ts"
-      - "components/QRTool.tsx"
-      - "package.json"
-      - "package-lock.json"
+      - architecture/sdk-v2-alpha3-industrial-validation
+
+permissions:
+  contents: read
 
 jobs:
-  full-benchmark:
-    name: Full fixture benchmark
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-
+  prepare:
+    name: Prepare
+    runs-on: windows-latest
+    outputs:
+      gate-mode: ${{ steps.gate-mode.outputs.mode }}
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
         with:
-          node-version: 20
-          cache: npm
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: npm run fixtures:generate
+      - run: npm run scenarios:generate
+      - name: Verify deterministic fixture and scenario generation
+        run: git diff --exit-code -- fixtures scenarios
+      - name: Verify clean checkout
+        run: git status --porcelain --untracked-files=all | Tee-Object -Variable status; if ($status) { throw "prepare checkout is dirty" }
+      - name: Select benchmark gate mode
+        id: gate-mode
+        shell: pwsh
+        run: |
+          $registry = Get-Content benchmark-results/baselines/registry.json -Raw | ConvertFrom-Json
+          $active = $registry.activeBaselines.'node24-win32-x64'
+          $alpha3 = $active.fast -like 'v2-alpha3-r*' -and $active.balanced -like 'v2-alpha3-r*' -and $active.robust -like 'v2-alpha3-r*'
+          $mode = if ($alpha3) { 'active-baseline' } else { 'baseline-candidate' }
+          "mode=$mode" >> $env:GITHUB_OUTPUT
+          "Full Benchmark gate mode: **$mode**" >> $env:GITHUB_STEP_SUMMARY
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Generate fixtures
-        run: npm run fixtures:generate
-
-      - name: Run full benchmark with regression gate
-        run: npx tsx scripts/run-benchmark.ts --gate
-
-      - name: Verify canonical benchmark and repository contracts
-        run: npm run quality:gates
-
-      - name: Upload benchmark artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
+  profile:
+    needs: prepare
+    name: ${{ matrix.label }}
+    runs-on: windows-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - profile: fast
+            label: Fast
+            report: latest-fast
+          - profile: balanced
+            label: Balanced
+            report: latest
+          - profile: robust
+            label: Robust
+            report: latest-robust
+    steps:
+      - uses: actions/checkout@v4
         with:
-          name: benchmark-full
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: npm run fixtures:generate
+      - run: npm run scenarios:generate
+      - run: git diff --exit-code -- fixtures scenarios
+      - name: Verify clean profile checkout
+        run: git status --porcelain --untracked-files=all | Tee-Object -Variable status; if ($status) { throw "profile checkout is dirty" }
+      - run: npx tsx scripts/run-benchmark.ts --canonical-candidate --profile=${{ matrix.profile }} --gate --gate-mode=${{ needs.prepare.outputs.gate-mode }} --warmup-iterations=1 --measured-iterations=3
+      - run: npm run benchmark:summary -- --report=benchmark-results/candidates/${{ matrix.report }}.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-${{ matrix.profile }}
+          retention-days: 21
           if-no-files-found: error
           path: |
-            benchmark-results/latest.json
-            benchmark-results/latest.csv
-            docs/benchmark.md
+            benchmark-results/candidates/${{ matrix.report }}.json
+            benchmark-results/candidates/${{ matrix.report }}.csv
+
+  comparison:
+    needs: prepare
+    name: Comparison
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: npm run fixtures:generate
+      - run: npm run scenarios:generate
+      - run: git diff --exit-code -- fixtures scenarios
+      - name: Verify clean comparison checkout
+        run: git status --porcelain --untracked-files=all | Tee-Object -Variable status; if ($status) { throw "comparison checkout is dirty" }
+      - run: npm run benchmark:compare -- --canonical-candidate --warmup-iterations=1 --measured-iterations=3
+      - run: npm run benchmark:summary -- --report=benchmark-results/candidates/comparison.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-comparison
+          retention-days: 21
+          if-no-files-found: error
+          path: benchmark-results/candidates/comparison.json
+
+  assemble:
+    needs: [profile, comparison]
+    name: Assemble
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: benchmark-*
+          merge-multiple: true
+          path: benchmark-artifacts
+      - run: npm run benchmark:assemble-canonical -- --fast=benchmark-artifacts/latest-fast.json --fast-csv=benchmark-artifacts/latest-fast.csv --balanced=benchmark-artifacts/latest.json --balanced-csv=benchmark-artifacts/latest.csv --robust=benchmark-artifacts/latest-robust.json --robust-csv=benchmark-artifacts/latest-robust.csv --comparison=benchmark-artifacts/comparison.json --output=benchmark-artifacts/canonical
+      - run: npm run benchmark:verify-evidence -- --mode=baseline-bootstrap --canonical-manifest=benchmark-artifacts/canonical/canonical-evidence-manifest.json
+      - run: npm run benchmark:summary -- --manifest=benchmark-artifacts/canonical/canonical-evidence-manifest.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-assembled
+          retention-days: 21
+          if-no-files-found: error
+          path: benchmark-artifacts/canonical

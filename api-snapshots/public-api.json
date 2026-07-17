@@ -1,0 +1,186 @@
+{
+  "schemaVersion": "2.0",
+  "packages": [
+    {
+      "packageName": "@scanly/core",
+      "packageVersion": "2.0.0-alpha.3",
+      "exports": {
+        ".": {
+          "types": "./dist/index.d.ts",
+          "import": "./dist/index.js"
+        },
+        "./qr": {
+          "types": "./dist/qr/index.d.ts",
+          "import": "./dist/qr/index.js"
+        }
+      },
+      "types": "./dist/index.d.ts",
+      "declarationHashes": {
+        "contracts/engine.d.ts": "fb9e3041405908f7656dff6d4ed8bda5d15762d081b753964190de7912821e7f",
+        "contracts/errors.d.ts": "260dd1c5f585c4dd05eb11f69a13bd31f07213254e97567e9f8dab356fca181c",
+        "contracts/frame.d.ts": "fc65bdfc615c8af129d224744f3353326744fcf2fa677644916ae7a5f1abd0e1",
+        "contracts/operator.d.ts": "18077b1053bb5156f59b92ae5906c8fba922f77bf226ca0c82bff535a00b08e8",
+        "contracts/result.d.ts": "1eec9f83c15cbb7b3626d73f73e284dd8d144f2433f90503f820e08b13bc09b3",
+        "contracts/validator.d.ts": "33b21365b712c8349c0ed1a23dce445b5ce237ca9672b706e2cc63fad2a6944c",
+        "index.d.ts": "62c6f39ae54ef55b9044813b31b92092a7e0ee68bcc31039ddc5a19fd8346ad4",
+        "node.d.ts": "fdf1ff2400268ec2a2174d80575c70dd8d94eb1e12ddcb96942326f041cb6653",
+        "qr/candidate-dedupe.d.ts": "0bc1424ef227275d66a6a64e47b0f72f4f13d36a959ddc1a9fb900514211a31b",
+        "qr/candidate-generation.d.ts": "2ac64ce70edb51785514c329d3d92837390e577ff2d2d4f21fbdd5909cb59608",
+        "qr/decode-pipeline.d.ts": "8c88fd55cf5e7e3de49af0790a215659c934df45d72ca0f6166738621dd5eb71",
+        "qr/geometry.d.ts": "78ce65041c819c0377b0340b1685ada13a981fd1adaee9bce66e285cd7c0c47c",
+        "qr/grayscale.d.ts": "7eba0c5ac9eb4bf31db74899b6e397b10ca371ecbd89ae8a953aa46a3e0759f5",
+        "qr/image-loader-node.d.ts": "ba45b8b83c8634b9bcb30c79c3ac6639cba34a6b9440d124050978b193674e8d",
+        "qr/index.d.ts": "e2d28adb4cd7fc55bdc72b90debd55dd0fc5d51272a2b2cd2192dd30ffc6a3f9",
+        "qr/jsqr-decoder.d.ts": "4208d2607b6daa218c00ab915cd708aea9fe32c467059e4987866800d5e0fec1",
+        "qr/preprocess.d.ts": "5f090467f1fece9bf08be1b2ba89b88ca27971456383bc77744f292112cfcdac",
+        "qr/region-detection.d.ts": "1405e6f8c9cede5a254a0c8069ea258edf5e8a0e2280b255660ddf4c93cbe2cb",
+        "qr/result-normalizer.d.ts": "174de7dc55248eb344dc26616c0b991cdd239139b482bac080f8f3818d51405c",
+        "qr/rotate.d.ts": "8e2af727f7c1eec43e8614723154f610c94aacf480df9d6b7bf93cf5b34c7a83",
+        "qr/types.d.ts": "769573ee119809c62c341373ed7bc616c57a5e9c6d892a05aa9d1be5e812bf40",
+        "qr/zxing-decoder.d.ts": "b1d99759b8b23894d11d1bfd62f201332e477e8f8719d131a39556ced333a024",
+        "runtime/artifacts.d.ts": "096119ed5417d3f69de9cafb01c2c4c8cc58b6eb4b973e802128765febf30d5a",
+        "runtime/builtin-operators.d.ts": "e2525a7e975cc5d8eb7a0348c2686e325877f48afc5c07a7a73e81d16739e0cc",
+        "runtime/capabilities.d.ts": "4da17bc9e28299fff514807af2acda6fa3d756f8752fd35c2067471fb0a193b1",
+        "runtime/engine-registry.d.ts": "2deffdbd0ea04b6142a86d5fce676b4187777033eed925a2a05d841d3be27529",
+        "runtime/execution-budget.d.ts": "cb3fc5dd6290ce506b3d3a0b9b7fb7668d2a4d4d227ca65a8508786312ad6c1b",
+        "runtime/frame-lease.d.ts": "999d7249d1cc0c20ba743faa51583b126e5044d99d802663eb1143cb9620f5e6",
+        "runtime/frame-normalization.d.ts": "9eb7bf49f119776f7248ad1dec0311e30c383351b8bf5b1dd51d1d7064d6ee1f",
+        "runtime/memory-budget.d.ts": "cf4a7ef38dfcf3d14828bdf8de5cc6ce8147891fdcfcd41fe428cfa581a188c6",
+        "runtime/operator-registry.d.ts": "342afc92a52e0bd215c7fee2f48e52064ed0e38bd6bebee9e2d0aeebb34a5eaf",
+        "runtime/result-policies.d.ts": "047fa6ad503369b40925a3d3538fe4848258ae880e6629da41333a72be5587fc",
+        "runtime/router.d.ts": "8fc86e5fee83398caedeb62a4f5ef87f9d549703bae428cb7d72852a3665909b",
+        "runtime/scenario-compiler.d.ts": "5f3637dcd5201143ab70f184cea2e38473a3efe2f74f7e3df5b1c8ef82031ef4",
+        "runtime/scenario-runtime.d.ts": "c489cfa8b5c344e626ea4b41a878e7763bb6eb6d7ac86268ba6e9e63fc3564cd",
+        "runtime/session.d.ts": "8d93312eef6d093aab9baa2536295e8fddd217cc56bdcbea3d8165eea10e0887",
+        "runtime/validator-registry.d.ts": "862adfd495e25c26e449437bf911cf4eda3427bafe64a43a6a7ab637b52278c3"
+      }
+    },
+    {
+      "packageName": "@scanly/browser",
+      "packageVersion": "2.0.0-alpha.3",
+      "exports": {
+        ".": {
+          "types": "./dist/index.d.ts",
+          "import": "./dist/index.js"
+        }
+      },
+      "types": "./dist/index.d.ts",
+      "declarationHashes": {
+        "browser-session.d.ts": "857b1d18d18eb4ede30a2e1d0478a6418f44408344655e216b0b8831f3478b38",
+        "camera-source.d.ts": "961e60955c1a11823ba5c7c78590a6d9dd0cc9c71b5ecc830d326d1edbfd21cf",
+        "camera-strategy.d.ts": "799e0c964d6702c443caa4bc5d3d4b55a741a8733b1e35d2f260db28cd58e070",
+        "decode-upload.d.ts": "2509ee37a22687302a4b4212d99b89e8c3506b493c649f95bd2d09375b2e35fa",
+        "image-loader.d.ts": "ad4c9336c38ca562c043e284a8cdb832f6e7579d127df3740cbef72647a6091e",
+        "index.d.ts": "f322f6f98c108c71746f7113bc167f2c998950f1d790c88892f7108ad17b0472",
+        "runtime.d.ts": "366e4e73848a5b47941d1971b5a44b01465717bdb9c3aebb0ecf38f09495a146",
+        "worker/decode-worker.d.ts": "f87b75640566592d1b770326e1439dc803530222bdeb29a560dbc84b731c613e",
+        "worker/transferable-buffer.d.ts": "447b1543555cba606416011c73b51b9d5ec823c30f680e89a5174ccbae15b309",
+        "worker/worker-client.d.ts": "d8b135293d700250400f9a3a9837d871db28cc1af43d7c0e3a27731e32281c8d",
+        "worker/worker-messages.d.ts": "55e01e600acb07b7c0cd357ebeab817c40284abe5a7f24ab5d2a5c4868ec9880"
+      }
+    },
+    {
+      "packageName": "@scanly/node",
+      "packageVersion": "2.0.0-alpha.3",
+      "exports": {
+        ".": {
+          "types": "./dist/index.d.ts",
+          "import": "./dist/index.js"
+        }
+      },
+      "types": "./dist/index.d.ts",
+      "declarationHashes": {
+        "index.d.ts": "aa6dc6db85aaaf94c62f7196f02fc9c049bc756002f8996b73fb39c9f6f4c3b6"
+      }
+    },
+    {
+      "packageName": "@scanly/react",
+      "packageVersion": "2.0.0-alpha.3",
+      "exports": {
+        ".": {
+          "types": "./dist/index.d.ts",
+          "import": "./dist/index.js"
+        }
+      },
+      "types": "./dist/index.d.ts",
+      "declarationHashes": {
+        "index.d.ts": "adf5717647ea20289cb2897703c3cd87618f3da6a1cd7a40f41deac8bcb755e4"
+      }
+    },
+    {
+      "packageName": "@scanly/scenario-schema",
+      "packageVersion": "2.0.0-alpha.3",
+      "exports": {
+        ".": {
+          "types": "./dist/index.d.ts",
+          "import": "./dist/index.js"
+        }
+      },
+      "types": "./dist/index.d.ts",
+      "declarationHashes": {
+        "index.d.ts": "e280f6976e79e9b64f14a698cfa91fc2f5008ec02b1bce7e597c2281d1a1f791"
+      }
+    },
+    {
+      "packageName": "@scanly/parsers",
+      "packageVersion": "2.0.0-alpha.3",
+      "exports": {
+        ".": {
+          "types": "./dist/index.d.ts",
+          "import": "./dist/index.js"
+        }
+      },
+      "types": "./dist/index.d.ts",
+      "declarationHashes": {
+        "index.d.ts": "d10457c5c7d3209304a5083655dc0dedacbd5bf6776c2b505bb07486fe678b63"
+      }
+    },
+    {
+      "packageName": "@scanly/benchmark",
+      "packageVersion": "2.0.0-alpha.3",
+      "exports": {
+        ".": {
+          "types": "./dist/index.d.ts",
+          "import": "./dist/index.js"
+        }
+      },
+      "types": "./dist/index.d.ts",
+      "declarationHashes": {
+        "csv.d.ts": "acf695cd7ddf59b7e6066de223680a26eedd04156936d73428bbf06bf1f14b3b",
+        "fixture-contract.d.ts": "a311aedb8d9cae397733e6bd59cd69b4258c04580d83b702cb06e36802aed9ac",
+        "index.d.ts": "fb7f483918dbf4b26a9476a91d455134d484fee2f64b7e9d8020c79eab32d580",
+        "measurement.d.ts": "eefde5931c7f0d092ba831d3bb2e17bca966ac329a241a62d8a390339c12d549",
+        "quality-gates.d.ts": "33c10f42d7cf330fc88f2c0577844d0af019acbdaf9f53701aa11753e824fc7b",
+        "types.d.ts": "9d2fab24124f76f697f7acea6153e807317e6e1253754d14e4cbb768440c82a6"
+      }
+    },
+    {
+      "packageName": "@scanly/engine-jsqr",
+      "packageVersion": "2.0.0-alpha.3",
+      "exports": {
+        ".": {
+          "types": "./dist/index.d.ts",
+          "import": "./dist/index.js"
+        }
+      },
+      "types": "./dist/index.d.ts",
+      "declarationHashes": {
+        "index.d.ts": "f03c6aad2faa72f1ca920d4c68b5895d3bdc0260e0b400619e1c7159124a1d8a"
+      }
+    },
+    {
+      "packageName": "@scanly/engine-zxing-js",
+      "packageVersion": "2.0.0-alpha.3",
+      "exports": {
+        ".": {
+          "types": "./dist/index.d.ts",
+          "import": "./dist/index.js"
+        }
+      },
+      "types": "./dist/index.d.ts",
+      "declarationHashes": {
+        "index.d.ts": "d907016ddb3c43dfe1dc89c22dfdcbe01b8dd491546afe3ad0bc698854d1f681"
+      }
+    }
+  ]
+}

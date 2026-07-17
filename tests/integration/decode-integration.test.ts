@@ -4,9 +4,9 @@ import { afterAll, describe, expect, it } from "vitest";
 import QRCode from "qrcode";
 import sharp from "sharp";
 import os from "node:os";
-import { loadPixelBufferFromPath } from "../../lib/qr/image-loader-node";
-import { decodePixelBuffer } from "../../lib/qr/decode-pipeline";
-import { createPixelBuffer } from "../../lib/qr/grayscale";
+import { loadPixelBufferFromPath } from "@scanly/node";
+import { createPixelBuffer } from "@scanly/core/qr";
+import { decodePixelBufferWithNodeEngines as decodePixelBuffer } from "@scanly/node";
 
 const ROOT = path.resolve(__dirname, "../..");
 const FIXTURES = path.join(ROOT, "fixtures");
@@ -39,7 +39,7 @@ describe("decoder integration", () => {
     expect(out.ok).toBe(true);
     if (out.ok) {
       expect(out.primary.payload).toBe("SCANLY_INTEGRATION_CLEAR");
-      expect(["jsqr", "zxing"]).toContain(out.primary.decoder);
+      expect(["jsqr", "zxing-js"]).toContain(out.primary.decoder);
       expect(out.primary.preprocessing).toBeTruthy();
     }
   });

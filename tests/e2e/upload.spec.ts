@@ -76,11 +76,22 @@ test("invalid file shows understandable error", async ({ page }) => {
 
 test("second upload is not overwritten by first async result", async ({ page }) => {
   await page.getByRole("tab", { name: "Upload" }).click();
+  await expect(page.getByTestId("upload-input")).toBeEnabled();
   await page.getByTestId("upload-input").setInputFiles(fixture("14-damaged.png"));
   await page.getByTestId("upload-input").setInputFiles(fixture("02-clear-text.png"));
-  await expect(page.getByTestId("decoded-output")).toHaveValue("SCANLY_CLEAR_TEXT", {
-    timeout: 45_000,
-  });
+  try {
+    await expect(page.getByTestId("decoded-output")).toHaveValue("SCANLY_CLEAR_TEXT", {
+      timeout: 45_000,
+    });
+  } catch (error) {
+    console.log("superseded-upload diagnostics", await page.evaluate(() => ({
+      worker: window.__SCANLY_WORKER_DEBUG__,
+      status: document.querySelector<HTMLElement>("[data-testid='processing-status']")?.innerText,
+      errorCode: document.querySelector<HTMLElement>("[data-testid='error-reason']")?.innerText,
+      errorMessage: document.querySelector<HTMLElement>("[data-testid='error-message']")?.innerText,
+    })));
+    throw error;
+  }
   await page.waitForTimeout(3_000);
   await expect(page.getByTestId("decoded-output")).toHaveValue("SCANLY_CLEAR_TEXT");
   await expect(page.getByTestId("error-message")).toHaveCount(0);
@@ -147,11 +158,22 @@ test("three-code fixture returns complete payload set @smoke", async ({ page }) 
   await expect(page.getByTestId("decoded-output")).toHaveValue(payloads[0] ?? "");
 });
 
+test("eight-code fixture is complete and ordered through the real Worker @smoke", async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.getByRole("tab", { name: "Upload" }).click();
+  await page.getByTestId("upload-input").setInputFiles(fixture("65-multiple-eight.png"));
+  await expect(page.getByTestId("decoded-result-item")).toHaveCount(8, { timeout: 80_000 });
+  const payloads = await page.getByTestId("decoded-result-item").evaluateAll((elements) => elements.map((element) => element.getAttribute("data-payload")));
+  expect(payloads).toEqual(Array.from({ length: 8 }, (_, index) => `SCANLY_MULTI8_${String(index + 1).padStart(2, "0")}`));
+  const state = await page.evaluate(() => window.__SCANLY_WORKER_DEBUG__);
+  expect(state?.lastPath).toBe("worker");
+});
+
 test("in-flight cancel on hard fixture responds within 2 seconds @smoke", async ({ page }) => {
   await page.getByRole("tab", { name: "Upload" }).click();
   await page.getByTestId("upload-input").setInputFiles(fixture("14-damaged.png"));
   await expect(page.getByTestId("processing-status")).toContainText(
-    /Detecting|Decoding|Trying|Backup/,
+    /Routing|Detecting|Decoding|Trying|Backup/,
     { timeout: 10_000 }
   );
   const cancelStarted = Date.now();
@@ -171,7 +193,7 @@ test("upload after cancellation decodes clear fixture exactly @smoke", async ({ 
   await page.getByRole("tab", { name: "Upload" }).click();
   await page.getByTestId("upload-input").setInputFiles(fixture("14-damaged.png"));
   await expect(page.getByTestId("processing-status")).toContainText(
-    /Detecting|Decoding|Trying|Backup/,
+    /Routing|Detecting|Decoding|Trying|Backup/,
     { timeout: 10_000 }
   );
   await page.getByTestId("cancel-button").click();
@@ -278,7 +300,7 @@ test("oversized upload fails early with a clear reason", async ({ page }) => {
   });
   await expect(page.getByTestId("error-message")).toHaveAttribute(
     "data-error-reason",
-    "image_too_large"
+    "resource_limit_exceeded"
   );
   await expect(page.getByTestId("error-message")).toContainText("25 MiB");
 });
@@ -290,7 +312,7 @@ test("ten cancel cycles leave the next worker decode healthy", async ({ page }) 
     await page.getByTestId("upload-input").setInputFiles([]);
     await page.getByTestId("upload-input").setInputFiles(fixture("14-damaged.png"));
     await expect(page.getByTestId("processing-status")).toContainText(
-      /Detecting|Decoding|Trying|Backup/,
+      /Routing|Detecting|Decoding|Trying|Backup/,
       { timeout: 10_000 }
     );
     await page.getByTestId("cancel-button").click();

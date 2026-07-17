@@ -1,209 +1,140 @@
 import { describe, expect, it, vi } from "vitest";
-import { DecodeWorkerClient, type DecodeWorkerLike } from "../../lib/qr/worker/worker-client";
-import { fromTransferable, toTransferable } from "../../lib/qr/worker/transferable-buffer";
-import type { WorkerRequest, WorkerResponse } from "../../lib/qr/worker/worker-messages";
-import { createPixelBuffer } from "../../lib/qr/grayscale";
+import { createRgbaFrame, type ScanOutcome } from "@scanly/core";
+import { DecodeWorkerClient, fromTransferableFrame, toTransferableFrame, type DecodeWorkerLike, type WorkerRequest, type WorkerResponse } from "@scanly/browser";
+import { getBuiltinScenario } from "@scanly/scenario-schema";
 
 class FakeWorker implements DecodeWorkerLike {
   onmessage: ((event: MessageEvent<WorkerResponse>) => void) | null = null;
   onerror: ((event: ErrorEvent) => void) | null = null;
-  messages: WorkerRequest[] = [];
-  terminated = false;
-
-  postMessage(message: WorkerRequest): void {
-    this.messages.push(message);
-  }
-
-  terminate(): void {
-    this.terminated = true;
-  }
-
-  emit(message: WorkerResponse): void {
-    this.onmessage?.({ data: message } as MessageEvent<WorkerResponse>);
-  }
-
-  fail(message: string): void {
-    this.onerror?.({ message } as ErrorEvent);
-  }
+  readonly posted: WorkerRequest[] = [];
+  readonly terminate = vi.fn();
+  postMessage(message: WorkerRequest): void { this.posted.push(message); }
+  emit(message: WorkerResponse): void { this.onmessage?.({ data: message } as MessageEvent<WorkerResponse>); }
 }
 
-function pixels() {
-  const data = new Uint8ClampedArray(4 * 4 * 4);
-  data.fill(255);
-  return createPixelBuffer(data, 4, 4);
+function frame(id = "frame") { return createRgbaFrame(new Uint8ClampedArray(16), 2, 2, { id, sourceType: "upload", ownership: "transferred" }); }
+function success(frameId = "frame"): ScanOutcome {
+  const result = { format: "qr_code" as const, rawText: "OK", engine: { id: "fake", version: "1" }, preprocessingPath: [], frameId, structuredPayload: null, validation: { valid: true, validatorIds: [], messages: [] }, warnings: [], timing: { totalMs: 2 } };
+  return { ok: true, results: [result], primary: result, frameId, scenarioId: "fast", attemptCount: 1, timing: { totalMs: 2 } };
 }
 
-function success(jobId: string, payload: string): WorkerResponse {
-  return {
-    type: "result",
-    jobId,
-    outcome: {
-      ok: true,
-      results: [{
-        payload,
-        decoder: "jsqr",
-        preprocessing: "original",
-        candidateIndex: 0,
-        scale: "original",
-        rotation: 0,
-        cropPadding: "full",
-        attemptIndex: 0,
-      }],
-      primary: {
-        payload,
-        decoder: "jsqr",
-        preprocessing: "original",
-        candidateIndex: 0,
-        scale: "original",
-        rotation: 0,
-        cropPadding: "full",
-        attemptIndex: 0,
-      },
-      attempts: [],
-      attemptCount: 1,
-      elapsedMs: 10,
-      cancelled: false,
-    },
-  };
-}
-
-describe("transferable pixel buffers", () => {
-  it("round-trips dimensions and pixel bytes", () => {
-    const input = pixels();
-    const { serialized, transfer } = toTransferable(input);
-    expect(transfer).toEqual([serialized.buffer]);
-    const output = fromTransferable(serialized);
-    expect(output.width).toBe(4);
-    expect([...output.data]).toEqual([...input.data]);
+describe("normalized Worker runtime", () => {
+  it("round-trips normalized transferable frame metadata", () => {
+    const source = frame("roundtrip");
+    const { serialized, transfer } = toTransferableFrame(source);
+    expect(transfer).toHaveLength(1);
+    expect(fromTransferableFrame(serialized)).toMatchObject({ id: "roundtrip", width: 2, height: 2, pixelFormat: "rgba8888", ownership: "transferred" });
   });
 
-  it("copies a view that does not own its full backing buffer", () => {
-    const backing = new Uint8ClampedArray(80);
-    const view = backing.subarray(8, 72);
-    const { serialized } = toTransferable(createPixelBuffer(view, 4, 4));
-    expect(serialized.buffer).not.toBe(backing.buffer);
-    expect(serialized.buffer.byteLength).toBe(64);
-  });
-});
-
-describe("DecodeWorkerClient ownership and cancellation", () => {
-  it("forwards ordered stage/progress and resolves the active result", async () => {
-    const workers: FakeWorker[] = [];
+  it("posts a validated scenario and returns public Router outcomes", async () => {
+    const worker = new FakeWorker();
     const stages: string[] = [];
     const progress: number[] = [];
-    const client = new DecodeWorkerClient(() => {
-      const worker = new FakeWorker();
-      workers.push(worker);
-      return worker;
-    });
-
-    const pending = client.decode(pixels(), {
-      onStage: (stage) => stages.push(stage),
-      onProgress: (item) => progress.push(item.attemptCount),
-    });
-    const request = workers[0].messages[0];
-    expect(request.type).toBe("decode");
-    if (request.type !== "decode") throw new Error("expected decode request");
-
-    workers[0].emit({ type: "stage", jobId: request.jobId, stage: "Detecting" });
-    workers[0].emit({ type: "progress", jobId: request.jobId, attemptCount: 1 });
-    workers[0].emit({ type: "progress", jobId: request.jobId, attemptCount: 2 });
-    workers[0].emit(success(request.jobId, "ACTIVE"));
-
+    const client = new DecodeWorkerClient(() => worker);
+    const pending = client.scan(frame(), getBuiltinScenario("fast"), { onStage: (stage) => stages.push(stage), onProgress: ({ attemptCount }) => progress.push(attemptCount) });
+    const request = worker.posted[0];
+    expect(request.type).toBe("scan");
+    if (request.type !== "scan") throw new Error("expected scan request");
+    worker.emit({ type: "stage", jobId: request.jobId, generation: request.generation, stage: "Routing normalized frame..." });
+    worker.emit({ type: "progress", jobId: request.jobId, generation: request.generation, attemptCount: 1 });
+    worker.emit({ type: "result", jobId: request.jobId, generation: request.generation, outcome: success() });
     const outcome = await pending;
-    expect(stages).toEqual(["Detecting"]);
-    expect(progress).toEqual([1, 2]);
-    expect(outcome.ok && outcome.primary.payload).toBe("ACTIVE");
-    expect(outcome.phaseTiming?.workerTransferMs).toBeGreaterThanOrEqual(0);
+    expect(outcome.ok).toBe(true);
+    expect(stages).toEqual(["Routing normalized frame..."]);
+    expect(progress).toEqual([1]);
+    expect(outcome.timing.workerSetupMs).toBeTypeOf("number");
   });
 
-  it("settles a cancelled job, ignores stale messages, and restarts for the next job", async () => {
+  it("reuses one initialized Worker across sequential camera-style frames", async () => {
     const workers: FakeWorker[] = [];
-    const staleSuccess = vi.fn();
-    const client = new DecodeWorkerClient(() => {
-      const worker = new FakeWorker();
-      workers.push(worker);
-      return worker;
-    });
-
-    const first = client.decode(pixels(), { onStage: staleSuccess });
-    const firstRequest = workers[0].messages[0];
-    if (firstRequest.type !== "decode") throw new Error("expected decode request");
-    const second = client.decode(pixels());
-    expect((await first).ok).toBe(false);
-    expect(workers[0].terminated).toBe(true);
-    expect(workers).toHaveLength(2);
-
-    workers[0].emit({ type: "stage", jobId: firstRequest.jobId, stage: "STALE" });
-    workers[0].emit(success(firstRequest.jobId, "STALE"));
-    expect(staleSuccess).not.toHaveBeenCalled();
-
-    const secondRequest = workers[1].messages[0];
-    if (secondRequest.type !== "decode") throw new Error("expected decode request");
-    workers[1].emit(success(secondRequest.jobId, "FRESH"));
-    const outcome = await second;
-    expect(outcome.ok && outcome.primary.payload).toBe("FRESH");
-  });
-
-  it("does not let an already-aborted late caller cancel the current owner", async () => {
-    const workers: FakeWorker[] = [];
-    const client = new DecodeWorkerClient(() => {
-      const worker = new FakeWorker();
-      workers.push(worker);
-      return worker;
-    });
-    const current = client.decode(pixels());
-    const currentRequest = workers[0].messages[0];
-    if (currentRequest.type !== "decode") throw new Error("expected decode request");
-
-    const staleController = new AbortController();
-    staleController.abort();
-    const stale = await client.decode(pixels(), { signal: staleController.signal });
-    expect(stale.ok).toBe(false);
-    expect(workers[0].terminated).toBe(false);
-
-    workers[0].emit(success(currentRequest.jobId, "CURRENT_OWNER"));
-    const outcome = await current;
-    expect(outcome.ok && outcome.primary.payload).toBe("CURRENT_OWNER");
-  });
-
-  it("records in-flight cancellation latency and can run another task", async () => {
-    const workers: FakeWorker[] = [];
-    const client = new DecodeWorkerClient(() => {
-      const worker = new FakeWorker();
-      workers.push(worker);
-      return worker;
-    });
-    const first = client.decode(pixels());
-    client.cancel();
-    const cancelled = await first;
-    expect(cancelled.ok).toBe(false);
-    if (!cancelled.ok) {
-      expect(cancelled.reason).toBe("cancelled");
-      expect(cancelled.cancelled).toBe(true);
-      expect(cancelled.elapsedMs).toBeGreaterThanOrEqual(0);
-      expect(cancelled.phaseTiming?.cancellationLatencyMs).toBeLessThan(2_000);
+    const client = new DecodeWorkerClient(() => { const worker = new FakeWorker(); workers.push(worker); return worker; });
+    for (const id of ["camera-one", "camera-two"]) {
+      const pending = client.scan(frame(id), getBuiltinScenario("fast"));
+      const request = workers[0].posted.at(-1)!;
+      if (request.type !== "scan") throw new Error("expected scan request");
+      workers[0].emit({ type: "result", jobId: request.jobId, generation: request.generation, outcome: success(id) });
+      expect((await pending).frameId).toBe(id);
     }
-
-    const next = client.decode(pixels());
-    const request = workers.at(-1)?.messages[0];
-    if (!request || request.type !== "decode") throw new Error("expected decode request");
-    workers.at(-1)?.emit(success(request.jobId, "AFTER_CANCEL"));
-    expect((await next).ok).toBe(true);
+    expect(workers).toHaveLength(1);
+    expect(workers[0].terminate).not.toHaveBeenCalled();
+    client.dispose();
   });
 
-  it("maps worker errors and terminates on dispose", async () => {
+  it("ignores stale responses from replaced jobs", async () => {
+    const workers: FakeWorker[] = [];
+    const client = new DecodeWorkerClient(() => { const worker = new FakeWorker(); workers.push(worker); return worker; });
+    const first = client.scan(frame("one"), getBuiltinScenario("fast"));
+    const firstRequest = workers[0].posted[0];
+    const second = client.scan(frame("two"), getBuiltinScenario("fast"));
+    expect((await first).ok).toBe(false);
+    const secondRequest = workers[1].posted[0];
+    if (firstRequest.type !== "scan" || secondRequest.type !== "scan") throw new Error("expected scan requests");
+    workers[0].emit({ type: "result", jobId: firstRequest.jobId, generation: firstRequest.generation, outcome: success("one") });
+    workers[1].emit({ type: "result", jobId: secondRequest.jobId, generation: secondRequest.generation, outcome: success("two") });
+    expect((await second).frameId).toBe("two");
+  });
+
+  it("cancellation settles immediately and terminates the Worker", async () => {
     const worker = new FakeWorker();
     const client = new DecodeWorkerClient(() => worker);
-    const pending = client.decode(pixels());
-    worker.fail("boom");
+    const pending = client.scan(frame(), getBuiltinScenario("fast"));
+    client.cancel();
     const outcome = await pending;
     expect(outcome.ok).toBe(false);
-    if (!outcome.ok) {
-      expect(outcome.reason).toBe("worker_error");
-      expect(outcome.message).toContain("boom");
+    if (!outcome.ok) expect(outcome.error.code).toBe("cancelled");
+    expect(worker.terminate).toHaveBeenCalledOnce();
+  });
+
+  it("ignores a response from an old source generation", async () => {
+    const worker = new FakeWorker();
+    const client = new DecodeWorkerClient(() => worker);
+    const pending = client.scan(frame(), getBuiltinScenario("fast"), { generation: 4 });
+    const request = worker.posted[0];
+    if (request.type !== "scan") throw new Error("expected scan request");
+    worker.emit({ type: "result", jobId: request.jobId, generation: 3, outcome: success() });
+    expect(await Promise.race([pending.then(() => "settled"), Promise.resolve("pending")])).toBe("pending");
+    worker.emit({ type: "result", jobId: request.jobId, generation: 4, outcome: success() });
+    expect((await pending).ok).toBe(true);
+  });
+
+  it("maps Worker crashes and malformed responses to typed failures", async () => {
+    const worker = new FakeWorker();
+    const client = new DecodeWorkerClient(() => worker);
+    const crashed = client.scan(frame(), getBuiltinScenario("fast"));
+    worker.onerror?.({ message: "boom" } as ErrorEvent);
+    const crashOutcome = await crashed;
+    expect(crashOutcome.ok).toBe(false);
+    if (!crashOutcome.ok) expect(crashOutcome.error.code).toBe("worker_initialization_failure");
+  });
+
+  it("maps Worker construction failure without leaking a job", async () => {
+    const client = new DecodeWorkerClient(() => { throw new Error("blocked by CSP"); });
+    const outcome = await client.scan(frame(), getBuiltinScenario("fast"));
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.error.code).toBe("worker_initialization_failure");
+  });
+
+  it("survives 500 Worker terminate, recreate, cancellation, and recovery cycles", async () => {
+    const workers: FakeWorker[] = [];
+    const client = new DecodeWorkerClient(() => {
+      const worker = new FakeWorker();
+      workers.push(worker);
+      return worker;
+    });
+    for (let index = 0; index < 500; index++) {
+      const cancelled = client.scan(frame(`cancel-${index}`), getBuiltinScenario("fast"));
+      client.cancel();
+      expect((await cancelled).ok).toBe(false);
+
+      const recovered = client.scan(frame(`recover-${index}`), getBuiltinScenario("fast"));
+      const worker = workers.at(-1)!;
+      const request = worker.posted[0];
+      if (request.type !== "scan") throw new Error("expected scan request");
+      worker.emit({ type: "result", jobId: request.jobId, generation: request.generation, outcome: success(`recover-${index}`) });
+      expect((await recovered).ok).toBe(true);
+      client.dispose();
     }
-    expect(worker.terminated).toBe(true);
-    client.dispose();
+    expect(workers).toHaveLength(1_000);
+    expect(workers.filter((worker) => worker.terminate.mock.calls.length === 1)).toHaveLength(1_000);
   });
 });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { decodePixelBuffer } from "../../lib/qr/decode-pipeline";
-import { loadPixelBufferFromPath } from "../../lib/qr/image-loader-node";
-import { createPixelBuffer } from "../../lib/qr/grayscale";
+import { createPixelBuffer } from "@scanly/core/qr";
+import { decodePixelBufferWithNodeEngines as decodePixelBuffer } from "@scanly/node";
+import { loadPixelBufferFromPath } from "@scanly/node";
 import fs from "node:fs";
 import path from "node:path";
 

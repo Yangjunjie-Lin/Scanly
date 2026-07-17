@@ -5,17 +5,21 @@ on:
     branches:
       - main
       - master
+      - architecture/sdk-v2-foundation
+      - architecture/sdk-v2-alpha3-industrial-validation
   pull_request:
 
 jobs:
   verify:
-    name: Lint, typecheck, test, build, e2e, smoke benchmark
+    name: CI
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -29,8 +33,24 @@ jobs:
       - name: Generate fixtures
         run: npm run fixtures:generate
 
-      - name: Repository quality contracts
-        run: npm run quality:gates
+      - name: Generate scenarios
+        run: npm run scenarios:generate
+
+      - name: Generated fixture/scenario drift
+        run: git diff --exit-code -- fixtures scenarios
+
+      - name: Static quality contracts
+        run: npm run quality:static
+
+      - name: Canonical evidence contracts
+        shell: bash
+        run: |
+          if [[ -f benchmark-results/canonical/canonical-evidence-manifest.json ]]; then
+            echo "Canonical manifest present; enforcing strict release evidence mode."
+            npm run quality:evidence:release
+          else
+            echo "::notice::Alpha.3 evidence bootstrap state: strict release evidence will become mandatory when the canonical manifest is committed."
+          fi
 
       - name: Lint
         run: npm run lint
@@ -38,14 +58,32 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Documentation links
+        run: npm run docs:check
+
       - name: Unit tests
         run: npm run test:unit
+
+      - name: Integration tests
+        run: npx vitest run tests/integration
 
       - name: Coverage
         run: npm run test:coverage
 
+      - name: SDK package builds
+        run: npm run build:packages
+
+      - name: Native ESM package import smoke
+        run: npm run packages:smoke
+
+      - name: Package tarball and installed-export verification
+        run: npm run packages:tarball
+
+      - name: Tracked package output drift
+        run: git diff --exit-code -- packages engines
+
       - name: Production build
-        run: npm run build
+        run: npm run build:web
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium firefox webkit
@@ -58,8 +96,14 @@ jobs:
 
       - name: Verify smoke benchmark artifacts
         run: |
-          test -f benchmark-results/smoke.json
-          test -f benchmark-results/smoke.csv
+          test -f benchmark-results/development/smoke-balanced.json
+          test -f benchmark-results/development/smoke-balanced.csv
+
+      - name: Bundle cost report
+        run: npm run bundle:analyze
+
+      - name: Dependency audit
+        run: npm audit --audit-level=high
 
       - name: Upload smoke benchmark artifacts
         if: always()
@@ -68,5 +112,6 @@ jobs:
           name: benchmark-smoke
           if-no-files-found: error
           path: |
-            benchmark-results/smoke.json
-            benchmark-results/smoke.csv
+            benchmark-results/development/smoke-balanced.json
+            benchmark-results/development/smoke-balanced.csv
+            benchmark-results/ci/bundle-cost.json
