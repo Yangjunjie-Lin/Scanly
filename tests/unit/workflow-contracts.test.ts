@@ -47,6 +47,7 @@ describe("benchmark workflow contracts", () => {
 
   it("enforces release evidence when a manifest exists without automatic bootstrap fallback", () => {
     const workflow = read("ci.yml");
+    expect(workflow).toContain("fetch-depth: 0");
     expect(workflow).toContain("if [[ -f benchmark-results/canonical/canonical-evidence-manifest.json ]]");
     expect(workflow).toContain("npm run quality:evidence:release");
     expect(workflow).not.toContain("npm run quality:evidence:bootstrap");
