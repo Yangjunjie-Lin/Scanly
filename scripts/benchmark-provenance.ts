@@ -74,7 +74,7 @@ const EVIDENCE_ONLY_PATHS = [
   /^benchmark-results\/(?:latest-fast|latest|latest-robust)\.(?:json|csv)$/,
   /^benchmark-results\/comparison\.json$/,
   /^benchmark-results\/canonical\/.+$/,
-  /^benchmark-results\/baselines\/v2-alpha3-r1-(?:fast|balanced|robust)-node24-windows-x64\.json$/,
+  /^benchmark-results\/baselines\/v2-alpha3-r\d+-(?:fast|balanced|robust)-node24-windows-x64\.json$/,
   /^benchmark-results\/baselines\/registry\.json$/,
   /^docs\/benchmark\.md$/,
   /^README\.md$/,

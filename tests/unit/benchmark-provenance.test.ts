@@ -93,14 +93,15 @@ describe("source/evidence commit policy", () => {
     expect(verifyEvidenceOnlyPaths([
       "benchmark-results/latest-fast.json", "benchmark-results/latest-fast.csv", "benchmark-results/latest.json", "benchmark-results/latest.csv",
       "benchmark-results/latest-robust.json", "benchmark-results/latest-robust.csv", "benchmark-results/comparison.json",
-      "benchmark-results/canonical/canonical-evidence-manifest.json", "benchmark-results/baselines/v2-alpha3-r1-fast-node24-windows-x64.json",
+      "benchmark-results/canonical/canonical-evidence-manifest.json",
+      "benchmark-results/baselines/v2-alpha3-r1-fast-node24-windows-x64.json",
+      "benchmark-results/baselines/v2-alpha3-r2-balanced-node24-windows-x64.json",
       "benchmark-results/baselines/registry.json", "docs/benchmark.md", "README.md",
     ])).toEqual([]);
   });
 
   it.each([
     "benchmark-results/baselines/v2-alpha2-r3-balanced-node24-windows-x64.json",
-    "benchmark-results/baselines/v2-alpha3-r2-balanced-node24-windows-x64.json",
     "fixtures/manifest.json",
     ".github/workflows/benchmark.yml",
     "scripts/run-benchmark.ts",

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { BenchmarkRunSummary, ComparisonReport } from "@scanly/benchmark";
-import { sha256, stableJson } from "./benchmark-provenance.js";
+import { sha256, sha256Text, stableJson } from "./benchmark-provenance.js";
 import { validateBenchmarkCsv } from "./benchmark-csv.js";
 
 export const PROFILE_KEYS = ["fast", "balanced", "robust"] as const;
@@ -279,7 +279,7 @@ export function assembleCanonicalEvidence(inputs: Record<EvidenceReportKey, stri
   failures.push(...validateCompatibleSources([reports.fast, reports.balanced, reports.robust, reports.comparison]));
   if (failures.length) throw new Error(`Canonical evidence assembly failed:\n- ${failures.join("\n- ")}`);
 
-  const reportHashes = Object.fromEntries(Object.entries(inputs).map(([key, file]) => [key, sha256(fs.readFileSync(file))])) as Record<EvidenceReportKey, string>;
+  const reportHashes = Object.fromEntries(Object.entries(inputs).map(([key, file]) => [key, sha256Text(fs.readFileSync(file))])) as Record<EvidenceReportKey, string>;
   const identity = sourceFields(reports.fast);
   const evidenceId = `alpha3-${sha256(stableJson({ reportHashes, identity })).slice(0, 16)}`;
   const reportNames: Record<EvidenceReportKey, string> = {
@@ -324,7 +324,7 @@ export function readCanonicalEvidence(manifestPath: string): CanonicalEvidenceBu
   const reportPaths = Object.fromEntries(Object.entries(manifest.reports).map(([key, file]) => [key, path.resolve(base, file)])) as Record<EvidenceReportKey, string>;
   for (const key of Object.keys(reportPaths) as EvidenceReportKey[]) {
     if (!fs.existsSync(reportPaths[key])) throw new Error(`Canonical evidence report '${key}' is missing.`);
-    if (sha256(fs.readFileSync(reportPaths[key])) !== manifest.reportHashes[key]) throw new Error(`Canonical evidence report hash mismatch: ${key}.`);
+    if (sha256Text(fs.readFileSync(reportPaths[key])) !== manifest.reportHashes[key]) throw new Error(`Canonical evidence report hash mismatch: ${key}.`);
   }
   return {
     manifestPath: resolvedManifest,

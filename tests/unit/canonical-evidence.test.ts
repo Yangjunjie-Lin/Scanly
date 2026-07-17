@@ -82,6 +82,16 @@ describe("canonical evidence assembly", () => {
     expect(() => readCanonicalEvidence(bundle.manifestPath)).toThrow(/hash mismatch/);
   });
 
+  it("accepts checkout-specific CRLF conversion for canonical text evidence", () => {
+    const fixture = artifacts();
+    const bundle = assembleCanonicalEvidence(fixture.paths, path.join(fixture.root, "out"));
+    for (const reportPath of Object.values(bundle.reportPaths)) {
+      const contents = fs.readFileSync(reportPath, "utf8").replace(/\r?\n/g, "\r\n");
+      fs.writeFileSync(reportPath, contents);
+    }
+    expect(readCanonicalEvidence(bundle.manifestPath).manifest.evidenceId).toBe(bundle.manifest.evidenceId);
+  });
+
   it("rejects a missing canonical report", () => {
     const fixture = artifacts();
     const bundle = assembleCanonicalEvidence(fixture.paths, path.join(fixture.root, "out"));

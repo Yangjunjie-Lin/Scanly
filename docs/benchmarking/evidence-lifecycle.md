@@ -23,6 +23,6 @@ The reproducible flow is:
 
 ## Canonical CSV policy
 
-Canonical evidence includes `latest-fast.json`/`.csv`, `latest.json`/`.csv`, `latest-robust.json`/`.csv`, and `comparison.json`. The manifest hashes all seven files. Assembly rejects CSV row-count, fixture-ID, or represented-field drift, canonical update installs every alias atomically, and release verification rejects any stale JSON or CSV alias.
+Canonical evidence includes `latest-fast.json`/`.csv`, `latest.json`/`.csv`, `latest-robust.json`/`.csv`, and `comparison.json`. The manifest hashes all seven files after normalizing text line endings to LF, so Git checkout settings cannot invalidate otherwise identical Windows evidence. Assembly rejects CSV row-count, fixture-ID, or represented-field drift, canonical update installs every alias atomically, and release verification rejects any stale JSON or CSV alias.
 
 Baseline filenames are immutable. A changed evidence set uses `r2` or later and must never replace an existing `r1` file.
