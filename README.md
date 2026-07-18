@@ -36,7 +36,7 @@ This is Scanly's internal regression suite—not universal accuracy, a third-par
 <!-- BENCHMARK_SUMMARY_START -->
 | Metric | Value |
 | --- | ---: |
-| Evidence status | **Alpha.3 canonical evidence retained; Alpha.4 evidence pending Source Commit** |
+| Evidence status | **Alpha.4 canonical evidence** |
 | Internal fixtures | 74 |
 | Generated fixtures | 65 |
 | Project-owned photos | 9 |
@@ -45,7 +45,7 @@ This is Scanly's internal regression suite—not universal accuracy, a third-par
 | Negative false positives | **0/11 (0.0%)** |
 | Remaining failure | `14-damaged` |
 | Parallel execution | **experimental** (measured against sequential parity policy) |
-| Benchmark date | 2026-07-17 |
+| Benchmark date | 2026-07-18 |
 | Fixture manifest | [fixtures/manifest.json](fixtures/manifest.json) |
 | Canonical JSON | [benchmark-results/latest.json](benchmark-results/latest.json) |
 | Canonical CSV | [benchmark-results/latest.csv](benchmark-results/latest.csv) |
