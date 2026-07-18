@@ -6,10 +6,10 @@ This document is generated only by the approved canonical evidence update comman
 
 | Field | Value |
 | --- | --- |
-| Evidence ID | `alpha4-ee263ee0858ec31a` |
-| Manifest hash | `b04581e91a15bfa45524749104c14adbc44f170bd644a9e507e4d253a583bf92` |
-| Source commit | `97a7399b86b702ff29184df6194c94e2bba3298c` |
-| Source tree | `2d073f5643ece01e68330508ecf10d5c3fea234b` |
+| Evidence ID | `alpha4-ca549aa329cbee54` |
+| Manifest hash | `9eb4d0750bbfa2cbd1307e4e7d9dcc4cb911c3bb9b34ee3a76a512a1c6240015` |
+| Source commit | `5ca3d52b0f2e936e6660e91336fab0a2c5bc15e3` |
+| Source tree | `f59dde2bbf4845eb4a912915bfeb51b1ef769b0d` |
 | Dataset hash | `47d72bf1658ab7a0bde1a402b6f6c382c21f7822d5715a714436191acf62f79b` |
 | Package-lock hash | `b58a10200d6cff43739296ed746f588b8af49ebafe6c5dd2c9dd64ce9356372a` |
 | Engine composition hash | `04b14040d852e9e12c74b14a0e15ee323daf7e6f4d6abe416c758b6df7a2d22e` |
@@ -27,9 +27,9 @@ This document is generated only by the approved canonical evidence update comman
 | Fixtures | 73/74 |
 | Positive recall | 62/63 |
 | False positives | 0/11 |
-| Average | 521.73 ms |
-| Median | 421.00 ms |
-| P95 | 1434.00 ms |
+| Average | 489.74 ms |
+| Median | 401.50 ms |
+| P95 | 1563.00 ms |
 | Peak controlled memory | 66727104 bytes |
 | Final controlled memory | 0 bytes |
 | Remaining failure | `14-damaged` |
