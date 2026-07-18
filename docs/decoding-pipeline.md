@@ -29,3 +29,6 @@ Attempt metadata contains candidate index, padding, scale, rotation, preprocessi
 ## Multiple QR codes
 
 When multi-code is enabled, unique payloads are collected across candidates up to the scenario cap. Production uses a no-new-result stall window because it cannot know the true count. Benchmark multiple fixtures declare required payload sets and pass only when the complete set is present. A stall is never success when no result was found. Successful public outcomes use a non-empty tuple and always define `primary`.
+# Format-aware execution
+
+Alpha.5 keeps the existing QR pipeline compatibility surface but carries an explicit `formats` list through scenario compilation, candidate attempts, Worker messages, Node executors, and native calls. Matrix, stacked, and linear classes share bounded lifecycle and memory accounting while retaining different native masks and validation policies. A result outside the requested set is discarded at the pipeline boundary.

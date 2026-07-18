@@ -1,4 +1,4 @@
-import { CaptureRouter, createRgbaFrame, sdkError, type ConcurrentCallPolicy, type ScanFailure, type ScanOutcome } from "@scanly/core";
+import { CaptureRouter, createRgbaFrame, normalizeFormatSelection, sdkError, type BarcodeFormat, type ConcurrentCallPolicy, type FormatSelection, type ScanFailure, type ScanOutcome } from "@scanly/core";
 import { getBuiltinScenario, validateScenario, type ScenarioDefinition } from "@scanly/scenario-schema";
 import { loadPixelBufferFromFile } from "./image-loader.js";
 import { createBrowserCaptureRouter } from "./runtime.js";
@@ -8,6 +8,7 @@ export type BrowserCaptureSessionState = "idle" | "initialized" | "running" | "s
 export interface BrowserScanFileOptions extends WorkerScanOptions { forceMainThread?: boolean }
 export interface BrowserCaptureSessionOptions {
   scenario?: ScenarioDefinition;
+  formats?: FormatSelection | readonly BarcodeFormat[];
   concurrentCallPolicy?: ConcurrentCallPolicy;
   workerFactory?: DecodeWorkerFactory;
   router?: CaptureRouter;
@@ -27,7 +28,9 @@ export class BrowserCaptureSession {
   private owner = 0;
 
   constructor(options: BrowserCaptureSessionOptions = {}) {
-    const validation = validateScenario(options.scenario ?? getBuiltinScenario("balanced"));
+    const initial = options.scenario ?? getBuiltinScenario("balanced");
+    const configured = options.formats ? { ...initial, acceptedFormats: [...normalizeFormatSelection(options.formats).formats] } : initial;
+    const validation = validateScenario(configured);
     if (!validation.ok) throw Object.assign(new Error(validation.message), { code: "malformed_scenario", issues: validation.issues });
     this.scenario = validation.value;
     this.concurrentPolicy = options.concurrentCallPolicy ?? "replace";
@@ -49,6 +52,11 @@ export class BrowserCaptureSession {
     this.cancel();
     this.router.updateScenario(validation.value);
     this.scenario = validation.value;
+  }
+
+  updateFormats(selection: FormatSelection | readonly BarcodeFormat[]): void {
+    const formats = normalizeFormatSelection(selection).formats;
+    this.updateConfiguration({ ...this.scenario, acceptedFormats: [...formats] });
   }
 
   async scanFile(file: File, options: BrowserScanFileOptions = {}): Promise<ScanOutcome> {

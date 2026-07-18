@@ -3,7 +3,7 @@
   "packages": [
     {
       "packageName": "@scanly/core",
-      "packageVersion": "2.0.0-alpha.4",
+      "packageVersion": "2.0.0-alpha.5",
       "exports": {
         ".": {
           "types": "./dist/index.d.ts",
@@ -12,17 +12,26 @@
         "./qr": {
           "types": "./dist/qr/index.d.ts",
           "import": "./dist/qr/index.js"
+        },
+        "./barcode": {
+          "types": "./dist/barcode/index.d.ts",
+          "import": "./dist/barcode/index.js"
         }
       },
       "types": "./dist/index.d.ts",
       "declarationHashes": {
-        "contracts/engine.d.ts": "0ee5908e50ba2257b005a14ba597d2e92eda62758b7f85dc7007d6b01c62146d",
+        "barcode/contracts.d.ts": "ae7062901e42d6ff532a39e79441ff82989c3c51b6f3b20f360d659177b3e6d4",
+        "barcode/format-selection.d.ts": "5ce5bfd747388124265e1a56f0486986f2fae0bf1dc57a08c400dc620621c918",
+        "barcode/format.d.ts": "e5d67dd158ad3800044d98da9a8456f3efb426f5fe90fdf17b6d82e1c9ef262c",
+        "barcode/index.d.ts": "afb66bc5c141ee64f3497702fd70285d09d4f5fa664fbb8b4bdc2de70e6bf936",
+        "barcode/retail.d.ts": "27c24837fc65e26cc21c76384ef1a54fb9d02374c6357e35beccfb16980449a0",
+        "contracts/engine.d.ts": "9b5f75023c90f0bed092ca608a5fe502cefbea50d9531f7d966ba6cfe6310a75",
         "contracts/errors.d.ts": "260dd1c5f585c4dd05eb11f69a13bd31f07213254e97567e9f8dab356fca181c",
         "contracts/frame.d.ts": "fc65bdfc615c8af129d224744f3353326744fcf2fa677644916ae7a5f1abd0e1",
         "contracts/operator.d.ts": "18077b1053bb5156f59b92ae5906c8fba922f77bf226ca0c82bff535a00b08e8",
-        "contracts/result.d.ts": "acb46d167c16dd02cddc736960179e8c3e3b4e3a62557184e739cf6d610d846b",
+        "contracts/result.d.ts": "18477ad67be91bd65866662f7db79b5483e1da47463e1f658bb78c4157337465",
         "contracts/validator.d.ts": "33b21365b712c8349c0ed1a23dce445b5ce237ca9672b706e2cc63fad2a6944c",
-        "index.d.ts": "5717a5295a4f734f66c3d3444d962cd1eac3144c996414c7ece0496af26d3b46",
+        "index.d.ts": "a5b22523f21e382c3f9e91bca8cd4142840b776f9c8a45a7cd4686ecd7fee33e",
         "node.d.ts": "fdf1ff2400268ec2a2174d80575c70dd8d94eb1e12ddcb96942326f041cb6653",
         "qr/candidate-dedupe.d.ts": "0bc1424ef227275d66a6a64e47b0f72f4f13d36a959ddc1a9fb900514211a31b",
         "qr/candidate-generation.d.ts": "2ac64ce70edb51785514c329d3d92837390e577ff2d2d4f21fbdd5909cb59608",
@@ -30,13 +39,13 @@
         "qr/geometry.d.ts": "78ce65041c819c0377b0340b1685ada13a981fd1adaee9bce66e285cd7c0c47c",
         "qr/grayscale.d.ts": "7eba0c5ac9eb4bf31db74899b6e397b10ca371ecbd89ae8a953aa46a3e0759f5",
         "qr/image-loader-node.d.ts": "ba45b8b83c8634b9bcb30c79c3ac6639cba34a6b9440d124050978b193674e8d",
-        "qr/index.d.ts": "e2d28adb4cd7fc55bdc72b90debd55dd0fc5d51272a2b2cd2192dd30ffc6a3f9",
+        "qr/index.d.ts": "ffa90781abd783b76f27884a83ef0a136c6bed12d9e9201baf56dc93d8da24a2",
         "qr/jsqr-decoder.d.ts": "4208d2607b6daa218c00ab915cd708aea9fe32c467059e4987866800d5e0fec1",
         "qr/preprocess.d.ts": "5f090467f1fece9bf08be1b2ba89b88ca27971456383bc77744f292112cfcdac",
         "qr/region-detection.d.ts": "1405e6f8c9cede5a254a0c8069ea258edf5e8a0e2280b255660ddf4c93cbe2cb",
         "qr/result-normalizer.d.ts": "174de7dc55248eb344dc26616c0b991cdd239139b482bac080f8f3818d51405c",
         "qr/rotate.d.ts": "8e2af727f7c1eec43e8614723154f610c94aacf480df9d6b7bf93cf5b34c7a83",
-        "qr/types.d.ts": "4dad4cbc1031f31459db0e70e639c89534676aec65d93bfe97eb0354e97a0c2e",
+        "qr/types.d.ts": "943c2d133c435cd301663e72f816cea1ba824a24341c583db95fab95edbad8a2",
         "qr/zxing-decoder.d.ts": "b1d99759b8b23894d11d1bfd62f201332e477e8f8719d131a39556ced333a024",
         "runtime/artifacts.d.ts": "096119ed5417d3f69de9cafb01c2c4c8cc58b6eb4b973e802128765febf30d5a",
         "runtime/builtin-operators.d.ts": "e2525a7e975cc5d8eb7a0348c2686e325877f48afc5c07a7a73e81d16739e0cc",
@@ -48,7 +57,7 @@
         "runtime/memory-budget.d.ts": "cf4a7ef38dfcf3d14828bdf8de5cc6ce8147891fdcfcd41fe428cfa581a188c6",
         "runtime/operator-registry.d.ts": "342afc92a52e0bd215c7fee2f48e52064ed0e38bd6bebee9e2d0aeebb34a5eaf",
         "runtime/result-policies.d.ts": "047fa6ad503369b40925a3d3538fe4848258ae880e6629da41333a72be5587fc",
-        "runtime/router.d.ts": "8fc86e5fee83398caedeb62a4f5ef87f9d549703bae428cb7d72852a3665909b",
+        "runtime/router.d.ts": "e752341e90d1f78e8ba588e765290d8168424d3be7c522335d030ddb8b210466",
         "runtime/scenario-compiler.d.ts": "5f3637dcd5201143ab70f184cea2e38473a3efe2f74f7e3df5b1c8ef82031ef4",
         "runtime/scenario-runtime.d.ts": "c489cfa8b5c344e626ea4b41a878e7763bb6eb6d7ac86268ba6e9e63fc3564cd",
         "runtime/session.d.ts": "8d93312eef6d093aab9baa2536295e8fddd217cc56bdcbea3d8165eea10e0887",
@@ -57,7 +66,7 @@
     },
     {
       "packageName": "@scanly/browser",
-      "packageVersion": "2.0.0-alpha.4",
+      "packageVersion": "2.0.0-alpha.5",
       "exports": {
         ".": {
           "types": "./dist/index.d.ts",
@@ -66,12 +75,12 @@
       },
       "types": "./dist/index.d.ts",
       "declarationHashes": {
-        "browser-session.d.ts": "857b1d18d18eb4ede30a2e1d0478a6418f44408344655e216b0b8831f3478b38",
+        "browser-session.d.ts": "9edce8c9d19b6eaffc280a5da8b9a3befd3e91653e478413374ae9823ffac8fa",
         "camera-source.d.ts": "961e60955c1a11823ba5c7c78590a6d9dd0cc9c71b5ecc830d326d1edbfd21cf",
         "camera-strategy.d.ts": "799e0c964d6702c443caa4bc5d3d4b55a741a8733b1e35d2f260db28cd58e070",
         "decode-upload.d.ts": "2509ee37a22687302a4b4212d99b89e8c3506b493c649f95bd2d09375b2e35fa",
         "image-loader.d.ts": "ad4c9336c38ca562c043e284a8cdb832f6e7579d127df3740cbef72647a6091e",
-        "index.d.ts": "a3bdc1ea731e3ed6cdc87542015fe3a26269de1083f0ee992ba437c2e5e5f394",
+        "index.d.ts": "c7dbb01a0fa86164eab51a1094cee1aad2fab3921e4fb9e96f621054eb514da6",
         "runtime.d.ts": "50be12a3ab1f49d28d15df8d1dfd2531d5888b3c6899cff1471f7a5012c99f60",
         "worker/decode-worker.d.ts": "f87b75640566592d1b770326e1439dc803530222bdeb29a560dbc84b731c613e",
         "worker/transferable-buffer.d.ts": "447b1543555cba606416011c73b51b9d5ec823c30f680e89a5174ccbae15b309",
@@ -81,7 +90,7 @@
     },
     {
       "packageName": "@scanly/node",
-      "packageVersion": "2.0.0-alpha.4",
+      "packageVersion": "2.0.0-alpha.5",
       "exports": {
         ".": {
           "types": "./dist/index.d.ts",
@@ -95,7 +104,7 @@
     },
     {
       "packageName": "@scanly/react",
-      "packageVersion": "2.0.0-alpha.4",
+      "packageVersion": "2.0.0-alpha.5",
       "exports": {
         ".": {
           "types": "./dist/index.d.ts",
@@ -109,7 +118,7 @@
     },
     {
       "packageName": "@scanly/scenario-schema",
-      "packageVersion": "2.0.0-alpha.4",
+      "packageVersion": "2.0.0-alpha.5",
       "exports": {
         ".": {
           "types": "./dist/index.d.ts",
@@ -118,12 +127,12 @@
       },
       "types": "./dist/index.d.ts",
       "declarationHashes": {
-        "index.d.ts": "e280f6976e79e9b64f14a698cfa91fc2f5008ec02b1bce7e597c2281d1a1f791"
+        "index.d.ts": "ef2041f151c8cf7a1e9ba78e70c3fb17d9c8095725096725a1b12a99c8df345b"
       }
     },
     {
       "packageName": "@scanly/parsers",
-      "packageVersion": "2.0.0-alpha.4",
+      "packageVersion": "2.0.0-alpha.5",
       "exports": {
         ".": {
           "types": "./dist/index.d.ts",
@@ -137,7 +146,7 @@
     },
     {
       "packageName": "@scanly/benchmark",
-      "packageVersion": "2.0.0-alpha.4",
+      "packageVersion": "2.0.0-alpha.5",
       "exports": {
         ".": {
           "types": "./dist/index.d.ts",
@@ -151,12 +160,12 @@
         "index.d.ts": "fb7f483918dbf4b26a9476a91d455134d484fee2f64b7e9d8020c79eab32d580",
         "measurement.d.ts": "eefde5931c7f0d092ba831d3bb2e17bca966ac329a241a62d8a390339c12d549",
         "quality-gates.d.ts": "33c10f42d7cf330fc88f2c0577844d0af019acbdaf9f53701aa11753e824fc7b",
-        "types.d.ts": "ece8d620929ff2f800ff71e728f09423104b19e6664227a7a4f95a2f2eff4eea"
+        "types.d.ts": "c69b8fa2a0d82ffd0d60a1f73f531deed14c8f21ab6097eda8f00d83a6e07a46"
       }
     },
     {
       "packageName": "@scanly/engine-jsqr",
-      "packageVersion": "2.0.0-alpha.4",
+      "packageVersion": "2.0.0-alpha.5",
       "exports": {
         ".": {
           "types": "./dist/index.d.ts",
@@ -165,12 +174,12 @@
       },
       "types": "./dist/index.d.ts",
       "declarationHashes": {
-        "index.d.ts": "f03c6aad2faa72f1ca920d4c68b5895d3bdc0260e0b400619e1c7159124a1d8a"
+        "index.d.ts": "f10fcd3c74332b9e1ca6ef1d03b6aa225d514a290d04da096ddc641321e0b892"
       }
     },
     {
       "packageName": "@scanly/engine-zxing-js",
-      "packageVersion": "2.0.0-alpha.4",
+      "packageVersion": "2.0.0-alpha.5",
       "exports": {
         ".": {
           "types": "./dist/index.d.ts",
@@ -179,7 +188,7 @@
       },
       "types": "./dist/index.d.ts",
       "declarationHashes": {
-        "index.d.ts": "d907016ddb3c43dfe1dc89c22dfdcbe01b8dd491546afe3ad0bc698854d1f681"
+        "index.d.ts": "cdedf9c166132ce21bacaf31e40affed4feecb6b2f3cf7b9b2c59f47ec6b25b1"
       }
     }
   ]

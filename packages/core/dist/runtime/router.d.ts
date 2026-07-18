@@ -1,4 +1,4 @@
-import { type ScenarioDefinition } from "@scanly/scenario-schema";
+import { type BarcodeFormat, type ScenarioDefinition } from "@scanly/scenario-schema";
 import { type NormalizedFrame } from "../contracts/frame.js";
 import type { ScanOutcome } from "../contracts/result.js";
 import { EngineRegistry } from "./engine-registry.js";
@@ -7,8 +7,11 @@ import { ScenarioCompiler } from "./scenario-compiler.js";
 import { scenarioToPipelineConfig } from "./scenario-runtime.js";
 import { ValidatorRegistry } from "./validator-registry.js";
 import { type ScanlyCapabilities } from "./capabilities.js";
+import { type FormatSelection } from "../barcode/format-selection.js";
 export interface CaptureRouterOptions {
     scenario?: ScenarioDefinition;
+    /** Explicit format opt-in. Omitted means the scenario's QR-only default. */
+    formats?: FormatSelection | readonly BarcodeFormat[];
     engines?: EngineRegistry;
     operators?: OperatorRegistry;
     validators?: ValidatorRegistry;
@@ -33,6 +36,7 @@ export declare class CaptureRouter {
     scan(frame: NormalizedFrame, options?: {
         signal?: AbortSignal;
         scenario?: ScenarioDefinition;
+        formats?: FormatSelection | readonly BarcodeFormat[];
     }): Promise<ScanOutcome>;
     dispose(): Promise<void>;
     private assertUsable;

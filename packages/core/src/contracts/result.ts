@@ -1,5 +1,5 @@
 import type { StructuredPayload } from "@scanly/parsers";
-import type { BarcodeFormat } from "@scanly/scenario-schema";
+import type { BarcodeFormat, BarcodeFormatClass } from "@scanly/scenario-schema";
 import type { SdkError } from "./errors.js";
 import type { MemoryObservation } from "../runtime/memory-budget.js";
 
@@ -44,6 +44,8 @@ export interface CandidateMetadata {
 }
 export interface ScanResult {
   format: BarcodeFormat;
+  /** Alpha.5 generic execution class; optional for Alpha.4-compatible custom results. */
+  formatClass?: BarcodeFormatClass;
   rawText: string;
   rawBytes?: Uint8Array;
   /** Pixel coordinates in the original normalized frame coordinate space. */
@@ -65,6 +67,8 @@ export interface ScanResult {
   trackId?: string;
   structuredPayload: StructuredPayload | null;
   symbologyIdentifier?: string;
+  isGs1?: boolean;
+  metadata?: Record<string, unknown>;
   validation: ValidationResult;
   warnings: string[];
   timing: ScanTiming;

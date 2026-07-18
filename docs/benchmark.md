@@ -36,3 +36,6 @@ This document is generated only by the approved canonical evidence update comman
 | Parallel execution | experimental |
 
 See the canonical JSON aliases for per-fixture iteration timings, phase timing, variance, attempts, and profile-specific metrics.
+# Alpha.5 measurement boundary
+
+Alpha.5 reports must retain the legacy QR suite as a separate denominator and add per-format recall, exact accuracy, false positives, format confusion, checksum rejection, GS1 recognition, and mixed-format completeness. The `benchmark:symbologies` command currently emits a contract-only engine matrix; it intentionally does not manufacture accuracy numbers before the dedicated Alpha.5 fixture corpus is frozen and measured from a clean source commit.

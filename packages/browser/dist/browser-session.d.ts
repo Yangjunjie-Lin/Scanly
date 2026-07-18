@@ -1,4 +1,4 @@
-import { CaptureRouter, type ConcurrentCallPolicy, type ScanOutcome } from "@scanly/core";
+import { CaptureRouter, type BarcodeFormat, type ConcurrentCallPolicy, type FormatSelection, type ScanOutcome } from "@scanly/core";
 import { type ScenarioDefinition } from "@scanly/scenario-schema";
 import { type DecodeWorkerFactory, type WorkerScanOptions } from "./worker/worker-client.js";
 export type BrowserCaptureSessionState = "idle" | "initialized" | "running" | "stopped" | "disposed";
@@ -7,6 +7,7 @@ export interface BrowserScanFileOptions extends WorkerScanOptions {
 }
 export interface BrowserCaptureSessionOptions {
     scenario?: ScenarioDefinition;
+    formats?: FormatSelection | readonly BarcodeFormat[];
     concurrentCallPolicy?: ConcurrentCallPolicy;
     workerFactory?: DecodeWorkerFactory;
     router?: CaptureRouter;
@@ -28,6 +29,7 @@ export declare class BrowserCaptureSession {
     stop(): void;
     cancel(): void;
     updateConfiguration(scenario: ScenarioDefinition): void;
+    updateFormats(selection: FormatSelection | readonly BarcodeFormat[]): void;
     scanFile(file: File, options?: BrowserScanFileOptions): Promise<ScanOutcome>;
     dispose(): Promise<void>;
     private assertNotDisposed;

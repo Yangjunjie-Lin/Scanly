@@ -1,6 +1,8 @@
 # SDK v2 architecture
 
-> Alpha.4 adds an optional ZXing-C++ WASM plugin. Core remains dependency-inverted and contains no DOM, Node, concrete decoder, or WASM loader dependency. Browser and Node composition roots register `jsqr`, `zxing-cpp-wasm`, and `zxing-js`; the persistent Worker owns the same Browser registry. See [ZXing-C++ WebAssembly engine](wasm-engine.md).
+> Alpha.5 uses the optional ZXing-C++ WASM plugin as its bounded multi-format engine. Core remains dependency-inverted and contains no DOM, Node, concrete decoder, or WASM loader dependency. Browser and Node composition roots register `jsqr`, `zxing-cpp-wasm`, and `zxing-js`; the persistent Worker owns the same Browser registry. See [ZXing-C++ WebAssembly engine](wasm-engine.md).
+
+`@scanly/scenario-schema` owns the closed public format union and scenario presets. `packages/core/src/barcode` owns format classes, explicit selection validation, generic results, and retail validation. Existing `packages/core/src/qr` imports remain compatibility facades around the established pipeline. `ScenarioCompiler` validates engine/format coverage before execution, and the native adapter maps Scanly format strings to a bounded ZXing mask and detected values back to Scanly strings.
 
 Scanly v2 has one local-only capture execution model. Framework adapters compose the runtime; they do not own decoding business logic.
 

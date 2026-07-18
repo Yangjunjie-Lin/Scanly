@@ -1,7 +1,7 @@
 {
   "name": "scanly",
   "private": true,
-  "version": "2.0.0-alpha.4",
+  "version": "2.0.0-alpha.5",
   "workspaces": [
     "apps/*",
     "packages/*",
@@ -31,6 +31,7 @@
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
     "test:coverage": "vitest run --coverage",
+    "test:symbologies": "vitest run tests/unit/multisymbology-contracts.test.ts tests/unit/zxing-cpp-formats.test.ts tests/unit/parsers.test.ts",
     "test:e2e": "playwright test",
     "test:e2e:chromium": "playwright test --project=chromium",
     "test:e2e:firefox": "playwright test --project=firefox",
@@ -39,6 +40,7 @@
     "test:wasm:memory": "node --expose-gc --import tsx scripts/soak-wasm-memory.ts",
     "benchmark": "tsx scripts/run-benchmark.ts",
     "benchmark:smoke": "tsx scripts/run-benchmark.ts --smoke --gate",
+    "benchmark:symbologies": "tsx scripts/benchmark-symbologies.ts",
     "benchmark:compare": "tsx scripts/compare-engines.ts",
     "benchmark:browser": "playwright test -c playwright.benchmark.config.ts",
     "benchmark:assemble-canonical": "tsx scripts/assemble-canonical-evidence.ts",

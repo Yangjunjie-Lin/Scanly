@@ -2,7 +2,7 @@
 
 ## Version policy
 
-- SDK package version: `2.0.0-alpha.3`
+- SDK package version: `2.0.0-alpha.5`
 
 `ScanResult.cornerPoints` are always expressed as pixel coordinates in the original normalized frame. ROI offsets, candidate crops, resizing, scale caps, and clockwise decode-attempt rotations are inverted before publication. Invalid or implausibly out-of-frame engine points are omitted.
 
@@ -54,4 +54,6 @@ When `output.includeAttempts` is enabled, `attempts` contains a bounded, payload
 
 ## Supported capability versus vocabulary
 
-The scenario format union reserves identifiers for future formats, but installed default engines report and test only `qr_code` (QR Code Model 2). A scenario requesting uncovered formats returns `unsupported_format` during compilation. Capability metadata, documentation, and tests must change before any other format is claimed.
+Alpha.5 publicly supports `qr_code`, `data_matrix`, `pdf417`, `code_128`, `ean_13`, `ean_8`, `upc_a`, and `upc_e`. Deferred ZXing formats are not in the public union. jsQR and ZXing-JS report QR-only capabilities; the pinned ZXing-C++ WASM engine reports the eight verified mappings. A scenario requesting a format with no registered engine returns `unsupported_format` during compilation.
+
+`FormatSelection` accepts a non-empty list, normalizes duplicates, rejects deferred/unknown formats, and is propagated through Router, Worker, Node, and native decode options. QR-only remains the default when no explicit selection or non-QR scenario is supplied.

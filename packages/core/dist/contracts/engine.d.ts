@@ -1,10 +1,13 @@
-import type { BarcodeFormat } from "@scanly/scenario-schema";
+import type { BarcodeFormat, BarcodeFormatClass } from "@scanly/scenario-schema";
 import type { NormalizedFrame } from "./frame.js";
 import type { CornerPoint } from "./result.js";
 export interface EngineCapabilities {
     formats: readonly BarcodeFormat[];
+    formatClasses?: readonly BarcodeFormatClass[];
     supportsMultiple: boolean;
     returnsRawBytes: boolean;
+    /** Alpha.5 spelling retained alongside the Alpha.4 returnsRawBytes field. */
+    supportsRawBytes?: boolean;
     returnsCornerPoints: boolean;
     threadSafe: boolean;
     estimatedScratchBytesPerPixel?: number;
@@ -12,6 +15,7 @@ export interface EngineCapabilities {
     runtimeKinds?: readonly ("browser" | "worker" | "node")[];
     supportsInversion?: boolean;
     supportsStructuredAppend?: boolean;
+    supportsGs1?: boolean;
     supportsOrientation?: boolean;
     initializationMode?: "lazy" | "explicit";
     executionModel?: "javascript" | "wasm" | "native";
@@ -31,6 +35,8 @@ export interface EngineDecodeResult {
     cornerPoints?: CornerPoint[];
     orientation?: number;
     symbologyIdentifier?: string;
+    isGs1?: boolean;
+    metadata?: Record<string, unknown>;
     engineMetadata?: EngineExecutionMetadata;
     elapsedMs: number;
 }

@@ -1,4 +1,4 @@
-import { CaptureRouter, createRgbaFrame, sdkError } from "@scanly/core";
+import { CaptureRouter, createRgbaFrame, normalizeFormatSelection, sdkError } from "@scanly/core";
 import { getBuiltinScenario, validateScenario } from "@scanly/scenario-schema";
 import { loadPixelBufferFromFile } from "./image-loader.js";
 import { createBrowserCaptureRouter } from "./runtime.js";
@@ -14,7 +14,9 @@ export class BrowserCaptureSession {
     controller = null;
     owner = 0;
     constructor(options = {}) {
-        const validation = validateScenario(options.scenario ?? getBuiltinScenario("balanced"));
+        const initial = options.scenario ?? getBuiltinScenario("balanced");
+        const configured = options.formats ? { ...initial, acceptedFormats: [...normalizeFormatSelection(options.formats).formats] } : initial;
+        const validation = validateScenario(configured);
         if (!validation.ok)
             throw Object.assign(new Error(validation.message), { code: "malformed_scenario", issues: validation.issues });
         this.scenario = validation.value;
@@ -39,6 +41,10 @@ export class BrowserCaptureSession {
         this.cancel();
         this.router.updateScenario(validation.value);
         this.scenario = validation.value;
+    }
+    updateFormats(selection) {
+        const formats = normalizeFormatSelection(selection).formats;
+        this.updateConfiguration({ ...this.scenario, acceptedFormats: [...formats] });
     }
     async scanFile(file, options = {}) {
         const frameId = `browser-frame-${Date.now()}-${++browserFrameSequence}`;

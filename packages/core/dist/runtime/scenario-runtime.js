@@ -4,6 +4,7 @@ export function scenarioToPipelineConfig(scenario) {
         : ["original"];
     const decoderOrder = scenario.ablation.multiEngineFallback ? scenario.decoders.order : scenario.decoders.order.slice(0, 1);
     return {
+        formats: [...scenario.acceptedFormats],
         maxCandidates: Math.min(scenario.localization.maxCandidates, scenario.budgets.maxCandidates),
         maxAttempts: scenario.budgets.maxAttempts,
         timeoutMs: scenario.budgets.maxExecutionMs,

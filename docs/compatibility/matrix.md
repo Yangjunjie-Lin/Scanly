@@ -1,5 +1,17 @@
 # Compatibility matrix
 
+## Alpha.5 public formats
+
+| Format family | Browser main | Worker | Node | Engine status |
+| --- | --- | --- | --- | --- |
+| QR Code Model 2 | supported | supported | supported | jsQR/ZXing-JS fallback, ZXing-C++ primary |
+| Data Matrix ECC 200 | adapter path | adapter path | adapter path | ZXing-C++ primary; fixture evidence pending |
+| PDF417 | adapter path | adapter path | adapter path | ZXing-C++ primary; Macro/Micro deferred |
+| Code 128 and GS1-128 | adapter path | adapter path | adapter path | ZXing-C++ primary; bounded GS1 semantics |
+| EAN/UPC core | adapter path | adapter path | adapter path | ZXing-C++ primary; checksum validation required |
+
+"Adapter path" describes the same local Worker/Node composition and pinned WASM boundary; it is not a claim that Alpha.5 canonical accuracy gates have already been generated.
+
 | ZXing-C++ WASM capability | Chromium | Firefox | WebKit | Node 20.16–24 |
 | --- | --- | --- | --- | --- |
 | Standard WASM | supported | supported | supported | supported |

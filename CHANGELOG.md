@@ -2,6 +2,14 @@
 
 All notable changes follow semantic versioning.
 
+## [2.0.0-alpha.5] - 2026-07-19
+
+- Added the explicit Alpha.5 public format contract for QR Code Model 2, Data Matrix ECC 200, PDF417, Code 128, EAN-13, EAN-8, UPC-A, and UPC-E.
+- Added format-class metadata, normalized format selections, QR-compatible defaults, multi-format scenario presets, and public decoded-barcode/retail metadata contracts.
+- Wired requested format masks and native result mappings through the ZXing-C++ WASM boundary. Invalid EAN/UPC checksums are rejected and UPC-A/UPC-E format identity is preserved.
+- Extended local GS1 parsing to bounded FNC1 element strings while keeping semantic parsing separate from raw decoding.
+- Alpha.5 remains a preview. Generated/real-photo fixture expansion and canonical Alpha.5 evidence activation are release gates and are not represented by the historical Alpha.4 reports.
+
 ## [2.0.0-alpha.4] - 2026-07-18
 
 - Added the optional `@scanly/engine-zxing-cpp-wasm` QR engine using pinned `zxing-wasm` 3.1.1 and ZXing-C++ commit `6c2961d2a9ea4bc4e4ae8f37b1497299f04dd861`.

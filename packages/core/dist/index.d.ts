@@ -1,4 +1,4 @@
-export declare const SDK_VERSION: "2.0.0-alpha.4";
+export declare const SDK_VERSION: "2.0.0-alpha.5";
 export * from "./contracts/frame.js";
 export * from "./contracts/errors.js";
 export * from "./contracts/result.js";
@@ -19,6 +19,10 @@ export * from "./runtime/frame-normalization.js";
 export * from "./runtime/capabilities.js";
 export * from "./runtime/router.js";
 export * from "./runtime/session.js";
+export * from "./barcode/format.js";
+export * from "./barcode/format-selection.js";
+export * from "./barcode/contracts.js";
+export * from "./barcode/retail.js";
 export { SCENARIO_SCHEMA_VERSION, BUILTIN_SCENARIOS, getBuiltinScenario, validateScenario, migrateScenario } from "@scanly/scenario-schema";
-export type { ScenarioDefinition, ScenarioValidationIssue, BarcodeFormat, BuiltinScenarioId } from "@scanly/scenario-schema";
+export type { ScenarioDefinition, ScenarioValidationIssue, BarcodeFormat, BarcodeFormatClass, BuiltinScenarioId, ScenarioPresetId } from "@scanly/scenario-schema";
 //# sourceMappingURL=index.d.ts.map

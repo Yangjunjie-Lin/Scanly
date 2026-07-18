@@ -22,7 +22,7 @@ function artifacts() {
   for (const [profile, file] of [["fast", "latest-fast.json"], ["balanced", "latest.json"], ["robust", "latest-robust.json"]] as const) {
     const report = JSON.parse(fs.readFileSync(path.join(process.cwd(), "benchmark-results", file), "utf8")) as BenchmarkRunSummary;
     report.sourceIdentity = { ...identity, scenarioHash: profile.repeat(64).slice(0, 64) };
-    report.environment.sdkVersion = "2.0.0-alpha.4";
+    report.environment.sdkVersion = "2.0.0-alpha.5";
     report.environment.warmInitializationMs = 0.01;
     report.environment.selectedWasmVariant = "standard";
     report.environment.wasmLinearMemoryPeakBytes = 22_282_240;
@@ -52,7 +52,7 @@ function artifacts() {
     uniqueWins: ["05-low-contrast"],
   });
   comparison.sourceIdentity = { ...identity, scenarioHash: "2".repeat(64) };
-  comparison.sdkVersion = "2.0.0-alpha.4";
+  comparison.sdkVersion = "2.0.0-alpha.5";
   comparison.runtime = { kind: "node", nodeVersion: "v24.15.0", platform: "win32", arch: "x64" };
   comparison.executionPolicy = { mode: "canonical-candidate", evidenceType: "canonical-candidate", canonical: true, warmupIterations: 1, measuredIterations: 3, dirtyDevelopmentAllowed: false, updatesDocumentation: false };
   comparison.finalControlledMemoryBytes = 0;

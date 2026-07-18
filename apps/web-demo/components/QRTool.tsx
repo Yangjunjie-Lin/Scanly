@@ -4,8 +4,10 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { BrowserCameraSource, BrowserCaptureSession } from "@scanly/browser";
 import { isSafeActionUrl } from "@scanly/parsers";
 import type { ScanResult, SdkErrorCode } from "@scanly/core";
+import { getBuiltinScenario, type ScenarioPresetId } from "@scanly/scenario-schema";
 
 type Mode = "camera" | "upload";
+type Preset = "balanced" | "multiformat-balanced" | "retail-fast" | "logistics-balanced" | "document-robust";
 
 export default function QRTool() {
   const [mode, setMode] = useState<Mode>("camera");
@@ -18,6 +20,7 @@ export default function QRTool() {
   const [isScanning, setIsScanning] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadReady, setUploadReady] = useState(false);
+  const [preset, setPreset] = useState<Preset>("balanced");
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const uploadAbortRef = useRef<AbortController | null>(null);
@@ -30,6 +33,7 @@ export default function QRTool() {
 
   const primary = results[0]?.rawText ?? "";
   const isUrl = primary ? isSafeActionUrl(primary) : false;
+  const activeScenario = useMemo(() => getBuiltinScenario(preset as ScenarioPresetId), [preset]);
 
   useEffect(() => {
     let cancelled = false;
@@ -98,6 +102,7 @@ export default function QRTool() {
       setIsScanning(true);
 
       await cameraSource.start(videoRef.current, {
+        scenario: activeScenario,
         deviceId: deviceId || undefined,
         stopAfterResult: true,
         onResult: (outcome) => {
@@ -121,6 +126,15 @@ export default function QRTool() {
       setErrorReason(/NotAllowedError|permission denied/i.test(message) ? "camera_permission_denied" : "camera_unavailable");
       setLastError(message);
     }
+  }
+
+  function selectPreset(next: Preset) {
+    setPreset(next);
+    uploadSession.updateConfiguration(getBuiltinScenario(next as ScenarioPresetId));
+    setResults([]);
+    setLastError("");
+    setErrorReason("");
+    setStatus("Ready");
   }
 
   function stopScan() {
@@ -294,6 +308,17 @@ export default function QRTool() {
 
       <hr />
 
+      <div className="row" style={{ alignItems: "center", marginBottom: 12 }}>
+        <label className="small" htmlFor="format-preset">Formats</label>
+        <select id="format-preset" value={preset} onChange={(event) => selectPreset(event.target.value as Preset)} aria-label="Format preset" disabled={isScanning || isProcessing}>
+          <option value="balanced">QR</option>
+          <option value="retail-fast">Retail</option>
+          <option value="logistics-balanced">Logistics</option>
+          <option value="document-robust">Document</option>
+          <option value="multiformat-balanced">All Alpha.5</option>
+        </select>
+      </div>
+
       {mode === "camera" && (
         <div role="tabpanel" id="camera-panel" aria-labelledby="camera-tab">
           <div className="videoWrap">
@@ -408,9 +433,9 @@ export default function QRTool() {
       <hr />
 
       <div className="row" style={{ alignItems: "center", justifyContent: "space-between" }}>
-        <div className="badge">
+      <div className="badge">
           <span>Result</span>
-          {primary && <span className="mono">{isUrl ? "URL" : "TEXT"}</span>}
+          {primary && <span className="mono">{results[0]?.format ?? (isUrl ? "URL" : "TEXT")}</span>}
           {results.length > 1 && <span className="mono">{results.length} codes</span>}
         </div>
 
@@ -447,7 +472,8 @@ export default function QRTool() {
           aria-label="Decoded QR content"
           data-testid="decoded-output"
           data-engine={results[0]?.engine.id ?? ""}
-          data-engine-variant={results[0]?.engine.variant ?? ""}
+              data-engine-variant={results[0]?.engine.variant ?? ""}
+          data-format={results[0]?.format ?? ""}
         />
       </div>
 
