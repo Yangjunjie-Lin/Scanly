@@ -21,8 +21,17 @@ describe("benchmark workflow contracts", () => {
     expect(workflow).toContain("pull_request:");
     expect(workflow).toContain("- main");
     expect(workflow).not.toContain("    paths:");
-    expect(workflow).toContain("baseline-candidate");
-    expect(workflow).toContain("active-baseline");
+    expect(workflow).toContain("npx tsx scripts/select-benchmark-gate-mode.ts --runtime-family=node24-win32-x64 --registry=benchmark-results/baselines/registry.json");
+    expect(workflow).toContain("--github-output=\"$env:GITHUB_OUTPUT\"");
+    expect(workflow).toContain("--gate-mode=${{ needs.prepare.outputs.gate-mode }}");
+    expect(workflow).toContain("Full Benchmark gate mode: $env:SELECTED_MODE");
+    expect(workflow).toContain("Active baseline: $env:SELECTED_BASELINE_ID");
+    expect(workflow).toContain("Selection reason: $env:SELECTION_REASON");
+    expect(workflow).not.toContain("$alpha3");
+    expect(workflow).not.toContain("v2-alpha3-r*");
+    const selector = fs.readFileSync(path.join(process.cwd(), "scripts", "select-benchmark-gate-mode.ts"), "utf8");
+    expect(selector).toContain('"active-baseline"');
+    expect(selector).toContain('"baseline-candidate"');
     expect(workflow.match(/ref: \$\{\{ github\.sha \}\}/g)?.length).toBeGreaterThanOrEqual(4);
   });
 
@@ -59,5 +68,15 @@ describe("benchmark workflow contracts", () => {
     for (const browser of ["Chromium", "Firefox", "WebKit"]) expect(workflow).toContain(browser);
     expect(workflow).toContain("assemble-browser-benchmarks.ts");
     expect(workflow).toContain("needs: browser-benchmark");
+  });
+
+  it("requires browser and worker integration to observe the standard ZXing-C++ WASM engine", () => {
+    const benchmark = fs.readFileSync(path.join(process.cwd(), "tests", "browser-benchmark", "benchmark.spec.ts"), "utf8");
+    const integration = fs.readFileSync(path.join(process.cwd(), "tests", "e2e", "upload.spec.ts"), "utf8");
+    for (const source of [benchmark, integration]) {
+      expect(source).toContain("zxing-cpp-wasm");
+      expect(source).toContain("standard");
+      expect(source).toContain("worker");
+    }
   });
 });

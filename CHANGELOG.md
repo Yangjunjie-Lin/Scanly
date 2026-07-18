@@ -2,6 +2,16 @@
 
 All notable changes follow semantic versioning.
 
+## [2.0.0-alpha.4] - 2026-07-18
+
+- Added the optional `@scanly/engine-zxing-cpp-wasm` QR engine using pinned `zxing-wasm` 3.1.1 and ZXing-C++ commit `6c2961d2a9ea4bc4e4ae8f37b1497299f04dd861`.
+- Added local package-relative Browser/Worker/Node asset loading, SHA-256 verification, lazy/explicit initialization, concurrent-init deduplication, bounded retry/circuit breaking, typed failures, and explicit disposal.
+- Integrated jsQR → ZXing-C++ WASM → ZXing-JS ordering without adding concrete engine dependencies to core. Balanced/Robust now try a high-value native full-frame pass after a limited jsQR probe.
+- Added standard/SIMD capability selection. The shipped asset is standard WASM only; SIMD remains unavailable and is not presented as a measured acceleration.
+- Added raw bytes, geometry, orientation, selected variant, initialization timing, and WASM linear-memory observations to engine/result and benchmark evidence.
+- Expanded comparison provenance with the WASM, adapter, and loader hashes and added raw/single-engine/sequential/experimental-parallel WASM strategies.
+- Added loader, native decode, cancellation, repeated-use, package-asset, and integrity tests. Alpha.4 remains a QR Code Model 2 preview, not Stable or broad symbology support.
+
 ## [2.0.0-alpha.3] - 2026-07-16
 
 - Separated development, canonical, baseline-freeze, and CI-artifact benchmark output; added true repeated-run variance and per-iteration stability evidence.

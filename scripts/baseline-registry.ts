@@ -12,6 +12,9 @@ export interface BaselineRegistry {
     evidenceId: string;
     canonicalManifestHash: string;
     baselineHashes: Record<BuiltinScenarioId, string>;
+    sourceCommit: string;
+    engineCompositionHash: string;
+    wasmBuildHash: string;
   }>;
 }
 

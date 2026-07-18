@@ -10,8 +10,24 @@ export interface EngineCapabilities {
   threadSafe: boolean;
   estimatedScratchBytesPerPixel?: number;
   copiesInputBuffer?: boolean;
+  runtimeKinds?: readonly ("browser" | "worker" | "node")[];
+  supportsInversion?: boolean;
+  supportsStructuredAppend?: boolean;
+  supportsOrientation?: boolean;
+  initializationMode?: "lazy" | "explicit";
+  executionModel?: "javascript" | "wasm" | "native";
 }
 export type EngineFailureCategory = "not-found" | "unsupported-format" | "invalid-input" | "initialization" | "execution" | "cancelled" | "timeout";
+export type EngineFailureCode =
+  | "asset_not_found" | "asset_integrity_failed" | "wasm_compile_failed" | "wasm_instantiate_failed"
+  | "unsupported_runtime" | "unsupported_simd" | "initialization_timeout" | "native_decode_failed"
+  | "invalid_native_result" | "out_of_memory" | "cancelled" | "disposed";
+export interface EngineExecutionMetadata {
+  variant?: string;
+  executionModel?: "javascript" | "wasm" | "native";
+  initializationMs?: number;
+  wasmLinearMemoryBytes?: number;
+}
 export interface EngineDecodeResult {
   text: string;
   rawBytes?: Uint8Array;
@@ -19,11 +35,12 @@ export interface EngineDecodeResult {
   cornerPoints?: CornerPoint[];
   orientation?: number;
   symbologyIdentifier?: string;
+  engineMetadata?: EngineExecutionMetadata;
   elapsedMs: number;
 }
 export type EngineOutcome =
   | { ok: true; results: [EngineDecodeResult, ...EngineDecodeResult[]] }
-  | { ok: false; category: EngineFailureCategory; message: string; elapsedMs: number };
+  | { ok: false; category: EngineFailureCategory; message: string; elapsedMs: number; code?: EngineFailureCode };
 export interface EngineDecodeOptions {
   formats: readonly BarcodeFormat[];
   findMultiple: boolean;

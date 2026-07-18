@@ -6,13 +6,16 @@ This document is generated only by the approved canonical evidence update comman
 
 | Field | Value |
 | --- | --- |
-| Evidence ID | `alpha3-67da5fb4631fb356` |
-| Manifest hash | `de6a1b4dd7f34c0aa79ef7bec9c87237aeb9afd6c12bed91dff9e185ac8b29d1` |
-| Source commit | `d346231d550865975a914e0baad0487d3b86bf59` |
-| Source tree | `8977bdfd5504b24beb9cf535167bd44944ca412b` |
+| Evidence ID | `alpha4-cc1a5968d39ffbea` |
+| Manifest hash | `ae9d988f36b9788031ec756ca31daa5d21317e65954bc91eadbc8d995b9d087e` |
+| Source commit | `a139c8b7064a83c26cfba5a9ff4fb75c3f6c9f83` |
+| Source tree | `31da835767e4d691716f3c327f4cbb0b615d95ac` |
 | Dataset hash | `47d72bf1658ab7a0bde1a402b6f6c382c21f7822d5715a714436191acf62f79b` |
-| Package-lock hash | `eb7f9d08868eeaf0dbce67fd69a82a16063ae7cc5de467cb6e514c2a6b017c8d` |
-| Engine composition hash | `e2d33d2d588359c66484b8cd5e9ff55ebea67f25c1114d45b01899fda892a238` |
+| Package-lock hash | `b58a10200d6cff43739296ed746f588b8af49ebafe6c5dd2c9dd64ce9356372a` |
+| Engine composition hash | `bad73615e3d603234766c2230c3f15007cd2e5e6a2bd87d95ff2dff07633111d` |
+| WASM build hash | `6a858c01e076bab3a1bd413e4f2cf5e5e45f819a0d9441d83c66993bc48ed38f` |
+| Native adapter hash | `0b385edcaa5757dde122bd4f393d7a6bdefa5acb0f8cacbd2cb7c21f1e3affcd` |
+| Loader hash | `44ea432ec4666d708e3758807ae51ba542b04704fda362529b812561c73b2224` |
 | Repository dirty | false |
 | Warmup iterations | 1 |
 | Measured iterations | 3 |
@@ -24,10 +27,10 @@ This document is generated only by the approved canonical evidence update comman
 | Fixtures | 73/74 |
 | Positive recall | 62/63 |
 | False positives | 0/11 |
-| Average | 883.19 ms |
-| Median | 600.00 ms |
-| P95 | 2564.00 ms |
-| Peak controlled memory | 66847104 bytes |
+| Average | 674.66 ms |
+| Median | 569.50 ms |
+| P95 | 1787.00 ms |
+| Peak controlled memory | 66727104 bytes |
 | Final controlled memory | 0 bytes |
 | Remaining failure | `14-damaged` |
 | Parallel execution | experimental |

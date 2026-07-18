@@ -5,6 +5,7 @@ import type { PixelBuffer } from "@scanly/core/qr";
 import { createNodeEngineRegistry, loadPixelBufferFromPath } from "@scanly/node";
 import { JsQrEngine } from "@scanly/engine-jsqr";
 import { ZxingJsEngine } from "@scanly/engine-zxing-js";
+import { createZxingCppWasmEngine, type ZxingCppWasmEngine } from "@scanly/engine-zxing-cpp-wasm";
 import { getBuiltinScenario, type ScenarioDefinition } from "@scanly/scenario-schema";
 import { evaluateFixture, type BenchmarkFixture, type ComparisonReport, type StrategyFixtureResult, type StrategySummary } from "@scanly/benchmark";
 import { assertCleanRepository, collectSourceIdentity } from "./benchmark-provenance.js";
@@ -13,7 +14,11 @@ import { validateComparisonReport } from "./canonical-evidence.js";
 const root = path.resolve(__dirname, "..");
 const manifestPath = path.join(root, "fixtures", "manifest.json");
 const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as { fixtures: BenchmarkFixture[] };
-type StrategyId = "raw-jsqr" | "raw-zxing-js" | "scanly-fast" | "scanly-balanced" | "scanly-robust" | "scanly-jsqr-only" | "scanly-zxing-only" | "scanly-multi-sequential" | "scanly-multi-parallel";
+type StrategyId =
+  | "raw-jsqr" | "raw-zxing-js" | "raw-zxing-cpp-wasm"
+  | "scanly-fast" | "scanly-balanced" | "scanly-robust"
+  | "scanly-jsqr-only" | "scanly-zxing-js-only" | "scanly-zxing-cpp-only"
+  | "scanly-js-wasm-sequential" | "scanly-js-wasm-parallel-experimental";
 
 interface StrategyRuntime {
   id: StrategyId;
@@ -23,6 +28,8 @@ interface StrategyRuntime {
   rawEngine?: DecoderEngine;
   installedPackageFootprintBytes: number;
   initializationMs: number;
+  warmInitializationMs: number;
+  wasmEngine?: ZxingCppWasmEngine;
 }
 
 function cloneScenario(id: "fast" | "balanced" | "robust", strategyId: string, engines?: string[], execution?: "sequential" | "parallel"): ScenarioDefinition {
@@ -60,7 +67,17 @@ function median(values: number[]): number {
 }
 
 function packageCost(engineIds: string[]): number {
-  return engineIds.reduce((total, id) => total + directorySize(id === "jsqr" ? path.join(root, "node_modules", "jsqr") : path.join(root, "node_modules", "@zxing", "library")), 0);
+  return engineIds.reduce((total, id) => {
+    if (id === "jsqr") return total + directorySize(path.join(root, "node_modules", "jsqr"));
+    if (id === "zxing-js") return total + directorySize(path.join(root, "node_modules", "@zxing", "library"));
+    if (id === "zxing-cpp-wasm") {
+      return total
+        + directorySize(path.join(root, "engines", "zxing-cpp-wasm", "dist"))
+        + directorySize(path.join(root, "engines", "zxing-cpp-wasm", "wasm"))
+        + directorySize(path.join(root, "node_modules", "zxing-wasm"));
+    }
+    return total;
+  }, 0);
 }
 
 function engineFailureCode(category: string): string {
@@ -102,23 +119,24 @@ async function main(): Promise<void> {
   const measuredIterations = Number(process.argv.find((argument) => argument.startsWith("--measured-iterations="))?.split("=")[1] ?? (canonicalCompatible ? 3 : 1));
   if (!Number.isInteger(warmupIterations) || warmupIterations < 0 || !Number.isInteger(measuredIterations) || measuredIterations < 1) throw new Error("Comparison iteration arguments are invalid.");
   if (canonicalCompatible && (warmupIterations < 1 || measuredIterations < 3)) throw new Error("Canonical-compatible comparison requires warmup >= 1 and measured iterations >= 3.");
-  const jsqrSize = packageCost(["jsqr"]);
-  const zxingSize = packageCost(["zxing-js"]);
   const definitions: Array<{ id: StrategyId; raw?: DecoderEngine; scenario?: ScenarioDefinition }> = [
     { id: "raw-jsqr", raw: new JsQrEngine() },
     { id: "raw-zxing-js", raw: new ZxingJsEngine() },
+    { id: "raw-zxing-cpp-wasm", raw: createZxingCppWasmEngine() },
     { id: "scanly-fast", scenario: cloneScenario("fast", "comparison-fast") },
     { id: "scanly-balanced", scenario: cloneScenario("balanced", "comparison-balanced") },
     { id: "scanly-robust", scenario: cloneScenario("robust", "comparison-robust") },
     { id: "scanly-jsqr-only", scenario: cloneScenario("balanced", "comparison-jsqr-only", ["jsqr"]) },
-    { id: "scanly-zxing-only", scenario: cloneScenario("balanced", "comparison-zxing-only", ["zxing-js"]) },
-    { id: "scanly-multi-sequential", scenario: cloneScenario("balanced", "comparison-multi-sequential", ["jsqr", "zxing-js"], "sequential") },
-    { id: "scanly-multi-parallel", scenario: cloneScenario("balanced", "comparison-multi-parallel", ["jsqr", "zxing-js"], "parallel") },
+    { id: "scanly-zxing-js-only", scenario: cloneScenario("balanced", "comparison-zxing-js-only", ["zxing-js"]) },
+    { id: "scanly-zxing-cpp-only", scenario: cloneScenario("balanced", "comparison-zxing-cpp-only", ["zxing-cpp-wasm"]) },
+    { id: "scanly-js-wasm-sequential", scenario: cloneScenario("balanced", "comparison-js-wasm-sequential", ["jsqr", "zxing-cpp-wasm", "zxing-js"], "sequential") },
+    { id: "scanly-js-wasm-parallel-experimental", scenario: cloneScenario("balanced", "comparison-js-wasm-parallel-experimental", ["jsqr", "zxing-cpp-wasm", "zxing-js"], "parallel") },
   ];
   const runtimes: StrategyRuntime[] = [];
   for (const definition of definitions) {
     const ids = definition.raw ? [definition.raw.id] : definition.scenario!.decoders.order;
     const registry = createNodeEngineRegistry();
+    for (const engine of registry.list()) if (!ids.includes(engine.id)) registry.unregister(engine.id);
     const versions = Object.fromEntries(registry.list().map((engine) => [engine.id, engine.version]));
     const initializationStarted = process.hrtime.bigint();
     if (definition.raw) {
@@ -128,14 +146,23 @@ async function main(): Promise<void> {
       await registry.initializeAll();
     }
     const initializationMs = elapsedMs(initializationStarted);
+    const warmInitializationStarted = process.hrtime.bigint();
+    if (definition.raw) await definition.raw.initialize?.();
+    else await registry.initializeAll();
+    const warmInitializationMs = elapsedMs(warmInitializationStarted);
+    const wasmEngine = (definition.raw?.id === "zxing-cpp-wasm"
+      ? definition.raw
+      : registry.get("zxing-cpp-wasm")) as ZxingCppWasmEngine | undefined;
     runtimes.push({
       id: definition.id,
       engineIds: ids.map((id) => ({ id, version: definition.raw?.version ?? versions[id] ?? "unknown" })),
       scenario: definition.scenario,
       rawEngine: definition.raw,
       router: definition.scenario ? new CaptureRouter({ scenario: definition.scenario, engines: registry }) : undefined,
-      installedPackageFootprintBytes: ids.includes("jsqr") && ids.includes("zxing-js") ? jsqrSize + zxingSize : ids.includes("jsqr") ? jsqrSize : zxingSize,
+      installedPackageFootprintBytes: packageCost(ids),
       initializationMs,
+      warmInitializationMs,
+      wasmEngine,
     });
   }
 
@@ -209,14 +236,21 @@ async function main(): Promise<void> {
       executionFailures: subset.filter((result) => /execution/.test(result.failureReason ?? "")).length,
       uniqueWins: subset.filter((result) => {
         if (!result.exactPayload) return false;
-        if (runtime.id === "raw-jsqr" || runtime.id === "raw-zxing-js") {
-          const counterpart = runtime.id === "raw-jsqr" ? "raw-zxing-js" : "raw-jsqr";
-          return !perFixture.find((entry) => entry.fixtureId === result.fixtureId && entry.strategyId === counterpart)?.exactPayload;
+        if (runtime.id.startsWith("raw-")) {
+          return !perFixture.some((entry) =>
+            entry.fixtureId === result.fixtureId
+            && entry.strategyId.startsWith("raw-")
+            && entry.strategyId !== runtime.id
+            && entry.exactPayload
+          );
         }
         return passersByFixture.get(result.fixtureId)?.length === 1;
       }).map((result) => result.fixtureId),
       installedPackageFootprintBytes: runtime.installedPackageFootprintBytes,
       initializationMs: runtime.initializationMs,
+      warmInitializationMs: runtime.warmInitializationMs,
+      wasmVariant: runtime.wasmEngine?.selectedVariant ?? undefined,
+      wasmLinearMemoryPeakBytes: runtime.wasmEngine?.getMemoryObservation().peakLinearMemoryBytes,
       averageControlledMemoryPeakBytes: peaks.reduce((sum, value) => sum + value, 0) / Math.max(1, peaks.length),
     };
   });
@@ -231,8 +265,8 @@ async function main(): Promise<void> {
     allowDirty,
   });
   await identityRegistry.disposeAll();
-  const sequential = strategies.find((strategy) => strategy.strategyId === "scanly-multi-sequential")!;
-  const parallel = strategies.find((strategy) => strategy.strategyId === "scanly-multi-parallel")!;
+  const sequential = strategies.find((strategy) => strategy.strategyId === "scanly-js-wasm-sequential")!;
+  const parallel = strategies.find((strategy) => strategy.strategyId === "scanly-js-wasm-parallel-experimental")!;
   const parallelAccepted = parallel.positiveRecall >= sequential.positiveRecall - 0.01
     && parallel.exactPayloadAccuracy >= sequential.exactPayloadAccuracy - 0.01
     && parallel.falsePositiveCount <= sequential.falsePositiveCount
@@ -278,7 +312,7 @@ async function main(): Promise<void> {
   await fs.promises.writeFile(output, JSON.stringify(report, null, 2));
   console.log(JSON.stringify(strategies, null, 2));
   console.log(`Wrote ${output}`);
-  await Promise.all(runtimes.flatMap((runtime) => runtime.router ? [runtime.router.dispose()] : []));
+  await Promise.all(runtimes.map((runtime) => runtime.router?.dispose() ?? runtime.rawEngine?.dispose?.() ?? Promise.resolve()));
   if (canonicalCompatible) {
     const failures = validateComparisonReport(report);
     if (failures.length) throw new Error(`Comparison candidate gates failed:\n- ${failures.join("\n- ")}`);

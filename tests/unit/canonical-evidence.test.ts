@@ -15,19 +15,44 @@ function artifacts() {
   const identity = {
     commitSha: "a".repeat(40), treeSha: "b".repeat(40), repositoryDirty: false,
     packageLockHash: "c".repeat(64), scenarioHash: "d".repeat(64), datasetHash: "e".repeat(64),
-    engineCompositionHash: "f".repeat(64), benchmarkRunnerHash: "1".repeat(64),
+    engineCompositionHash: "f".repeat(64), wasmBuildHash: "2".repeat(64),
+    nativeAdapterHash: "3".repeat(64), loaderHash: "4".repeat(64), benchmarkRunnerHash: "1".repeat(64),
   };
   const reports = {} as Record<"fast" | "balanced" | "robust", BenchmarkRunSummary>;
   for (const [profile, file] of [["fast", "latest-fast.json"], ["balanced", "latest.json"], ["robust", "latest-robust.json"]] as const) {
     const report = JSON.parse(fs.readFileSync(path.join(process.cwd(), "benchmark-results", file), "utf8")) as BenchmarkRunSummary;
     report.sourceIdentity = { ...identity, scenarioHash: profile.repeat(64).slice(0, 64) };
+    report.environment.sdkVersion = "2.0.0-alpha.4";
+    report.environment.warmInitializationMs = 0.01;
+    report.environment.selectedWasmVariant = "standard";
+    report.environment.wasmLinearMemoryPeakBytes = 22_282_240;
     report.executionPolicy = { mode: "canonical-candidate", evidenceType: "canonical-candidate", canonical: true, warmupIterations: 1, measuredIterations: 3, dirtyDevelopmentAllowed: false, updatesDocumentation: false };
     report.finalControlledMemoryBytes = 0;
     report.results = report.results.map((result) => ({ ...result, iterationPassCount: result.pass ? 3 : 0, iterationFailureCount: result.pass ? 0 : 3, unstablePayload: false, runTimingsMs: [1, 2, 3], finalControlledMemoryBytes: 0 }));
     reports[profile] = report;
   }
   const comparison = JSON.parse(fs.readFileSync(path.join(process.cwd(), "benchmark-results", "comparison.json"), "utf8")) as ComparisonReport & { runtime: { kind: "node"; nodeVersion: string; platform: string; arch: string } };
+  const strategyAliases: Record<string, string> = {
+    "raw-zxing-cpp-wasm": "raw-zxing-js",
+    "scanly-zxing-js-only": "scanly-zxing-only",
+    "scanly-zxing-cpp-only": "scanly-zxing-only",
+    "scanly-js-wasm-sequential": "scanly-multi-sequential",
+    "scanly-js-wasm-parallel-experimental": "scanly-multi-parallel",
+  };
+  for (const [strategyId, sourceId] of Object.entries(strategyAliases)) {
+    const source = comparison.strategies.find((entry) => entry.strategyId === sourceId)!;
+    comparison.strategies.push({ ...source, strategyId });
+    comparison.perFixture.push(...comparison.perFixture.filter((entry) => entry.strategyId === sourceId).map((entry) => ({ ...entry, strategyId })));
+  }
+  Object.assign(comparison.strategies.find((entry) => entry.strategyId === "raw-zxing-cpp-wasm")!, {
+    wasmVariant: "standard",
+    wasmLinearMemoryPeakBytes: 22_282_240,
+    initializationFailures: 0,
+    executionFailures: 0,
+    uniqueWins: ["05-low-contrast"],
+  });
   comparison.sourceIdentity = { ...identity, scenarioHash: "2".repeat(64) };
+  comparison.sdkVersion = "2.0.0-alpha.4";
   comparison.runtime = { kind: "node", nodeVersion: "v24.15.0", platform: "win32", arch: "x64" };
   comparison.executionPolicy = { mode: "canonical-candidate", evidenceType: "canonical-candidate", canonical: true, warmupIterations: 1, measuredIterations: 3, dirtyDevelopmentAllowed: false, updatesDocumentation: false };
   comparison.finalControlledMemoryBytes = 0;
@@ -153,6 +178,12 @@ describe("canonical correctness policy", () => {
     report.decodeRecall += 5e-13;
     report.exactPayloadAccuracy += 5e-13;
     expect(validateProfileReport(report, "balanced")).toEqual([]);
+  });
+
+  it("accepts partial duplicate-symbol recovery as an expected Fast-profile failure", () => {
+    const report = artifacts().reports.fast;
+    report.results.find((result) => result.id === "67-multiple-same-two")!.failureReason = "incomplete_multiple";
+    expect(validateProfileReport(report, "fast")).toEqual([]);
   });
 
   it("rejects a timeout even when it uses an allowed retained failure ID", () => {

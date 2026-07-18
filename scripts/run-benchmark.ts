@@ -365,6 +365,9 @@ async function main() {
   const initializationStarted = performance.now();
   await router.engines.initializeAll();
   const coldInitializationMs = performance.now() - initializationStarted;
+  const warmInitializationStarted = performance.now();
+  await router.engines.initializeAll();
+  const warmInitializationMs = performance.now() - warmInitializationStarted;
   for (let iteration = 0; iteration < warmupIterations; iteration++) await runFixture(router, fixtures[iteration % fixtures.length]);
   console.log(`Running benchmark on ${fixtures.length} fixtures${smoke ? " (smoke)" : ""}; measured iterations=${measuredIterations}…`);
 
@@ -472,6 +475,11 @@ async function main() {
   const disposalOutcome = await disposalPromise;
   await disposing;
   cancellationChecks.push(!disposalOutcome.ok && disposalOutcome.error.code === "cancelled");
+  const wasmEngine = router.engines.get("zxing-cpp-wasm") as unknown as {
+    selectedVariant?: "standard" | "simd" | null;
+    getMemoryObservation?: () => { peakLinearMemoryBytes: number };
+  } | undefined;
+  const wasmMemory = wasmEngine?.getMemoryObservation?.();
   const sourceIdentity = await collectSourceIdentity({
     root: ROOT,
     scenario: selectedScenario,
@@ -505,6 +513,9 @@ async function main() {
       warmupPolicy: `${warmupIterations} explicit warmup fixture run(s); measured fixtures exclude warmup.`,
       iterationCount: measuredIterations,
       coldInitializationMs,
+      warmInitializationMs,
+      selectedWasmVariant: wasmEngine?.selectedVariant ?? undefined,
+      wasmLinearMemoryPeakBytes: wasmMemory?.peakLinearMemoryBytes,
     },
     generatedAt: new Date().toISOString(),
     total: results.length,
@@ -543,7 +554,10 @@ async function main() {
     preprocessingDistribution,
     candidateDistribution,
     perFormatRecall: { qr_code: { total: positive.length, decoded: positivePasses, recall: positive.length ? positivePasses / positive.length : 0 } },
-    memoryObservations: ["Controlled peak covers Scanly-accounted frame artifacts, caches, and scratch leases; it does not claim exact decoder or process heap usage."],
+    memoryObservations: [
+      "Controlled peak covers Scanly-accounted frame artifacts, caches, and scratch leases; it does not claim exact decoder or process heap usage.",
+      `WASM linear-memory peak is reported separately (${wasmMemory?.peakLinearMemoryBytes ?? 0} bytes; variant=${wasmEngine?.selectedVariant ?? "not-initialized"}).`,
+    ],
     controlledMemoryPeakBytes: Math.max(0, ...results.map((result) => result.controlledMemoryPeakBytes ?? 0)),
     finalControlledMemoryBytes: Math.max(0, ...results.map((result) => result.finalControlledMemoryBytes ?? 0)),
     phaseTiming: Object.fromEntries(Object.entries(phaseValues).map(([phase, values]) => [phase, distribution(values)])),

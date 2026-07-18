@@ -1,5 +1,7 @@
 # Threat model
 
+The Alpha.4 WASM binary is executable supply-chain input. It is pinned, shipped locally, verified by SHA-256 before instantiation, and never selected from user data. The native boundary enforces dimensions, bytes, allocation arithmetic, result count, payload size, and geometry limits. Worker execution provides realm isolation; synchronous native cancellation remains cooperative.
+
 ## Assets and trust boundaries
 
 Assets are user image bytes, camera frames, decoded content, browser permissions, CPU/memory availability, and host-application integrity. Untrusted boundaries include uploaded files, pixel-buffer metadata, QR payload strings, scenario JSON, Worker messages, media devices, npm dependencies, custom plugins, and future WASM binaries.

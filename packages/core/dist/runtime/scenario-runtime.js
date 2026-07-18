@@ -17,6 +17,9 @@ export function scenarioToPipelineConfig(scenario) {
         rotations: scenario.ablation.rotations ? scenario.enhancement.rotations : [0],
         preprocessOrder: enhancements,
         decoders: { order: decoderOrder, execution: scenario.decoders.execution, failurePolicy: scenario.decoders.failurePolicy ?? "success-wins" },
+        // Comparison/ablation runners clone scenario IDs, so use the latency
+        // budget rather than a mutable label to preserve Fast's cold-start policy.
+        fallbackTiming: scenario.budgets.maxAttempts <= 18 ? "final" : "after-cheap",
         enableLocalization: scenario.ablation.localization && scenario.localization.strategy === "edge-density",
         enableFullImageFallback: true,
         enableSplitImageFallback: scenario.ablation.splitImageFallback,

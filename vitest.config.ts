@@ -32,6 +32,7 @@ export default defineConfig({
       "@scanly/node": path.resolve(__dirname, "packages/node/src/index.ts"),
       "@scanly/engine-jsqr": path.resolve(__dirname, "engines/jsqr/src/index.ts"),
       "@scanly/engine-zxing-js": path.resolve(__dirname, "engines/zxing-js/src/index.ts"),
+      "@scanly/engine-zxing-cpp-wasm": path.resolve(__dirname, "engines/zxing-cpp-wasm/src/index.ts"),
       "@scanly/browser": path.resolve(__dirname, "packages/browser/src/index.ts"),
       "@scanly/scenario-schema": path.resolve(__dirname, "packages/scenario-schema/src/index.ts"),
       "@scanly/parsers": path.resolve(__dirname, "packages/parsers/src/index.ts"),

@@ -216,7 +216,7 @@ const BASE_SCENARIO = {
     input: { preferredPixelFormats: ["rgba8888", "rgb888", "gray8"], roi: { mode: "full-frame" } },
     localization: { strategy: "edge-density", maxCandidates: 5, cropPaddings: ["medium", "expanded", "tight"], scales: [1, 0.7, 1.35] },
     enhancement: { operators: ["contrast", "invert", "otsu", "threshold-140", "gamma", "sharpen", "threshold-115", "threshold-165"], rotations: [0, 90, 180, 270] },
-    decoders: { order: ["jsqr", "zxing-js"], execution: "sequential" },
+    decoders: { order: ["jsqr", "zxing-cpp-wasm", "zxing-js"], execution: "sequential" },
     multiCode: { enabled: true, maxResults: 8, deduplication: "payload-format-spatial" },
     duplicateSuppression: { enabled: true, windowMs: 1_500 },
     budgets: { maxPixels: 8_000_000, maxCandidates: 5, maxAttempts: 96, maxIntermediateAllocations: 24, maxIntermediateBytes: 64 * 1024 * 1024, maxExecutionMs: 12_000, maxConcurrentFrames: 1 },

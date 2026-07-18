@@ -31,7 +31,7 @@ const MAX_MESSAGE_LENGTH = 512;
 function descriptor(id, accepts, produces, cpu = "low") {
     return {
         id,
-        version: "2.0.0-alpha.3",
+        version: "2.0.0-alpha.4",
         accepts,
         produces,
         configurationSchemaId: "https://scanly.dev/schema/scenario/2.1",
@@ -368,7 +368,7 @@ class ResultAggregationOperator {
             ...(configuration.scenario.output.includeRawBytes && code.rawBytes ? { rawBytes: code.rawBytes } : {}),
             ...(code.cornerPoints ? { cornerPoints: code.cornerPoints } : {}),
             ...(code.symbolOrientation !== undefined ? { orientation: code.symbolOrientation } : {}),
-            engine: { id: code.decoder, version: code.engineVersion ?? "unknown" },
+            engine: { id: code.decoder, version: code.engineVersion ?? "unknown", ...code.engineMetadata },
             preprocessingPath: [code.preprocessing],
             candidate: { index: code.candidateIndex, padding: code.cropPadding, scale: code.scale, rotation: code.rotation },
             frameId: frame.id,

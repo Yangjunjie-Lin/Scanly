@@ -9,6 +9,7 @@ import {
 import { createPixelBuffer, decodePixelBuffer, flattenAlphaOntoWhite, type DecodeOutcome, type DecodePipelineOptions, type PipelineEngineExecutor, type PixelBuffer } from "@scanly/core/qr";
 import { JsQrEngine } from "@scanly/engine-jsqr";
 import { ZxingJsEngine } from "@scanly/engine-zxing-js";
+import { createZxingCppWasmEngine, type ZxingCppWasmEngineOptions } from "@scanly/engine-zxing-cpp-wasm";
 
 export async function loadPixelBufferFromPath(filePath: string): Promise<PixelBuffer> {
   try {
@@ -26,14 +27,20 @@ export async function loadNormalizedFrameFromPath(filePath: string, id?: string)
   return createRgbaFrame(pixels.data, pixels.width, pixels.height, { id, sourceType: "upload", ownership: "owned" });
 }
 
-export function createNodeCaptureRouter(options: Omit<CaptureRouterOptions, "engines"> = {}): CaptureRouter {
-  const engines = createNodeEngineRegistry();
-  return new CaptureRouter({ ...options, engines });
+export interface NodeCaptureRouterOptions extends Omit<CaptureRouterOptions, "engines"> {
+  zxingCppWasm?: ZxingCppWasmEngineOptions | false;
 }
 
-export function createNodeEngineRegistry(): EngineRegistry {
+export function createNodeCaptureRouter(options: NodeCaptureRouterOptions = {}): CaptureRouter {
+  const { zxingCppWasm, ...routerOptions } = options;
+  const engines = createNodeEngineRegistry({ zxingCppWasm });
+  return new CaptureRouter({ ...routerOptions, engines });
+}
+
+export function createNodeEngineRegistry(options: { zxingCppWasm?: ZxingCppWasmEngineOptions | false } = {}): EngineRegistry {
   const engines = new EngineRegistry();
   engines.register(new JsQrEngine());
+  if (options.zxingCppWasm !== false) engines.register(createZxingCppWasmEngine(options.zxingCppWasm));
   engines.register(new ZxingJsEngine());
   return engines;
 }
@@ -53,7 +60,7 @@ export async function decodePixelBufferWithNodeEngines(image: PixelBuffer, optio
     return await decodePixelBuffer(image, {
       ...options,
       engineExecutor: createNodePipelineEngineExecutor(engines),
-      config: { ...options.config, decoders: options.config?.decoders ?? { order: ["jsqr", "zxing-js"], execution: "sequential" } },
+      config: { ...options.config, decoders: options.config?.decoders ?? { order: ["jsqr", "zxing-cpp-wasm", "zxing-js"], execution: "sequential" } },
     });
   } finally {
     await engines.disposeAll();

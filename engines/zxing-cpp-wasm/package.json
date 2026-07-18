@@ -1,0 +1,36 @@
+{
+  "name": "@scanly/engine-zxing-cpp-wasm",
+  "version": "2.0.0-alpha.4",
+  "description": "Experimental ZXing-C++ WebAssembly QR engine for Scanly SDK v2",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./wasm/standard": "./wasm/zxing-cpp.wasm",
+    "./metadata": "./wasm/metadata.json"
+  },
+  "files": [
+    "dist",
+    "wasm",
+    "LICENSE",
+    "LICENSE-ZXING-WASM",
+    "LICENSE-ZXING-CPP",
+    "NOTICE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "wasm:build": "node scripts/build-wasm.mjs",
+    "wasm:verify": "node scripts/verify-wasm.mjs"
+  },
+  "dependencies": {
+    "@scanly/core": "2.0.0-alpha.4",
+    "zxing-wasm": "3.1.1"
+  }
+}

@@ -49,10 +49,15 @@ if (mode === "release") {
   const registry = await loadBaselineRegistry(registryPath);
   const family = "node24-win32-x64";
   const evidence = registry.activeEvidence?.[family];
-  if (registry.schemaVersion !== "2.0" || !evidence || evidence.evidenceId !== bundle.manifest.evidenceId || evidence.canonicalManifestHash !== bundle.manifest.manifestHash) failures.push("active baseline evidence registry is stale");
+  if (registry.schemaVersion !== "2.0" || !evidence
+    || evidence.evidenceId !== bundle.manifest.evidenceId
+    || evidence.canonicalManifestHash !== bundle.manifest.manifestHash
+    || evidence.sourceCommit !== bundle.manifest.sourceIdentity.sourceCommitSha
+    || evidence.engineCompositionHash !== bundle.manifest.sourceIdentity.engineCompositionHash
+    || evidence.wasmBuildHash !== bundle.manifest.sourceIdentity.wasmBuildHash) failures.push("active baseline evidence registry is stale");
   for (const profile of PROFILE_KEYS) {
     const file = registry.activeBaselines[family]?.[profile];
-    if (!file?.startsWith("v2-alpha3-r")) { failures.push(`active ${profile} baseline is not Alpha.3`); continue; }
+    if (!/^v2-alpha(?:3|4)-r/.test(file ?? "")) { failures.push(`active ${profile} baseline is not Alpha.3/Alpha.4`); continue; }
     const baselinePath = path.join(path.dirname(registryPath), file);
     if (!fs.existsSync(baselinePath)) { failures.push(`active ${profile} baseline is missing`); continue; }
     const raw = fs.readFileSync(baselinePath);

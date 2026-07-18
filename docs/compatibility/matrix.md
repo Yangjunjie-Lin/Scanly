@@ -1,5 +1,14 @@
 # Compatibility matrix
 
+| ZXing-C++ WASM capability | Chromium | Firefox | WebKit | Node 20.16–24 |
+| --- | --- | --- | --- | --- |
+| Standard WASM | supported | supported | supported | supported |
+| Worker-local module | supported | supported | supported | n/a |
+| SIMD asset | not shipped | not shipped | not shipped | not shipped |
+| Package-relative local asset | supported when deployed | supported when deployed | supported when deployed | supported |
+
+These are supported paths, not a claim that every browser/device combination has completed physical-device validation. Automated results record the actual engine and variant.
+
 | Environment | Automated coverage | Manual physical device | Status |
 | --- | --- | --- | --- |
 | Chrome desktop | Chromium E2E, Worker/upload, camera error abstractions | none recorded in this branch | upload verified; hardware camera unverified |

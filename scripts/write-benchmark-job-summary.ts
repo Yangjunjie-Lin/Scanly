@@ -17,6 +17,9 @@ function sourceRows(source: BenchmarkRunSummary["sourceIdentity"] | ComparisonRe
     `| Dataset hash | \`${source.datasetHash}\` |`,
     `| Package-lock hash | \`${source.packageLockHash}\` |`,
     `| Engine composition hash | \`${source.engineCompositionHash}\` |`,
+    `| WASM build hash | \`${source.wasmBuildHash}\` |`,
+    `| Native adapter hash | \`${source.nativeAdapterHash}\` |`,
+    `| Loader hash | \`${source.loaderHash}\` |`,
     `| Benchmark runner hash | \`${source.benchmarkRunnerHash}\` |`,
   ];
 }

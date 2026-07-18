@@ -1,5 +1,7 @@
 # SDK usage
 
+The default Browser and Node composition includes the Alpha.4 WASM plugin but its binary is loaded lazily. Pass `zxingCppWasm: false` to the corresponding capture-router factory for a JavaScript-only installation, or create and register `createZxingCppWasmEngine()` explicitly for preload/prewarm control. See [WASM engine deployment](../wasm-engine.md).
+
 The v2 packages are preview packages prepared for later publication; this repository does not publish them automatically.
 
 ## Plain browser JavaScript

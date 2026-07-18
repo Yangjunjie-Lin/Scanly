@@ -1,5 +1,7 @@
 # SDK v2 architecture
 
+> Alpha.4 adds an optional ZXing-C++ WASM plugin. Core remains dependency-inverted and contains no DOM, Node, concrete decoder, or WASM loader dependency. Browser and Node composition roots register `jsqr`, `zxing-cpp-wasm`, and `zxing-js`; the persistent Worker owns the same Browser registry. See [ZXing-C++ WebAssembly engine](wasm-engine.md).
+
 Scanly v2 has one local-only capture execution model. Framework adapters compose the runtime; they do not own decoding business logic.
 
 Alpha.3 validation contracts are detailed in [frame orientation](frame-orientation.md), [benchmark provenance](benchmarking/provenance.md), [camera Worker architecture](camera-worker.md), [device validation](device-validation.md), and [API stability](sdk/api-stability.md).

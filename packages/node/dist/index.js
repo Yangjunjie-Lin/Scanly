@@ -3,6 +3,7 @@ import { CaptureRouter, EngineRegistry, createRgbaFrame, } from "@scanly/core";
 import { createPixelBuffer, decodePixelBuffer, flattenAlphaOntoWhite } from "@scanly/core/qr";
 import { JsQrEngine } from "@scanly/engine-jsqr";
 import { ZxingJsEngine } from "@scanly/engine-zxing-js";
+import { createZxingCppWasmEngine } from "@scanly/engine-zxing-cpp-wasm";
 export async function loadPixelBufferFromPath(filePath) {
     try {
         const { data, info } = await sharp(filePath).rotate().ensureAlpha().raw().toBuffer({ resolveWithObject: true });
@@ -21,12 +22,15 @@ export async function loadNormalizedFrameFromPath(filePath, id) {
     return createRgbaFrame(pixels.data, pixels.width, pixels.height, { id, sourceType: "upload", ownership: "owned" });
 }
 export function createNodeCaptureRouter(options = {}) {
-    const engines = createNodeEngineRegistry();
-    return new CaptureRouter({ ...options, engines });
+    const { zxingCppWasm, ...routerOptions } = options;
+    const engines = createNodeEngineRegistry({ zxingCppWasm });
+    return new CaptureRouter({ ...routerOptions, engines });
 }
-export function createNodeEngineRegistry() {
+export function createNodeEngineRegistry(options = {}) {
     const engines = new EngineRegistry();
     engines.register(new JsQrEngine());
+    if (options.zxingCppWasm !== false)
+        engines.register(createZxingCppWasmEngine(options.zxingCppWasm));
     engines.register(new ZxingJsEngine());
     return engines;
 }
@@ -44,7 +48,7 @@ export async function decodePixelBufferWithNodeEngines(image, options = {}) {
         return await decodePixelBuffer(image, {
             ...options,
             engineExecutor: createNodePipelineEngineExecutor(engines),
-            config: { ...options.config, decoders: options.config?.decoders ?? { order: ["jsqr", "zxing-js"], execution: "sequential" } },
+            config: { ...options.config, decoders: options.config?.decoders ?? { order: ["jsqr", "zxing-cpp-wasm", "zxing-js"], execution: "sequential" } },
         });
     }
     finally {

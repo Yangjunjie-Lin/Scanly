@@ -11,7 +11,7 @@ on:
         options: [smoke, full]
   pull_request:
   push:
-    branches: [architecture/sdk-v2-alpha3-industrial-validation]
+    branches: [architecture/sdk-v2-alpha3-industrial-validation, architecture/sdk-v2-alpha4-zxing-cpp-wasm]
   schedule:
     - cron: "17 3 * * 1"
 
@@ -39,6 +39,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20, cache: npm }
       - run: npm ci
+      - run: npm run wasm:verify
       - run: npm run fixtures:generate
       - run: git diff --exit-code -- fixtures
       - run: npm run build

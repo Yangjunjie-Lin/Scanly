@@ -12,7 +12,7 @@ const reports = Object.fromEntries((["chromium", "firefox", "webkit"] as const).
   if (!file) throw new Error(`Missing ${browser} browser benchmark report.`);
   return [browser, { file, report: JSON.parse(fs.readFileSync(file, "utf8")) as BrowserBenchmarkReport }];
 }));
-const identities = Object.values(reports).map(({ report }) => ({ commitSha: report.sourceIdentity.commitSha, treeSha: report.sourceIdentity.treeSha, sdkVersion: report.sourceIdentity.sdkVersion, datasetHash: report.sourceIdentity.datasetHash, scenarioHash: report.sourceIdentity.scenarioHash, fixtureIds: report.sourceIdentity.fixtureIds }));
+const identities = Object.values(reports).map(({ report }) => ({ commitSha: report.sourceIdentity.commitSha, treeSha: report.sourceIdentity.treeSha, sdkVersion: report.sourceIdentity.sdkVersion, datasetHash: report.sourceIdentity.datasetHash, scenarioHash: report.sourceIdentity.scenarioHash, wasmBuildHash: report.sourceIdentity.wasmBuildHash, fixtureIds: report.sourceIdentity.fixtureIds }));
 if (new Set(identities.map((identity) => stableJson(identity))).size !== 1) throw new Error("Browser reports do not share source identity and fixture set.");
 for (const [browser, { report }] of Object.entries(reports)) {
   if (report.results.some((result) => !result.pass)) throw new Error(`${browser} browser suite contains failed fixtures.`);

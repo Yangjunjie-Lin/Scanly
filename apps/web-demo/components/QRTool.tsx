@@ -446,6 +446,8 @@ export default function QRTool() {
           readOnly
           aria-label="Decoded QR content"
           data-testid="decoded-output"
+          data-engine={results[0]?.engine.id ?? ""}
+          data-engine-variant={results[0]?.engine.variant ?? ""}
         />
       </div>
 
@@ -457,6 +459,8 @@ export default function QRTool() {
               style={{ marginBottom: 6 }}
               data-testid="decoded-result-item"
               data-payload={r.rawText}
+              data-engine={r.engine.id}
+              data-engine-variant={r.engine.variant ?? ""}
             >
               <span className="mono">{r.rawText}</span>{" "}
               <button

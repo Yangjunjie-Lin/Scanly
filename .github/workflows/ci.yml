@@ -7,6 +7,8 @@ on:
       - master
       - architecture/sdk-v2-foundation
       - architecture/sdk-v2-alpha3-industrial-validation
+      - architecture/sdk-v2-alpha4-zxing-cpp-wasm
+      - develop/sdk-v2
   pull_request:
 
 jobs:
@@ -29,6 +31,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Verify pinned WASM asset
+        run: npm run wasm:verify
 
       - name: Generate fixtures
         run: npm run fixtures:generate
@@ -115,3 +120,60 @@ jobs:
             benchmark-results/development/smoke-balanced.json
             benchmark-results/development/smoke-balanced.csv
             benchmark-results/ci/bundle-cost.json
+
+  wasm-build:
+    name: WASM Build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: npm run wasm:build
+      - run: npm run wasm:verify
+      - name: Verify reproducible tracked artifact
+        run: git diff --exit-code -- engines/zxing-cpp-wasm/wasm
+
+  node-wasm:
+    name: Node WASM Integration
+    needs: wasm-build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: [20, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run tests/integration/zxing-cpp-wasm.test.ts tests/unit/zxing-cpp-wasm-loader.test.ts
+      - run: npm run test:wasm:memory -- --iterations=1000
+
+  browser-wasm:
+    name: Browser WASM Integration
+    needs: wasm-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e:chromium
+
+  package-tarball:
+    name: Package Tarball
+    needs: wasm-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: npm run build:packages
+      - run: npm run packages:smoke
+      - run: npm run packages:tarball

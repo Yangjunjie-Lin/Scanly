@@ -22,6 +22,7 @@ export const DEFAULT_PIPELINE_CONFIG = {
         "threshold-165",
     ],
     decoders: { order: [], execution: "sequential", failurePolicy: "success-wins" },
+    fallbackTiming: "final",
     stallCandidateLimit: 12,
     failFastAfterAttempts: 48,
     enableLocalization: true,
