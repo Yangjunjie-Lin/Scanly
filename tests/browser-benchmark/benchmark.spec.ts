@@ -101,4 +101,10 @@ test("records an isolated browser runtime benchmark", async ({ page, browser, br
   if (benchmarkKind === "smoke") expect(failures).toEqual([]);
   else expect(failures.every((id) => id === "14-damaged")).toBe(true);
   expect(report.falsePositiveCount).toBe(0);
+  if (report.sourceIdentity.sdkVersion === "2.0.0-alpha.4") {
+    expect(report.metadata.actualDecodePath).toBe("worker");
+    expect(report.metadata.workerDecodeCount).toBeGreaterThan(0);
+    expect(report.metadata.observedEngineIds).toContain("zxing-cpp-wasm");
+    expect(report.metadata.observedWasmVariants).toContain("standard");
+  }
 });

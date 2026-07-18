@@ -20,6 +20,7 @@ jobs:
     runs-on: windows-latest
     outputs:
       gate-mode: ${{ steps.gate-mode.outputs.mode }}
+      baseline-id: ${{ steps.gate-mode.outputs.baseline-id }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -37,13 +38,17 @@ jobs:
       - name: Select benchmark gate mode
         id: gate-mode
         shell: pwsh
+        run: npx tsx scripts/select-benchmark-gate-mode.ts --runtime-family=node24-win32-x64 --registry=benchmark-results/baselines/registry.json --github-output="$env:GITHUB_OUTPUT"
+      - name: Summarize benchmark gate mode
+        shell: pwsh
+        env:
+          SELECTED_MODE: ${{ steps.gate-mode.outputs.mode }}
+          SELECTED_BASELINE_ID: ${{ steps.gate-mode.outputs.baseline-id }}
+          SELECTION_REASON: ${{ steps.gate-mode.outputs.reason }}
         run: |
-          $registry = Get-Content benchmark-results/baselines/registry.json -Raw | ConvertFrom-Json
-          $active = $registry.activeBaselines.'node24-win32-x64'
-          $alpha3 = $active.fast -like 'v2-alpha3-r*' -and $active.balanced -like 'v2-alpha3-r*' -and $active.robust -like 'v2-alpha3-r*'
-          $mode = if ($alpha3) { 'active-baseline' } else { 'baseline-candidate' }
-          "mode=$mode" >> $env:GITHUB_OUTPUT
-          "Full Benchmark gate mode: **$mode**" >> $env:GITHUB_STEP_SUMMARY
+          "Full Benchmark gate mode: $env:SELECTED_MODE" >> $env:GITHUB_STEP_SUMMARY
+          if ($env:SELECTED_BASELINE_ID) { "Active baseline: $env:SELECTED_BASELINE_ID" >> $env:GITHUB_STEP_SUMMARY }
+          "Selection reason: $env:SELECTION_REASON" >> $env:GITHUB_STEP_SUMMARY
 
   profile:
     needs: prepare

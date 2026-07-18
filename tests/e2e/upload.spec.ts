@@ -43,6 +43,18 @@ test("upload clear QR through a real worker @smoke", async ({ page }) => {
   expect(state?.decodePosted).toBeGreaterThanOrEqual(1);
 });
 
+test("ZXing contribution fixture uses standard WASM through the real worker @smoke", async ({ page }) => {
+  await page.getByRole("tab", { name: "Upload" }).click();
+  await page.getByTestId("upload-input").setInputFiles(fixture("74-zxing-contribution-blur.png"));
+  const output = page.getByTestId("decoded-output");
+  await expect(output).toHaveValue("ZXING_UNIQUE_3_2_L", { timeout: 60_000 });
+  await expect(output).toHaveAttribute("data-engine", "zxing-cpp-wasm");
+  await expect(output).toHaveAttribute("data-engine-variant", "standard");
+  const state = await page.evaluate(() => window.__SCANLY_WORKER_DEBUG__);
+  expect(state?.lastPath).toBe("worker");
+  expect(state?.workerDecodeCount).toBeGreaterThanOrEqual(1);
+});
+
 test("upload clear QR shows exact payload and copy works", async ({ page, context }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.getByRole("tab", { name: "Upload" }).click();
