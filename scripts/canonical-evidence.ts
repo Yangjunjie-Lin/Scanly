@@ -76,7 +76,7 @@ const ALLOWED_FAILURE_DETAILS: Record<string, { category: string; reasons: reado
   "64-multiple-five": { category: "multiple", reasons: ["no_symbol_found"] },
   "65-multiple-eight": { category: "multiple", reasons: ["no_symbol_found"] },
   "66-multiple-twelve": { category: "multiple", reasons: ["incomplete_multiple"] },
-  "67-multiple-same-two": { category: "multiple", reasons: ["no_symbol_found"] },
+  "67-multiple-same-two": { category: "multiple", reasons: ["no_symbol_found", "incomplete_multiple"] },
   "68-multiple-same-three": { category: "multiple", reasons: ["no_symbol_found"] },
   "69-multiple-mixed-size": { category: "multiple", reasons: ["incomplete_multiple"] },
 };

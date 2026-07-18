@@ -180,6 +180,12 @@ describe("canonical correctness policy", () => {
     expect(validateProfileReport(report, "balanced")).toEqual([]);
   });
 
+  it("accepts partial duplicate-symbol recovery as an expected Fast-profile failure", () => {
+    const report = artifacts().reports.fast;
+    report.results.find((result) => result.id === "67-multiple-same-two")!.failureReason = "incomplete_multiple";
+    expect(validateProfileReport(report, "fast")).toEqual([]);
+  });
+
   it("rejects a timeout even when it uses an allowed retained failure ID", () => {
     const report = artifacts().reports.balanced;
     report.results.find((result) => result.id === "14-damaged")!.failureReason = "timeout";
