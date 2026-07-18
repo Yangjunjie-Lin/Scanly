@@ -33,7 +33,7 @@ const readmePath = path.join(ROOT, "README.md");
 const readme = fs.readFileSync(readmePath, "utf8");
 const block = [
   "<!-- BENCHMARK_SUMMARY_START -->", "| Metric | Value |", "| --- | ---: |",
-  "| Evidence status | **Alpha.3 canonical evidence** |",
+  "| Evidence status | **Alpha.4 canonical evidence** |",
   `| Internal fixtures | ${balanced.total} |`, `| Generated fixtures | ${generated} |`, `| Project-owned photos | ${photos} |`,
   `| Success on fixture suite | **${balanced.passed}/${balanced.total} (${(balanced.successRate * 100).toFixed(1)}%)** on the current ${balanced.total}-case project fixture suite |`,
   `| Positive decode recall | **${positivePassed}/${balanced.positiveCases} (${(balanced.decodeRecall * 100).toFixed(1)}%)** |`,
