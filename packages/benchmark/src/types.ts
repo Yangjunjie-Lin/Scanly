@@ -120,6 +120,9 @@ export interface BenchmarkSourceIdentity {
   scenarioHash: string;
   datasetHash: string;
   engineCompositionHash: string;
+  wasmBuildHash: string;
+  nativeAdapterHash: string;
+  loaderHash: string;
   benchmarkRunnerHash: string;
 }
 
@@ -167,6 +170,9 @@ export interface BenchmarkRunSummary {
     warmupPolicy: string;
     iterationCount: number;
     coldInitializationMs?: number;
+    warmInitializationMs?: number;
+    selectedWasmVariant?: "standard" | "simd";
+    wasmLinearMemoryPeakBytes?: number;
   };
   generatedAt: string;
   total: number;
@@ -237,6 +243,9 @@ export interface StrategySummary {
   uniqueWins: string[];
   installedPackageFootprintBytes: number;
   initializationMs: number;
+  warmInitializationMs?: number;
+  wasmVariant?: "standard" | "simd";
+  wasmLinearMemoryPeakBytes?: number;
   averageControlledMemoryPeakBytes: number;
 }
 
@@ -299,6 +308,8 @@ export interface BrowserBenchmarkMetadata {
   workerTerminationCount: number;
   workerDecodeCount: number;
   mainThreadDecodeCount: number;
+  observedEngineIds: string[];
+  observedWasmVariants: string[];
 }
 
 
@@ -309,6 +320,7 @@ export interface BrowserBenchmarkSourceIdentity {
   datasetHash: string;
   scenarioHash: string;
   engineVersions: Record<string, string>;
+  wasmBuildHash: string;
   fixtureIds: string[];
 }
 

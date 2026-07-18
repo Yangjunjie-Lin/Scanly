@@ -1,5 +1,7 @@
 # Decoding pipeline
 
+Alpha.4's measured default order is jsQR → ZXing-C++ WASM → ZXing-JS. Fast defers fallback to protect cold first-frame latency. Balanced and Robust run a limited cheap jsQR probe, then one native original full-frame pass before the expensive preprocessing graph. Later fallback remains sequential and observable; initialization failure is isolated and does not masquerade as no-symbol.
+
 The shared Router graph orchestrates an ordered, budgeted QR fallback implementation. It is heuristic image processing, not a machine-learning model. Upload, Worker, main-thread, normalized-pixel, Node benchmark, and camera-sampled frames all use this path.
 
 ## Logical graph

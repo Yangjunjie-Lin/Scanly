@@ -141,6 +141,9 @@ export interface CanonicalEvidenceManifest {
     packageLockHash: string;
     datasetHash: string;
     engineCompositionHash: string;
+    wasmBuildHash: string;
+    nativeAdapterHash: string;
+    loaderHash: string;
   };
   fixtureCount: number;
   reports: Record<EvidenceReportKey, string>;
@@ -157,8 +160,10 @@ export interface CanonicalEvidenceBundle {
 }
 
 const STRATEGIES = [
-  "raw-jsqr", "raw-zxing-js", "scanly-fast", "scanly-balanced", "scanly-robust",
-  "scanly-jsqr-only", "scanly-zxing-only", "scanly-multi-sequential", "scanly-multi-parallel",
+  "raw-jsqr", "raw-zxing-js", "raw-zxing-cpp-wasm",
+  "scanly-fast", "scanly-balanced", "scanly-robust",
+  "scanly-jsqr-only", "scanly-zxing-js-only", "scanly-zxing-cpp-only",
+  "scanly-js-wasm-sequential", "scanly-js-wasm-parallel-experimental",
 ] as const;
 
 function manifestPayload(manifest: Omit<CanonicalEvidenceManifest, "manifestHash"> | CanonicalEvidenceManifest): string {
@@ -178,6 +183,9 @@ function sourceFields(report: BenchmarkRunSummary | ComparisonReport) {
     packageLockHash: report.sourceIdentity?.packageLockHash,
     datasetHash: report.sourceIdentity?.datasetHash,
     engineCompositionHash: report.sourceIdentity?.engineCompositionHash,
+    wasmBuildHash: report.sourceIdentity?.wasmBuildHash,
+    nativeAdapterHash: report.sourceIdentity?.nativeAdapterHash,
+    loaderHash: report.sourceIdentity?.loaderHash,
   };
 }
 
@@ -189,15 +197,24 @@ export function validateProfileReport(report: Partial<BenchmarkRunSummary>, prof
   if ((report.executionPolicy?.warmupIterations ?? 0) < 1) failures.push("warmup is below one iteration");
   if ((report.executionPolicy?.measuredIterations ?? 0) < 3) failures.push("measured iterations are below three");
   if (report.environment?.scenario !== profile) failures.push("profile metadata is incompatible");
-  if (report.environment?.sdkVersion !== "2.0.0-alpha.3") failures.push("SDK version is not 2.0.0-alpha.3");
+  if (report.environment?.sdkVersion !== "2.0.0-alpha.4") failures.push("SDK version is not 2.0.0-alpha.4");
   if (report.runtime?.kind !== "node" || !/^v?24\./.test(report.runtime?.nodeVersion ?? "") || report.runtime?.platform !== "win32" || report.runtime?.arch !== "x64") failures.push("runtime is not Node 24 Windows x64");
   if (report.environment?.fixtureCount !== 74 || report.total !== 74) failures.push("fixture count is not 74");
+  for (const field of ["wasmBuildHash", "nativeAdapterHash", "loaderHash"] as const) {
+    if (!/^[a-f0-9]{64}$/.test(report.sourceIdentity?.[field] ?? "")) failures.push(`${field} is missing or invalid`);
+  }
+  if (!["standard", "simd"].includes(report.environment?.selectedWasmVariant ?? "")) failures.push("selected WASM variant is missing");
+  if (!Number.isFinite(report.environment?.warmInitializationMs) || (report.environment?.warmInitializationMs ?? -1) < 0) failures.push("warm initialization timing is missing");
+  if ((report.environment?.wasmLinearMemoryPeakBytes ?? 0) <= 0) failures.push("WASM linear-memory peak is missing");
   failures.push(...validateProfileCorrectness(report, profile));
   if ((report.engineInitializationFailures ?? -1) !== 0 || (report.engineExecutionFailures ?? -1) !== 0) failures.push("report contains engine failures");
   if (report.cancellationCorrectness?.passed !== report.cancellationCorrectness?.total) failures.push("cancellation correctness failed");
   if (report.phaseTimingAvailability?.passed !== report.phaseTimingAvailability?.total) failures.push("phase timing is incomplete");
   if (profile !== "fast" && report.multipleCompleteness?.complete !== report.multipleCompleteness?.total) failures.push("multi-code completeness failed");
   if (report.finalControlledMemoryBytes !== 0) failures.push("final controlled memory is nonzero");
+  for (const field of ["wasmBuildHash", "nativeAdapterHash", "loaderHash"] as const) {
+    if (!/^[a-f0-9]{64}$/.test(report.sourceIdentity?.[field] ?? "")) failures.push(`${field} is missing or invalid`);
+  }
   const measuredIterations = report.executionPolicy?.measuredIterations ?? 3;
   if (!report.results?.every((result) =>
     (result.iterationPassCount ?? 0) + (result.iterationFailureCount ?? 0) >= measuredIterations
@@ -218,7 +235,7 @@ export function validateComparisonReport(report: Partial<ComparisonReport>): str
   if (!report.executionPolicy?.canonical) failures.push("execution policy is not canonical-compatible");
   if ((report.executionPolicy?.warmupIterations ?? 0) < 1) failures.push("warmup is below one iteration");
   if ((report.executionPolicy?.measuredIterations ?? 0) < 3) failures.push("measured iterations are below three");
-  if (report.sdkVersion !== "2.0.0-alpha.3") failures.push("SDK version is not 2.0.0-alpha.3");
+  if (report.sdkVersion !== "2.0.0-alpha.4") failures.push("SDK version is not 2.0.0-alpha.4");
   if (runtime?.kind !== "node" || !/^v?24\./.test(runtime?.nodeVersion ?? "") || runtime?.platform !== "win32" || runtime?.arch !== "x64") failures.push("runtime is not Node 24 Windows x64");
   if (report.fixtureCount !== 74 || report.positiveCases !== 63 || report.negativeCases !== 11) failures.push("fixture contract is incompatible");
   if (report.finalControlledMemoryBytes !== 0) failures.push("final controlled memory is nonzero");
@@ -226,8 +243,12 @@ export function validateComparisonReport(report: Partial<ComparisonReport>): str
     const strategy = report.strategies?.find((entry) => entry.strategyId === id);
     if (!strategy || strategy.fixtureCount !== 74) failures.push(`strategy '${id}' is missing or incomplete`);
   }
-  const sequential = report.strategies?.find((entry) => entry.strategyId === "scanly-multi-sequential");
-  const parallel = report.strategies?.find((entry) => entry.strategyId === "scanly-multi-parallel");
+  const wasm = report.strategies?.find((entry) => entry.strategyId === "raw-zxing-cpp-wasm");
+  if (!wasm || wasm.initializationFailures !== 0 || wasm.executionFailures !== 0 || !wasm.wasmVariant || (wasm.wasmLinearMemoryPeakBytes ?? 0) <= 0 || wasm.uniqueWins.length < 1) {
+    failures.push("raw ZXing-C++ WASM lifecycle evidence is incomplete");
+  }
+  const sequential = report.strategies?.find((entry) => entry.strategyId === "scanly-js-wasm-sequential");
+  const parallel = report.strategies?.find((entry) => entry.strategyId === "scanly-js-wasm-parallel-experimental");
   if (sequential && parallel) {
     const parity = parallel.positiveRecall >= sequential.positiveRecall - 0.01
       && parallel.exactPayloadAccuracy >= sequential.exactPayloadAccuracy - 0.01
@@ -252,7 +273,7 @@ export function validateComparisonReport(report: Partial<ComparisonReport>): str
 export function validateCompatibleSources(reports: Array<BenchmarkRunSummary | ComparisonReport>): string[] {
   const failures: string[] = [];
   const identities = reports.map(sourceFields);
-  for (const key of ["sourceCommitSha", "sourceTreeSha", "packageLockHash", "datasetHash", "engineCompositionHash"] as const) {
+  for (const key of ["sourceCommitSha", "sourceTreeSha", "packageLockHash", "datasetHash", "engineCompositionHash", "wasmBuildHash", "nativeAdapterHash", "loaderHash"] as const) {
     if (new Set(identities.map((identity) => identity[key])).size !== 1 || !identities[0][key]) failures.push(`source identity mismatch: ${key}`);
   }
   if (identities.some((identity) => identity.repositoryDirty !== false)) failures.push("one or more reports have dirty source identity");
@@ -281,7 +302,7 @@ export function assembleCanonicalEvidence(inputs: Record<EvidenceReportKey, stri
 
   const reportHashes = Object.fromEntries(Object.entries(inputs).map(([key, file]) => [key, sha256Text(fs.readFileSync(file))])) as Record<EvidenceReportKey, string>;
   const identity = sourceFields(reports.fast);
-  const evidenceId = `alpha3-${sha256(stableJson({ reportHashes, identity })).slice(0, 16)}`;
+  const evidenceId = `alpha4-${sha256(stableJson({ reportHashes, identity })).slice(0, 16)}`;
   const reportNames: Record<EvidenceReportKey, string> = {
     fastJson: "latest-fast.json",
     fastCsv: "latest-fast.csv",
@@ -300,6 +321,7 @@ export function assembleCanonicalEvidence(inputs: Record<EvidenceReportKey, stri
     sourceIdentity: {
       sourceCommitSha: identity.sourceCommitSha!, sourceTreeSha: identity.sourceTreeSha!, repositoryDirty: false,
       packageLockHash: identity.packageLockHash!, datasetHash: identity.datasetHash!, engineCompositionHash: identity.engineCompositionHash!,
+      wasmBuildHash: identity.wasmBuildHash!, nativeAdapterHash: identity.nativeAdapterHash!, loaderHash: identity.loaderHash!,
     },
     fixtureCount: reports.fast.total,
     reports: reportNames,

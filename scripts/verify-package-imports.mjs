@@ -9,6 +9,7 @@ const expectedExports = [
   ["@scanly/react", "useScanly"],
   ["@scanly/engine-jsqr", "JsQrEngine"],
   ["@scanly/engine-zxing-js", "ZxingJsEngine"],
+  ["@scanly/engine-zxing-cpp-wasm", "createZxingCppWasmEngine"],
 ];
 
 for (const [specifier, expectedExport] of expectedExports) {

@@ -11,8 +11,8 @@ const value = (name: string) => process.argv.find((argument) => argument.startsW
 async function main(): Promise<void> {
 const baselineId = value("baseline-id");
 const manifestPath = value("canonical-manifest");
-if (!process.argv.includes("--approve-activation") || !baselineId || !/^v2-alpha3-r\d+$/.test(baselineId) || !manifestPath) {
-  throw new Error("Activation requires --baseline-id=v2-alpha3-rN, --canonical-manifest=<path>, and --approve-activation.");
+if (!process.argv.includes("--approve-activation") || !baselineId || !/^v2-alpha4-r\d+$/.test(baselineId) || !manifestPath) {
+  throw new Error("Activation requires --baseline-id=v2-alpha4-rN, --canonical-manifest=<path>, and --approve-activation.");
 }
 const bundle = readCanonicalEvidence(manifestPath);
 const expectedFamily = "node24-win32-x64";
@@ -43,6 +43,9 @@ registry.activeEvidence[expectedFamily] = {
   evidenceId: bundle.manifest.evidenceId,
   canonicalManifestHash: bundle.manifest.manifestHash,
   baselineHashes: hashes,
+  sourceCommit: bundle.manifest.sourceIdentity.sourceCommitSha,
+  engineCompositionHash: bundle.manifest.sourceIdentity.engineCompositionHash,
+  wasmBuildHash: bundle.manifest.sourceIdentity.wasmBuildHash,
 };
 const temporary = `${registryPath}.${process.pid}.tmp`;
 const backup = `${registryPath}.${process.pid}.bak`;

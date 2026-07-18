@@ -9,8 +9,8 @@ const value = (name: string) => process.argv.find((argument) => argument.startsW
 const profile = value("profile") as ProfileKey | undefined;
 const baselineId = value("baseline-id");
 const manifestPath = value("canonical-manifest");
-if (!process.argv.includes("--approve-baseline") || !profile || !PROFILE_KEYS.includes(profile) || !baselineId || !/^v2-alpha3-r\d+$/.test(baselineId) || !manifestPath) {
-  throw new Error("Baseline freeze requires --profile=fast|balanced|robust, --baseline-id=v2-alpha3-rN, --canonical-manifest=<path>, and --approve-baseline.");
+if (!process.argv.includes("--approve-baseline") || !profile || !PROFILE_KEYS.includes(profile) || !baselineId || !/^v2-alpha4-r\d+$/.test(baselineId) || !manifestPath) {
+  throw new Error("Baseline freeze requires --profile=fast|balanced|robust, --baseline-id=v2-alpha4-rN, --canonical-manifest=<path>, and --approve-baseline.");
 }
 const bundle = readCanonicalEvidence(manifestPath);
 const report = bundle.reports[profile];

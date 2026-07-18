@@ -1,7 +1,7 @@
 {
   "name": "scanly",
   "private": true,
-  "version": "2.0.0-alpha.3",
+  "version": "2.0.0-alpha.4",
   "workspaces": [
     "apps/*",
     "packages/*",
@@ -9,7 +9,7 @@
   ],
   "license": "MIT",
   "engines": {
-    "node": ">=20 <25",
+    "node": ">=20.16 <25",
     "npm": ">=10"
   },
   "overrides": {
@@ -23,7 +23,9 @@
     "start": "next start apps/web-demo",
     "lint": "eslint apps packages engines scripts tests *.ts --ext .ts,.tsx --ignore-pattern '**/dist/**' --ignore-pattern '**/.next/**'",
     "typecheck": "tsc --noEmit",
-    "build:packages": "npm run build --workspace=@scanly/scenario-schema && npm run build --workspace=@scanly/parsers && npm run build --workspace=@scanly/benchmark && npm run build --workspace=@scanly/core && npm run build --workspace=@scanly/engine-jsqr && npm run build --workspace=@scanly/engine-zxing-js && npm run build --workspace=@scanly/browser && npm run build --workspace=@scanly/node && npm run build --workspace=@scanly/react",
+    "build:packages": "npm run build --workspace=@scanly/scenario-schema && npm run build --workspace=@scanly/parsers && npm run build --workspace=@scanly/benchmark && npm run build --workspace=@scanly/core && npm run build --workspace=@scanly/engine-jsqr && npm run build --workspace=@scanly/engine-zxing-js && npm run build --workspace=@scanly/engine-zxing-cpp-wasm && npm run build --workspace=@scanly/browser && npm run build --workspace=@scanly/node && npm run build --workspace=@scanly/react",
+    "wasm:build": "npm run wasm:build --workspace=@scanly/engine-zxing-cpp-wasm",
+    "wasm:verify": "npm run wasm:verify --workspace=@scanly/engine-zxing-cpp-wasm",
     "packages:smoke": "node scripts/verify-package-imports.mjs",
     "packages:tarball": "node scripts/verify-package-tarballs.mjs",
     "test": "vitest run",
@@ -34,6 +36,7 @@
     "test:e2e:firefox": "playwright test --project=firefox",
     "test:e2e:webkit": "playwright test --project=webkit",
     "test:memory": "node --expose-gc --import tsx scripts/soak-memory.ts",
+    "test:wasm:memory": "node --expose-gc --import tsx scripts/soak-wasm-memory.ts",
     "benchmark": "tsx scripts/run-benchmark.ts",
     "benchmark:smoke": "tsx scripts/run-benchmark.ts --smoke --gate",
     "benchmark:compare": "tsx scripts/compare-engines.ts",

@@ -11,7 +11,7 @@ describe("truthful runtime capabilities", () => {
       expect(capabilities.formats).toEqual(["qr_code"]);
       expect(capabilities.pixelFormats).toEqual(["rgba8888", "rgb888", "gray8"]);
       expect(capabilities.scenarioFeatures).toMatchObject({ roi: true, parallelEngines: true, spatialDeduplication: true, temporalTracking: false, heuristicQuality: false, yuvNormalization: false });
-      expect(capabilities.engines.map((engine) => engine.id)).toEqual(["jsqr", "zxing-js"]);
+      expect(capabilities.engines.map((engine) => engine.id)).toEqual(["jsqr", "zxing-cpp-wasm", "zxing-js"]);
       expect(capabilities.engines.every((engine) => engine.capabilities.estimatedScratchBytesPerPixel !== undefined)).toBe(true);
     } finally { await router.dispose(); }
   });

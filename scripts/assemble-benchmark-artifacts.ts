@@ -29,6 +29,9 @@ const identities = [...reports.map((report) => ({
   sdkVersion: report.environment.sdkVersion,
   fixtureCount: report.environment.fixtureCount,
   engineCompositionHash: report.sourceIdentity.engineCompositionHash,
+  wasmBuildHash: report.sourceIdentity.wasmBuildHash,
+  nativeAdapterHash: report.sourceIdentity.nativeAdapterHash,
+  loaderHash: report.sourceIdentity.loaderHash,
 })), {
   commitSha: comparison.sourceIdentity.commitSha,
   treeSha: comparison.sourceIdentity.treeSha,
@@ -37,13 +40,16 @@ const identities = [...reports.map((report) => ({
   sdkVersion: comparison.sdkVersion,
   fixtureCount: comparison.fixtureCount,
   engineCompositionHash: comparison.sourceIdentity.engineCompositionHash,
+  wasmBuildHash: comparison.sourceIdentity.wasmBuildHash,
+  nativeAdapterHash: comparison.sourceIdentity.nativeAdapterHash,
+  loaderHash: comparison.sourceIdentity.loaderHash,
 }];
 for (const key of Object.keys(identities[0]) as Array<keyof typeof identities[number]>) {
   if (new Set(identities.map((identity) => identity[key])).size !== 1) throw new Error(`Assembled reports disagree on ${key}.`);
 }
 
-const sequential = comparison.strategies.find((strategy) => strategy.strategyId === "scanly-multi-sequential");
-const parallel = comparison.strategies.find((strategy) => strategy.strategyId === "scanly-multi-parallel");
+const sequential = comparison.strategies.find((strategy) => strategy.strategyId === "scanly-js-wasm-sequential");
+const parallel = comparison.strategies.find((strategy) => strategy.strategyId === "scanly-js-wasm-parallel-experimental");
 if (!sequential || !parallel) throw new Error("Comparison lacks sequential or parallel Scanly strategies.");
 const parityFailures = [
   parallel.positiveRecall < sequential.positiveRecall - 0.01 && "positive recall",

@@ -22,7 +22,7 @@ function sameMultiset(left: string[], right: string[]): boolean {
 }
 
 test("records an isolated browser runtime benchmark", async ({ page, browser, browserName }, testInfo) => {
-  const results: BrowserBenchmarkReport["results"] = [];
+  const results: Array<BrowserBenchmarkReport["results"][number] & { engineIds: string[]; wasmVariants: string[] }> = [];
   await page.goto("/");
   await page.getByRole("tab", { name: "Upload" }).click();
   for (const id of fixtureIds) {
@@ -40,9 +40,12 @@ test("records an isolated browser runtime benchmark", async ({ page, browser, br
     }
     const payloads = await page.getByTestId("decoded-result-item").evaluateAll((elements) => elements.map((element) => element.getAttribute("data-payload") ?? ""));
     const single = await page.getByTestId("decoded-output").inputValue();
+    const engineElements = payloads.length ? page.getByTestId("decoded-result-item") : page.getByTestId("decoded-output");
+    const engineIds = await engineElements.evaluateAll((elements) => elements.map((element) => element.getAttribute("data-engine") ?? "").filter(Boolean));
+    const wasmVariants = await engineElements.evaluateAll((elements) => elements.map((element) => element.getAttribute("data-engine-variant") ?? "").filter(Boolean));
     const actual = payloads.length ? payloads : single ? [single] : [];
     const required = fixture.requiredInstances?.flatMap((entry) => Array.from({ length: entry.count }, () => entry.payload)) ?? fixture.requiredPayloads ?? (Array.isArray(fixture.expectedPayload) ? fixture.expectedPayload : [fixture.expectedPayload]).filter(Boolean);
-    results.push({ fixtureId: id, pass: fixture.expectedOutcome === "decode" ? sameMultiset(required, actual) : actual.length === 0, elapsedMs: Date.now() - started, payloads: actual });
+    results.push({ fixtureId: id, pass: fixture.expectedOutcome === "decode" ? sameMultiset(required, actual) : actual.length === 0, elapsedMs: Date.now() - started, payloads: actual, engineIds, wasmVariants });
   }
   const platform = await page.evaluate(() => ({ userAgent: navigator.userAgent, platform: navigator.platform, worker: typeof Worker !== "undefined", offscreen: typeof OffscreenCanvas !== "undefined", imageBitmap: typeof createImageBitmap !== "undefined", videoFrame: typeof VideoFrame !== "undefined", memory: "memory" in performance ? "performance.memory available but non-standard" : "browser heap observation unavailable", debug: window.__SCANLY_WORKER_DEBUG__ }));
   const positives = results.filter((result) => manifest.fixtures.find((fixture) => fixture.id === result.fixtureId)?.expectedOutcome === "decode");
@@ -60,7 +63,9 @@ test("records an isolated browser runtime benchmark", async ({ page, browser, br
       engineVersions: {
         jsqr: (JSON.parse(fs.readFileSync(path.join(root, "engines", "jsqr", "package.json"), "utf8")) as { version: string }).version,
         "zxing-js": (JSON.parse(fs.readFileSync(path.join(root, "engines", "zxing-js", "package.json"), "utf8")) as { version: string }).version,
+        "zxing-cpp-wasm": (JSON.parse(fs.readFileSync(path.join(root, "engines", "zxing-cpp-wasm", "package.json"), "utf8")) as { version: string }).version,
       },
+      wasmBuildHash: (JSON.parse(fs.readFileSync(path.join(root, "engines", "zxing-cpp-wasm", "wasm", "metadata.json"), "utf8")) as { assets: { standard: { sha256: string } } }).assets.standard.sha256,
       fixtureIds,
     },
     metadata: {
@@ -79,6 +84,8 @@ test("records an isolated browser runtime benchmark", async ({ page, browser, br
       workerTerminationCount: platform.debug?.terminated ?? 0,
       workerDecodeCount: platform.debug?.workerDecodeCount ?? 0,
       mainThreadDecodeCount: platform.debug?.mainThreadDecodeCount ?? 0,
+      observedEngineIds: [...new Set(results.flatMap((result) => result.engineIds))].sort(),
+      observedWasmVariants: [...new Set(results.flatMap((result) => result.wasmVariants))].sort(),
     },
     fixtureCount: results.length,
     positiveRecall: positives.filter((result) => result.pass).length / Math.max(1, positives.length),

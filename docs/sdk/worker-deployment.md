@@ -1,5 +1,7 @@
 # Worker deployment and self-hosting
 
+Alpha.4 Workers resolve `zxing-cpp.wasm` relative to the installed engine module and retain one initialized module for the Worker lifetime. Ensure the asset is copied by the bundler, served as `application/wasm`, and permitted by CSP. Terminating the Worker cancels ownership, rejects pending work, and releases the WASM realm; cancellation during synchronous native code suppresses delivery rather than preempting execution.
+
 `@scanly/browser` creates a module Worker using a relative ESM asset URL. The package build emits `dist/worker/decode-worker.js`; bundlers must copy or chunk that asset on the same origin. Worker creation, termination, malformed-message failure, stale-ID rejection, and lazy recreation are tested in unit and production browser paths.
 
 ## CSP

@@ -17,6 +17,9 @@ export interface SourceIdentityOptions {
   manifestPath: string;
   fixtureFiles: readonly string[];
   runnerPath: string;
+  wasmAssetPath?: string;
+  nativeAdapterPath?: string;
+  loaderPath?: string;
   allowDirty?: boolean;
 }
 
@@ -58,6 +61,15 @@ export async function collectSourceIdentity(options: SourceIdentityOptions): Pro
   const status = repositoryStatus(options.root);
   if (status && !options.allowDirty) assertCleanRepository(options.root);
   const git = (args: string[]) => execFileSync("git", args, { cwd: options.root, encoding: "utf8" }).trim();
+  const hashFileOrMarker = async (file: string, marker: string): Promise<string> => fs.existsSync(file)
+    ? sha256(await fs.promises.readFile(file))
+    : sha256(marker);
+  const wasmAssetPath = options.wasmAssetPath ?? path.join(options.root, "engines", "zxing-cpp-wasm", "wasm", "zxing-cpp.wasm");
+  const nativeAdapterPath = options.nativeAdapterPath ?? path.join(options.root, "engines", "zxing-cpp-wasm", "src", "engine.ts");
+  const loaderPath = options.loaderPath ?? path.join(options.root, "engines", "zxing-cpp-wasm", "src", "loader.ts");
+  const wasmBuildHash = await hashFileOrMarker(wasmAssetPath, "wasm-not-present");
+  const nativeAdapterHash = await hashFileOrMarker(nativeAdapterPath, "native-adapter-not-present");
+  const loaderHash = await hashFileOrMarker(loaderPath, "wasm-loader-not-present");
   return {
     commitSha: git(["rev-parse", "HEAD"]),
     treeSha: git(["rev-parse", "HEAD^{tree}"]),
@@ -65,7 +77,15 @@ export async function collectSourceIdentity(options: SourceIdentityOptions): Pro
     packageLockHash: sha256Text(await fs.promises.readFile(path.join(options.root, "package-lock.json"))),
     scenarioHash: sha256(stableJson(options.scenario)),
     datasetHash: await computeDatasetHash(options.manifestPath, options.fixtureFiles, options.root),
-    engineCompositionHash: sha256(stableJson(options.engines.map((engine) => ({ id: engine.id, version: engine.version, capabilities: engine.capabilities })))),
+    engineCompositionHash: sha256(stableJson({
+      engines: options.engines.map((engine) => ({ id: engine.id, version: engine.version, capabilities: engine.capabilities })),
+      wasmBuildHash,
+      nativeAdapterHash,
+      loaderHash,
+    })),
+    wasmBuildHash,
+    nativeAdapterHash,
+    loaderHash,
     benchmarkRunnerHash: sha256(await fs.promises.readFile(options.runnerPath)),
   };
 }
@@ -74,7 +94,7 @@ const EVIDENCE_ONLY_PATHS = [
   /^benchmark-results\/(?:latest-fast|latest|latest-robust)\.(?:json|csv)$/,
   /^benchmark-results\/comparison\.json$/,
   /^benchmark-results\/canonical\/.+$/,
-  /^benchmark-results\/baselines\/v2-alpha3-r\d+-(?:fast|balanced|robust)-node24-windows-x64\.json$/,
+  /^benchmark-results\/baselines\/v2-alpha(?:3|4)-r\d+-(?:fast|balanced|robust)-node24-windows-x64\.json$/,
   /^benchmark-results\/baselines\/registry\.json$/,
   /^docs\/benchmark\.md$/,
   /^README\.md$/,

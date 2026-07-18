@@ -22,9 +22,21 @@ try {
     if (files.some((file) => /(^|\/)(fixtures|coverage|tests|\.env)(\/|$)/.test(file))) throw new Error(`${manifest.name} tarball contains repository-only files.`);
     if (!files.includes("dist/index.js") || !files.includes("dist/index.d.ts")) throw new Error(`${manifest.name} tarball is missing its root JS/declaration entry.`);
     if (manifest.name === "@scanly/browser" && !files.includes("dist/worker/decode-worker.js")) throw new Error("@scanly/browser tarball is missing the Worker asset.");
+    if (manifest.name === "@scanly/engine-zxing-cpp-wasm") {
+      for (const required of ["wasm/zxing-cpp.wasm", "wasm/metadata.json", "NOTICE", "LICENSE", "LICENSE-ZXING-WASM", "LICENSE-ZXING-CPP"]) {
+        if (!files.includes(required)) throw new Error(`@scanly/engine-zxing-cpp-wasm tarball is missing ${required}.`);
+      }
+    }
     const packed = JSON.parse(runNpm(["pack", "--json", "--pack-destination", temporary], { cwd: directory, encoding: "utf8" }))[0];
     tarballs.push(path.join(temporary, packed.filename));
-    expectedExports.push([manifest.name, Object.keys(manifest.exports ?? { ".": {} })]);
+    const importableExports = Object.entries(manifest.exports ?? { ".": {} })
+      .filter(([, target]) => {
+        if (typeof target === "string") return target.endsWith(".js");
+        const selected = target?.import;
+        return typeof selected === "string" ? selected.endsWith(".js") : typeof selected?.default === "string" && selected.default.endsWith(".js");
+      })
+      .map(([entry]) => entry);
+    expectedExports.push([manifest.name, importableExports]);
   }
 
   fs.writeFileSync(path.join(temporary, "package.json"), JSON.stringify({ private: true, type: "module" }));

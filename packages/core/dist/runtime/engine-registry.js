@@ -105,13 +105,21 @@ export class EngineRegistry {
             this.assertUsable();
         if (!record.initializePromise) {
             record.state = "initializing";
-            record.initializePromise = Promise.resolve()
+            const promise = Promise.resolve()
                 .then(() => record.engine.initialize?.())
                 .then(() => { record.state = "ready"; })
                 .catch((cause) => {
                 record.state = "failed";
                 throw initializationFailure(record.engine, cause);
+            })
+                .finally(() => {
+                // Failed engines may define their own bounded retry/circuit-breaker policy.
+                // Clearing only the failed promise preserves in-flight deduplication while
+                // allowing a later decode to make one explicit retry.
+                if (record.state === "failed" && record.initializePromise === promise)
+                    record.initializePromise = undefined;
             });
+            record.initializePromise = promise;
         }
         await record.initializePromise;
     }

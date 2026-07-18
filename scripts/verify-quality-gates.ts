@@ -16,8 +16,8 @@ const pkg = JSON.parse(read("package.json")) as {
   engines?: { node?: string; npm?: string };
 };
 if (pkg.license !== "MIT") fail("package.json license must be MIT");
-if (pkg.name !== "scanly" || pkg.version !== "2.0.0-alpha.3") fail("package metadata must identify the Scanly SDK v2 alpha.3 validation platform");
-if (pkg.engines?.node !== ">=20 <25" || pkg.engines?.npm !== ">=10") {
+if (pkg.name !== "scanly" || pkg.version !== "2.0.0-alpha.4") fail("package metadata must identify the Scanly SDK v2 alpha.4 validation platform");
+if (pkg.engines?.node !== ">=20.16 <25" || pkg.engines?.npm !== ">=10") {
   fail("package engines must pin the verified Node/npm maintenance range");
 }
 
@@ -78,7 +78,7 @@ for (const { profile, report } of canonicalProfiles) {
   if (report.environment.fixtureCount !== manifest.fixtures.length || report.total !== manifest.fixtures.length) fail(`Canonical ${profile} fixture count is stale.`);
   if (report.finalControlledMemoryBytes !== 0) fail(`Canonical ${profile} benchmark does not prove zero final controlled bytes.`);
 }
-for (const field of ["commitSha", "treeSha", "datasetHash", "packageLockHash", "engineCompositionHash"] as const) {
+for (const field of ["commitSha", "treeSha", "datasetHash", "packageLockHash", "engineCompositionHash", "wasmBuildHash", "nativeAdapterHash", "loaderHash"] as const) {
   if (new Set(canonicalProfiles.map(({ report }) => report.sourceIdentity[field])).size !== 1) fail(`Canonical profile source identity mismatch: ${field}.`);
 }
 if (canonical.environment.scenario !== "balanced" || canonical.environment.fixtureCount !== manifest.fixtures.length) fail("Canonical benchmark metadata must describe the balanced Router-path fixture run");
@@ -108,21 +108,19 @@ for (const [label, actual, expected] of [
   ["treeSha", comparison.sourceIdentity.treeSha, canonical.sourceIdentity.treeSha],
   ["sdkVersion", comparison.sdkVersion, canonical.environment.sdkVersion],
 ] as const) if (actual !== expected) fail(`Comparison report is stale: ${label} does not match canonical benchmark`);
-for (const strategy of ["raw-jsqr", "raw-zxing-js", "scanly-fast", "scanly-balanced", "scanly-robust", "scanly-jsqr-only", "scanly-zxing-only", "scanly-multi-sequential", "scanly-multi-parallel"]) {
+for (const strategy of ["raw-jsqr", "raw-zxing-js", "raw-zxing-cpp-wasm", "scanly-fast", "scanly-balanced", "scanly-robust", "scanly-jsqr-only", "scanly-zxing-js-only", "scanly-zxing-cpp-only", "scanly-js-wasm-sequential", "scanly-js-wasm-parallel-experimental"]) {
   const summary = comparison.strategies.find((entry) => entry.strategyId === strategy);
   if (!summary || summary.fixtureCount !== comparison.fixtureCount) fail(`Comparison strategy '${strategy}' is missing or incomplete`);
 }
-for (const engineStrategy of ["raw-jsqr", "raw-zxing-js"]) {
-  const contribution = comparison.strategies.find((entry) => entry.strategyId === engineStrategy)?.uniqueWins.length ?? 0;
-  if (contribution < 1) fail(`Production engine strategy '${engineStrategy}' has no unique contribution fixture`);
-}
+const wasmContribution = comparison.strategies.find((entry) => entry.strategyId === "raw-zxing-cpp-wasm")?.uniqueWins.length ?? 0;
+if (wasmContribution < 1) fail("ZXing-C++ WASM has no evidence-backed unique contribution fixture");
 
 const registry = JSON.parse(read("benchmark-results/baselines/registry.json")) as { activeBaselines?: Record<string, Record<string, string>> };
 const activeFamily = registry.activeBaselines?.["node24-win32-x64"];
 if (!activeFamily) fail("The Node 24 Windows x64 baseline registry is missing.");
 for (const profile of ["fast", "balanced", "robust"] as const) {
   const baselineFile = activeFamily?.[profile];
-  if (!baselineFile?.startsWith("v2-alpha3-r")) fail(`Active ${profile} baseline is not Alpha.3.`);
+  if (!/^v2-alpha(?:3|4)-r/.test(baselineFile ?? "")) fail(`Active ${profile} baseline is not an Alpha.3/Alpha.4 immutable baseline.`);
   const baselinePath = `benchmark-results/baselines/${baselineFile}`;
   if (!fs.existsSync(path.join(ROOT, baselinePath))) fail(`Active ${profile} baseline file is missing.`);
   const baseline = JSON.parse(read(baselinePath));
@@ -137,7 +135,7 @@ for (const profile of ["fast", "balanced", "robust"] as const) {
 }
 }
 
-if (!readme.includes("SDK-2.0.0--alpha.3")) fail("README SDK badge does not match 2.0.0-alpha.3.");
+if (!readme.includes("SDK-2.0.0--alpha.4")) fail("README SDK badge does not match 2.0.0-alpha.4.");
 const apiSnapshot = JSON.parse(read("api-snapshots/public-api.json")) as { packages?: Array<{ packageName?: string }> };
 const snapshotNames = new Set(apiSnapshot.packages?.map((entry) => entry.packageName));
 for (const packageName of ["@scanly/core", "@scanly/browser", "@scanly/node", "@scanly/react", "@scanly/scenario-schema", "@scanly/parsers", "@scanly/benchmark", "@scanly/engine-jsqr", "@scanly/engine-zxing-js"]) {

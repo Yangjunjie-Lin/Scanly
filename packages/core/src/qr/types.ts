@@ -84,6 +84,7 @@ export interface DecodedCode {
   rawBytes?: Uint8Array;
   decoder: DecoderName;
   engineVersion?: string;
+  engineMetadata?: import("../contracts/engine.js").EngineExecutionMetadata;
   cornerPoints?: Array<{ x: number; y: number }>;
   symbologyIdentifier?: string;
   preprocessing: PreprocessMethod;
@@ -168,6 +169,8 @@ export interface PipelineConfig {
   /** Ordered preprocess methods tried per candidate/scale/rotation combo (subset). */
   preprocessOrder: PreprocessMethod[];
   decoders: DecoderConfig;
+  /** When native fallbacks enter the graph. Fast uses final; richer profiles use after-cheap. */
+  fallbackTiming?: "after-cheap" | "final";
   /** Benchmark: all payloads that must appear for a full pass. */
   requiredPayloads?: string[];
   /** Benchmark: stop once this many unique payloads are found. */
@@ -239,6 +242,7 @@ export const DEFAULT_PIPELINE_CONFIG: PipelineConfig = {
     "threshold-165",
   ],
   decoders: { order: [], execution: "sequential", failurePolicy: "success-wins" },
+  fallbackTiming: "final",
   stallCandidateLimit: 12,
   failFastAfterAttempts: 48,
   enableLocalization: true,

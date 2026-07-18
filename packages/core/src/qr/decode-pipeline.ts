@@ -94,13 +94,14 @@ type AttemptContext = {
   budget: ExecutionBudget;
   now: () => number;
   diagnostics: EngineDiagnostic[];
+  failedEngineIds: Set<string>;
 };
 
 const DIAGNOSTIC_STATUS_PRIORITY: Record<EngineDiagnosticStatus, number> = {
   "not-found": 0, cancelled: 1, unsupported: 2, timeout: 3, "initialization-failure": 4, "execution-failure": 5, success: 6,
 };
 
-function recordDiagnostic(ctx: AttemptContext, engineId: string, status: EngineDiagnosticStatus, elapsedMs: number, resultCount: number, message?: string): void {
+function recordDiagnostic(ctx: AttemptContext, engineId: string, status: EngineDiagnosticStatus, elapsedMs: number, resultCount: number, message?: string, errorCode?: string): void {
   let diagnostic = ctx.diagnostics.find((entry) => entry.engineId === engineId);
   if (!diagnostic) {
     if (ctx.diagnostics.length >= 16) return;
@@ -112,6 +113,7 @@ function recordDiagnostic(ctx: AttemptContext, engineId: string, status: EngineD
   diagnostic.resultCount += Math.max(0, resultCount);
   if (DIAGNOSTIC_STATUS_PRIORITY[status] >= DIAGNOSTIC_STATUS_PRIORITY[diagnostic.status]) diagnostic.status = status;
   if (message && status !== "not-found") diagnostic.message = message.slice(0, 256);
+  if (errorCode) diagnostic.errorCode = errorCode.slice(0, 64);
 }
 
 class AttemptImageCache {
@@ -238,6 +240,7 @@ async function tryEngine(
   if (timedOut(ctx.start, ctx.config.timeoutMs, ctx.now)) return null;
   if (ctx.attempts.length >= ctx.config.maxAttempts) return null;
   if (!decoderEnabled(ctx.config, engineId)) return null;
+  if (ctx.failedEngineIds.has(engineId)) return null;
   if (!ctx.budget.tryConsumeAttempt()) return null;
   if (candidate.candidateIndex >= 0 && candidate.candidateIndex < 100) ctx.visitedPrimaryCandidates.add(candidate.candidateIndex);
 
@@ -258,6 +261,10 @@ async function tryEngine(
     const code = nestedCode || directCode;
     const status: EngineDiagnosticStatus = code.includes("initialization") ? "initialization-failure" : code === "cancelled" ? "cancelled" : "execution-failure";
     recordDiagnostic(ctx, engineId, status, ctx.now() - t1, 0, error instanceof Error ? error.message : String(error));
+    if (ctx.config.decoders.failurePolicy === "success-wins" && status !== "cancelled") {
+      ctx.failedEngineIds.add(engineId);
+      return null;
+    }
     throw error;
   }
   const engineElapsed = ctx.now() - t1;
@@ -280,8 +287,13 @@ async function tryEngine(
 
   if (!decoded.ok) {
     const status: EngineDiagnosticStatus = decoded.category === "not-found" ? "not-found" : decoded.category === "unsupported-format" || decoded.category === "invalid-input" ? "unsupported" : decoded.category === "initialization" ? "initialization-failure" : decoded.category === "execution" ? "execution-failure" : decoded.category;
-    recordDiagnostic(ctx, engineId, status, engineElapsed, 0, decoded.message);
+    recordDiagnostic(ctx, engineId, status, engineElapsed, 0, decoded.message, decoded.code);
     if (decoded.category === "not-found") return null;
+    if (ctx.config.decoders.failurePolicy === "success-wins"
+      && (decoded.category === "initialization" || decoded.category === "execution" || decoded.category === "unsupported-format")) {
+      ctx.failedEngineIds.add(engineId);
+      return null;
+    }
     const reasons = {
       "unsupported-format": "unsupported_format",
       "invalid-input": "invalid_image",
@@ -315,6 +327,7 @@ async function tryEngine(
       rawBytes: result.rawBytes,
       decoder: engineId,
       engineVersion: ctx.engineExecutor.versions?.[engineId],
+      engineMetadata: result.engineMetadata,
       cornerPoints,
       symbologyIdentifier: result.symbologyIdentifier,
       preprocessing,
@@ -402,6 +415,7 @@ export async function decodePixelBuffer(
     }),
     now,
     diagnostics,
+    failedEngineIds: new Set<string>(),
   };
 
   try {
@@ -451,9 +465,13 @@ export async function decodePixelBuffer(
     const cheap: PreprocessMethod[] = ["original", "contrast", "invert"];
     const deep: PreprocessMethod[] = pathological ? [] : config.preprocessOrder.filter((m) => !cheap.includes(m));
     const cheapTargets = config.findMultiple ? ordered : ordered.slice(0, 12);
+    const earlyFallbackEngineIds = config.fallbackTiming === "after-cheap"
+      ? fallbackEngineIds.filter((engineId) => engineId === "zxing-cpp-wasm")
+      : [];
+    let earlyFallbackExecuted = false;
 
     // Phase 1 — cheap pass
-    for (const candidate of cheapTargets) {
+    for (const [candidateIndex, candidate] of cheapTargets.entries()) {
       await cooperativeYield(signal);
       throwIfAborted(signal);
       if (timedOut(start, config.timeoutMs, now)) {
@@ -489,6 +507,23 @@ export async function decodePixelBuffer(
       if (!config.findMultiple && found.length > 0) {
         return successOutcome(dedupeResults(found, config.resultDeduplication), attempts, start, false, phaseTiming, diagnostics);
       }
+
+      // Balanced/Robust give native WASM one high-value full-frame attempt
+      // after a deliberately limited jsQR probe. This avoids paying for the
+      // entire combinatorial JavaScript preprocessing graph before fallback.
+      if (candidateIndex === 0 && earlyFallbackEngineIds.length && !shouldStopMultiple(ctx)) {
+        earlyFallbackExecuted = true;
+        options.onStage?.("Trying native WebAssembly decoder...");
+        const fullFrameTargets = ordered.filter((entry) => entry.cropPadding === "full").slice(0, 1);
+        const earlyTargets = fullFrameTargets.length ? fullFrameTargets : ordered.slice(0, 1);
+        for (const engineId of earlyFallbackEngineIds) {
+          for (const target of earlyTargets) {
+            const hit = await tryEngine(ctx, engineId, target, "original", 0);
+            if (hit) return hit;
+          }
+        }
+      }
+
       if (ctx.failFast) continue;
       if (!config.findMultiple && attempts.length >= (config.failFastAfterAttempts ?? 48) && found.length === 0) {
         ctx.failFast = true;
@@ -497,6 +532,21 @@ export async function decodePixelBuffer(
 
     if (found.length > 0 && shouldStopMultiple(ctx)) {
         return successOutcome(dedupeResults(found, config.resultDeduplication), attempts, start, false, phaseTiming, diagnostics);
+    }
+
+    // Balanced/Robust give the native engine one high-value full-frame pass
+    // before entering the combinatorial deep preprocessing graph. Fast keeps
+    // fallback work in the final phase to protect its first-frame latency.
+    if (!earlyFallbackExecuted && earlyFallbackEngineIds.length && !shouldStopMultiple(ctx)) {
+      options.onStage?.("Trying native WebAssembly decoder...");
+      const fullFrameTargets = ordered.filter((candidate) => candidate.cropPadding === "full").slice(0, 1);
+      const earlyTargets = fullFrameTargets.length ? fullFrameTargets : ordered.slice(0, config.findMultiple ? 2 : 1);
+      for (const engineId of earlyFallbackEngineIds) {
+        for (const candidate of earlyTargets) {
+          const hit = await tryEngine(ctx, engineId, candidate, "original", 0);
+          if (hit) return hit;
+        }
+      }
     }
 
     // Phase 2 — deep preprocess (skip if fail-fast with no results)
@@ -584,6 +634,14 @@ export async function decodePixelBuffer(
       return fail(
         "timeout",
         "Decode timed out. Try cropping closer to the QR code, using a clearer image, or reducing image size."
+      );
+    }
+
+    if (config.decoders.order.length > 0 && config.decoders.order.every((engineId) => ctx.failedEngineIds.has(engineId))) {
+      const initializationFailed = diagnostics.some((entry) => entry.status === "initialization-failure");
+      return fail(
+        initializationFailed ? "engine_initialization_failure" : "engine_execution_failure",
+        initializationFailed ? "Every configured decoder failed to initialize." : "Every configured decoder failed during execution.",
       );
     }
 

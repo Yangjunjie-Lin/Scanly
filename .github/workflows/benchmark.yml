@@ -4,11 +4,12 @@ on:
   workflow_dispatch:
   pull_request:
     branches:
-      - main
+      - develop/sdk-v2
   push:
     branches:
       - main
       - architecture/sdk-v2-alpha3-industrial-validation
+      - architecture/sdk-v2-alpha4-zxing-cpp-wasm
 
 permissions:
   contents: read
@@ -26,6 +27,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 24, cache: npm }
       - run: npm ci
+      - run: npm run wasm:verify
       - run: npm run fixtures:generate
       - run: npm run scenarios:generate
       - name: Verify deterministic fixture and scenario generation
@@ -68,6 +70,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 24, cache: npm }
       - run: npm ci
+      - run: npm run wasm:verify
       - run: npm run fixtures:generate
       - run: npm run scenarios:generate
       - run: git diff --exit-code -- fixtures scenarios
@@ -96,6 +99,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 24, cache: npm }
       - run: npm ci
+      - run: npm run wasm:verify
       - run: npm run fixtures:generate
       - run: npm run scenarios:generate
       - run: git diff --exit-code -- fixtures scenarios

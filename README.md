@@ -1,10 +1,10 @@
-# Scanly SDK v2 Alpha.3 — preview
+# Scanly SDK v2 Alpha.4 — preview
 
 Scanly is a local-first barcode capture SDK foundation with a working browser QR reference application. The v2 alpha has one authoritative capture model: normalized upload, Worker, main-thread, Node, and sampled camera frames converge on a scenario-compiled Router backed by real operator and engine registries. It is not an ML model and has no image-upload backend.
 
 ![Next.js 15](https://img.shields.io/badge/Next.js-15-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
-![SDK](https://img.shields.io/badge/SDK-2.0.0--alpha.3-orange)
+![SDK](https://img.shields.io/badge/SDK-2.0.0--alpha.4-orange)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Live demo:** [https://qr-decoder-theta.vercel.app](https://qr-decoder-theta.vercel.app)
@@ -24,6 +24,8 @@ Scanly is a local-first barcode capture SDK foundation with a working browser QR
 - Local-only semantic parsing for URL, Wi-Fi, vCard, email, telephone, SMS, geo, calendar, and prepared GS1 forms
 - Reproducible canonical benchmark, immutable baseline, regression-gate, coverage, and cross-browser Playwright infrastructure
 - Local-only privacy: no image upload API, storage, account, analytics, or tracking
+- Optional ZXing-C++ WebAssembly engine with a pinned local asset, SHA-256 verification, lazy/deduplicated initialization, typed failures, bounded native results, and explicit disposal
+- Browser/Worker/Node engine composition ordered as jsQR → ZXing-C++ WASM → ZXing-JS, with Fast protecting first-frame cold-start latency and Balanced/Robust using an early native fallback
 
 QR Code Model 2 is the only format currently implemented and tested. Other symbologies in the public capability vocabulary are unsupported, not hidden support claims.
 
@@ -34,7 +36,7 @@ This is Scanly's internal regression suite—not universal accuracy, a third-par
 <!-- BENCHMARK_SUMMARY_START -->
 | Metric | Value |
 | --- | ---: |
-| Evidence status | **Alpha.3 canonical evidence** |
+| Evidence status | **Alpha.3 canonical evidence retained; Alpha.4 evidence pending Source Commit** |
 | Internal fixtures | 74 |
 | Generated fixtures | 65 |
 | Project-owned photos | 9 |
@@ -75,7 +77,8 @@ Profile intent is explicit: `fast` is the latency-first camera pass and accepts 
 | `packages/scenario-schema` | scenario v2 types, validation, profiles |
 | `packages/parsers` | side-effect-free semantic parsing |
 | `packages/benchmark` | benchmark schema, fixture evaluation, gates |
-| `engines/jsqr`, `engines/zxing-js` | engine-plugin contract adapters |
+| `engines/jsqr`, `engines/zxing-js` | JavaScript engine-plugin contract adapters |
+| `engines/zxing-cpp-wasm` | optional ZXing-C++ WASM loader, native boundary, pinned asset, integrity metadata, and lifecycle |
 
 - [Architecture](docs/architecture.md)
 - [SDK usage](docs/sdk/usage.md)
@@ -88,12 +91,13 @@ Profile intent is explicit: `fast` is the latency-first camera pass and accepts 
 
 ## Local development
 
-Verified in CI on Node.js 20 and locally on Node.js 24; the supported maintenance range is Node.js 20–24 with npm 10 or newer.
+Verified in CI on current Node.js 20 LTS and locally on Node.js 24; the supported maintenance range is Node.js 20.16–24 with npm 10 or newer.
 
 ```bash
 git clone https://github.com/Yangjunjie-Lin/Scanly.git
 cd Scanly
 npm ci
+npm run wasm:verify
 npm run fixtures:generate
 npm run scenarios:generate
 npm run dev
@@ -103,6 +107,8 @@ For production-equivalent verification:
 
 ```bash
 npm run check
+npm run wasm:build
+npm run wasm:verify
 npm run test:e2e
 npm run benchmark:smoke
 npm run benchmark:compare
@@ -140,7 +146,9 @@ See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 - Strong 3D perspective warp may exceed the heuristic pipeline.
 - Camera support depends on HTTPS, permissions, browser, and device hardware.
 - File and pixel limits reject unusually large images before full RGBA allocation.
-- Micro QR, rMQR, Data Matrix, PDF417, Aztec, 1D formats, ZXing-C++ WASM, native bindings, Python, and .NET bindings are not implemented.
+- Micro QR, rMQR, Data Matrix, PDF417, Aztec, 1D public support, native mobile bindings, Python, and .NET bindings are not implemented.
+- The Alpha.4 asset is standard WASM. Safe SIMD detection exists, but no SIMD artifact or acceleration claim is shipped until a reproducible SIMD build is measured.
+- WASM cancellation is cooperative during synchronous native execution: late delivery is suppressed, but native code is not preempted.
 - Desktop browser automation is not real iOS/Android device validation; torch, zoom, orientation, and long-running camera behavior still need a physical device lab.
 - Statistically calibrated confidence is not available from the default QR path. Corners, raw bytes, and symbology identifiers are exposed only when the selected engine returns them; no input path fabricates metadata.
 

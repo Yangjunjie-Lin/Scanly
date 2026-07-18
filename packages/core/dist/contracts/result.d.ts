@@ -60,6 +60,10 @@ export interface ScanResult {
     engine: {
         id: string;
         version: string;
+        variant?: string;
+        executionModel?: "javascript" | "wasm" | "native";
+        initializationMs?: number;
+        wasmLinearMemoryBytes?: number;
     };
     preprocessingPath: string[];
     candidate?: CandidateMetadata;
@@ -94,6 +98,8 @@ export interface EngineDiagnostic {
     elapsedMs: number;
     attemptCount: number;
     resultCount: number;
+    errorCode?: string;
+    variant?: string;
     message?: string;
 }
 export interface ScanSuccess {

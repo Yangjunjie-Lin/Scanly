@@ -51,7 +51,14 @@ export interface ScanResult {
   /** Clockwise symbol orientation relative to the original normalized frame, when engine-derived. */
   orientation?: number;
   heuristicQuality?: HeuristicQualitySignal;
-  engine: { id: string; version: string };
+  engine: {
+    id: string;
+    version: string;
+    variant?: string;
+    executionModel?: "javascript" | "wasm" | "native";
+    initializationMs?: number;
+    wasmLinearMemoryBytes?: number;
+  };
   preprocessingPath: string[];
   candidate?: CandidateMetadata;
   frameId: string;
@@ -81,6 +88,8 @@ export interface EngineDiagnostic {
   elapsedMs: number;
   attemptCount: number;
   resultCount: number;
+  errorCode?: string;
+  variant?: string;
   message?: string;
 }
 export interface ScanSuccess {
