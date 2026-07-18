@@ -145,7 +145,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: ${{ matrix.node }}, cache: npm }
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
       - run: npm ci
       - run: npx vitest run tests/integration/zxing-cpp-wasm.test.ts tests/unit/zxing-cpp-wasm-loader.test.ts
       - run: npm run test:wasm:memory -- --iterations=1000
