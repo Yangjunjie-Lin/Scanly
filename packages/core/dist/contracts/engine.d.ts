@@ -27,6 +27,9 @@ export interface EngineExecutionMetadata {
     executionModel?: "javascript" | "wasm" | "native";
     initializationMs?: number;
     wasmLinearMemoryBytes?: number;
+    requestedFormats?: readonly BarcodeFormat[];
+    nativeFormat?: string;
+    detectedFormat?: BarcodeFormat;
 }
 export interface EngineDecodeResult {
     text: string;

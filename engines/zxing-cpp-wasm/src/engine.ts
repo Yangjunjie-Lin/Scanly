@@ -1,7 +1,7 @@
 import type { EngineDecodeOptions, EngineOutcome, NormalizedFrame } from "@scanly/core";
 import { ZxingCppWasmError, ZxingCppWasmLoader } from "./loader.js";
-import { nativeFormatsFor, scanlyFormatFromNative } from "./formats.js";
-import { normalizeRetailBarcode } from "@scanly/core";
+import { nativeFormatsFor, scanlyFormatFromNativeResult } from "./formats.js";
+import { canonicalizeRetailText, normalizeRetailBarcode } from "@scanly/core";
 import type {
   ZxingCppWasmEngine,
   ZxingCppWasmEngineOptions,
@@ -154,7 +154,7 @@ export class ZxingCppWasmEngineImpl implements ZxingCppWasmEngine {
       nativeResults = this.module.readBarcodesFromPixmap(inputPointer, frame.width, frame.height, {
         formats: nativeFormatsFor(requested),
         tryHarder: this.limits.tryHarder,
-        tryRotate: false,
+        tryRotate: true,
         tryInvert: options.inversion !== "inverted",
         tryDownscale: true,
         tryDenoise: false,
@@ -167,7 +167,9 @@ export class ZxingCppWasmEngineImpl implements ZxingCppWasmEngine {
         validateOptionalChecksum: false,
         returnErrors: false,
         eanAddOnSymbol: 0,
-        textMode: 0,
+        // HRI preserves the symbol's public representation (notably UPC-A and
+        // UPC-E) instead of exposing ZXing's internal EAN-13 expansion.
+        textMode: 2,
         characterSet: 0,
         tryCode39ExtendedMode: false,
       }) as NativeVector;
@@ -180,7 +182,7 @@ export class ZxingCppWasmEngineImpl implements ZxingCppWasmEngine {
       for (let index = 0; index < nativeCount; index += 1) {
         const result = nativeResults.get(index);
         if (!result?.isValid) continue;
-        const format = scanlyFormatFromNative(result.format);
+        const format = scanlyFormatFromNativeResult(result.format, result.text, requested);
         if (!format) throw new ZxingCppWasmError("invalid_native_result", `Unexpected native format '${String(result.format)}'.`);
         if (!requested.includes(format)) throw new ZxingCppWasmError("invalid_native_result", `Native result format '${result.format}' was outside the requested format set.`);
         if (typeof result.text !== "string" || result.text.length > this.limits.maximumResultBytes || result.bytes?.byteLength > this.limits.maximumResultBytes) {
@@ -190,10 +192,11 @@ export class ZxingCppWasmEngineImpl implements ZxingCppWasmEngine {
         if (!position || ![position.topLeft, position.topRight, position.bottomRight, position.bottomLeft].every(validPoint)) {
           throw new ZxingCppWasmError("invalid_native_result", "Native result contains invalid corner geometry.");
         }
-        const retail = ["ean_13", "ean_8", "upc_a", "upc_e"].includes(format) ? normalizeRetailBarcode(format, result.text) : null;
+        const text = canonicalizeRetailText(format, result.text);
+        const retail = ["ean_13", "ean_8", "upc_a", "upc_e"].includes(format) ? normalizeRetailBarcode(format, text) : null;
         if (retail && !retail.checkDigitValid) continue;
         results.push({
-          text: result.text,
+          text,
           rawBytes: new Uint8Array(result.bytes),
           format,
           cornerPoints: [position.topLeft, position.topRight, position.bottomRight, position.bottomLeft].map(({ x, y }) => ({ x, y })),
@@ -204,6 +207,9 @@ export class ZxingCppWasmEngineImpl implements ZxingCppWasmEngine {
           engineMetadata: {
             variant: this.selectedVariant ?? "standard",
             executionModel: "wasm" as const,
+            requestedFormats: requested,
+            nativeFormat: result.format,
+            detectedFormat: format,
             initializationMs: this.initializationMs ?? undefined,
             wasmLinearMemoryBytes: this.module.HEAPU8.buffer.byteLength,
           },
@@ -213,7 +219,7 @@ export class ZxingCppWasmEngineImpl implements ZxingCppWasmEngine {
       if (options.signal?.aborted) return { ok: false, category: "cancelled", message: "ZXing-C++ WASM decode was cancelled.", code: "cancelled", elapsedMs: performance.now() - started };
       return results.length
         ? { ok: true, results: results as [typeof results[number], ...typeof results] }
-        : { ok: false, category: "not-found", message: "No QR Code Model 2 symbol found.", elapsedMs: performance.now() - started };
+        : { ok: false, category: "not-found", message: "No requested barcode symbol found.", elapsedMs: performance.now() - started };
     } catch (error) {
       if (options.signal?.aborted) return { ok: false, category: "cancelled", message: "ZXing-C++ WASM decode was cancelled.", code: "cancelled", elapsedMs: performance.now() - started };
       const typed = error instanceof ZxingCppWasmError ? error : new ZxingCppWasmError("native_decode_failed", error instanceof Error ? error.message : String(error), { cause: error });

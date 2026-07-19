@@ -31,7 +31,7 @@
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
     "test:coverage": "vitest run --coverage",
-    "test:symbologies": "vitest run tests/unit/multisymbology-contracts.test.ts tests/unit/zxing-cpp-formats.test.ts tests/unit/parsers.test.ts",
+    "test:symbologies": "vitest run tests/unit/multisymbology-contracts.test.ts tests/unit/zxing-cpp-formats.test.ts tests/unit/parsers.test.ts tests/integration/zxing-cpp-multisymbology.test.ts",
     "test:e2e": "playwright test",
     "test:e2e:chromium": "playwright test --project=chromium",
     "test:e2e:firefox": "playwright test --project=firefox",
@@ -57,7 +57,7 @@
     "benchmark:profiles": "tsx scripts/run-benchmark.ts --profile=fast --gate && tsx scripts/run-benchmark.ts --profile=balanced --gate && tsx scripts/run-benchmark.ts --profile=robust --gate",
     "benchmark:canonical-candidate": "tsx scripts/run-benchmark.ts --canonical-candidate --gate-mode=baseline-candidate --measured-iterations=3 --warmup-iterations=1",
     "benchmark:canonical": "npm run benchmark:canonical-candidate --",
-    "fixtures:generate": "tsx scripts/generate-fixtures.ts",
+    "fixtures:generate": "tsx scripts/generate-fixtures.ts && tsx scripts/generate-symbology-fixtures.ts",
     "scenarios:generate": "tsx scripts/export-scenarios.ts",
     "workflows:verify": "node scripts/verify-workflows.mjs",
     "quality:static": "npm run workflows:verify && tsx scripts/verify-quality-gates.ts --static",
@@ -90,6 +90,7 @@
     "qrcode": "^1.5.4",
     "tsx": "^4.21.0",
     "typescript": "^5.5.3",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "zxing-wasm": "3.1.1"
   }
 }

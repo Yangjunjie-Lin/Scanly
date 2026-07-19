@@ -67,6 +67,6 @@ No image, analytics event, or decoded payload is uploaded by the SDK. Host actio
 
 ## Compatibility and limits
 
-The shipped engines implement QR Code Model 2 through jsQR and ZXing JavaScript. Micro QR, rMQR, Data Matrix, PDF417, Aztec, linear formats, ZXing-C++ WASM, and native bindings are not installed. The schema can name future engines, but compilation rejects unregistered ids or unsupported formats.
+The shipped engines implement QR Code Model 2 through jsQR, ZXing JavaScript, and ZXing-C++ WASM. The bounded ZXing-C++ adapter additionally implements Data Matrix ECC 200, standard PDF417, Code 128, EAN-13, EAN-8, UPC-A, and UPC-E. Micro QR, rMQR, Aztec, Micro PDF417, DotCode, MaxiCode, GS1 DataBar, deferred linear formats, and native mobile/desktop bindings are not installed. Compilation rejects unregistered engines and formats outside the closed public union.
 
 Camera capture defaults to the fast scenario, samples at a maximum 960-pixel side before RGBA readback, prefers `requestVideoFrameCallback`, and keeps one active frame. The camera foundation is browser-tested with mocked media primitives, but physical devices, torch/zoom variants, thermal behavior, and long mobile sessions have not been certified. No industrial-readiness or commercial-SDK parity claim is made.

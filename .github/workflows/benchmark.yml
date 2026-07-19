@@ -10,11 +10,33 @@ on:
       - main
       - architecture/sdk-v2-alpha3-industrial-validation
       - architecture/sdk-v2-alpha4-zxing-cpp-wasm
+      - architecture/sdk-v2-alpha5-multisymbology-foundation
 
 permissions:
   contents: read
 
 jobs:
+  symbologies:
+    name: Symbologies
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: npm run wasm:verify
+      - run: npm run fixtures:generate
+      - run: git diff --exit-code -- fixtures
+      - run: npm run benchmark:symbologies -- --output=benchmark-results/ci/symbologies.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-symbologies
+          retention-days: 21
+          if-no-files-found: error
+          path: benchmark-results/ci/symbologies.json
+
   prepare:
     name: Prepare
     runs-on: windows-latest

@@ -25,4 +25,12 @@ export function nativeFormatsFor(requested) {
 export function scanlyFormatFromNative(value) {
     return typeof value === "string" ? NATIVE_TO_SCANLY_FORMAT[value] : undefined;
 }
+/** Resolve ZXing's EAN-13 representation of a requested UPC-A symbol. */
+export function scanlyFormatFromNativeResult(nativeFormat, nativeText, requested) {
+    const format = scanlyFormatFromNative(nativeFormat);
+    if (format === "ean_13" && requested.includes("upc_a") && typeof nativeText === "string" && /^0\d{12}$/.test(nativeText)) {
+        return "upc_a";
+    }
+    return format;
+}
 //# sourceMappingURL=formats.js.map

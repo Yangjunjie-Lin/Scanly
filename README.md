@@ -36,7 +36,7 @@ This is Scanly's internal regression suite—not universal accuracy, a third-par
 <!-- BENCHMARK_SUMMARY_START -->
 | Metric | Value |
 | --- | ---: |
-| Evidence status | **Alpha.5 canonical evidence** |
+| Evidence status | **Alpha.4 r4 canonical; Alpha.5 canonical evidence pending** |
 | Internal fixtures | 74 |
 | Generated fixtures | 65 |
 | Project-owned photos | 9 |

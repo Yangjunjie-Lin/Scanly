@@ -7,6 +7,19 @@ export interface RetailBarcodeMetadata {
   expandedUpcA?: string;
 }
 
+/** Restore the public UPC representation emitted by the physical symbol. */
+export function canonicalizeRetailText(format: BarcodeFormat, value: string): string {
+  if (format === "upc_a" && validDigits(value, 13) && value.startsWith("0")) {
+    const upcA = value.slice(1);
+    return isValidRetailChecksum(upcA) ? upcA : value;
+  }
+  if (format === "upc_e") {
+    const upcA = validDigits(value, 13) && value.startsWith("0") ? value.slice(1) : value;
+    return compressUpcA(upcA) ?? value;
+  }
+  return value;
+}
+
 function validDigits(value: string, length: number): boolean {
   return new RegExp(`^\\d{${length}}$`).test(value);
 }
@@ -46,6 +59,7 @@ export function normalizeRetailBarcode(format: BarcodeFormat, value: string): Re
 export function expandUpcE(value: string): string | null {
   if (!validDigits(value, 8)) return null;
   const numberSystem = value[0];
+  if (numberSystem !== "0" && numberSystem !== "1") return null;
   const body = value.slice(1, 7);
   const check = value[7];
   const last = body[5];
@@ -66,4 +80,21 @@ export function expandUpcE(value: string): string | null {
   }
   const upc = `${numberSystem}${manufacturer}${product}${check}`;
   return validDigits(upc, 12) && isValidRetailChecksum(upc) ? upc : null;
+}
+
+/** Compress UPC-A only when an exact, checksum-valid UPC-E round trip exists. */
+export function compressUpcA(value: string): string | null {
+  if (!validDigits(value, 12) || !isValidRetailChecksum(value)) return null;
+  const numberSystem = value[0];
+  if (numberSystem !== "0" && numberSystem !== "1") return null;
+  const manufacturer = value.slice(1, 6);
+  const product = value.slice(6, 11);
+  const check = value[11];
+  const candidates = [
+    `${numberSystem}${manufacturer.slice(0, 2)}${product.slice(2)}${manufacturer[2]}${check}`,
+    `${numberSystem}${manufacturer.slice(0, 3)}${product.slice(3)}3${check}`,
+    `${numberSystem}${manufacturer.slice(0, 4)}${product[4]}4${check}`,
+    `${numberSystem}${manufacturer}${product[4]}${check}`,
+  ];
+  return candidates.find((candidate) => expandUpcE(candidate) === value) ?? null;
 }

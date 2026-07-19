@@ -5,12 +5,12 @@
 | Format family | Browser main | Worker | Node | Engine status |
 | --- | --- | --- | --- | --- |
 | QR Code Model 2 | supported | supported | supported | jsQR/ZXing-JS fallback, ZXing-C++ primary |
-| Data Matrix ECC 200 | adapter path | adapter path | adapter path | ZXing-C++ primary; fixture evidence pending |
-| PDF417 | adapter path | adapter path | adapter path | ZXing-C++ primary; Macro/Micro deferred |
-| Code 128 and GS1-128 | adapter path | adapter path | adapter path | ZXing-C++ primary; bounded GS1 semantics |
-| EAN/UPC core | adapter path | adapter path | adapter path | ZXing-C++ primary; checksum validation required |
+| Data Matrix ECC 200 | tested | tested | tested | ZXing-C++ primary; generated fixture evidence |
+| PDF417 | tested | tested | tested | ZXing-C++ primary; Macro/Micro deferred |
+| Code 128 and GS1-128 | tested | tested | tested | ZXing-C++ primary; bounded GS1 semantics |
+| EAN/UPC core | tested | tested | tested | ZXing-C++ primary; strict checksum validation |
 
-"Adapter path" describes the same local Worker/Node composition and pinned WASM boundary; it is not a claim that Alpha.5 canonical accuracy gates have already been generated.
+The seven new formats are exercised through the real persistent Worker in Chromium, Firefox, and WebKit and through the full Node `CaptureRouter`. This automated coverage is not physical-device certification or canonical Alpha.5 release evidence.
 
 | ZXing-C++ WASM capability | Chromium | Firefox | WebKit | Node 20.16–24 |
 | --- | --- | --- | --- | --- |
@@ -33,4 +33,4 @@ These are supported paths, not a claim that every browser/device combination has
 
 Camera device switching, page visibility cleanup, capability detection, and orientation notification have abstraction tests or deterministic lifecycle code. Torch, zoom, autofocus, permission recovery, thermal throttling, and long-running camera behavior require physical-device validation.
 
-Core public interfaces do not depend on Next.js or React. Android, iOS, Windows, Linux native, Python, .NET, and ZXing-C++ WASM bindings are not implemented.
+Core public interfaces do not depend on Next.js or React. Android, iOS, Windows/Linux native libraries, Python, and .NET bindings are not implemented. ZXing-C++ is available only through the pinned local WASM adapter.

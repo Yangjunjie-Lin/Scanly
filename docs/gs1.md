@@ -6,3 +6,4 @@ Code 128 FNC1 and Data Matrix FNC1 results are surfaced through `isGs1`, `symbol
 
 Malformed element strings are not converted into a different symbology and do not erase `rawBytes` or the decoded text. PDF417 remains raw unless an explicit document parser is added in a later release.
 
+The generated development corpus contains four GS1 Data Matrix and four GS1-128 fixtures. All eight currently decode with `isGs1` set. This small generated denominator validates the FNC1 boundary but is not complete GS1 AI coverage or real-capture evidence.

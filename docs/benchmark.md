@@ -2,6 +2,8 @@
 
 This document is generated only by the approved canonical evidence update command. Latency is environment-specific and is not a commercial parity claim.
 
+The canonical block below is the preserved Alpha.4 r4 evidence. It has not been relabeled as Alpha.5. Alpha.5 canonical generation and baseline activation remain pending.
+
 ## Canonical source
 
 | Field | Value |
@@ -38,4 +40,6 @@ This document is generated only by the approved canonical evidence update comman
 See the canonical JSON aliases for per-fixture iteration timings, phase timing, variance, attempts, and profile-specific metrics.
 # Alpha.5 measurement boundary
 
-Alpha.5 reports must retain the legacy QR suite as a separate denominator and add per-format recall, exact accuracy, false positives, format confusion, checksum rejection, GS1 recognition, and mixed-format completeness. The `benchmark:symbologies` command currently emits a contract-only engine matrix; it intentionally does not manufacture accuracy numbers before the dedicated Alpha.5 fixture corpus is frozen and measured from a clean source commit.
+Alpha.5 retains the 74-fixture legacy QR suite as a separate denominator. `npm run benchmark:symbologies` executes the dedicated 146-fixture generated Alpha.5 corpus and reports per-format recall, exact accuracy, false positives, format confusion, checksum rejection, GS1 recognition, mixed-format completeness, latency, and WASM memory. The corpus contains 100 single-format positives, 12 mixed-format positives, and 34 adversarial negatives.
+
+The current generated-corpus development gate is 15/15 clean, 75/85 difficult, 12/12 mixed, 8/8 GS1 recognition, zero accepted format misclassifications, and zero false positives. These values are reproducible development measurements, not canonical evidence. The required project-owned real-photo corpus is still 0/12, so Alpha.5 evidence freeze and baseline activation remain blocked.

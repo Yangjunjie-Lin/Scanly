@@ -9,6 +9,18 @@ import { getBuiltinScenario, type ScenarioPresetId } from "@scanly/scenario-sche
 type Mode = "camera" | "upload";
 type Preset = "balanced" | "multiformat-balanced" | "retail-fast" | "logistics-balanced" | "document-robust";
 
+function formatLabel(format: ScanResult["format"]): string {
+  return ({
+    qr_code: "QR Code", data_matrix: "Data Matrix", pdf417: "PDF417", code_128: "Code 128",
+    ean_13: "EAN-13", ean_8: "EAN-8", upc_a: "UPC-A", upc_e: "UPC-E",
+  } as const)[format];
+}
+
+function retailMetadata(result: ScanResult | undefined): { checkDigitValid?: boolean; normalizedGtin14?: string; expandedUpcA?: string } | null {
+  const value = result?.metadata?.retail;
+  return value && typeof value === "object" ? value as { checkDigitValid?: boolean; normalizedGtin14?: string; expandedUpcA?: string } : null;
+}
+
 export default function QRTool() {
   const [mode, setMode] = useState<Mode>("camera");
   const [status, setStatus] = useState<string>("Idle");
@@ -31,8 +43,16 @@ export default function QRTool() {
   const uploadSession = useMemo(() => new BrowserCaptureSession(), []);
   const cameraSource = useMemo(() => new BrowserCameraSource(), []);
 
-  const primary = results[0]?.rawText ?? "";
+  const primaryResult = results[0];
+  const primary = primaryResult?.rawText ?? "";
   const isUrl = primary ? isSafeActionUrl(primary) : false;
+  const retail = retailMetadata(primaryResult);
+  const rawBytes = primaryResult?.rawBytes
+    ? Array.from(primaryResult.rawBytes, (value) => value.toString(16).padStart(2, "0")).join(" ")
+    : "";
+  const parsedMetadata = primaryResult && (primaryResult.structuredPayload || primaryResult.metadata)
+    ? JSON.stringify({ structuredPayload: primaryResult.structuredPayload, barcode: primaryResult.metadata }, null, 2)
+    : "";
   const activeScenario = useMemo(() => getBuiltinScenario(preset as ScenarioPresetId), [preset]);
 
   useEffect(() => {
@@ -118,7 +138,7 @@ export default function QRTool() {
           setIsScanning(false);
         },
       });
-      setStatus("Scanning… point the QR code inside the frame");
+      setStatus("Scanning… keep the barcode inside the frame");
     } catch (e) {
       setIsScanning(false);
       setStatus("Ready");
@@ -466,16 +486,41 @@ export default function QRTool() {
       <div style={{ marginTop: 10 }}>
         <textarea
           className="mono"
-          placeholder="Decoded QR content will appear here…"
+          placeholder="Decoded barcode content will appear here…"
           value={primary}
           readOnly
-          aria-label="Decoded QR content"
+          aria-label="Decoded barcode content"
           data-testid="decoded-output"
           data-engine={results[0]?.engine.id ?? ""}
               data-engine-variant={results[0]?.engine.variant ?? ""}
           data-format={results[0]?.format ?? ""}
         />
       </div>
+
+      {primaryResult && (
+        <>
+          <div className="row small" style={{ marginTop: 10, alignItems: "center", gap: 12 }} data-testid="result-summary">
+            <strong data-testid="format-badge">{formatLabel(primaryResult.format)}</strong>
+            <span>{primaryResult.engine.id}</span>
+            {primaryResult.isGs1 && <strong data-testid="gs1-indicator">GS1</strong>}
+            {retail?.checkDigitValid !== undefined && (
+              <span data-testid="checksum-status">Checksum: {retail.checkDigitValid ? "valid" : "invalid"}</span>
+            )}
+          </div>
+          {rawBytes && (
+            <details className="small" style={{ marginTop: 10 }}>
+              <summary>Raw bytes</summary>
+              <pre className="mono" data-testid="raw-bytes" style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{rawBytes}</pre>
+            </details>
+          )}
+          {parsedMetadata && (
+            <details className="small" style={{ marginTop: 10 }}>
+              <summary>Parsed metadata</summary>
+              <pre className="mono" data-testid="parsed-metadata" style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{parsedMetadata}</pre>
+            </details>
+          )}
+        </>
+      )}
 
       {results.length > 1 && (
         <ul className="small" style={{ marginTop: 10, paddingLeft: 18 }} data-testid="multi-results">
@@ -485,10 +530,11 @@ export default function QRTool() {
               style={{ marginBottom: 6 }}
               data-testid="decoded-result-item"
               data-payload={r.rawText}
+              data-format={r.format}
               data-engine={r.engine.id}
               data-engine-variant={r.engine.variant ?? ""}
             >
-              <span className="mono">{r.rawText}</span>{" "}
+              <strong>{formatLabel(r.format)}</strong>{" "}<span className="mono">{r.rawText}</span>{" "}
               <button
                 type="button"
                 className="btn"

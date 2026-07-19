@@ -4,7 +4,9 @@ import {
   InvalidBarcodeChecksumError,
   normalizeFormatSelection,
   normalizeRetailBarcode,
+  canonicalizeRetailText,
   barcodeFormatClass,
+  compressUpcA,
   expandUpcE,
 } from "@scanly/core";
 import { getBuiltinScenario, validateScenario } from "@scanly/scenario-schema";
@@ -35,6 +37,10 @@ describe("retail checksum policy", () => {
     expect(normalizeRetailBarcode("upc_a", "036000291452")).toMatchObject({ checkDigitValid: true, gtin: "036000291452" });
     expect(normalizeRetailBarcode("ean_13", "4006381333932")?.checkDigitValid).toBe(false);
     expect(expandUpcE("04252614")).toBe("042100005264");
+    expect(compressUpcA("042100005264")).toBe("04252614");
+    expect(canonicalizeRetailText("upc_a", "0036000291452")).toBe("036000291452");
+    expect(canonicalizeRetailText("upc_e", "0042100005264")).toBe("04252614");
+    expect(canonicalizeRetailText("upc_e", "0042100005265")).toBe("0042100005265");
   });
 
   it("keeps checksum failures typed for callers that opt into strict validation", () => {

@@ -8,6 +8,7 @@ on:
       - architecture/sdk-v2-foundation
       - architecture/sdk-v2-alpha3-industrial-validation
       - architecture/sdk-v2-alpha4-zxing-cpp-wasm
+      - architecture/sdk-v2-alpha5-multisymbology-foundation
       - develop/sdk-v2
   pull_request:
 
@@ -69,6 +70,9 @@ jobs:
       - name: Unit tests
         run: npm run test:unit
 
+      - name: Multi-Symbology Unit Tests
+        run: npm run test:symbologies
+
       - name: Integration tests
         run: npx vitest run tests/integration
 
@@ -98,6 +102,9 @@ jobs:
 
       - name: Benchmark smoke (regression gate)
         run: npm run benchmark:smoke
+
+      - name: Multi-symbology benchmark
+        run: npm run benchmark:symbologies
 
       - name: Verify smoke benchmark artifacts
         run: |
@@ -135,7 +142,7 @@ jobs:
         run: git diff --exit-code -- engines/zxing-cpp-wasm/wasm
 
   node-wasm:
-    name: Node WASM Integration
+    name: Node Multi-Symbology Integration
     needs: wasm-build
     runs-on: ${{ matrix.os }}
     strategy:
@@ -149,11 +156,12 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
+      - run: npm run test:symbologies
       - run: npx vitest run tests/integration/zxing-cpp-wasm.test.ts tests/unit/zxing-cpp-wasm-loader.test.ts
       - run: npm run test:wasm:memory -- --iterations=1000
 
   browser-wasm:
-    name: Browser WASM Integration
+    name: Browser Multi-Symbology Integration
     needs: wasm-build
     runs-on: ubuntu-latest
     steps:
@@ -162,8 +170,8 @@ jobs:
         with: { node-version: 20, cache: npm }
       - run: npm ci
       - run: npm run build
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e:chromium
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: npx playwright test --grep "multi-format worker"
 
   package-tarball:
     name: Package Tarball

@@ -17,3 +17,19 @@ Deferred formats include Micro QR, rMQR, Aztec, Micro PDF417, DotCode, MaxiCode,
 
 All decoding is local in Browser, Worker, and Node runtimes. No image upload, cloud decoder, mutable WASM download, or telemetry path is part of Alpha.5.
 
+## Generated development evidence
+
+The dedicated corpus has 100 single-format positives, 12 mixed positives, and 34 format-specific negatives. The table below counts expected results, including mixed fixtures; it is development evidence from `npm run benchmark:symbologies`, not an immutable Alpha.5 baseline.
+
+| Format | Single positives | Expected results | Exact results | Recall | False positives |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| QR Code | mixed only | 4 | 4 | 100.0% | 0 |
+| Data Matrix | 24 | 28 | 26 | 92.9% | 0 |
+| PDF417 | 20 | 23 | 21 | 91.3% | 0 |
+| Code 128 | 24 | 31 | 29 | 93.5% | 0 |
+| EAN-13 | 8 | 11 | 10 | 90.9% | 0 |
+| EAN-8 | 8 | 9 | 8 | 88.9% | 0 |
+| UPC-A | 8 | 9 | 8 | 88.9% | 0 |
+| UPC-E | 8 | 9 | 8 | 88.9% | 0 |
+
+Clean generated fixtures pass 15/15; difficult single-format fixtures pass 75/85; mixed fixtures pass 12/12. The maintained Alpha.5 negative corpus has zero accepted results. The missing project-owned real-photo denominator remains a release blocker.
