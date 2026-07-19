@@ -1,16 +1,17 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { BenchmarkRunSummary } from "@scanly/benchmark";
-import { readCanonicalEvidence, PROFILE_KEYS, PROFILE_REPORT_KEYS, type ProfileKey } from "./canonical-evidence.js";
+import { readCanonicalEvidence, PROFILE_KEYS, PROFILE_REPORT_KEYS, legacyReportHash, type ProfileKey } from "./canonical-evidence.js";
 import { runtimeFamily, validateBaselineForActivation, writeImmutableBaseline } from "./baseline-registry.js";
+import { isValidBaselineId } from "./symbology-gates.js";
 
 const ROOT = path.resolve(__dirname, "..");
 const value = (name: string) => process.argv.find((argument) => argument.startsWith(`--${name}=`))?.slice(name.length + 3);
 const profile = value("profile") as ProfileKey | undefined;
 const baselineId = value("baseline-id");
 const manifestPath = value("canonical-manifest");
-if (!process.argv.includes("--approve-baseline") || !profile || !PROFILE_KEYS.includes(profile) || !baselineId || !/^v2-alpha4-r\d+$/.test(baselineId) || !manifestPath) {
-  throw new Error("Baseline freeze requires --profile=fast|balanced|robust, --baseline-id=v2-alpha4-rN, --canonical-manifest=<path>, and --approve-baseline.");
+if (!process.argv.includes("--approve-baseline") || !profile || !PROFILE_KEYS.includes(profile) || !baselineId || !isValidBaselineId(baselineId) || !manifestPath) {
+  throw new Error("Baseline freeze requires --profile=fast|balanced|robust, --baseline-id=<v2-alphaN-rN|v2-betaN-rN|v2-rcN-rN|v2-rN>, --canonical-manifest=<path>, and --approve-baseline.");
 }
 const bundle = readCanonicalEvidence(manifestPath);
 const report = bundle.reports[profile];
@@ -30,7 +31,7 @@ const baseline: BenchmarkRunSummary & { evidenceId: string; canonicalManifestHas
   executionPolicy: { ...report.executionPolicy, evidenceType: "baseline-candidate" },
   evidenceId: bundle.manifest.evidenceId,
   canonicalManifestHash: bundle.manifest.manifestHash,
-  reportHash: bundle.manifest.reportHashes[PROFILE_REPORT_KEYS[profile].json],
+  reportHash: legacyReportHash(bundle.manifest, PROFILE_REPORT_KEYS[profile].json),
   passedIds: report.results.filter((result) => result.pass).map((result) => result.id),
 };
 writeImmutableBaseline(destination, baseline);

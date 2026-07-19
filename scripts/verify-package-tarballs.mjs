@@ -43,7 +43,32 @@ try {
   runNpm(["install", "--ignore-scripts", "--no-audit", "--no-fund", "--no-package-lock", ...tarballs], { cwd: temporary, stdio: "pipe" });
   const probe = expectedExports.flatMap(([name, exports]) => exports.map((entry) => entry === "." ? name : `${name}${entry.slice(1)}`));
   execFileSync(process.execPath, ["--input-type=module", "--eval", `for (const id of ${JSON.stringify(probe)}) await import(id);`], { cwd: temporary, stdio: "pipe" });
-  console.log(`Tarball verification passed for ${workspaces.length} publishable packages (${tarballs.length} installed tarballs).`);
+
+  const fixture = path.join(root, "fixtures", "alpha5", "generated", "data-matrix-01.png");
+  if (!fs.existsSync(fixture)) throw new Error("Alpha.5 Data Matrix fixture is missing for installed-package decode verification.");
+  const decodeProbe = `
+    import { copyFileSync } from "node:fs";
+    import { PUBLIC_BARCODE_FORMATS, normalizeRetailBarcode } from "@scanly/core";
+    import { createNodeCaptureRouter, loadNormalizedFrameFromPath } from "@scanly/node";
+    import { createZxingCppWasmEngine } from "@scanly/engine-zxing-cpp-wasm";
+    if (!PUBLIC_BARCODE_FORMATS.includes("data_matrix")) throw new Error("data_matrix missing from PUBLIC_BARCODE_FORMATS");
+    if (typeof normalizeRetailBarcode !== "function") throw new Error("normalizeRetailBarcode missing");
+    const router = createNodeCaptureRouter();
+    if (!router) throw new Error("createNodeCaptureRouter failed");
+    copyFileSync(${JSON.stringify(fixture)}, "probe-data-matrix.png");
+    const engine = createZxingCppWasmEngine();
+    await engine.initialize();
+    try {
+      const frame = await loadNormalizedFrameFromPath("probe-data-matrix.png", "tarball-probe");
+      const outcome = await engine.decode(frame, { formats: ["data_matrix"] });
+      if (!outcome.ok || outcome.results[0]?.format !== "data_matrix") throw new Error("installed package failed to decode Data Matrix");
+      if (!outcome.results[0]?.rawBytes?.byteLength) throw new Error("installed package omitted raw bytes");
+    } finally {
+      await engine.dispose();
+    }
+  `;
+  execFileSync(process.execPath, ["--input-type=module", "--eval", decodeProbe], { cwd: temporary, stdio: "pipe" });
+  console.log(`Tarball verification passed for ${workspaces.length} publishable packages (${tarballs.length} installed tarballs), including Alpha.5 multi-symbology decode.`);
 } finally {
   fs.rmSync(temporary, { recursive: true, force: true });
 }

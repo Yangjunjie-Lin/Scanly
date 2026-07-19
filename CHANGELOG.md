@@ -11,6 +11,7 @@ All notable changes follow semantic versioning.
 - Added format-class metadata, normalized format selections, QR-compatible defaults, multi-format scenario presets, and public decoded-barcode/retail metadata contracts.
 - Wired requested format masks and native result mappings through the ZXing-C++ WASM boundary. Invalid EAN/UPC checksums are rejected and UPC-A/UPC-E format identity is preserved.
 - Extended local GS1 parsing to bounded FNC1 element strings while keeping semantic parsing separate from raw decoding.
+- Enforced Alpha.5 symbology release gates via `--gate` / `--canonical-candidate`, Canonical Manifest schema 2.1 with a dedicated symbology report, and version-independent baseline freeze/activation.
 - Alpha.5 remains a preview. Project-owned real-photo expansion and canonical Alpha.5 evidence activation are still release gates and are not represented by the historical Alpha.4 reports.
 
 ## [2.0.0-alpha.4] - 2026-07-18

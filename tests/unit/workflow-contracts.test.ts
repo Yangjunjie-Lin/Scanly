@@ -8,7 +8,7 @@ describe("benchmark workflow contracts", () => {
   it("keeps stable full-benchmark checks and requires artifact assembly", () => {
     const workflow = read("benchmark.yml");
     expect(workflow).toContain("name: Full Benchmark");
-    for (const name of ["Prepare", "Comparison", "Assemble"]) {
+    for (const name of ["Prepare", "Comparison", "Assemble", "Symbologies"]) {
       expect(workflow).toContain(`name: ${name}`);
     }
     expect(workflow).toContain("name: ${{ matrix.label }}");
@@ -17,7 +17,10 @@ describe("benchmark workflow contracts", () => {
     expect(workflow).toContain("--warmup-iterations=1 --measured-iterations=3");
     expect(workflow).toContain("benchmark:assemble-canonical");
     for (const argument of ["--fast-csv=", "--balanced-csv=", "--robust-csv="]) expect(workflow).toContain(argument);
-    expect(workflow).toContain("needs: [profile, comparison]");
+    expect(workflow).toContain("--gate");
+    expect(workflow).toContain("--canonical-candidate");
+    expect(workflow).toContain("--symbologies=");
+    expect(workflow).toContain("needs: [symbologies, profile, comparison]");
     expect(workflow).toContain("pull_request:");
     expect(workflow).toContain("- main");
     expect(workflow).not.toContain("    paths:");
@@ -29,6 +32,14 @@ describe("benchmark workflow contracts", () => {
     expect(workflow).toContain("Selection reason: $env:SELECTION_REASON");
     expect(workflow).not.toContain("$alpha3");
     expect(workflow).not.toContain("v2-alpha3-r*");
+    for (const script of ["verify-benchmark-evidence.ts", "freeze-baseline.ts", "activate-baseline.ts"]) {
+      const source = fs.readFileSync(path.join(process.cwd(), "scripts", script), "utf8");
+      expect(source).not.toContain("v2-alpha(?:3|4)");
+      expect(source).not.toContain("v2-alpha4-r");
+    }
+    for (const script of ["freeze-baseline.ts", "activate-baseline.ts"]) {
+      expect(fs.readFileSync(path.join(process.cwd(), "scripts", script), "utf8")).toContain("isValidBaselineId");
+    }
     const selector = fs.readFileSync(path.join(process.cwd(), "scripts", "select-benchmark-gate-mode.ts"), "utf8");
     expect(selector).toContain('"active-baseline"');
     expect(selector).toContain('"baseline-candidate"');
@@ -61,6 +72,11 @@ describe("benchmark workflow contracts", () => {
     expect(workflow).toContain("npm run quality:evidence:release");
     expect(workflow).not.toContain("npm run quality:evidence:bootstrap");
     expect(workflow).not.toMatch(/quality:evidence:release\s*\|\|/);
+    expect(workflow).toContain("npm run benchmark:symbologies -- --gate");
+    expect(workflow).toContain("Browser Multi-Symbology Integration");
+    expect(workflow).toContain("browser: Chromium");
+    expect(workflow).toContain("browser: Firefox");
+    expect(workflow).toContain("browser: WebKit");
   });
 
   it("assembles all three browser reports", () => {

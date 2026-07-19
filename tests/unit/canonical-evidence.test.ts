@@ -3,12 +3,118 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { BenchmarkRunSummary, ComparisonReport } from "@scanly/benchmark";
-import { assembleCanonicalEvidence, computeCanonicalManifestHash, readCanonicalEvidence, validateProfileReport } from "../../scripts/canonical-evidence.js";
+import { PUBLIC_BARCODE_FORMATS, type BarcodeFormat } from "@scanly/core";
+import {
+  assembleCanonicalEvidence,
+  computeCanonicalManifestHash,
+  readCanonicalEvidence,
+  validateProfileReport,
+  type EvidenceReportKey,
+  type SymbologyEvidenceReport,
+} from "../../scripts/canonical-evidence.js";
 import { benchmarkResultsToCsv } from "../../scripts/benchmark-csv.js";
+import {
+  ALPHA5_SDK_VERSION,
+  evaluateSymbologyGates,
+  type CohortSummary,
+  type FormatFamily,
+  type PerFormatRecall,
+  type SymbologyGateReport,
+} from "../../scripts/symbology-gates.js";
 
 const roots: string[] = [];
 afterEach(() => { for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
 const temp = () => { const root = fs.mkdtempSync(path.join(os.tmpdir(), "scanly-evidence-")); roots.push(root); return root; };
+
+function perfectRecall(total = 10): PerFormatRecall {
+  return { total, decoded: total, recall: total ? 1 : null };
+}
+
+function allPublicRecalls(total = 10): Record<BarcodeFormat, PerFormatRecall> {
+  return Object.fromEntries(
+    PUBLIC_BARCODE_FORMATS.map((format) => [format, perfectRecall(total)]),
+  ) as Record<BarcodeFormat, PerFormatRecall>;
+}
+
+function perfectCohort(perFormatRecall = allPublicRecalls(10)): CohortSummary {
+  const resultTotal = Object.values(perFormatRecall).reduce((sum, metrics) => sum + metrics.total, 0);
+  return {
+    fixtureTotal: resultTotal,
+    fixturePassed: resultTotal,
+    resultTotal,
+    exactResults: resultTotal,
+    perFormatRecall,
+  };
+}
+
+function buildSymbologiesReport(identity: {
+  commitSha: string;
+  treeSha: string;
+  repositoryDirty: boolean;
+}): SymbologyEvidenceReport {
+  const realRecalls = Object.fromEntries(
+    PUBLIC_BARCODE_FORMATS.map((format) => [format, { total: 0, decoded: 0, recall: null }]),
+  ) as Record<BarcodeFormat, PerFormatRecall>;
+  realRecalls.data_matrix = perfectRecall(3);
+  realRecalls.pdf417 = perfectRecall(3);
+  realRecalls.code_128 = perfectRecall(3);
+  realRecalls.ean_13 = perfectRecall(3);
+  const resultTotal = Object.values(realRecalls).reduce((sum, metrics) => sum + metrics.total, 0);
+  const gateInputs: SymbologyGateReport = {
+    sdkVersion: ALPHA5_SDK_VERSION,
+    sourceIdentity: {
+      commitSha: identity.commitSha,
+      treeSha: identity.treeSha,
+      repositoryDirty: identity.repositoryDirty,
+    },
+    corpus: { projectOwnedRealPhotos: 12 },
+    cohorts: {
+      generatedClean: perfectCohort(),
+      generatedDifficult: perfectCohort(),
+      generatedMixed: perfectCohort(),
+      projectOwnedRealPhotos: {
+        fixtureTotal: 12,
+        fixturePassed: 12,
+        resultTotal,
+        exactResults: resultTotal,
+        perFormatRecall: realRecalls,
+      },
+    },
+    acceptedFormatMisclassificationCount: 0,
+    formatSelectionAccuracy: 1,
+    checksumRejectionCount: 4,
+    gs1RecognitionAccuracy: { total: 4, recognized: 4, accuracy: 1 },
+    mixedFormatCompleteness: { total: 4, complete: 4, rate: 1 },
+    falsePositiveCount: 0,
+    invalidChecksumAcceptanceCount: 0,
+    realPhotoFamilyCounts: {
+      data_matrix: 3,
+      pdf417: 3,
+      code_128: 3,
+      retail: 3,
+    } satisfies Record<FormatFamily, number>,
+  };
+  const gateResults = evaluateSymbologyGates(gateInputs, { canonicalCandidate: true });
+  return {
+    ...gateInputs,
+    schemaVersion: "alpha5-symbology-evidence-1",
+    sourceIdentity: {
+      ...gateInputs.sourceIdentity,
+      symbologyManifestHash: "a".repeat(64),
+      datasetHash: "b".repeat(64),
+    },
+    corpus: {
+      ...gateInputs.corpus,
+      total: 146,
+      positive: 120,
+      negative: 26,
+      generated: 134,
+      realPhotoGateComplete: true,
+    },
+    gateResults,
+    gates: Object.fromEntries(gateResults.map((gate) => [gate.id, gate.passed])),
+  };
+}
 
 function artifacts() {
   const root = temp();
@@ -58,6 +164,7 @@ function artifacts() {
   comparison.finalControlledMemoryBytes = 0;
   comparison.parallelExecution = { ...comparison.parallelExecution, status: "experimental", builtInScenarioUsage: false };
   comparison.perFixture = comparison.perFixture.map((result) => ({ ...result, iterationPassCount: result.pass ? 3 : 0, iterationFailureCount: result.pass ? 0 : 3, unstablePayload: false, runTimingsMs: [1, 2, 3], finalControlledMemoryBytes: 0 }));
+  const symbologies = buildSymbologiesReport(identity);
   const paths = {
     fastJson: path.join(root, "fast.json"),
     fastCsv: path.join(root, "fast.csv"),
@@ -66,6 +173,7 @@ function artifacts() {
     robustJson: path.join(root, "robust.json"),
     robustCsv: path.join(root, "robust.csv"),
     comparisonJson: path.join(root, "comparison.json"),
+    symbologiesJson: path.join(root, "symbologies.json"),
   };
   for (const profile of ["fast", "balanced", "robust"] as const) {
     const prefix = profile === "fast" ? "fast" : profile === "balanced" ? "balanced" : "robust";
@@ -73,7 +181,8 @@ function artifacts() {
     fs.writeFileSync(paths[`${prefix}Csv`], benchmarkResultsToCsv(reports[profile].results));
   }
   fs.writeFileSync(paths.comparisonJson, JSON.stringify(comparison));
-  return { root, paths, reports, comparison };
+  fs.writeFileSync(paths.symbologiesJson, JSON.stringify(symbologies));
+  return { root, paths, reports, comparison, symbologies };
 }
 
 describe("canonical evidence assembly", () => {
@@ -84,6 +193,37 @@ describe("canonical evidence assembly", () => {
     expect(first.manifest).toEqual(second.manifest);
     expect(computeCanonicalManifestHash(first.manifest)).toBe(first.manifest.manifestHash);
     expect(readCanonicalEvidence(first.manifestPath).manifest.evidenceId).toBe(first.manifest.evidenceId);
+  });
+
+  it("produces schema 2.1 with symbologiesJson in reports", () => {
+    const fixture = artifacts();
+    const bundle = assembleCanonicalEvidence(fixture.paths, path.join(fixture.root, "out"));
+    expect(bundle.manifest.schemaVersion).toBe("2.1");
+    expect(bundle.manifest.reports).toHaveProperty("symbologiesJson");
+    expect(bundle.reports.symbologies?.schemaVersion).toBe("alpha5-symbology-evidence-1");
+  });
+
+  it("rejects a missing symbologies input", () => {
+    const fixture = artifacts();
+    const { symbologiesJson: _ignored, ...legacyPaths } = fixture.paths;
+    expect(() => assembleCanonicalEvidence(legacyPaths as Record<EvidenceReportKey, string>, path.join(fixture.root, "out")))
+      .toThrow(/symbolog/i);
+  });
+
+  it("rejects a mismatched symbology dataset hash", () => {
+    const fixture = artifacts();
+    fixture.symbologies.sourceIdentity.datasetHash = "not-a-valid-sha256-hash";
+    fs.writeFileSync(fixture.paths.symbologiesJson, JSON.stringify(fixture.symbologies));
+    expect(() => assembleCanonicalEvidence(fixture.paths, path.join(fixture.root, "out")))
+      .toThrow(/dataset hash/i);
+  });
+
+  it("keeps historical schema 2.0 readable without a symbologies report", () => {
+    const manifestPath = path.join(process.cwd(), "benchmark-results", "canonical", "canonical-evidence-manifest.json");
+    const bundle = readCanonicalEvidence(manifestPath);
+    expect(bundle.manifest.schemaVersion).toBe("2.0");
+    expect(bundle.reports.symbologies).toBeUndefined();
+    expect(bundle.manifest.reports).not.toHaveProperty("symbologiesJson");
   });
 
   it.each([
@@ -111,6 +251,7 @@ describe("canonical evidence assembly", () => {
     const fixture = artifacts();
     const bundle = assembleCanonicalEvidence(fixture.paths, path.join(fixture.root, "out"));
     for (const reportPath of Object.values(bundle.reportPaths)) {
+      if (!reportPath) continue;
       const contents = fs.readFileSync(reportPath, "utf8").replace(/\r?\n/g, "\r\n");
       fs.writeFileSync(reportPath, contents);
     }

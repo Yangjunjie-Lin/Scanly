@@ -6,15 +6,26 @@ import { PUBLIC_BARCODE_FORMATS, SDK_VERSION, type EngineDecodeResult } from "@s
 import { createZxingCppWasmEngine } from "@scanly/engine-zxing-cpp-wasm";
 import { loadNormalizedFrameFromPath } from "@scanly/node";
 import type { BarcodeFormat } from "@scanly/scenario-schema";
+import {
+  ALPHA5_SDK_VERSION,
+  allSymbologyGatesPassed,
+  evaluateSymbologyGates,
+  FORMAT_FAMILIES,
+  formatGateFailureTable,
+  type FormatFamily,
+  type SymbologyGateResult,
+} from "./symbology-gates.js";
 
 const ROOT = path.resolve(__dirname, "..");
 const MANIFEST_PATH = path.join(ROOT, "fixtures", "alpha5", "manifest.json");
+const TRACKED_ALIAS = path.join(ROOT, "benchmark-results", "symbologies.json");
 
 interface RequiredResult { format: BarcodeFormat; payload: string }
 interface Fixture {
   id: string;
   file: string;
   format?: BarcodeFormat;
+  formatClass?: string;
   sourceType: "generated" | "project-photo";
   expectedOutcome: "decode" | "no-symbol";
   requiredResults: RequiredResult[];
@@ -52,13 +63,40 @@ function exactRequired(required: readonly RequiredResult[], actual: readonly Eng
   return remaining.length === 0;
 }
 
+function familyOf(format: BarcodeFormat): FormatFamily | undefined {
+  for (const [family, formats] of Object.entries(FORMAT_FAMILIES) as Array<[FormatFamily, readonly BarcodeFormat[]]>) {
+    if (formats.includes(format)) return family;
+  }
+  return undefined;
+}
+
 async function git(args: string[]): Promise<string> {
   const { execFile } = await import("node:child_process");
   const { promisify } = await import("node:util");
   return (await promisify(execFile)("git", args, { cwd: ROOT })).stdout.trim();
 }
 
+function parseCli(argv: string[]) {
+  const outputArgument = argv.find((argument) => argument.startsWith("--output="));
+  return {
+    gate: argv.includes("--gate"),
+    development: argv.includes("--development") || (!argv.includes("--gate") && !argv.includes("--canonical-candidate")),
+    canonicalCandidate: argv.includes("--canonical-candidate"),
+    output: outputArgument
+      ? path.resolve(outputArgument.slice("--output=".length))
+      : path.join(ROOT, "benchmark-results", "development", "symbologies.json"),
+  };
+}
+
 async function main(): Promise<void> {
+  const cli = parseCli(process.argv);
+  if (cli.canonicalCandidate && !cli.gate) {
+    throw new Error("--canonical-candidate requires --gate.");
+  }
+  if (cli.canonicalCandidate && path.resolve(cli.output) === path.resolve(TRACKED_ALIAS)) {
+    throw new Error("--canonical-candidate must not write the tracked Canonical symbologies alias; supply an isolated --output path.");
+  }
+
   const manifestBytes = await fs.promises.readFile(MANIFEST_PATH);
   const manifest = JSON.parse(manifestBytes.toString("utf8")) as { schemaVersion: string; fixtures: Fixture[] };
   const engine = createZxingCppWasmEngine();
@@ -155,20 +193,28 @@ async function main(): Promise<void> {
   const latencies = results.map((result) => result.elapsedMs);
   const memory = engine.getMemoryObservation();
   const repositoryDirty = (await git(["status", "--porcelain"])).length > 0;
-  const report = {
-    schemaVersion: "alpha5-symbology-evidence-1",
+  const invalidChecksumAcceptanceCount = manifest.fixtures.reduce((count, fixture, index) => (
+    count + (fixture.difficultyTags.includes("checksum_invalid") && results[index].actualResults.length > 0 ? 1 : 0)
+  ), 0);
+  const realPhotoFamilyCounts = Object.fromEntries(
+    (Object.keys(FORMAT_FAMILIES) as FormatFamily[]).map((family) => [
+      family,
+      realPhotos.filter(({ fixture }) => {
+        const format = fixture.format ?? fixture.requiredResults[0]?.format;
+        return format ? familyOf(format) === family : false;
+      }).length,
+    ]),
+  ) as Record<FormatFamily, number>;
+
+  const gateInputs = {
     sdkVersion: SDK_VERSION,
-    generatedAt: new Date().toISOString(),
     sourceIdentity: {
-      commitSha: await git(["rev-parse", "HEAD"]), treeSha: await git(["rev-parse", "HEAD^{tree}"]), repositoryDirty,
-      symbologyManifestHash: hash(manifestBytes),
-      datasetHash: hash(manifest.fixtures.map((fixture) => `${fixture.id}\u001f${hash(fs.readFileSync(path.join(ROOT, fixture.file)))}`).join("\n")),
+      commitSha: await git(["rev-parse", "HEAD"]),
+      treeSha: await git(["rev-parse", "HEAD^{tree}"]),
+      repositoryDirty,
     },
     corpus: {
-      total: manifest.fixtures.length, positive: positives.length, negative: negatives.length,
-      generated: manifest.fixtures.filter((fixture) => fixture.sourceType === "generated").length,
       projectOwnedRealPhotos: manifest.fixtures.filter((fixture) => fixture.sourceType === "project-photo").length,
-      realPhotoGateComplete: manifest.fixtures.some((fixture) => fixture.sourceType === "project-photo"),
     },
     cohorts: {
       generatedClean: cleanSummary,
@@ -176,41 +222,79 @@ async function main(): Promise<void> {
       generatedMixed: mixedSummary,
       projectOwnedRealPhotos: realPhotoSummary,
     },
-    passed: results.filter((result) => result.pass).length,
-    failed: results.filter((result) => !result.pass).map((result) => result.id),
-    perFormatRecall: Object.fromEntries(Object.entries(expectedByFormat).map(([format, metrics]) => [format, { total: metrics.total, decoded: metrics.decoded, recall: metrics.total ? metrics.decoded / metrics.total : null }])),
-    perFormatExactAccuracy: Object.fromEntries(Object.entries(expectedByFormat).map(([format, metrics]) => [format, { total: metrics.total, exact: metrics.exact, accuracy: metrics.total ? metrics.exact / metrics.total : null }])),
-    perFormatFalsePositives: Object.fromEntries(Object.entries(expectedByFormat).map(([format, metrics]) => [format, metrics.falsePositives])),
-    formatConfusionMatrix: confusion,
     acceptedFormatMisclassificationCount: Object.entries(confusion).reduce((count, [expected, row]) => count + Object.entries(row).reduce((rowCount, [actual, value]) => rowCount + (actual === expected ? 0 : value), 0), 0),
     formatSelectionAccuracy: selectedResults ? selectedCorrect / selectedResults : null,
     checksumRejectionCount: manifest.fixtures.filter((fixture, index) => fixture.difficultyTags.includes("checksum_invalid") && results[index].actualResults.length === 0).length,
     gs1RecognitionAccuracy: { total: gs1.length, recognized: gs1.filter(({ result }) => result.pass).length, accuracy: gs1.length ? gs1.filter(({ result }) => result.pass).length / gs1.length : null },
     mixedFormatCompleteness: { total: mixed.length, complete: mixed.filter(({ result }) => result.pass).length, rate: mixed.length ? mixed.filter(({ result }) => result.pass).length / mixed.length : null },
     falsePositiveCount: manifest.fixtures.reduce((count, fixture, index) => count + (fixture.expectedOutcome === "no-symbol" ? results[index].actualResults.length : 0), 0),
+    invalidChecksumAcceptanceCount,
+    realPhotoFamilyCounts,
+  };
+
+  const gateResults: SymbologyGateResult[] = evaluateSymbologyGates(gateInputs, { canonicalCandidate: cli.canonicalCandidate });
+  const gatesPassed = allSymbologyGatesPassed(gateResults);
+
+  const report = {
+    schemaVersion: "alpha5-symbology-evidence-1",
+    sdkVersion: SDK_VERSION,
+    generatedAt: new Date().toISOString(),
+    mode: cli.canonicalCandidate ? "canonical-candidate" : cli.gate ? "gate" : "development",
+    sourceIdentity: {
+      ...gateInputs.sourceIdentity,
+      symbologyManifestHash: hash(manifestBytes),
+      datasetHash: hash(manifest.fixtures.map((fixture) => `${fixture.id}\u001f${hash(fs.readFileSync(path.join(ROOT, fixture.file)))}`).join("\n")),
+    },
+    corpus: {
+      total: manifest.fixtures.length, positive: positives.length, negative: negatives.length,
+      generated: manifest.fixtures.filter((fixture) => fixture.sourceType === "generated").length,
+      projectOwnedRealPhotos: gateInputs.corpus.projectOwnedRealPhotos,
+      realPhotoGateComplete: gatesPassed && gateInputs.corpus.projectOwnedRealPhotos >= 12,
+      realPhotoFamilyCounts,
+    },
+    cohorts: gateInputs.cohorts,
+    passed: results.filter((result) => result.pass).length,
+    failed: results.filter((result) => !result.pass).map((result) => result.id),
+    perFormatRecall: Object.fromEntries(Object.entries(expectedByFormat).map(([format, metrics]) => [format, { total: metrics.total, decoded: metrics.decoded, recall: metrics.total ? metrics.decoded / metrics.total : null }])),
+    perFormatExactAccuracy: Object.fromEntries(Object.entries(expectedByFormat).map(([format, metrics]) => [format, { total: metrics.total, exact: metrics.exact, accuracy: metrics.total ? metrics.exact / metrics.total : null }])),
+    perFormatFalsePositives: Object.fromEntries(Object.entries(expectedByFormat).map(([format, metrics]) => [format, metrics.falsePositives])),
+    formatConfusionMatrix: confusion,
+    acceptedFormatMisclassificationCount: gateInputs.acceptedFormatMisclassificationCount,
+    formatSelectionAccuracy: gateInputs.formatSelectionAccuracy,
+    checksumRejectionCount: gateInputs.checksumRejectionCount,
+    invalidChecksumAcceptanceCount,
+    gs1RecognitionAccuracy: gateInputs.gs1RecognitionAccuracy,
+    mixedFormatCompleteness: gateInputs.mixedFormatCompleteness,
+    falsePositiveCount: gateInputs.falsePositiveCount,
     performance: {
-      coldInitializationMs, averageLatencyMs: latencies.reduce((sum, value) => sum + value, 0) / latencies.length,
+      coldInitializationMs, averageLatencyMs: latencies.reduce((sum, value) => sum + value, 0) / Math.max(1, latencies.length),
       medianLatencyMs: percentile(latencies, 50), p95LatencyMs: percentile(latencies, 95), totalDurationMs: performance.now() - started,
       wasmMemory: memory,
     },
-    gates: {
-      generatedCleanRecall: Object.values(cleanSummary.perFormatRecall).filter(({ total }) => total > 0).every(({ recall }) => (recall ?? 0) >= 0.95),
-      generatedDifficultRecall: Object.values(difficultSummary.perFormatRecall).filter(({ total }) => total > 0).every(({ recall }) => (recall ?? 0) >= 0.85),
-      zeroFalsePositives: manifest.fixtures.every((fixture, index) => fixture.expectedOutcome !== "no-symbol" || results[index].actualResults.length === 0),
-      zeroFormatMisclassification: Object.entries(confusion).every(([expected, row]) => Object.entries(row).every(([actual, count]) => actual === expected || count === 0)),
-      zeroInvalidChecksumAcceptance: manifest.fixtures.every((fixture, index) => !fixture.difficultyTags.includes("checksum_invalid") || results[index].actualResults.length === 0),
-      mixedFormatComplete: mixed.every(({ result }) => result.pass),
-      projectOwnedRealPhotos: realPhotos.length >= 12,
-    },
+    gates: Object.fromEntries(gateResults.map((gate) => [gate.id, gate.passed])),
+    gateResults,
     results,
   };
-  const outputArgument = process.argv.find((argument) => argument.startsWith("--output="));
-  const output = outputArgument ? path.resolve(outputArgument.slice("--output=".length)) : path.join(ROOT, "benchmark-results", "development", "symbologies.json");
-  await fs.promises.mkdir(path.dirname(output), { recursive: true });
-  await fs.promises.writeFile(output, `${JSON.stringify(report, null, 2)}\n`);
-  console.log(`Alpha.5 symbologies: ${report.passed}/${report.corpus.total}; false positives=${report.falsePositiveCount}; mixed=${report.mixedFormatCompleteness.complete}/${report.mixedFormatCompleteness.total}.`);
-  console.log(`Wrote ${output}`);
-  if (report.falsePositiveCount > 0) process.exitCode = 1;
+
+  if (cli.canonicalCandidate) {
+    if (SDK_VERSION !== ALPHA5_SDK_VERSION) throw new Error(`Canonical symbology candidate requires SDK ${ALPHA5_SDK_VERSION}.`);
+    if (repositoryDirty) throw new Error("Canonical symbology candidate requires a clean repository.");
+    if (!report.sourceIdentity.commitSha || !report.sourceIdentity.treeSha) throw new Error("Canonical symbology candidate requires Source Commit and Source Tree.");
+    if (!gatesPassed) {
+      console.error(formatGateFailureTable(gateResults));
+      throw new Error("Canonical symbology candidate failed one or more release gates.");
+    }
+  }
+
+  await fs.promises.mkdir(path.dirname(cli.output), { recursive: true });
+  await fs.promises.writeFile(cli.output, `${JSON.stringify(report, null, 2)}\n`);
+  console.log(`Alpha.5 symbologies: ${report.passed}/${report.corpus.total}; false positives=${report.falsePositiveCount}; mixed=${report.mixedFormatCompleteness.complete}/${report.mixedFormatCompleteness.total}; gates=${gateResults.filter((gate) => gate.passed).length}/${gateResults.length}.`);
+  console.log(`Wrote ${cli.output}`);
+
+  if (cli.gate && !gatesPassed) {
+    console.error(formatGateFailureTable(gateResults));
+    process.exitCode = 1;
+  }
 }
 
 void main().catch((error) => { console.error(error); process.exitCode = 1; });

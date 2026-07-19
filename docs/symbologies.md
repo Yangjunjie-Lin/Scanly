@@ -32,4 +32,14 @@ The dedicated corpus has 100 single-format positives, 12 mixed positives, and 34
 | UPC-A | 8 | 9 | 8 | 88.9% | 0 |
 | UPC-E | 8 | 9 | 8 | 88.9% | 0 |
 
-Clean generated fixtures pass 15/15; difficult single-format fixtures pass 75/85; mixed fixtures pass 12/12. The maintained Alpha.5 negative corpus has zero accepted results. The missing project-owned real-photo denominator remains a release blocker.
+Clean generated fixtures pass 15/15; difficult single-format fixtures pass 75/85; mixed fixtures pass 12/12. The maintained Alpha.5 negative corpus has zero accepted results.
+
+## Release gates
+
+`npm run benchmark:symbologies -- --gate` evaluates every required Alpha.5 gate and exits nonzero on any failure (not only false positives). Canonical candidate mode additionally requires a clean repository and a complete project-owned real-photo corpus.
+
+## Project-owned real photographs
+
+Alpha.5 Evidence Freeze requires at least 12 authentic project-owned photographs (minimum 3 per major family: Data Matrix, PDF417, Code 128, EAN/UPC). Capture instructions and the empty integration manifest live under [fixtures/alpha5/project-photos/](../fixtures/alpha5/project-photos/README.md).
+
+Until those assets are present, final Evidence Freeze remains blocked with `BLOCKED_REAL_PHOTO_INPUT`.

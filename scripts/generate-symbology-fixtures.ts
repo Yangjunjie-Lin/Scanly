@@ -232,13 +232,26 @@ async function main(): Promise<void> {
     }
   }
 
+  const projectPhotoManifestPath = path.join(OUTPUT, "project-photos", "manifest.json");
+  let projectPhotoFixtures: FixtureRecord[] = [];
+  if (fs.existsSync(projectPhotoManifestPath)) {
+    const projectManifest = JSON.parse(fs.readFileSync(projectPhotoManifestPath, "utf8")) as { fixtures?: FixtureRecord[] };
+    projectPhotoFixtures = (projectManifest.fixtures ?? []).filter((fixture) => fixture.sourceType === "project-photo");
+    for (const fixture of projectPhotoFixtures) {
+      if (fixture.license !== "project-owned") throw new Error(`Project photo '${fixture.id}' must use license=project-owned.`);
+      if (!fs.existsSync(path.join(ROOT, fixture.file))) throw new Error(`Project photo file missing: ${fixture.file}`);
+    }
+  }
+
   const manifest = {
     schemaVersion: "2.0-alpha5", seed: SEED, generatorVersion: 1,
-    notes: "Generated Alpha.5 corpus. Project-owned real-photo fixtures are a separate outstanding release gate and are not represented here.",
-    fixtures,
+    notes: projectPhotoFixtures.length
+      ? `Generated Alpha.5 corpus merged with ${projectPhotoFixtures.length} project-owned real-photo fixtures.`
+      : "Generated Alpha.5 corpus. Project-owned real-photo fixtures remain an outstanding release gate until fixtures/alpha5/project-photos/manifest.json is populated.",
+    fixtures: [...fixtures, ...projectPhotoFixtures],
   };
   await writeIfChanged(path.join(OUTPUT, "manifest.json"), Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`));
-  console.log(`Generated ${fixtures.length} Alpha.5 fixtures: ${specs.length} single positive, ${mixedPairs.length} mixed, ${fixtures.filter((fixture) => fixture.expectedOutcome === "no-symbol").length} negative.`);
+  console.log(`Generated ${fixtures.length} Alpha.5 generated fixtures + ${projectPhotoFixtures.length} project photos: ${specs.length} single positive, ${mixedPairs.length} mixed, ${fixtures.filter((fixture) => fixture.expectedOutcome === "no-symbol").length} negative.`);
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1; });
