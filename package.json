@@ -58,6 +58,7 @@
     "benchmark:canonical-candidate": "tsx scripts/run-benchmark.ts --canonical-candidate --gate-mode=baseline-candidate --measured-iterations=3 --warmup-iterations=1",
     "benchmark:canonical": "npm run benchmark:canonical-candidate --",
     "fixtures:generate": "tsx scripts/generate-fixtures.ts && tsx scripts/generate-symbology-fixtures.ts",
+    "fixtures:verify-external": "tsx scripts/verify-external-open-license.ts",
     "scenarios:generate": "tsx scripts/export-scenarios.ts",
     "workflows:verify": "node scripts/verify-workflows.mjs",
     "quality:static": "npm run workflows:verify && tsx scripts/verify-quality-gates.ts --static",

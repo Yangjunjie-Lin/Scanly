@@ -8,6 +8,8 @@ export interface SymbologyGateResult {
   actual: number | boolean;
   required: number | boolean;
   details?: string;
+  /** Informational/non-release gates are reported but do not block canonical release evaluation. */
+  releaseRequired?: boolean;
 }
 
 export type FormatFamily = "data_matrix" | "pdf417" | "code_128" | "retail";
@@ -31,6 +33,12 @@ export interface CohortSummary {
   resultTotal: number;
   exactResults: number;
   perFormatRecall: Record<BarcodeFormat, PerFormatRecall>;
+  detectionOnlyTotal?: number;
+  detectionOnlyPassed?: number;
+  detectionOnlyRecall?: number | null;
+  averageLatencyMs?: number;
+  medianLatencyMs?: number;
+  p95LatencyMs?: number;
 }
 
 export interface SymbologyGateReport {
@@ -40,14 +48,16 @@ export interface SymbologyGateReport {
     treeSha?: string;
     repositoryDirty?: boolean;
   };
-  corpus: {
-    projectOwnedRealPhotos: number;
-  };
   cohorts: {
     generatedClean: CohortSummary;
     generatedDifficult: CohortSummary;
     generatedMixed: CohortSummary;
     projectOwnedRealPhotos: CohortSummary;
+    externalOpenLicenseRealWorld?: CohortSummary;
+  };
+  corpus: {
+    projectOwnedRealPhotos: number;
+    externalOpenLicenseCorpusCount?: number;
   };
   acceptedFormatMisclassificationCount: number;
   formatSelectionAccuracy: number | null;
@@ -209,6 +219,16 @@ export function evaluateSymbologyGates(
     required: 12,
   });
 
+  const externalCount = report.corpus.externalOpenLicenseCorpusCount ?? 0;
+  push({
+    id: "external-open-license-corpus-count",
+    passed: externalCount >= 12,
+    actual: externalCount,
+    required: 12,
+    details: "non-release informational gate; external photographs never satisfy project-owned gate",
+    releaseRequired: false,
+  });
+
   for (const family of Object.keys(FORMAT_FAMILIES) as FormatFamily[]) {
     const count = familyPhotoCount(report, family);
     push({
@@ -282,7 +302,7 @@ export function formatGateFailureTable(gates: readonly SymbologyGateResult[]): s
   const failed = gates.filter((gate) => !gate.passed);
   if (!failed.length) return "All symbology gates passed.";
   return failed.map((gate) => [
-    `FAILED ${gate.id}`,
+    `${gate.releaseRequired === false ? "NON_RELEASE" : "FAILED"} ${gate.id}`,
     `actual: ${String(gate.actual)}`,
     `required: ${String(gate.required)}`,
     gate.details ? `details: ${gate.details}` : undefined,
@@ -290,7 +310,7 @@ export function formatGateFailureTable(gates: readonly SymbologyGateResult[]): s
 }
 
 export function allSymbologyGatesPassed(gates: readonly SymbologyGateResult[]): boolean {
-  return gates.every((gate) => gate.passed);
+  return gates.filter((gate) => gate.releaseRequired !== false).every((gate) => gate.passed);
 }
 
 /** Baseline ID pattern that stays version-independent for Alpha/Beta/RC/GA revisions. */

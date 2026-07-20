@@ -56,7 +56,7 @@ function passingReport(): SymbologyGateReport {
       treeSha: "b".repeat(40),
       repositoryDirty: false,
     },
-    corpus: { projectOwnedRealPhotos: 12 },
+    corpus: { projectOwnedRealPhotos: 12, externalOpenLicenseCorpusCount: 12 },
     cohorts: {
       generatedClean: perfectCohort(),
       generatedDifficult: perfectCohort(),
@@ -86,6 +86,18 @@ function passingReport(): SymbologyGateReport {
 }
 
 describe("symbology release gates", () => {
+  it("reports the external corpus gate without treating it as a release gate", () => {
+    const report = passingReport();
+    report.corpus.externalOpenLicenseCorpusCount = 0;
+    const gates = evaluateSymbologyGates(report);
+    const external = gates.find((gate) => gate.id === "external-open-license-corpus-count");
+    expect(external).toMatchObject({ passed: false, actual: 0, required: 12, releaseRequired: false });
+    expect(allSymbologyGatesPassed(gates)).toBe(true);
+
+    report.corpus.externalOpenLicenseCorpusCount = 12;
+    expect(evaluateSymbologyGates(report).find((gate) => gate.id === "external-open-license-corpus-count")?.passed).toBe(true);
+  });
+
   it("passes every required gate for a complete report", () => {
     const gates = evaluateSymbologyGates(passingReport(), { canonicalCandidate: true });
     expect(allSymbologyGatesPassed(gates)).toBe(true);

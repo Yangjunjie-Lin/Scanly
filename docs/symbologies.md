@@ -43,3 +43,5 @@ Clean generated fixtures pass 15/15; difficult single-format fixtures pass 75/85
 Alpha.5 Evidence Freeze requires at least 12 authentic project-owned photographs (minimum 3 per major family: Data Matrix, PDF417, Code 128, EAN/UPC). Capture instructions and the empty integration manifest live under [fixtures/alpha5/project-photos/](../fixtures/alpha5/project-photos/README.md).
 
 Until those assets are present, final Evidence Freeze remains blocked with `BLOCKED_REAL_PHOTO_INPUT`.
+
+External open-license photographs provide third-party real-world validation but do not satisfy the project-owned photograph release gate. They are reported separately as `externalOpenLicenseRealWorld`; they cannot activate `v2-alpha5-r1` or produce Alpha.5 final canonical evidence.

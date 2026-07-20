@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { BenchmarkRunSummary, ComparisonReport } from "@scanly/benchmark";
@@ -60,6 +61,44 @@ for (const fixture of manifest.fixtures.filter((item) => item.category === "mult
   if (fixture.expectedResultCount !== requiredCount) {
     fail(`${fixture.id} expectedResultCount must equal required instance count`);
   }
+}
+
+const externalManifest = JSON.parse(read("fixtures/alpha5/external-open-license/manifest.json")) as {
+  fixtures: Array<{
+    id: string;
+    file: string;
+    sourceType: string;
+    sourceRepository: string;
+    sourcePage: string;
+    originalFilename: string;
+    author: string;
+    license: string;
+    licenseUrl: string;
+    attribution: string;
+    retrievedAt: string;
+    modifications: unknown[];
+    expectedFormat: string;
+    expectedPayload: string | null;
+    payloadVerificationStatus: "verified" | "unknown" | "sensitive";
+    publicRepositorySafe: boolean;
+    visualVerificationStatus: "verified";
+    provenanceNote: string;
+    sha256: string;
+  }>;
+};
+for (const fixture of externalManifest.fixtures) {
+  const requiredStrings = [fixture.sourcePage, fixture.originalFilename, fixture.author, fixture.license, fixture.licenseUrl, fixture.attribution, fixture.retrievedAt, fixture.expectedFormat];
+  if (fixture.sourceType !== "external-open-license" || fixture.sourceRepository !== "Wikimedia Commons") fail(`${fixture.id} has invalid external source classification`);
+  if (requiredStrings.some((value) => typeof value !== "string" || value.length === 0)) fail(`${fixture.id} has incomplete external provenance`);
+  if (fixture.provenanceNote !== "Third-party open-license real-world photograph; not project-owned.") fail(`${fixture.id} has invalid external provenance note`);
+  if (fixture.publicRepositorySafe !== true || fixture.payloadVerificationStatus === "sensitive") fail(`${fixture.id} is not safe for a public repository`);
+  if (fixture.visualVerificationStatus !== "verified") fail(`${fixture.id} has no recorded visual verification`);
+  if (fixture.payloadVerificationStatus === "unknown" && fixture.expectedPayload !== null) fail(`${fixture.id} must not invent an unknown payload`);
+  if (fixture.payloadVerificationStatus === "verified" && typeof fixture.expectedPayload !== "string") fail(`${fixture.id} verified payload is missing`);
+  const absolute = path.join(ROOT, fixture.file);
+  if (!fs.existsSync(absolute)) fail(`Missing external open-license fixture: ${fixture.file}`);
+  const sha256 = crypto.createHash("sha256").update(fs.readFileSync(absolute)).digest("hex");
+  if (sha256 !== fixture.sha256) fail(`${fixture.id} external original SHA-256 mismatch`);
 }
 
 const readme = read("README.md");

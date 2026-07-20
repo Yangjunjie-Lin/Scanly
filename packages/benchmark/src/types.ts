@@ -34,7 +34,7 @@ export type BenchmarkFailureCode =
   | "worker_initialization_failure" | "resource_limit_exceeded"
   | "internal_invariant_failure" | "concurrent_call_rejected" | "session_disposed";
 
-export type BenchmarkSourceType = "generated" | "project-photo";
+export type BenchmarkSourceType = "generated" | "project-photo" | "external-open-license";
 
 export interface BenchmarkFixture {
   id: string;

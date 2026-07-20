@@ -51,6 +51,8 @@ This is Scanly's internal regression suite—not universal accuracy, a third-par
 | Canonical CSV | [benchmark-results/latest.csv](benchmark-results/latest.csv) |
 <!-- BENCHMARK_SUMMARY_END -->
 
+External open-license photographs provide third-party real-world validation but do not satisfy the project-owned photograph release gate. Alpha.5 remains `BLOCKED_REAL_PHOTO_INPUT` until authentic project-owned photographs are supplied.
+
 See [the full benchmark](docs/benchmark.md) and [fixture methodology](docs/testing.md).
 
 Benchmark output is deliberately separated: ordinary local runs write ignored development reports, while `benchmark:canonical-candidate` creates one clean candidate profile report (the deprecated `benchmark:canonical` name remains an alias). `benchmark:assemble-canonical` combines Fast, Balanced, Robust, and Comparison reports into a verified manifest; `benchmark:update-canonical` atomically updates tracked aliases and documentation; `benchmark:freeze` creates one immutable profile baseline; and `benchmark:activate` atomically activates all three baselines. Canonical evidence requires at least one warmup, three measured iterations per fixture, and a clean Git repository.

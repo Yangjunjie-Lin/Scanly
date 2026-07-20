@@ -20,7 +20,7 @@ interface FixtureRecord {
   file: string;
   format?: BarcodeFormat;
   formatClass?: "matrix" | "stacked" | "linear";
-  sourceType: "generated" | "project-photo";
+  sourceType: "generated" | "project-photo" | "external-open-license";
   generator: string;
   expectedPayload: string;
   expectedRawBytes?: number[];
@@ -40,6 +40,26 @@ interface PositiveSpec {
   payload: string;
   index: number;
   gs1?: boolean;
+}
+
+interface ExternalFixtureRecord extends Omit<FixtureRecord, "sourceType" | "generator" | "license" | "provenanceNote" | "expectedPayload"> {
+  sourceType: "external-open-license";
+  sourcePage: string;
+  sourceRepository: "Wikimedia Commons";
+  originalFilename: string;
+  author: string;
+  license: string;
+  licenseUrl: string;
+  attribution: string;
+  retrievedAt: string;
+  modifications: unknown[];
+  expectedFormat: BarcodeFormat;
+  expectedPayload: string | null;
+  payloadVerificationStatus: "verified" | "unknown" | "sensitive";
+  publicRepositorySafe: boolean;
+  visualVerificationStatus: "verified";
+  provenanceNote: "Third-party open-license real-world photograph; not project-owned.";
+  sha256: string;
 }
 
 prepareZXingModule({ overrides: { locateFile: () => WRITER_ASSET, wasmBinary: fs.readFileSync(WRITER_ASSET) } });
@@ -243,15 +263,34 @@ async function main(): Promise<void> {
     }
   }
 
+  const externalManifestPath = path.join(OUTPUT, "external-open-license", "manifest.json");
+  let externalFixtures: ExternalFixtureRecord[] = [];
+  if (fs.existsSync(externalManifestPath)) {
+    const externalManifest = JSON.parse(fs.readFileSync(externalManifestPath, "utf8")) as { fixtures?: ExternalFixtureRecord[] };
+    externalFixtures = (externalManifest.fixtures ?? []).filter((fixture) => fixture.sourceType === "external-open-license");
+    for (const fixture of externalFixtures) {
+      if (fixture.provenanceNote !== "Third-party open-license real-world photograph; not project-owned.") {
+        throw new Error(`External fixture '${fixture.id}' has an invalid provenance note.`);
+      }
+      if (fixture.publicRepositorySafe !== true) throw new Error(`External fixture '${fixture.id}' is not public-repository-safe.`);
+      if (fixture.visualVerificationStatus !== "verified") throw new Error(`External fixture '${fixture.id}' has no recorded visual verification.`);
+      if (fixture.payloadVerificationStatus === "sensitive") throw new Error(`External fixture '${fixture.id}' contains sensitive payload data.`);
+      if (!fixture.sourcePage || fixture.sourceRepository !== "Wikimedia Commons") throw new Error(`External fixture '${fixture.id}' is missing Wikimedia provenance.`);
+      if (!fs.existsSync(path.join(ROOT, fixture.file))) throw new Error(`External fixture file missing: ${fixture.file}`);
+      const actualHash = require("node:crypto").createHash("sha256").update(fs.readFileSync(path.join(ROOT, fixture.file))).digest("hex");
+      if (actualHash !== fixture.sha256) throw new Error(`External fixture '${fixture.id}' SHA-256 mismatch.`);
+    }
+  }
+
   const manifest = {
     schemaVersion: "2.0-alpha5", seed: SEED, generatorVersion: 1,
-    notes: projectPhotoFixtures.length
-      ? `Generated Alpha.5 corpus merged with ${projectPhotoFixtures.length} project-owned real-photo fixtures.`
+    notes: projectPhotoFixtures.length || externalFixtures.length
+      ? `Generated Alpha.5 corpus merged with ${projectPhotoFixtures.length} project-owned and ${externalFixtures.length} third-party external-open-license fixtures. External photographs do not satisfy the project-owned release gate.`
       : "Generated Alpha.5 corpus. Project-owned real-photo fixtures remain an outstanding release gate until fixtures/alpha5/project-photos/manifest.json is populated.",
-    fixtures: [...fixtures, ...projectPhotoFixtures],
+    fixtures: [...fixtures, ...projectPhotoFixtures, ...externalFixtures],
   };
   await writeIfChanged(path.join(OUTPUT, "manifest.json"), Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`));
-  console.log(`Generated ${fixtures.length} Alpha.5 generated fixtures + ${projectPhotoFixtures.length} project photos: ${specs.length} single positive, ${mixedPairs.length} mixed, ${fixtures.filter((fixture) => fixture.expectedOutcome === "no-symbol").length} negative.`);
+  console.log(`Generated ${fixtures.length} Alpha.5 generated fixtures + ${projectPhotoFixtures.length} project photos + ${externalFixtures.length} external photographs: ${specs.length} single positive, ${mixedPairs.length} mixed, ${fixtures.filter((fixture) => fixture.expectedOutcome === "no-symbol").length} negative.`);
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1; });
