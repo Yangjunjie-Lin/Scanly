@@ -19,6 +19,15 @@ describe("semantic parsers", () => {
     expect(parsed.structured?.kind).toBe(kind);
   });
 
+  it("parses bounded raw GS1 FNC1 element strings without changing the raw text", () => {
+    const rawText = "0109506000134352\u001d17270101";
+    const parsed = parseSemanticPayload(rawText);
+    expect(parsed.rawText).toBe(rawText);
+    expect(parsed.structured?.kind).toBe("gs1-element-string");
+    expect(parsed.structured?.fields["01"]).toBe("09506000134352");
+    expect(parsed.structured?.fields["17"]).toBe("270101");
+  });
+
   it("permits explicit actions only for HTTP and HTTPS URLs", () => {
     expect(isSafeActionUrl("https://example.com")).toBe(true);
     expect(isSafeActionUrl("http://example.com")).toBe(true);

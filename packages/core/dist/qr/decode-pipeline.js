@@ -203,6 +203,7 @@ async function tryEngine(ctx, engineId, candidate, preprocessing, rotation) {
     let decoded;
     try {
         decoded = await ctx.engineExecutor.decode(engineId, processed, {
+            formats: ctx.config.formats,
             signal: ctx.signal,
             findMultiple: ctx.config.findMultiple,
             inversion: preprocessing === "invert" ? "inverted" : "original",
@@ -261,6 +262,9 @@ async function tryEngine(ctx, engineId, candidate, preprocessing, rotation) {
     recordDiagnostic(ctx, engineId, "success", engineElapsed, decoded.results.length);
     let completed = null;
     for (const result of decoded.results) {
+        // A plugin must never widen a caller's explicit format selection at the result boundary.
+        if (!ctx.config.formats.includes(result.format))
+            continue;
         const payload = normalizePayload(result.text);
         if (!payload)
             continue;
@@ -280,6 +284,8 @@ async function tryEngine(ctx, engineId, candidate, preprocessing, rotation) {
             engineMetadata: result.engineMetadata,
             cornerPoints,
             symbologyIdentifier: result.symbologyIdentifier,
+            isGs1: result.isGs1,
+            metadata: result.metadata,
             preprocessing,
             candidateIndex: candidate.candidateIndex,
             scale: candidate.scale,

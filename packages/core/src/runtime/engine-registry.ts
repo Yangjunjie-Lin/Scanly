@@ -69,7 +69,10 @@ export class EngineRegistry implements EngineRegistryContract {
 
   resolve(formats: readonly BarcodeFormat[]): readonly DecoderEngine[] {
     const requested = new Set(formats);
-    return Object.freeze(this.list().filter((engine) => engine.capabilities.formats.some((format) => requested.has(format))));
+    if (requested.size === 0) throw new SdkException(sdkError("unsupported_format", "At least one barcode format must be requested."));
+    const resolved = this.list().filter((engine) => engine.capabilities.formats.some((format) => requested.has(format)));
+    if (!resolved.length) throw new SdkException(sdkError("unsupported_format", `No registered engine supports: ${[...requested].join(", ")}.`));
+    return Object.freeze(resolved);
   }
 
   async initializeAll(): Promise<void> {

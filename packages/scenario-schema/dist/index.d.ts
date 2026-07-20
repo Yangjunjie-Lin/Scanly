@@ -1,5 +1,7 @@
 export declare const SCENARIO_SCHEMA_VERSION: "2.1";
-export type BarcodeFormat = "qr_code" | "micro_qr" | "rmqr" | "data_matrix" | "gs1_data_matrix" | "pdf417" | "micro_pdf417" | "aztec" | "code_128" | "gs1_128" | "code_39" | "code_93" | "ean_8" | "ean_13" | "upc_a" | "upc_e" | "itf" | "itf_14" | "codabar" | "gs1_databar";
+export type BarcodeFormat = "qr_code" | "data_matrix" | "pdf417" | "code_128" | "ean_8" | "ean_13" | "upc_a" | "upc_e";
+/** Public Alpha.5 execution classes. Structured GS1 variants use their base format. */
+export type BarcodeFormatClass = "matrix" | "stacked" | "linear";
 export type PixelFormatPreference = "rgba8888" | "rgb888" | "gray8" | "yuv420";
 /** Decoder ids are plugin-defined; the schema validates their portable id shape. */
 export type DecoderId = string;
@@ -92,8 +94,9 @@ export type ScenarioValidationResult = {
     message: string;
 };
 export declare function validateScenario(input: unknown): ScenarioValidationResult;
-export declare const BUILTIN_SCENARIOS: Readonly<Record<"fast" | "balanced" | "robust", ScenarioDefinition>>;
-export type BuiltinScenarioId = keyof typeof BUILTIN_SCENARIOS;
-export declare function getBuiltinScenario(id: BuiltinScenarioId): ScenarioDefinition;
+export declare const BUILTIN_SCENARIOS: Readonly<Record<"fast" | "balanced" | "robust" | "multiformat-balanced" | "retail-fast" | "logistics-balanced" | "document-robust", ScenarioDefinition>>;
+export type BuiltinScenarioId = "fast" | "balanced" | "robust";
+export type ScenarioPresetId = keyof typeof BUILTIN_SCENARIOS;
+export declare function getBuiltinScenario(id: ScenarioPresetId): ScenarioDefinition;
 export declare function migrateScenario(input: unknown): ScenarioValidationResult;
 //# sourceMappingURL=index.d.ts.map

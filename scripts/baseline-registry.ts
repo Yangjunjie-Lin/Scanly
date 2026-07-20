@@ -15,6 +15,10 @@ export interface BaselineRegistry {
     sourceCommit: string;
     engineCompositionHash: string;
     wasmBuildHash: string;
+    datasetHash?: string;
+    symbologyManifestHash?: string;
+    symbologyDatasetHash?: string;
+    symbologyReportHash?: string;
   }>;
 }
 

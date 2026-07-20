@@ -8,7 +8,7 @@ describe("truthful runtime capabilities", () => {
     const router = createNodeCaptureRouter();
     try {
       const capabilities = router.getCapabilities();
-      expect(capabilities.formats).toEqual(["qr_code"]);
+      expect(capabilities.formats).toEqual(["code_128", "data_matrix", "ean_13", "ean_8", "pdf417", "qr_code", "upc_a", "upc_e"]);
       expect(capabilities.pixelFormats).toEqual(["rgba8888", "rgb888", "gray8"]);
       expect(capabilities.scenarioFeatures).toMatchObject({ roi: true, parallelEngines: true, spatialDeduplication: true, temporalTracking: false, heuristicQuality: false, yuvNormalization: false });
       expect(capabilities.engines.map((engine) => engine.id)).toEqual(["jsqr", "zxing-cpp-wasm", "zxing-js"]);

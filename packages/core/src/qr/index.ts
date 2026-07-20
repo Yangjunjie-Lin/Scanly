@@ -8,3 +8,7 @@ export * from "./geometry.js";
 export * from "./rotate.js";
 export * from "./result-normalizer.js";
 export * from "./decode-pipeline.js";
+export * from "../barcode/format.js";
+export * from "../barcode/format-selection.js";
+export * from "../barcode/contracts.js";
+export * from "../barcode/retail.js";

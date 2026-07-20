@@ -2,6 +2,8 @@
 
 This document is generated only by the approved canonical evidence update command. Latency is environment-specific and is not a commercial parity claim.
 
+The canonical block below is the preserved Alpha.4 r4 evidence. It has not been relabeled as Alpha.5. Alpha.5 canonical generation and baseline activation remain pending.
+
 ## Canonical source
 
 | Field | Value |
@@ -36,3 +38,14 @@ This document is generated only by the approved canonical evidence update comman
 | Parallel execution | experimental |
 
 See the canonical JSON aliases for per-fixture iteration timings, phase timing, variance, attempts, and profile-specific metrics.
+# Alpha.5 measurement boundary
+
+Alpha.5 retains the 74-fixture legacy QR suite as a separate denominator. `npm run benchmark:symbologies` executes the dedicated 146-fixture generated Alpha.5 corpus and reports per-format recall, exact accuracy, false positives, format confusion, checksum rejection, GS1 recognition, mixed-format completeness, latency, and WASM memory. The corpus contains 100 single-format positives, 12 mixed-format positives, and 34 adversarial negatives.
+
+The current generated-corpus development gate is 15/15 clean, 75/85 difficult, 12/12 mixed, 8/8 GS1 recognition, zero accepted format misclassifications, and zero false positives. These values are reproducible development measurements, not canonical evidence.
+
+CI and release workflows must run `npm run benchmark:symbologies -- --gate`. Any failed required gate exits nonzero. Canonical Assemble requires the symbology report via `--symbologies=` and Manifest schema 2.1.
+
+The required project-owned real-photo corpus is still 0/12 (see `fixtures/alpha5/project-photos/`), so Alpha.5 Evidence Freeze and baseline activation remain blocked with `BLOCKED_REAL_PHOTO_INPUT`.
+
+External open-license photographs provide third-party real-world validation but do not satisfy the project-owned photograph release gate. The separate `externalOpenLicenseRealWorld` cohort and its non-release corpus-count gate cannot activate `v2-alpha5-r1`.

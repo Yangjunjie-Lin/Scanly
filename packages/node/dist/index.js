@@ -38,7 +38,7 @@ export function createNodePipelineEngineExecutor(engines = createNodeEngineRegis
     return {
         engineIds: engines.list().map((engine) => engine.id),
         versions: Object.fromEntries(engines.list().map((engine) => [engine.id, engine.version])),
-        decode: (engineId, image, options) => engines.decode(engineId, createRgbaFrame(image.data, image.width, image.height), { formats: ["qr_code"], findMultiple: options.findMultiple, signal: options.signal }),
+        decode: (engineId, image, options) => engines.decode(engineId, createRgbaFrame(image.data, image.width, image.height), { formats: options.formats, findMultiple: options.findMultiple, signal: options.signal, inversion: options.inversion }),
     };
 }
 /** Lower-level algorithm adapter; canonical SDK benchmarks should use CaptureRouter. */

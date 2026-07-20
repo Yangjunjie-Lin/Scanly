@@ -1,12 +1,16 @@
 export type BenchmarkCategory = "clear" | "text" | "url" | "wifi" | "low_contrast" | "underexposed" | "overexposed" | "blur" | "motion_blur" | "noise" | "glare" | "inverted" | "rotation" | "perspective" | "small_in_large" | "near_edge" | "complex_background" | "multiple" | "occlusion" | "damaged" | "high_resolution" | "screen_capture" | "unusual_aspect" | "colored_background" | "phone_photo" | "negative" | "adversarial";
 export type BenchmarkExpectedOutcome = "decode" | "no-symbol" | "invalid-input";
 export type BenchmarkFailureCode = "no_symbol_found" | "invalid_image" | "timeout" | "cancelled" | "engine_execution_failure" | "engine_initialization_failure" | "worker_initialization_failure" | "resource_limit_exceeded" | "internal_invariant_failure" | "concurrent_call_rejected" | "session_disposed";
-export type BenchmarkSourceType = "generated" | "project-photo";
+export type BenchmarkSourceType = "generated" | "project-photo" | "external-open-license";
 export interface BenchmarkFixture {
     id: string;
     file: string;
     category: BenchmarkCategory;
     expectedPayload: string | string[];
+    format?: BarcodeFormat;
+    formatClass?: BarcodeFormatClass;
+    expectedRawBytes?: number[];
+    orientation?: number;
     expectedOutcome: BenchmarkExpectedOutcome;
     allowedFailureCodes?: BenchmarkFailureCode[];
     sourceType: BenchmarkSourceType;
@@ -19,6 +23,10 @@ export interface BenchmarkFixture {
     primaryPayload?: string;
     /** All payloads that must appear for a full pass (multiple fixtures). */
     requiredPayloads?: string[];
+    requiredResults?: Array<{
+        format: BarcodeFormat;
+        payload: string;
+    }>;
     /** Required physical instances, including repeated payloads. */
     requiredInstances?: Array<{
         payload: string;
@@ -186,6 +194,21 @@ export interface BenchmarkRunSummary {
         decoded: number;
         recall: number;
     }>;
+    perFormatExactAccuracy?: Record<string, {
+        total: number;
+        exact: number;
+        accuracy: number;
+    }>;
+    perFormatFalsePositives?: Record<string, number>;
+    formatConfusionMatrix?: Record<string, Record<string, number>>;
+    formatSelectionAccuracy?: number;
+    checksumRejectionCount?: number;
+    gs1RecognitionAccuracy?: number;
+    mixedFormatCompleteness?: {
+        total: number;
+        complete: number;
+        rate: number;
+    };
     memoryObservations: string[];
     controlledMemoryPeakBytes: number;
     finalControlledMemoryBytes: number;
@@ -349,4 +372,5 @@ export interface BrowserBenchmarkReport {
         payloads: string[];
     }>;
 }
+import type { BarcodeFormat, BarcodeFormatClass } from "@scanly/scenario-schema";
 //# sourceMappingURL=types.d.ts.map

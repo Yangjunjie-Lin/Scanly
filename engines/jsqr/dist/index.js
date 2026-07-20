@@ -2,7 +2,7 @@ import jsQR from "jsqr";
 export class JsQrEngine {
     id = "jsqr";
     version = "1.4.0";
-    capabilities = { formats: ["qr_code"], supportsMultiple: false, returnsRawBytes: true, returnsCornerPoints: true, threadSafe: true, estimatedScratchBytesPerPixel: 5, copiesInputBuffer: false };
+    capabilities = { formats: ["qr_code"], formatClasses: ["matrix"], supportsMultiple: false, returnsRawBytes: true, supportsRawBytes: true, returnsCornerPoints: true, threadSafe: true, estimatedScratchBytesPerPixel: 5, copiesInputBuffer: false, supportsGs1: false, supportsOrientation: false, supportsInversion: true, runtimeKinds: ["browser", "worker", "node"], executionModel: "javascript" };
     async decode(frame, options) {
         const started = Date.now();
         if (options.signal?.aborted)

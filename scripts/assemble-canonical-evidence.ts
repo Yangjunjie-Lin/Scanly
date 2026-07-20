@@ -10,10 +10,13 @@ const argumentNames: Record<EvidenceReportKey, string> = {
   robustJson: "robust",
   robustCsv: "robust-csv",
   comparisonJson: "comparison",
+  symbologiesJson: "symbologies",
 };
 const inputs = Object.fromEntries(Object.entries(argumentNames).map(([key, argument]) => [key, value(argument)])) as Record<EvidenceReportKey, string | undefined>;
 const output = value("output");
 const missing = Object.entries(inputs).filter(([, file]) => !file).map(([key]) => key);
-if (!output || missing.length) throw new Error(`Canonical assembly requires JSON and CSV profile inputs, Comparison JSON, and --output (missing: ${missing.join(", ") || "output"}).`);
+if (!output || missing.length) {
+  throw new Error(`Canonical assembly requires JSON and CSV profile inputs, Comparison JSON, Symbologies JSON, and --output (missing: ${missing.join(", ") || "output"}).`);
+}
 const bundle = assembleCanonicalEvidence(Object.fromEntries(Object.entries(inputs).map(([key, file]) => [key, path.resolve(file!)])) as Record<EvidenceReportKey, string>, path.resolve(output));
 console.log(`Assembled ${bundle.manifest.evidenceId}: ${bundle.manifestPath}`);

@@ -18,6 +18,7 @@ import { createCoordinateTransform, IDENTITY_MATRIX, type CoordinateTransform } 
 import { monotonicNow } from "./execution-budget.js";
 import { normalizeRgbaOrientation, type OrientationNormalization } from "./frame-normalization.js";
 import type { FrameMemoryBudget, MemoryLease } from "./memory-budget.js";
+import { barcodeFormatClass } from "../barcode/format.js";
 
 export const BUILTIN_OPERATOR_IDS = [
   "scanly.frame-normalization",
@@ -46,7 +47,7 @@ const MAX_MESSAGE_LENGTH = 512;
 function descriptor(id: string, accepts: string[], produces: string[], cpu: "low" | "medium" | "high" = "low"): OperatorDescriptor {
   return {
     id,
-    version: "2.0.0-alpha.4",
+    version: "2.0.0-alpha.5",
     accepts,
     produces,
     configurationSchemaId: "https://scanly.dev/schema/scenario/2.1",
@@ -222,7 +223,7 @@ function engineExecutor(registry: EngineRegistry, scenario: ScenarioDefinition):
     decode: (engineId, image, options) => registry.decode(
       engineId,
       createRgbaFrame(image.data, image.width, image.height, { id: `attempt-${engineId}`, sourceType: "pixel-buffer", ownership: "borrowed" }),
-      { formats: scenario.acceptedFormats, findMultiple: options.findMultiple, signal: options.signal, inversion: options.inversion },
+      { formats: options.formats, findMultiple: options.findMultiple, signal: options.signal, inversion: options.inversion },
     ),
   };
 }
@@ -381,6 +382,7 @@ class ResultAggregationOperator implements Operator<void, void, RuntimeOperatorC
     const resultTiming = timing(outcome);
     const results = outcome.results.slice(0, configuration.scenario.multiCode.maxResults).map((code): ScanResult => ({
       format: code.format ?? "qr_code",
+      formatClass: barcodeFormatClass(code.format ?? "qr_code"),
       rawText: code.payload,
       ...(configuration.scenario.output.includeRawBytes && code.rawBytes ? { rawBytes: code.rawBytes } : {}),
       ...(code.cornerPoints ? { cornerPoints: code.cornerPoints } : {}),
@@ -391,6 +393,8 @@ class ResultAggregationOperator implements Operator<void, void, RuntimeOperatorC
       frameId: frame.id,
       structuredPayload: null,
       ...(code.symbologyIdentifier ? { symbologyIdentifier: code.symbologyIdentifier } : {}),
+      ...(code.isGs1 !== undefined ? { isGs1: code.isGs1 } : {}),
+      ...(code.metadata ? { metadata: code.metadata } : {}),
       validation: { valid: true, validatorIds: [], messages: [] },
       warnings: [],
       timing: resultTiming,

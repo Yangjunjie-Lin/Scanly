@@ -6,6 +6,8 @@ export function expectedPayloads(fixture) {
 export function requiredPayloads(fixture) {
     if (fixture.requiredInstances?.length)
         return fixture.requiredInstances.flatMap((entry) => Array.from({ length: entry.count }, () => entry.payload));
+    if (fixture.requiredResults?.length)
+        return fixture.requiredResults.map((entry) => entry.payload);
     return fixture.requiredPayloads?.length
         ? fixture.requiredPayloads
         : expectedPayloads(fixture);

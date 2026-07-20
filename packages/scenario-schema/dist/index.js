@@ -1,8 +1,6 @@
 export const SCENARIO_SCHEMA_VERSION = "2.1";
 const FORMAT_VALUES = new Set([
-    "qr_code", "micro_qr", "rmqr", "data_matrix", "gs1_data_matrix", "pdf417",
-    "micro_pdf417", "aztec", "code_128", "gs1_128", "code_39", "code_93", "ean_8",
-    "ean_13", "upc_a", "upc_e", "itf", "itf_14", "codabar", "gs1_databar",
+    "qr_code", "data_matrix", "pdf417", "code_128", "ean_8", "ean_13", "upc_a", "upc_e",
 ]);
 const PIXEL_VALUES = new Set(["rgba8888", "rgb888", "gray8", "yuv420"]);
 const PADDING_VALUES = new Set(["tight", "medium", "expanded"]);
@@ -229,10 +227,20 @@ const BASE_SCENARIO = {
 function cloneScenario(value) {
     return JSON.parse(JSON.stringify(value));
 }
+const MULTIFORMAT_FORMATS = ["qr_code", "data_matrix", "pdf417", "code_128", "ean_13", "ean_8", "upc_a", "upc_e"];
+const RETAIL_FORMATS = ["ean_13", "ean_8", "upc_a", "upc_e", "code_128"];
+const LOGISTICS_FORMATS = ["code_128", "data_matrix", "qr_code"];
+const DOCUMENT_FORMATS = ["pdf417", "qr_code", "data_matrix"];
+const FAST_SCENARIO = { ...cloneScenario(BASE_SCENARIO), id: "fast", localization: { ...BASE_SCENARIO.localization, maxCandidates: 2, cropPaddings: ["medium"], scales: [1] }, enhancement: { operators: ["contrast", "invert"], rotations: [0] }, multiCode: { enabled: false, maxResults: 1, deduplication: "payload-format-spatial" }, budgets: { ...BASE_SCENARIO.budgets, maxPixels: 4_000_000, maxCandidates: 2, maxAttempts: 18, maxIntermediateAllocations: 8, maxIntermediateBytes: 24 * 1024 * 1024, maxExecutionMs: 2_000 }, semanticParsers: ["url"] };
+const ROBUST_SCENARIO = { ...cloneScenario(BASE_SCENARIO), id: "robust", localization: { ...BASE_SCENARIO.localization, maxCandidates: 8 }, multiCode: { enabled: true, maxResults: 12, deduplication: "payload-format-spatial" }, budgets: { ...BASE_SCENARIO.budgets, maxCandidates: 8, maxAttempts: 160, maxIntermediateAllocations: 40, maxIntermediateBytes: 96 * 1024 * 1024, maxExecutionMs: 20_000 } };
 export const BUILTIN_SCENARIOS = Object.freeze({
-    fast: { ...cloneScenario(BASE_SCENARIO), id: "fast", localization: { ...BASE_SCENARIO.localization, maxCandidates: 2, cropPaddings: ["medium"], scales: [1] }, enhancement: { operators: ["contrast", "invert"], rotations: [0] }, multiCode: { enabled: false, maxResults: 1, deduplication: "payload-format-spatial" }, budgets: { ...BASE_SCENARIO.budgets, maxPixels: 4_000_000, maxCandidates: 2, maxAttempts: 18, maxIntermediateAllocations: 8, maxIntermediateBytes: 24 * 1024 * 1024, maxExecutionMs: 2_000 }, semanticParsers: ["url"] },
+    fast: FAST_SCENARIO,
     balanced: cloneScenario(BASE_SCENARIO),
-    robust: { ...cloneScenario(BASE_SCENARIO), id: "robust", localization: { ...BASE_SCENARIO.localization, maxCandidates: 8 }, multiCode: { enabled: true, maxResults: 12, deduplication: "payload-format-spatial" }, budgets: { ...BASE_SCENARIO.budgets, maxCandidates: 8, maxAttempts: 160, maxIntermediateAllocations: 40, maxIntermediateBytes: 96 * 1024 * 1024, maxExecutionMs: 20_000 } },
+    robust: ROBUST_SCENARIO,
+    "multiformat-balanced": { ...cloneScenario(BASE_SCENARIO), id: "multiformat-balanced", acceptedFormats: MULTIFORMAT_FORMATS },
+    "retail-fast": { ...cloneScenario(FAST_SCENARIO), id: "retail-fast", acceptedFormats: RETAIL_FORMATS, enhancement: { ...FAST_SCENARIO.enhancement, rotations: [0, 90, 180, 270] } },
+    "logistics-balanced": { ...cloneScenario(BASE_SCENARIO), id: "logistics-balanced", acceptedFormats: LOGISTICS_FORMATS },
+    "document-robust": { ...cloneScenario(ROBUST_SCENARIO), id: "document-robust", acceptedFormats: DOCUMENT_FORMATS },
 });
 export function getBuiltinScenario(id) {
     return cloneScenario(BUILTIN_SCENARIOS[id]);

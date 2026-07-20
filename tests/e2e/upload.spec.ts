@@ -5,6 +5,9 @@ import QRCode from "qrcode";
 
 const ROOT = path.resolve(__dirname, "../..");
 const fixtures = path.join(ROOT, "fixtures");
+const alpha5Manifest = JSON.parse(fs.readFileSync(path.join(fixtures, "alpha5", "manifest.json"), "utf8")) as {
+  fixtures: Array<{ id: string; file: string; expectedPayload: string; format?: string; expectedGs1?: boolean }>;
+};
 
 function fixture(name: string) {
   const file = path.join(fixtures, name);
@@ -54,6 +57,54 @@ test("ZXing contribution fixture uses standard WASM through the real worker @smo
   expect(state?.lastPath).toBe("worker");
   expect(state?.workerDecodeCount).toBeGreaterThanOrEqual(1);
 });
+
+for (const id of ["data-matrix-01", "pdf417-01", "code-128-13", "ean-13-01", "ean-8-01", "upc-a-01", "upc-e-01"]) {
+  const alpha5 = alpha5Manifest.fixtures.find((entry) => entry.id === id);
+  if (!alpha5?.format) throw new Error(`Missing Alpha.5 browser fixture '${id}'.`);
+  const { format, expectedPayload, file } = alpha5;
+  test(`upload ${format} through the real multi-format worker @smoke`, async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.getByRole("tab", { name: "Upload" }).click();
+    await page.getByRole("combobox", { name: "Format preset" }).selectOption("multiformat-balanced");
+    await page.getByTestId("upload-input").setInputFiles(path.join(ROOT, file));
+    const output = page.getByTestId("decoded-output");
+    await expect(output).toHaveValue(expectedPayload, { timeout: 75_000 });
+    await expect(output).toHaveAttribute("data-format", format);
+    await expect(output).toHaveAttribute("data-engine", "zxing-cpp-wasm");
+    await expect(page.getByTestId("format-badge")).toBeVisible();
+    await expect(page.getByTestId("raw-bytes")).toBeAttached();
+    if (alpha5.expectedGs1) await expect(page.getByTestId("gs1-indicator")).toBeVisible();
+    if (["ean_13", "ean_8", "upc_a", "upc_e"].includes(format)) {
+      await expect(page.getByTestId("checksum-status")).toContainText("valid");
+    }
+    const state = await page.evaluate(() => window.__SCANLY_WORKER_DEBUG__);
+    expect(state?.lastPath).toBe("worker");
+    expect(state?.workerDecodeCount).toBeGreaterThanOrEqual(1);
+  });
+}
+
+for (const id of ["data-matrix-13", "pdf417-01", "code-128-13", "ean-13-01", "ean-8-01", "upc-a-01", "upc-e-01"]) {
+  const alpha5 = alpha5Manifest.fixtures.find((entry) => entry.id === id);
+  if (!alpha5?.format) throw new Error(`Missing Alpha.5 main-thread fixture '${id}'.`);
+  const { format, expectedPayload, file } = alpha5;
+  test(`upload ${format} on the browser main thread`, async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.addInitScript(() => {
+      Object.defineProperty(globalThis, "Worker", { configurable: true, value: undefined });
+    });
+    await page.reload();
+    await page.getByRole("tab", { name: "Upload" }).click();
+    await page.getByRole("combobox", { name: "Format preset" }).selectOption("multiformat-balanced");
+    await page.getByTestId("upload-input").setInputFiles(path.join(ROOT, file));
+    const output = page.getByTestId("decoded-output");
+    await expect(output).toHaveValue(expectedPayload, { timeout: 75_000 });
+    await expect(output).toHaveAttribute("data-format", format);
+    await expect(output).toHaveAttribute("data-engine", "zxing-cpp-wasm");
+    const state = await page.evaluate(() => window.__SCANLY_WORKER_DEBUG__);
+    expect(state?.lastPath).toBe("main-thread");
+    expect(state?.mainThreadDecodeCount).toBeGreaterThanOrEqual(1);
+  });
+}
 
 test("upload clear QR shows exact payload and copy works", async ({ page, context }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);

@@ -164,12 +164,34 @@ function parseCalendar(text: string): StructuredPayload | null {
 
 function parseGs1(text: string): StructuredPayload | null {
   const normalized = text.startsWith("]") && text.length > 3 ? text.slice(3) : text;
-  if (!/^\(\d{2,4}\)/.test(normalized)) return null;
   const fields: Record<string, string> = {};
-  const matches = [...normalized.matchAll(/\((\d{2,4})\)([^()]*)/g)];
-  if (!matches.length) return null;
-  for (const match of matches) fields[match[1]] = match[2];
-  return { kind: "gs1-element-string", parserVersion: PARSER_VERSION, fields, warnings: ["Parser accepts parenthesized element strings; raw FNC1 element parsing is not yet implemented."] };
+  if (/^\(\d{2,4}\)/.test(normalized)) {
+    const matches = [...normalized.matchAll(/\((\d{2,4})\)([^()]*)/g)];
+    if (!matches.length || !/^(?:\(\d{2,4}\)[^()]*)+$/.test(normalized)) return null;
+    if (matches.length > 32) return null;
+    for (const match of matches) fields[match[1]] = match[2];
+    return { kind: "gs1-element-string", parserVersion: PARSER_VERSION, fields, warnings: [] };
+  }
+  if (!/^\d{2,4}/.test(normalized)) return null;
+  const variableAIs = new Set(["10", "21", "22", "30", "37", "240", "241", "250", "400", "401", "420", "421", "422", "423", "424", "425", "426"]);
+  const knownAIs = ["3100", "3101", "3102", "3103", "3104", "3105", "3106", "3107", "3108", "3109", "00", "01", "02", "11", "12", "13", "15", "17", "20", "10", "21", "22", "30", "37", "240", "241", "250", "400", "401", "420", "421", "422", "423", "424", "425", "426"];
+  let cursor = 0;
+  while (cursor < normalized.length) {
+    const ai = knownAIs.find((candidate) => normalized.startsWith(candidate, cursor));
+    if (!ai) return null;
+    cursor += ai.length;
+    const variable = variableAIs.has(ai) || (ai.startsWith("310") && ai.length === 4);
+    const fixedLength = ai === "01" ? 14 : ai === "17" || ai === "11" || ai === "13" || ai === "15" ? 6 : ai.startsWith("310") ? 6 : undefined;
+    const separator = normalized.indexOf("\u001d", cursor);
+    const end = variable ? (separator >= 0 ? separator : normalized.length) : cursor + (fixedLength ?? -1);
+    if (end < cursor || end > normalized.length) return null;
+    const value = normalized.slice(cursor, end);
+    if (!value || (!variable && value.length !== fixedLength)) return null;
+    if (Object.keys(fields).length >= 32) return null;
+    fields[ai] = value;
+    cursor = end + (separator === end ? 1 : 0);
+  }
+  return Object.keys(fields).length ? { kind: "gs1-element-string", parserVersion: PARSER_VERSION, fields, warnings: [] } : null;
 }
 
 export function parseSemanticPayload(rawText: string): SemanticParseResult {

@@ -11,7 +11,7 @@ describe("Alpha.4 release documentation policy", () => {
     expect(readme).toContain("Reproducible canonical benchmark, immutable baseline, regression-gate");
     expect(readme).not.toContain("- Canonical benchmark reports");
     if (fs.existsSync(canonicalManifest)) {
-      expect(readme).toContain("Alpha.4 canonical evidence");
+      expect(readme).toContain("Alpha.5 canonical evidence");
       expect(readme).not.toContain("canonical regeneration pending");
     } else {
       expect(readme).toContain("canonical regeneration pending");
@@ -25,7 +25,7 @@ describe("Alpha.4 release documentation policy", () => {
     expect(updater).not.toContain("regeneration pending");
     if (fs.existsSync(canonicalManifest)) {
       const readme = read("README.md");
-      expect(readme).toContain("Alpha.4 canonical evidence");
+      expect(readme).toContain("Alpha.5 canonical evidence");
       expect(readme).not.toContain("canonical regeneration pending");
     }
   });

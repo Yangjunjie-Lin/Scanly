@@ -8,6 +8,7 @@ on:
       - architecture/sdk-v2-foundation
       - architecture/sdk-v2-alpha3-industrial-validation
       - architecture/sdk-v2-alpha4-zxing-cpp-wasm
+      - architecture/sdk-v2-alpha5-multisymbology-foundation
       - develop/sdk-v2
   pull_request:
 
@@ -69,6 +70,9 @@ jobs:
       - name: Unit tests
         run: npm run test:unit
 
+      - name: Multi-Symbology Unit Tests
+        run: npm run test:symbologies
+
       - name: Integration tests
         run: npx vitest run tests/integration
 
@@ -99,6 +103,9 @@ jobs:
       - name: Benchmark smoke (regression gate)
         run: npm run benchmark:smoke
 
+      - name: Multi-symbology benchmark
+        run: npm run benchmark:symbologies -- --gate
+
       - name: Verify smoke benchmark artifacts
         run: |
           test -f benchmark-results/development/smoke-balanced.json
@@ -121,6 +128,17 @@ jobs:
             benchmark-results/development/smoke-balanced.csv
             benchmark-results/ci/bundle-cost.json
 
+  multisymbology-unit:
+    name: Multi-Symbology Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: npm run wasm:verify
+      - run: npm run test:symbologies
+
   wasm-build:
     name: WASM Build
     runs-on: ubuntu-24.04
@@ -135,13 +153,24 @@ jobs:
         run: git diff --exit-code -- engines/zxing-cpp-wasm/wasm
 
   node-wasm:
-    name: Node WASM Integration
+    name: Node Multi-Symbology Integration — ${{ matrix.label }}
     needs: wasm-build
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
-        node: [20, 24]
+        include:
+          - os: ubuntu-latest
+            node: 20
+            label: Ubuntu Node 20
+          - os: ubuntu-latest
+            node: 24
+            label: Ubuntu Node 24
+          - os: windows-latest
+            node: 20
+            label: Windows Node 20
+          - os: windows-latest
+            node: 24
+            label: Windows Node 24
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -149,21 +178,32 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
+      - run: npm run test:symbologies
       - run: npx vitest run tests/integration/zxing-cpp-wasm.test.ts tests/unit/zxing-cpp-wasm-loader.test.ts
       - run: npm run test:wasm:memory -- --iterations=1000
 
   browser-wasm:
-    name: Browser WASM Integration
+    name: Browser Multi-Symbology Integration — ${{ matrix.browser }}
     needs: wasm-build
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - browser: Chromium
+            project: chromium
+          - browser: Firefox
+            project: firefox
+          - browser: WebKit
+            project: webkit
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 20, cache: npm }
       - run: npm ci
       - run: npm run build
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e:chromium
+      - run: npx playwright install --with-deps ${{ matrix.project }}
+      - run: npx playwright test --project=${{ matrix.project }} --grep "multi-format worker"
 
   package-tarball:
     name: Package Tarball

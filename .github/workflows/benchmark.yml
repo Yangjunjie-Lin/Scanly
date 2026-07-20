@@ -10,11 +10,35 @@ on:
       - main
       - architecture/sdk-v2-alpha3-industrial-validation
       - architecture/sdk-v2-alpha4-zxing-cpp-wasm
+      - architecture/sdk-v2-alpha5-multisymbology-foundation
 
 permissions:
   contents: read
 
 jobs:
+  symbologies:
+    name: Symbologies
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: npm run wasm:verify
+      - run: npm run fixtures:generate
+      - run: git diff --exit-code -- fixtures
+      - name: Verify clean symbologies checkout
+        run: git status --porcelain --untracked-files=all | Tee-Object -Variable status; if ($status) { throw "symbologies checkout is dirty" }
+      - run: npm run benchmark:symbologies -- --canonical-candidate --gate --output=benchmark-results/ci/symbologies.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-symbologies
+          retention-days: 21
+          if-no-files-found: error
+          path: benchmark-results/ci/symbologies.json
+
   prepare:
     name: Prepare
     runs-on: windows-latest
@@ -120,7 +144,7 @@ jobs:
           path: benchmark-results/candidates/comparison.json
 
   assemble:
-    needs: [profile, comparison]
+    needs: [symbologies, profile, comparison]
     name: Assemble
     runs-on: windows-latest
     steps:
@@ -135,7 +159,7 @@ jobs:
           pattern: benchmark-*
           merge-multiple: true
           path: benchmark-artifacts
-      - run: npm run benchmark:assemble-canonical -- --fast=benchmark-artifacts/latest-fast.json --fast-csv=benchmark-artifacts/latest-fast.csv --balanced=benchmark-artifacts/latest.json --balanced-csv=benchmark-artifacts/latest.csv --robust=benchmark-artifacts/latest-robust.json --robust-csv=benchmark-artifacts/latest-robust.csv --comparison=benchmark-artifacts/comparison.json --output=benchmark-artifacts/canonical
+      - run: npm run benchmark:assemble-canonical -- --fast=benchmark-artifacts/latest-fast.json --fast-csv=benchmark-artifacts/latest-fast.csv --balanced=benchmark-artifacts/latest.json --balanced-csv=benchmark-artifacts/latest.csv --robust=benchmark-artifacts/latest-robust.json --robust-csv=benchmark-artifacts/latest-robust.csv --comparison=benchmark-artifacts/comparison.json --symbologies=benchmark-artifacts/symbologies.json --output=benchmark-artifacts/canonical
       - run: npm run benchmark:verify-evidence -- --mode=baseline-bootstrap --canonical-manifest=benchmark-artifacts/canonical/canonical-evidence-manifest.json
       - run: npm run benchmark:summary -- --manifest=benchmark-artifacts/canonical/canonical-evidence-manifest.json
       - uses: actions/upload-artifact@v4
@@ -143,4 +167,4 @@ jobs:
           name: benchmark-assembled
           retention-days: 21
           if-no-files-found: error
-          path: benchmark-artifacts/canonical
+          path: benchmark-results/canonical
