@@ -47,6 +47,7 @@ export declare class DecodeWorkerClient {
     private ensureWorker;
     private handleMessage;
     private handleWorkerError;
+    private failWatchdog;
     private finish;
     private restartWorker;
     scan(frame: NormalizedFrame, scenario: ScenarioDefinition, options?: WorkerScanOptions): Promise<ScanOutcome>;

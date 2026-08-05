@@ -181,7 +181,16 @@ function svgNegative(family: string, index: number): Buffer {
     const barHeight = family === "data-matrix" ? 12 + ((position * 19) % 22) : family === "pdf417" ? 4 + ((position * 5) % 11) : 245 - ((position + index) % 4) * 13;
     return `<rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}"/>`;
   }).join("");
-  return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="100%" height="100%" fill="white"/><g fill="#111">${bars}</g><text x="40" y="${height - 35}" font-family="monospace" font-size="24">INVALID ${family.toUpperCase()} ${index + 1}</text></svg>`);
+  // Avoid SVG text: font selection and glyph rasterization differ by OS and
+  // made every negative PNG drift between Windows and Ubuntu CI. This marker
+  // encodes the same family/index label as deterministic vector rectangles.
+  const label = `INVALID-${family.toUpperCase()}-${index + 1}`;
+  const marker = [...label].flatMap((character, characterIndex) =>
+    Array.from({ length: 7 }, (_, bit) => (character.charCodeAt(0) >> bit) & 1
+      ? `<rect x="${40 + characterIndex * 10}" y="${height - 50 + bit * 4}" width="7" height="3"/>`
+      : ""),
+  ).join("");
+  return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="100%" height="100%" fill="white"/><g fill="#111">${bars}${marker}</g></svg>`);
 }
 
 async function main(): Promise<void> {
@@ -211,7 +220,7 @@ async function main(): Promise<void> {
     [specs[68], qr(1)],
     [specs[24], qr(2)],
     [specs[68], specs[76]],
-    [specs[45], { ...specs[45] }],
+    [specs[45], specs[76]],
     [specs[4], specs[52]],
     [specs[25], specs[0]],
     [specs[45], specs[84]],
@@ -219,6 +228,11 @@ async function main(): Promise<void> {
     [specs[60], specs[93]],
     [qr(3), specs[10]],
   ];
+  for (const pair of mixedPairs) {
+    if (new Set(pair.map((spec) => spec.format)).size !== pair.length) {
+      throw new Error(`Mixed fixture formats must be distinct: ${pair.map((spec) => `${spec.format}:${spec.payload}`).join(", ")}`);
+    }
+  }
   for (let index = 0; index < mixedPairs.length; index += 1) {
     const pair = mixedPairs[index];
     const images = await Promise.all(pair.map((spec) => symbol(spec, spec.format === "pdf417" ? 2 : 3)));
@@ -283,7 +297,7 @@ async function main(): Promise<void> {
   }
 
   const manifest = {
-    schemaVersion: "2.0-alpha5", seed: SEED, generatorVersion: 1,
+    schemaVersion: "2.0-alpha5", seed: SEED, generatorVersion: 2,
     notes: projectPhotoFixtures.length || externalFixtures.length
       ? `Generated Alpha.5 corpus merged with ${projectPhotoFixtures.length} project-owned and ${externalFixtures.length} third-party external-open-license fixtures. External photographs do not satisfy the project-owned release gate.`
       : "Generated Alpha.5 corpus. Project-owned real-photo fixtures remain an outstanding release gate until fixtures/alpha5/project-photos/manifest.json is populated.",

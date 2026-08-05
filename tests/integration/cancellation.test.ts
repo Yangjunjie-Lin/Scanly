@@ -108,5 +108,5 @@ describe("cancellation contract", () => {
     });
     expect(out.ok).toBe(true);
     if (out.ok) expect(out.results).toHaveLength(2);
-  });
+  }, 15_000);
 });

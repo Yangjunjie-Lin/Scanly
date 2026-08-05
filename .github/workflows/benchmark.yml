@@ -8,6 +8,7 @@ on:
   push:
     branches:
       - main
+      - develop/sdk-v2
       - architecture/sdk-v2-alpha3-industrial-validation
       - architecture/sdk-v2-alpha4-zxing-cpp-wasm
       - architecture/sdk-v2-alpha5-multisymbology-foundation
@@ -167,4 +168,4 @@ jobs:
           name: benchmark-assembled
           retention-days: 21
           if-no-files-found: error
-          path: benchmark-results/canonical
+          path: benchmark-artifacts/canonical

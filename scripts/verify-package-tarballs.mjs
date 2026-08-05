@@ -9,7 +9,9 @@ const workspaces = packageRoots.flatMap((folder) => fs.readdirSync(path.join(roo
   .filter((entry) => entry.isDirectory() && fs.existsSync(path.join(root, folder, entry.name, "package.json")))
   .map((entry) => path.join(root, folder, entry.name)))
   .filter((directory) => JSON.parse(fs.readFileSync(path.join(directory, "package.json"), "utf8")).private !== true);
-const runNpm = (args, options) => execFileSync("npm", args, { ...options, shell: process.platform === "win32" });
+const npmCli = process.env.npm_execpath;
+if (!npmCli) throw new Error("npm_execpath is required; run this verifier through npm run packages:tarball.");
+const runNpm = (args, options) => execFileSync(process.execPath, [npmCli, ...args], options);
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "scanly-pack-"));
 
 try {

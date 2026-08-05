@@ -78,18 +78,40 @@ export class BrowserCaptureSession {
       const frame = createRgbaFrame(pixels.data, pixels.width, pixels.height, { id: frameId, sourceType: "upload", ownership: workerPath ? "transferred" : "owned" });
       let outcome: ScanOutcome;
       if (workerPath) {
+        const decodeStartedAt = Date.now();
+        const scenario = this.scenario;
         markDecodePath("worker");
-        outcome = await this.worker.scan(frame, this.scenario, { signal: controller.signal, onStage: options.onStage, onProgress: options.onProgress });
-        if (!outcome.ok && outcome.error.code === "worker_initialization_failure" && !controller.signal.aborted && owner === this.owner) {
-          markDecodePath("main-thread");
-          options.onStage?.("Worker unavailable; retrying on main thread...");
-          const fallbackPixels = await loadPixelBufferFromFile(file);
-          if (controller.signal.aborted || owner !== this.owner) return this.failure(frameId, "cancelled", "Decode cancelled.");
-          outcome = await this.router.scan(
-            createRgbaFrame(fallbackPixels.data, fallbackPixels.width, fallbackPixels.height, { id: frameId, sourceType: "upload", ownership: "owned" }),
-            { signal: controller.signal, scenario: this.scenario },
-          );
-          options.onProgress?.({ attemptCount: outcome.attemptCount });
+        outcome = await this.worker.scan(frame, scenario, { signal: controller.signal, preserveSourceForFallback: true, onStage: options.onStage, onProgress: options.onProgress });
+        if (!outcome.ok && ["worker_initialization_failure", "engine_execution_failure"].includes(outcome.error.code) && !controller.signal.aborted && owner === this.owner) {
+          const workerOutcome = outcome;
+          const workerElapsedMs = Math.max(Date.now() - decodeStartedAt, workerOutcome.timing.totalMs);
+          const remainingExecutionMs = Math.floor(scenario.budgets.maxExecutionMs - workerElapsedMs);
+          const remainingAttempts = scenario.budgets.maxAttempts - workerOutcome.attemptCount;
+          if (remainingExecutionMs > 0 && remainingAttempts > 0) {
+            markDecodePath("main-thread");
+            options.onStage?.("Worker unavailable; retrying on main thread within the remaining scan budget...");
+            const fallbackScenario: ScenarioDefinition = {
+              ...scenario,
+              multiCode: { ...scenario.multiCode, maxResults: Math.min(scenario.multiCode.maxResults, remainingAttempts) },
+              budgets: { ...scenario.budgets, maxAttempts: remainingAttempts, maxExecutionMs: remainingExecutionMs },
+            };
+            const fallback = await this.router.scan(
+              createRgbaFrame(pixels.data, pixels.width, pixels.height, { id: frameId, sourceType: "upload", ownership: "owned" }),
+              { signal: controller.signal, scenario: fallbackScenario },
+            );
+            const totalMs = Math.max(Date.now() - decodeStartedAt, workerElapsedMs + fallback.timing.totalMs);
+            outcome = {
+              ...fallback,
+              attemptCount: workerOutcome.attemptCount + fallback.attemptCount,
+              timing: {
+                ...fallback.timing,
+                totalMs,
+                ...(workerOutcome.timing.workerSetupMs === undefined ? {} : { workerSetupMs: workerOutcome.timing.workerSetupMs }),
+                ...(workerOutcome.timing.workerTransferMs === undefined ? {} : { workerTransferMs: workerOutcome.timing.workerTransferMs }),
+              },
+            };
+            options.onProgress?.({ attemptCount: outcome.attemptCount });
+          }
         }
       } else {
         markDecodePath("main-thread");

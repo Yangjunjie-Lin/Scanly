@@ -28,7 +28,7 @@ describe("SDK capture router integration", () => {
     const outcome = await router.scan(createRgbaFrame(pixels.data, pixels.width, pixels.height, { id: "router-moire", sourceType: "upload" }));
     expect(outcome.ok).toBe(true);
     if (outcome.ok) expect(outcome.results.map((result) => result.rawText)).toContain("SCANLY_MOIRE_01");
-  });
+  }, 15_000);
 
   it("publishes near-edge corners in original-frame pixels with real phase timing", async () => {
     const pixels = await loadPixelBufferFromPath(path.join(root, "fixtures/34-near-edge.png"));
@@ -47,7 +47,7 @@ describe("SDK capture router integration", () => {
       expect(outcome.timing.totalMs).toBeGreaterThanOrEqual(outcome.timing.engineMs?.jsqr ?? 0);
     }
     await router.dispose();
-  });
+  }, 15_000);
 
   it("returns a typed failure for unsupported YUV conversion", async () => {
     const router = createNodeCaptureRouter();

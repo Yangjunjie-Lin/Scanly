@@ -44,4 +44,15 @@ describe("external open-license Alpha.5 cohort", () => {
     expect(read("fixtures/alpha5/external-open-license/README.md")).toContain(sentence);
     expect(read("docs/benchmark.md")).toContain("BLOCKED_REAL_PHOTO_INPUT");
   });
+
+  it("keeps every generated mixed fixture genuinely multi-format", () => {
+    const manifest = JSON.parse(read("fixtures/alpha5/manifest.json")) as {
+      fixtures: Array<{ id: string; sourceType: string; requiredResults: Array<{ format: string; payload: string }> }>;
+    };
+    const mixed = manifest.fixtures.filter((fixture) => fixture.sourceType === "generated" && fixture.requiredResults.length > 1);
+    expect(mixed).toHaveLength(12);
+    for (const fixture of mixed) {
+      expect(new Set(fixture.requiredResults.map((result) => result.format)).size, fixture.id).toBe(fixture.requiredResults.length);
+    }
+  });
 });

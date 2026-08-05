@@ -1,4 +1,4 @@
-name: Alpha.3 Candidate Profile
+name: Baseline Candidate Profile
 
 on:
   workflow_call:
@@ -18,6 +18,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 24, cache: npm }
       - run: npm ci
+      - run: npm run wasm:verify
       - run: npm run fixtures:generate
       - run: npm run scenarios:generate
       - run: git diff --exit-code -- fixtures scenarios
@@ -27,7 +28,7 @@ jobs:
       - run: npm run benchmark:summary -- --report=benchmark-results/candidates/${{ inputs.report }}.json
       - uses: actions/upload-artifact@v4
         with:
-          name: alpha3-${{ inputs.profile }}
+          name: baseline-${{ inputs.profile }}
           retention-days: 21
           if-no-files-found: error
           path: |

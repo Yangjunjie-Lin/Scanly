@@ -21,7 +21,9 @@ describe("benchmark workflow contracts", () => {
     expect(workflow).toContain("--canonical-candidate");
     expect(workflow).toContain("--symbologies=");
     expect(workflow).toContain("needs: [symbologies, profile, comparison]");
+    expect(workflow).toContain("path: benchmark-artifacts/canonical");
     expect(workflow).toContain("pull_request:");
+    expect(workflow).toContain("- develop/sdk-v2");
     expect(workflow).toContain("- main");
     expect(workflow).not.toContain("    paths:");
     expect(workflow).toContain("npx tsx scripts/select-benchmark-gate-mode.ts --runtime-family=node24-win32-x64 --registry=benchmark-results/baselines/registry.json");
@@ -46,16 +48,17 @@ describe("benchmark workflow contracts", () => {
     expect(workflow.match(/ref: \$\{\{ github\.sha \}\}/g)?.length).toBeGreaterThanOrEqual(4);
   });
 
-  it("provides an isolated manual Alpha.3 bootstrap with all four artifacts", () => {
+  it("provides an isolated manual bootstrap with every schema 2.1 artifact", () => {
     const workflow = read("alpha3-baseline-candidate.yml");
-    expect(workflow).toContain("name: Alpha.3 Baseline Candidate");
+    expect(workflow).toContain("name: Baseline Candidate");
     expect(workflow).toContain("workflow_dispatch");
-    for (const job of ["fast:", "balanced:", "robust:", "comparison:", "assemble:"]) expect(workflow).toContain(job);
-    expect(workflow).toContain("needs: [fast, balanced, robust, comparison]");
+    for (const job of ["fast:", "balanced:", "robust:", "comparison:", "symbologies:", "assemble:"]) expect(workflow).toContain(job);
+    expect(workflow).toContain("needs: [fast, balanced, robust, comparison, symbologies]");
     expect(workflow).not.toContain("--allow-dirty-development");
     expect(workflow).toContain("retention-days: 21");
     expect(workflow).toContain("benchmark:summary");
     expect(workflow).toContain("quality:evidence:bootstrap");
+    expect(workflow).toContain("--symbologies=candidate/symbologies.json");
     expect(workflow).not.toMatch(/permissions:[\s\S]*contents:\s*write/);
     const profile = read("baseline-candidate-profile.yml");
     expect(profile).toContain("actions/checkout@v4");

@@ -5,6 +5,7 @@ import path from "node:path";
 import type { BenchmarkRunSummary, ComparisonReport } from "@scanly/benchmark";
 import { validateScenario } from "@scanly/scenario-schema";
 import { validateBaselineForActivation } from "./baseline-registry.js";
+import { isValidBaselineId } from "./symbology-gates.js";
 
 const ROOT = path.resolve(__dirname, "..");
 const read = (file: string) => fs.readFileSync(path.join(ROOT, file), "utf8");
@@ -159,7 +160,8 @@ const activeFamily = registry.activeBaselines?.["node24-win32-x64"];
 if (!activeFamily) fail("The Node 24 Windows x64 baseline registry is missing.");
 for (const profile of ["fast", "balanced", "robust"] as const) {
   const baselineFile = activeFamily?.[profile];
-  if (!/^v2-alpha(?:3|4)-r/.test(baselineFile ?? "")) fail(`Active ${profile} baseline is not an Alpha.3/Alpha.4 immutable baseline.`);
+  const baselineId = baselineFile?.replace(/-(?:fast|balanced|robust)-node24-windows-x64\.json$/, "") ?? "";
+  if (!isValidBaselineId(baselineId)) fail(`Active ${profile} baseline does not use a valid immutable baseline ID.`);
   const baselinePath = `benchmark-results/baselines/${baselineFile}`;
   if (!fs.existsSync(path.join(ROOT, baselinePath))) fail(`Active ${profile} baseline file is missing.`);
   const baseline = JSON.parse(read(baselinePath));

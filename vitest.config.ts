@@ -4,6 +4,10 @@ import path from "node:path";
 export default defineConfig({
   test: {
     environment: "node",
+    // Decoder, provenance, and soak suites are intentionally CPU-heavy. Running
+    // them in separate files concurrently makes product deadlines depend on the
+    // test runner's scheduling and caused false release-gate failures.
+    fileParallelism: false,
     include: ["tests/unit/**/*.test.ts", "tests/integration/**/*.test.ts"],
     coverage: {
       provider: "v8",

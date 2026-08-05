@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CaptureRouter, type NormalizedFrame, type ScanOutcome } from "@scanly/core";
+import { CaptureRouter, sdkError, type NormalizedFrame, type ScanOutcome } from "@scanly/core";
 import { createPixelBuffer } from "@scanly/core/qr";
 import { getBuiltinScenario } from "@scanly/scenario-schema";
 
@@ -15,8 +15,8 @@ function success(frameId: string): ScanOutcome {
 }
 
 class TestRouter extends CaptureRouter {
-  handler: (frame: NormalizedFrame) => Promise<ScanOutcome> = async (frame) => success(frame.id);
-  override scan(frame: NormalizedFrame): Promise<ScanOutcome> { return this.handler(frame); }
+  handler: (frame: NormalizedFrame, options?: Parameters<CaptureRouter["scan"]>[1]) => Promise<ScanOutcome> = async (frame) => success(frame.id);
+  override scan(frame: NormalizedFrame, options: Parameters<CaptureRouter["scan"]>[1] = {}): Promise<ScanOutcome> { return this.handler(frame, options); }
   override updateScenario(): void {}
 }
 
@@ -69,9 +69,48 @@ describe("BrowserCaptureSession", () => {
     const stages: string[] = [];
     const outcome = await session.scanFile(file, { onStage: (stage) => stages.push(stage) });
     expect(outcome.ok).toBe(true);
-    expect(loadPixelBufferFromFile).toHaveBeenCalledTimes(2);
-    expect(stages).toContain("Worker unavailable; retrying on main thread...");
+    expect(loadPixelBufferFromFile).toHaveBeenCalledOnce();
+    expect(stages).toContain("Worker unavailable; retrying on main thread within the remaining scan budget...");
     expect(routerSpy).toHaveBeenCalledOnce();
+    await session.dispose();
+  });
+
+  it("falls back with the same format mask and only the remaining time and attempt budgets", async () => {
+    vi.stubGlobal("Worker", class {});
+    const router = new TestRouter();
+    const scenario = getBuiltinScenario("balanced");
+    scenario.acceptedFormats = ["data_matrix"];
+    scenario.budgets.maxExecutionMs = 1_000;
+    scenario.budgets.maxAttempts = 10;
+    scenario.multiCode.maxResults = 8;
+    const worker = {
+      onmessage: null as ((event: MessageEvent) => void) | null,
+      onerror: null,
+      postMessage: vi.fn(function (this: { onmessage: ((event: MessageEvent) => void) | null }, message: { type: string; jobId?: string; generation?: number }) {
+        if (message.type !== "scan") return;
+        queueMicrotask(() => this.onmessage?.({ data: {
+          type: "result", jobId: message.jobId, generation: message.generation,
+          outcome: { ok: false, error: sdkError("engine_execution_failure", "Worker decoder failed"), frameId: "worker", scenarioId: "balanced", attemptCount: 3, timing: { totalMs: 250, workerSetupMs: 2, workerTransferMs: 3 } },
+        } } as MessageEvent));
+      }),
+      terminate: vi.fn(),
+    };
+    const session = new BrowserCaptureSession({ router, workerFactory: () => worker, scenario });
+    const routerSpy = vi.spyOn(router, "scan");
+    session.start();
+    loadPixelBufferFromFile.mockResolvedValue(pixels);
+    const outcome = await session.scanFile(file);
+    expect(outcome.ok).toBe(true);
+    expect(outcome.attemptCount).toBe(4);
+    expect(outcome.timing.totalMs).toBeGreaterThanOrEqual(251);
+    expect(outcome.timing.workerSetupMs).toBeTypeOf("number");
+    expect(outcome.timing.workerTransferMs).toBeTypeOf("number");
+    expect(loadPixelBufferFromFile).toHaveBeenCalledOnce();
+    expect(routerSpy).toHaveBeenCalledOnce();
+    const fallbackScenario = routerSpy.mock.calls[0][1]?.scenario;
+    expect(fallbackScenario?.acceptedFormats).toEqual(["data_matrix"]);
+    expect(fallbackScenario?.budgets.maxAttempts).toBe(7);
+    expect(fallbackScenario?.budgets.maxExecutionMs).toBe(750);
     await session.dispose();
   });
 
