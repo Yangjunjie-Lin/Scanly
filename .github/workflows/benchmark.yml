@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 24, cache: npm }
       - run: npm ci
       - run: npm run wasm:verify
@@ -46,11 +46,12 @@ jobs:
     outputs:
       gate-mode: ${{ steps.gate-mode.outputs.mode }}
       baseline-id: ${{ steps.gate-mode.outputs.baseline-id }}
+      lifecycle-state: ${{ steps.gate-mode.outputs.lifecycle-state }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 24, cache: npm }
       - run: npm ci
       - run: npm run wasm:verify
@@ -70,9 +71,11 @@ jobs:
           SELECTED_MODE: ${{ steps.gate-mode.outputs.mode }}
           SELECTED_BASELINE_ID: ${{ steps.gate-mode.outputs.baseline-id }}
           SELECTION_REASON: ${{ steps.gate-mode.outputs.reason }}
+          EVIDENCE_LIFECYCLE: ${{ steps.gate-mode.outputs.lifecycle-state }}
         run: |
           "Full Benchmark gate mode: $env:SELECTED_MODE" >> $env:GITHUB_STEP_SUMMARY
           if ($env:SELECTED_BASELINE_ID) { "Active baseline: $env:SELECTED_BASELINE_ID" >> $env:GITHUB_STEP_SUMMARY }
+          "Evidence lifecycle: $env:EVIDENCE_LIFECYCLE" >> $env:GITHUB_STEP_SUMMARY
           "Selection reason: $env:SELECTION_REASON" >> $env:GITHUB_STEP_SUMMARY
 
   profile:
@@ -97,7 +100,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 24, cache: npm }
       - run: npm ci
       - run: npm run wasm:verify
@@ -126,7 +129,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 24, cache: npm }
       - run: npm ci
       - run: npm run wasm:verify
@@ -152,7 +155,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 24, cache: npm }
       - run: npm ci
       - uses: actions/download-artifact@v4
@@ -161,7 +164,7 @@ jobs:
           merge-multiple: true
           path: benchmark-artifacts
       - run: npm run benchmark:assemble-canonical -- --fast=benchmark-artifacts/latest-fast.json --fast-csv=benchmark-artifacts/latest-fast.csv --balanced=benchmark-artifacts/latest.json --balanced-csv=benchmark-artifacts/latest.csv --robust=benchmark-artifacts/latest-robust.json --robust-csv=benchmark-artifacts/latest-robust.csv --comparison=benchmark-artifacts/comparison.json --symbologies=benchmark-artifacts/symbologies.json --output=benchmark-artifacts/canonical
-      - run: npm run benchmark:verify-evidence -- --mode=baseline-bootstrap --canonical-manifest=benchmark-artifacts/canonical/canonical-evidence-manifest.json
+      - run: npm run benchmark:verify-evidence -- --mode=evidence-bootstrap --canonical-manifest=benchmark-artifacts/canonical/canonical-evidence-manifest.json
       - run: npm run benchmark:summary -- --manifest=benchmark-artifacts/canonical/canonical-evidence-manifest.json
       - uses: actions/upload-artifact@v4
         with:

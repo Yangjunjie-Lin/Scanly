@@ -25,7 +25,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: npm
@@ -49,14 +49,7 @@ jobs:
         run: npm run quality:static
 
       - name: Canonical evidence contracts
-        shell: bash
-        run: |
-          if [[ -f benchmark-results/canonical/canonical-evidence-manifest.json ]]; then
-            echo "Canonical manifest present; enforcing strict release evidence mode."
-            npm run quality:evidence:release
-          else
-            echo "::notice::Alpha.3 evidence bootstrap state: strict release evidence will become mandatory when the canonical manifest is committed."
-          fi
+        run: npm run quality:evidence
 
       - name: Lint
         run: npm run lint
@@ -133,7 +126,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 20, cache: npm }
       - run: npm ci
       - run: npm run wasm:verify
@@ -144,7 +137,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 24, cache: npm }
       - run: npm ci
       - run: npm run wasm:build
@@ -173,7 +166,7 @@ jobs:
             label: Windows Node 24
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
           cache: npm
@@ -198,7 +191,7 @@ jobs:
             project: webkit
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 20, cache: npm }
       - run: npm ci
       - run: npm run build
@@ -211,7 +204,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 20, cache: npm }
       - run: npm ci
       - run: npm run build:packages

@@ -15,11 +15,23 @@ The reproducible flow is:
 
 `sourceCommitSha` and `sourceTreeSha` identify the exact code, fixtures, scenarios, lockfile, and benchmark runner used to create the artifacts. A later `evidenceCommitSha` may contain those reports. Between the two commits only approved canonical aliases and manifests under `benchmark-results/`, immutable versioned baselines, the registry, `docs/benchmark.md`, `docs/symbologies.md`, and the marked README benchmark block may change. Runtime, fixture, scenario, lockfile, workflow, test, or benchmark-tooling changes require a new source run. `benchmark:verify-evidence` enforces this ancestry and path policy.
 
+## Source/evidence states
+
+The repository records an explicit lifecycle rather than treating every tracked manifest as release evidence:
+
+1. source-development: source work may carry readable historical Alpha.4 evidence; that evidence is never validated as Alpha.5 release evidence.
+2. baseline-candidate: Full Benchmark runs absolute gates without comparing against an incompatible active baseline.
+3. evidence-bootstrap: an external Alpha.5 candidate is schema- and gate-validated before activation.
+4. active-baseline: the canonical Alpha.5 evidence, source identities, and all three immutable baselines agree with the registry.
+5. release: an explicit release verification of an already active baseline.
+
+The lifecycle transitions are tested in tests/unit/evidence-lifecycle.test.ts. A stale active claim is a hard failure in active-baseline or release; before activation it falls back to baseline-candidate.
+
 ## Gate modes
 
 `--gate-mode=baseline-candidate` enforces absolute correctness, memory, timeout, iteration, and completeness contracts without comparing against an older dataset. `--gate-mode=active-baseline` performs normal regression checks against the active runtime-family baseline.
 
-`quality:evidence:bootstrap -- --canonical-manifest=<path>` explicitly validates an external candidate without requiring an already-active baseline. It is used only by the manual Baseline Candidate workflow or an explicit CLI invocation. Default `quality:evidence` is always release mode. When a tracked canonical manifest exists, CI must run strict release verification and must not fall back to bootstrap after a failure.
+`quality:evidence:bootstrap -- --canonical-manifest=<path>` explicitly validates an external candidate without requiring an already-active baseline. It is used only by the manual Baseline Candidate workflow or an explicit CLI invocation. `quality:evidence` auto-selects and prints the lifecycle state: historical Alpha.4 evidence is checked for readability in `source-development`, while matching activated Alpha.5 evidence is checked strictly in `active-baseline`. It never converts a failed strict check into a successful bootstrap result.
 
 ## Canonical CSV policy
 

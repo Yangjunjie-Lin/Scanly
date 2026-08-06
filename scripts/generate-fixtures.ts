@@ -42,6 +42,18 @@ async function ensureDir(dir: string) {
 async function writeFixture(rel: string, buf: Buffer) {
   const full = path.join(FIXTURES_DIR, rel);
   await ensureDir(path.dirname(full));
+  if (fs.existsSync(full)) {
+    const [existing, generated] = await Promise.all([
+      sharp(full).ensureAlpha().raw().toBuffer({ resolveWithObject: true }),
+      sharp(buf).ensureAlpha().raw().toBuffer({ resolveWithObject: true }),
+    ]);
+    if (
+      existing.info.width === generated.info.width
+      && existing.info.height === generated.info.height
+      && existing.info.channels === generated.info.channels
+      && existing.data.equals(generated.data)
+    ) return;
+  }
   await fs.promises.writeFile(full, buf);
 }
 

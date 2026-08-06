@@ -13,6 +13,9 @@ export interface BaselineRegistry {
     canonicalManifestHash: string;
     baselineHashes: Record<BuiltinScenarioId, string>;
     sourceCommit: string;
+    sourceTree?: string;
+    sdkVersion?: string;
+    packageLockHash?: string;
     engineCompositionHash: string;
     wasmBuildHash: string;
     datasetHash?: string;

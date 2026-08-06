@@ -32,6 +32,7 @@ describe("benchmark workflow contracts", () => {
     expect(workflow).toContain("Full Benchmark gate mode: $env:SELECTED_MODE");
     expect(workflow).toContain("Active baseline: $env:SELECTED_BASELINE_ID");
     expect(workflow).toContain("Selection reason: $env:SELECTION_REASON");
+    expect(workflow).toContain("Evidence lifecycle: $env:EVIDENCE_LIFECYCLE");
     expect(workflow).not.toContain("$alpha3");
     expect(workflow).not.toContain("v2-alpha3-r*");
     for (const script of ["verify-benchmark-evidence.ts", "freeze-baseline.ts", "activate-baseline.ts"]) {
@@ -68,18 +69,25 @@ describe("benchmark workflow contracts", () => {
     for (const argument of ["--fast-csv=", "--balanced-csv=", "--robust-csv="]) expect(workflow).toContain(argument);
   });
 
-  it("enforces release evidence when a manifest exists without automatic bootstrap fallback", () => {
+  it("selects an explicit evidence lifecycle instead of treating historical evidence as release evidence", () => {
     const workflow = read("ci.yml");
     expect(workflow).toContain("fetch-depth: 0");
-    expect(workflow).toContain("if [[ -f benchmark-results/canonical/canonical-evidence-manifest.json ]]");
-    expect(workflow).toContain("npm run quality:evidence:release");
-    expect(workflow).not.toContain("npm run quality:evidence:bootstrap");
-    expect(workflow).not.toMatch(/quality:evidence:release\s*\|\|/);
+    expect(workflow).toContain("npm run quality:evidence");
+    expect(workflow).not.toContain("quality:evidence:release");
+    expect(workflow).not.toContain("strict release evidence will become mandatory");
     expect(workflow).toContain("npm run benchmark:symbologies -- --gate");
     expect(workflow).toContain("Browser Multi-Symbology Integration");
     expect(workflow).toContain("browser: Chromium");
     expect(workflow).toContain("browser: Firefox");
     expect(workflow).toContain("browser: WebKit");
+  });
+
+  it("uses setup-node v7 across v2 workflows", () => {
+    for (const file of ["ci.yml", "benchmark.yml", "browser-benchmark.yml", "public-api.yml", "baseline-candidate-profile.yml", "alpha3-baseline-candidate.yml"]) {
+      const workflow = read(file);
+      expect(workflow).not.toContain("actions/setup-node@v4");
+      expect(workflow).toContain("actions/setup-node@v7");
+    }
   });
 
   it("assembles all three browser reports", () => {
