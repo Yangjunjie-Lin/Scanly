@@ -16,8 +16,8 @@
 | Repository remote | `https://github.com/Yangjunjie-Lin/qr_decoder.git`（GitHub PR 页面为 `Yangjunjie-Lin/Scanly`） |
 | Branch | `architecture/sdk-v2-alpha5-multisymbology-foundation` |
 | Base | `develop/sdk-v2` |
-| Source Commit under test | `b2f76650f98bbed68e7316b24b55f3e489b96e5d` |
-| Source Tree | `eadadfd07926f297c4442ebc28a7d6855ce55644` |
+| Source Commit under test | `b1b0d1949500a136560d98436e51a335b35c9cd0` |
+| Source Tree | `dbb25089c09b99e15a769a83973bf8d96ce3d671` |
 | Ahead/behind `origin/develop/sdk-v2` | `6 ahead / 0 behind` |
 | Local tracked diff | clean |
 | Local untracked state | 13 个 `.alpha5-*` 审计临时日志；未纳入发布提交 |
@@ -103,13 +103,13 @@ Tier B 不成立。独立真实照片不是 `>=100`，每族不是 `>=25`；hold
 | --- | --- |
 | real-photo recall / dataset coverage | **BLOCKER**：实际照片为 0，四族覆盖和 recall gate 无分母 |
 | evidence mismatch | **BLOCKER**：没有 Alpha.5 Source/Evidence Freeze、schema 2.1 Canonical Manifest、`v2-alpha5-r1` active baseline |
-| remote CI | **BLOCKER**：PR 远端 head 仍为旧 SHA，CI/Full Benchmark/Browser Benchmark/Public API 等已有失败或 skipped；当前 b2f 尚无对应远端结论 |
+| remote CI | **BLOCKER**：`0628bf3` 的 Full Benchmark 在 Windows checkout 中发现 `fixtures/alpha5/manifest.json` 的 CRLF/LF 工作树漂移；`b1b0d19` 已修复生成器，但 exact-SHA 远程结果尚未完成 |
 | device validation / reliability | **BLOCKER for Tier B**：缺少 macOS、Android、iOS 及 2 小时 Worker evidence |
 | package installation / supply chain | 本地 tarball 和 audit 通过；SBOM、离线消费者验证和 release hashes 尚未生成，不能视为 release-complete |
 | latency | 本机 Balanced/Robust P95 高于工业 profile 的 1,000 ms 总体要求；硬件/use-case profile 尚未冻结，不能宣称 Tier B |
 | correctness / false positive / WASM memory | 本次本地 gates 通过；没有证据支持为此进一步放宽门槛 |
 
-现有 `b2f7665` source commit 已包含有界的 format-mask 传播、持久 Worker/WASM 状态复用、tarball 验证和 native memory 释放断言。本次没有为掩盖照片证据缺失而修改解码器，也没有删除困难 fixture、放宽负例或改变 checksum gate；在证据输入缺失时继续调参没有可辩护的 before/after 改善。
+`b2f7665` source commit 已包含有界的 format-mask 传播、持久 Worker/WASM 状态复用、tarball 验证和 native memory 释放断言；当前 source commit `b1b0d19` 另修复了 Windows CI 的 manifest 换行漂移：生成内容仅有 CRLF/LF 差异时不再重写文件，真实 JSON 内容变化仍由 `git diff` 门禁拦截。本次没有为掩盖照片证据缺失而修改解码器，也没有删除困难 fixture、放宽负例或改变 checksum gate；在证据输入缺失时继续调参没有可辩护的 before/after 改善。
 
 ## Permitted and prohibited claims
 
@@ -125,4 +125,3 @@ Tier B 不成立。独立真实照片不是 `>=100`，每族不是 `>=25`；hold
 ## Required next action
 
 只有在实际加入并审计至少 12 张 project-owned camera photographs（每族至少 3 张）、补齐 provenance/expected payload 后，才能重新运行 symbology gate。随后必须在该新 Source Commit 上完成 Evidence Freeze、baseline-bootstrap、`v2-alpha5-r1` 原子激活、exact-SHA 远程 Actions、离线 bundle 安装验证和 PR #9 的重新评估。在这些条件完成前，保持 no merge / no tag / no release。
-
