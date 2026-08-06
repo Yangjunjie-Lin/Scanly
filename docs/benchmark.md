@@ -46,6 +46,6 @@ The current generated-corpus development gate is 15/15 clean, 75/85 difficult, 1
 
 CI and release workflows must run `npm run benchmark:symbologies -- --gate`. Any failed required gate exits nonzero. Canonical Assemble requires the symbology report via `--symbologies=` and Manifest schema 2.1.
 
-The required project-owned real-photo corpus is still 0/12 (see `fixtures/alpha5/project-photos/`), so Alpha.5 Evidence Freeze and baseline activation remain blocked with `BLOCKED_REAL_PHOTO_INPUT`.
+The required project-owned real-photo corpus is 0/12 at the Alpha.5 consolidation point (see `fixtures/alpha5/project-photos/`). Run `npm run benchmark:symbologies -- --gate --gate-mode=integration` for the development merge gate; it records `ALPHA5_INTEGRATION_GO` when all non-photo gates pass and marks the photo corpus `DEFERRED_TO_BETA1`. The strict release/evidence path remains `ALPHA5_RELEASE_NO_GO` (the underlying missing-input diagnostic remains `BLOCKED_REAL_PHOTO_INPUT`) until project-owned photos, canonical evidence, immutable baselines, and real-device verification exist.
 
 External open-license photographs provide third-party real-world validation but do not satisfy the project-owned photograph release gate. The separate `externalOpenLicenseRealWorld` cohort and its non-release corpus-count gate cannot activate `v2-alpha5-r1`.

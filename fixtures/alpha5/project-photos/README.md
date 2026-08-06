@@ -1,6 +1,6 @@
 # Alpha.5 project-owned real photographs
 
-This directory holds authentic, project-owned barcode photographs required by the Alpha.5 release gates.
+This directory holds authentic, project-owned barcode photographs required by the strict Alpha.5 release gate and intentionally deferred to Beta 1 for the current integration milestone.
 
 ## Policy
 
@@ -40,6 +40,6 @@ Do not make all 12 photographs trivial centered close-ups.
 1. Place image files in this directory.
 2. Author `fixtures/alpha5/project-photos/manifest.json` with the metadata above.
 3. Run `npm run fixtures:generate` so generated fixtures merge with project photos into `fixtures/alpha5/manifest.json`.
-4. Run `npm run benchmark:symbologies -- --gate` and confirm real-photo gates pass.
+4. Run `npm run benchmark:symbologies -- --gate --gate-mode=release` and confirm the real-photo gates pass before any future release/evidence freeze. The consolidation gate uses `--gate-mode=integration`, which reports the absent corpus as `DEFERRED_TO_BETA1` without treating generated correctness as optional.
 
-Until authentic assets are present, Alpha.5 Evidence Freeze remains blocked with `BLOCKED_REAL_PHOTO_INPUT`.
+Until authentic assets are present, Alpha.5 integration remains allowed only as `ALPHA5_INTEGRATION_GO`; Alpha.5 release remains `ALPHA5_RELEASE_NO_GO` and the project-owned photo validation is `DEFERRED_TO_BETA1`.

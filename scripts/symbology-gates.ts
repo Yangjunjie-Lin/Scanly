@@ -12,6 +12,8 @@ export interface SymbologyGateResult {
   releaseRequired?: boolean;
 }
 
+export type SymbologyGateMode = "integration" | "release";
+
 export type FormatFamily = "data_matrix" | "pdf417" | "code_128" | "retail";
 
 export const FORMAT_FAMILIES: Record<FormatFamily, readonly BarcodeFormat[]> = {
@@ -70,6 +72,7 @@ export interface SymbologyGateReport {
   invalidChecksumAcceptanceCount?: number;
   /** Optional: project-photo counts by family. */
   realPhotoFamilyCounts?: Record<FormatFamily, number>;
+  gateMode?: SymbologyGateMode;
 }
 
 function recallGate(
@@ -123,10 +126,14 @@ function familyRecall(
  */
 export function evaluateSymbologyGates(
   report: SymbologyGateReport,
-  options: { canonicalCandidate?: boolean } = {},
+  options: { canonicalCandidate?: boolean; gateMode?: SymbologyGateMode } = {},
 ): SymbologyGateResult[] {
   const gates: SymbologyGateResult[] = [];
+  const deferProjectPhotoGates = (options.gateMode ?? "release") === "integration";
   const push = (gate: SymbologyGateResult) => { gates.push(gate); };
+  const pushProjectPhotoGate = (gate: SymbologyGateResult) => {
+    push(deferProjectPhotoGates ? { ...gate, releaseRequired: false } : gate);
+  };
 
   push({
     id: "sdk-version",
@@ -212,7 +219,7 @@ export function evaluateSymbologyGates(
   });
 
   const photoCount = report.corpus.projectOwnedRealPhotos;
-  push({
+  pushProjectPhotoGate({
     id: "real-photo-corpus-count",
     passed: photoCount >= 12,
     actual: photoCount,
@@ -231,7 +238,7 @@ export function evaluateSymbologyGates(
 
   for (const family of Object.keys(FORMAT_FAMILIES) as FormatFamily[]) {
     const count = familyPhotoCount(report, family);
-    push({
+    pushProjectPhotoGate({
       id: `real-photo-family-${family}-coverage`,
       passed: count >= 3,
       actual: count,
@@ -243,7 +250,7 @@ export function evaluateSymbologyGates(
   const overallRecall = realOverall.resultTotal
     ? realOverall.exactResults / realOverall.resultTotal
     : photoCount >= 12 ? 0 : null;
-  push({
+  pushProjectPhotoGate({
     id: "real-photo-overall-recall",
     passed: photoCount >= 12 && overallRecall !== null && overallRecall + 1e-12 >= 0.8,
     actual: overallRecall ?? 0,
@@ -255,7 +262,7 @@ export function evaluateSymbologyGates(
 
   for (const family of Object.keys(FORMAT_FAMILIES) as FormatFamily[]) {
     const metrics = familyRecall(realOverall, family);
-    push({
+    pushProjectPhotoGate({
       id: `real-photo-family-${family}-recall`,
       passed: metrics.total > 0 && (metrics.recall ?? 0) + 1e-12 >= 2 / 3,
       actual: metrics.recall ?? 0,

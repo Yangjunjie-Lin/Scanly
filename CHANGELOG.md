@@ -2,6 +2,13 @@
 
 All notable changes follow semantic versioning.
 
+## Unreleased — SDK v2 Alpha.5 integration
+
+- Consolidated the Alpha.5 multi-symbology foundation into `develop/sdk-v2` as an internal development milestone.
+- Added explicit `integration` and strict `release` symbology gate modes. Integration accepts the absent project-owned photo corpus only as `DEFERRED_TO_BETA1`; generated correctness, checksum, false-positive, format, runtime, package, and API gates remain mandatory.
+- Alpha.5 is not a tagged or public release: no GitHub Release, npm publication, Stable claim, or active Alpha.5 evidence baseline is authorized. The last fully frozen release evidence remains historical Alpha.4 r4.
+- Created the Beta 1 planning boundary for project-owned photographs, physical-camera validation, real-time scanner runtime, and isolated dependency/toolchain migrations.
+
 ## [2.0.0-alpha.5] - 2026-07-19
 
 - Added the explicit Alpha.5 public format contract for QR Code Model 2, Data Matrix ECC 200, PDF417, Code 128, EAN-13, EAN-8, UPC-A, and UPC-E.

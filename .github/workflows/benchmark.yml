@@ -32,7 +32,16 @@ jobs:
       - run: git diff --exit-code -- fixtures
       - name: Verify clean symbologies checkout
         run: git status --porcelain --untracked-files=all | Tee-Object -Variable status; if ($status) { throw "symbologies checkout is dirty" }
-      - run: npm run benchmark:symbologies -- --canonical-candidate --gate --output=benchmark-results/ci/symbologies.json
+      - name: Run Alpha.5 symbology gate
+        shell: pwsh
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          $mode = "release"
+          if (($env:EVENT_NAME -eq "pull_request" -and $env:BASE_REF -eq "develop/sdk-v2") -or $env:REF_NAME -in @("develop/sdk-v2", "architecture/sdk-v2-alpha5-multisymbology-foundation")) { $mode = "integration" }
+          npm run benchmark:symbologies -- --canonical-candidate --gate --gate-mode=$mode --output=benchmark-results/ci/symbologies.json
       - uses: actions/upload-artifact@v4
         with:
           name: benchmark-symbologies

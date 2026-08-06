@@ -10,7 +10,7 @@
 | Code 128 and GS1-128 | tested | tested | tested | ZXing-C++ primary; bounded GS1 semantics |
 | EAN/UPC core | tested | tested | tested | ZXing-C++ primary; strict checksum validation |
 
-The seven new formats are exercised through the real persistent Worker in Chromium, Firefox, and WebKit and through the full Node `CaptureRouter`. This automated coverage is not physical-device certification or canonical Alpha.5 release evidence.
+The seven new formats are exercised through the real persistent Worker in Chromium, Firefox, and WebKit and through the full Node `CaptureRouter`. This automated coverage is not physical-device certification or canonical Alpha.5 release evidence. It supports `ALPHA5_INTEGRATION_GO` on `develop/sdk-v2`; authentic project-owned photographs and physical-camera validation remain `DEFERRED_TO_BETA1`, so Alpha.5 is not production-certified or releasable.
 
 | ZXing-C++ WASM capability | Chromium | Firefox | WebKit | Node 20.16–24 |
 | --- | --- | --- | --- | --- |

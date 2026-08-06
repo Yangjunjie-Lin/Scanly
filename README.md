@@ -29,6 +29,13 @@ Scanly is a local-first barcode capture SDK foundation with a working browser QR
 
 Alpha.5 explicitly supports QR Code Model 2, Data Matrix ECC 200, PDF417, Code 128, EAN-13, EAN-8, UPC-A, and UPC-E. QR-only remains the default for existing consumers. The pinned ZXing-C++ WASM adapter receives a format mask for every request; jsQR and ZXing-JS remain QR-only engines. See [symbologies](docs/symbologies.md) for support boundaries.
 
+## Branch and release status
+
+- `main` is the unchanged v1.3 Stable line.
+- `develop/sdk-v2` is the authoritative SDK v2 integration branch and carries the consolidated Alpha.5 multi-symbology foundation.
+- `architecture/sdk-v2-beta1-realtime-scanner-foundation` is the next active Beta 1 development branch; real-photo and physical-camera validation are intentionally planned there.
+- Alpha.5 is an internal integration snapshot, not production-certified evidence. No Alpha.5 tag, GitHub Release, npm publication, Stable claim, or `Latest` release is authorized.
+
 ## Internal fixture benchmark
 
 This is Scanly's internal regression suite—not universal accuracy, a third-party comparison, or an ML evaluation. Hard failures stay in the denominator.
@@ -51,7 +58,7 @@ This is Scanly's internal regression suite—not universal accuracy, a third-par
 | Canonical CSV | [benchmark-results/latest.csv](benchmark-results/latest.csv) |
 <!-- BENCHMARK_SUMMARY_END -->
 
-External open-license photographs provide third-party real-world validation but do not satisfy the project-owned photograph release gate. Alpha.5 remains `BLOCKED_REAL_PHOTO_INPUT` until authentic project-owned photographs are supplied.
+External open-license photographs provide third-party real-world validation but do not satisfy the project-owned photograph release gate. The integration decision is `ALPHA5_INTEGRATION_GO`; release remains `ALPHA5_RELEASE_NO_GO` while the 0/12 project-owned photo corpus is `DEFERRED_TO_BETA1`.
 
 See [the full benchmark](docs/benchmark.md) and [fixture methodology](docs/testing.md).
 

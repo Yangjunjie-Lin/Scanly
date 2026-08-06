@@ -12,6 +12,7 @@ import {
   evaluateSymbologyGates,
   FORMAT_FAMILIES,
   formatGateFailureTable,
+  type SymbologyGateMode,
   type FormatFamily,
   type SymbologyGateResult,
 } from "./symbology-gates.js";
@@ -113,10 +114,18 @@ async function git(args: string[]): Promise<string> {
 
 function parseCli(argv: string[]) {
   const outputArgument = argv.find((argument) => argument.startsWith("--output="));
+  const requestedGateMode = argv.find((argument) => argument.startsWith("--gate-mode="))?.split("=", 2)[1];
+  if (requestedGateMode && requestedGateMode !== "integration" && requestedGateMode !== "release") {
+    throw new Error(`Unsupported symbology gate mode '${requestedGateMode}'. Use integration or release.`);
+  }
+  const gateMode: SymbologyGateMode = argv.includes("--allow-deferred-project-photos") || requestedGateMode === "integration"
+    ? "integration"
+    : "release";
   return {
     gate: argv.includes("--gate"),
     development: argv.includes("--development") || (!argv.includes("--gate") && !argv.includes("--canonical-candidate")),
     canonicalCandidate: argv.includes("--canonical-candidate"),
+    gateMode,
     output: outputArgument
       ? path.resolve(outputArgument.slice("--output=".length))
       : path.join(ROOT, "benchmark-results", "development", "symbologies.json"),
@@ -327,14 +336,28 @@ async function main(): Promise<void> {
     realPhotoFamilyCounts,
   };
 
-  const gateResults: SymbologyGateResult[] = evaluateSymbologyGates(gateInputs, { canonicalCandidate: cli.canonicalCandidate });
+  const gateResults: SymbologyGateResult[] = evaluateSymbologyGates(gateInputs, {
+    canonicalCandidate: cli.canonicalCandidate,
+    gateMode: cli.gateMode,
+  });
   const gatesPassed = allSymbologyGatesPassed(gateResults);
+  const releaseGateResults = evaluateSymbologyGates(gateInputs, {
+    canonicalCandidate: cli.canonicalCandidate,
+    gateMode: "release",
+  });
+  const releaseGatesPassed = allSymbologyGatesPassed(releaseGateResults);
 
   const report = {
     schemaVersion: "alpha5-symbology-evidence-1",
     sdkVersion: SDK_VERSION,
     generatedAt: new Date().toISOString(),
     mode: cli.canonicalCandidate ? "canonical-candidate" : cli.gate ? "gate" : "development",
+    gateMode: cli.gateMode,
+    decision: {
+      integration: gatesPassed ? "ALPHA5_INTEGRATION_GO" : "ALPHA5_INTEGRATION_NO_GO",
+      release: releaseGatesPassed ? "ALPHA5_RELEASE_GO" : "ALPHA5_RELEASE_NO_GO",
+      projectOwnedRealPhotoValidation: gateInputs.corpus.projectOwnedRealPhotos >= 12 ? "available" : "DEFERRED_TO_BETA1",
+    },
     sourceIdentity: {
       ...gateInputs.sourceIdentity,
       symbologyManifestHash: hash(manifestBytes),

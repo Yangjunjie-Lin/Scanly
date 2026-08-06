@@ -105,6 +105,27 @@ describe("symbology release gates", () => {
     expect(Object.keys(FORMAT_FAMILIES)).toEqual(["data_matrix", "pdf417", "code_128", "retail"]);
   });
 
+  it("allows Alpha.5 integration while keeping project-photo gates release-only", () => {
+    const report = passingReport();
+    report.corpus.projectOwnedRealPhotos = 0;
+    report.cohorts.projectOwnedRealPhotos = {
+      fixtureTotal: 0,
+      fixturePassed: 0,
+      resultTotal: 0,
+      exactResults: 0,
+      perFormatRecall: realPhotoRecalls(),
+    };
+    report.realPhotoFamilyCounts = { data_matrix: 0, pdf417: 0, code_128: 0, retail: 0 };
+
+    const integration = evaluateSymbologyGates(report, { gateMode: "integration" });
+    expect(allSymbologyGatesPassed(integration)).toBe(true);
+    expect(integration.find((gate) => gate.id === "real-photo-corpus-count")).toMatchObject({ passed: false, releaseRequired: false });
+
+    const release = evaluateSymbologyGates(report, { gateMode: "release" });
+    expect(allSymbologyGatesPassed(release)).toBe(false);
+    expect(release.find((gate) => gate.id === "real-photo-corpus-count")).toMatchObject({ passed: false });
+  });
+
   it.each([
     ["missing project photos", "real-photo-corpus-count", (report: SymbologyGateReport) => {
       report.corpus.projectOwnedRealPhotos = 5;

@@ -5,20 +5,22 @@
 
 ## Decision
 
-**HARDENING_NO_GO**
+**ALPHA5_INTEGRATION_GO / ALPHA5_RELEASE_NO_GO**
 
-本次不合并 PR #9，不创建 `v2.0.0-alpha.5` tag，不创建 GitHub Release，也不发布 npm 包。原因是 Alpha.5 的强制 Tier A project-owned real-photo gate 未通过：实际目录中没有任何照片，四个要求的格式族均为 `0/3`，因此项目照片总数为 `0/12`。缺失证据按发布规则视为失败，不能用生成图片、外部开放许可图片或旧 SHA 的 CI 结果替代。
+PR #9 的 Alpha.5 多符号基础接受合并到 `develop/sdk-v2`，前提是所有非照片质量门禁通过。项目自有真实照片当前为 `0/12`，四个格式族均为 `0/3`，因此物理相机验证明确记为 `DEFERRED_TO_BETA1`。这项集成豁免不改变严格发布模式：不创建 `v2.0.0-alpha.5` tag，不创建 GitHub Release，不发布 npm 包，不激活 Alpha.5 canonical evidence，也不作 Stable/生产认证声明。
+
+> Alpha.5 is accepted as the consolidated multi-symbology development foundation. Project-owned real-photo and physical-camera evidence are deferred to Beta 1. No Alpha.5 tag, GitHub Release, npm publication, or Stable claim is authorized.
 
 ## Source and repository state
 
 | 项目 | 实际值 |
 | --- | --- |
-| Repository remote | `https://github.com/Yangjunjie-Lin/qr_decoder.git`（GitHub PR 页面为 `Yangjunjie-Lin/Scanly`） |
+| Repository remote | `https://github.com/Yangjunjie-Lin/Scanly.git` |
 | Branch | `architecture/sdk-v2-alpha5-multisymbology-foundation` |
 | Base | `develop/sdk-v2` |
 | Source Commit under test | `b1b0d1949500a136560d98436e51a335b35c9cd0` |
 | Source Tree | `dbb25089c09b99e15a769a83973bf8d96ce3d671` |
-| Ahead/behind `origin/develop/sdk-v2` | `6 ahead / 0 behind` |
+| Ahead/behind `origin/develop/sdk-v2` | `13 ahead / 0 behind` before merge |
 | Local tracked diff | clean |
 | Local untracked state | 13 个 `.alpha5-*` 审计临时日志；未纳入发布提交 |
 | SDK version | `2.0.0-alpha.5` |
@@ -116,7 +118,7 @@ Tier B 不成立。独立真实照片不是 `>=100`，每族不是 `>=25`；hold
 
 ## Permitted and prohibited claims
 
-当前仅允许声明：**not release-ready / Alpha.5 evidence freeze blocked**。不能声明：
+当前允许声明：**Alpha.5 integration accepted; Alpha.5 release not authorized**。项目自有照片与物理设备证据为 `DEFERRED_TO_BETA1`，不能声明：
 
 - evidence-complete engineering preview；
 - industrial-grade engineering evidence passed；
@@ -127,4 +129,4 @@ Tier B 不成立。独立真实照片不是 `>=100`，每族不是 `>=25`；hold
 
 ## Required next action
 
-只有在实际加入并审计至少 12 张 project-owned camera photographs（每族至少 3 张）、补齐 provenance/expected payload 后，才能重新运行 symbology gate。随后必须在该新 Source Commit 上完成 Evidence Freeze、baseline-bootstrap、`v2-alpha5-r1` 原子激活、exact-SHA 远程 Actions、离线 bundle 安装验证和 PR #9 的重新评估。在这些条件完成前，保持 no merge / no tag / no release。
+Beta 1 必须实际加入并审计至少 12 张 project-owned camera photographs（每族至少 3 张），补齐 provenance/expected payload/device metadata 后，才能运行严格 release gate，并在新的 Source Commit 上完成 Evidence Freeze、baseline-bootstrap、`v2-alpha5-r1` 原子激活、exact-SHA 远程 Actions 和离线 bundle 安装验证。Alpha.5 集成阶段保持 no tag / no release / no npm publication。

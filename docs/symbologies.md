@@ -36,12 +36,12 @@ Clean generated fixtures pass 15/15; difficult single-format fixtures pass 75/85
 
 ## Release gates
 
-`npm run benchmark:symbologies -- --gate` evaluates every required Alpha.5 gate and exits nonzero on any failure (not only false positives). Canonical candidate mode additionally requires a clean repository and a complete project-owned real-photo corpus.
+`npm run benchmark:symbologies -- --gate --gate-mode=integration` evaluates the Alpha.5 integration gates and exits nonzero on any deterministic correctness, runtime, or package failure. The missing project-owned photo corpus is explicitly reported as `DEFERRED_TO_BETA1` and does not weaken the generated, mixed, GS1, false-positive, format, checksum, or legacy QR gates. Release/evidence work uses the strict default `--gate-mode=release` and continues to require the full physical-photo corpus, canonical evidence, immutable baselines, and real-device verification.
 
 ## Project-owned real photographs
 
 Alpha.5 Evidence Freeze requires at least 12 authentic project-owned photographs (minimum 3 per major family: Data Matrix, PDF417, Code 128, EAN/UPC). Capture instructions and the empty integration manifest live under [fixtures/alpha5/project-photos/](../fixtures/alpha5/project-photos/README.md).
 
-Until those assets are present, final Evidence Freeze remains blocked with `BLOCKED_REAL_PHOTO_INPUT`.
+Until those assets are present, Alpha.5 integration may report `ALPHA5_INTEGRATION_GO`, while release remains `ALPHA5_RELEASE_NO_GO` and final Evidence Freeze is deferred to Beta 1.
 
 External open-license photographs provide third-party real-world validation but do not satisfy the project-owned photograph release gate. They are reported separately as `externalOpenLicenseRealWorld`; they cannot activate `v2-alpha5-r1` or produce Alpha.5 final canonical evidence.

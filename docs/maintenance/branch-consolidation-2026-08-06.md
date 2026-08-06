@@ -152,10 +152,11 @@ Pictures, Downloads, and Desktop paths found no authentic local project
 photographs. The required 12-photo corpus (at least three each for Data
 Matrix, PDF417, Code 128/GS1-128, and EAN/UPC) is therefore unavailable.
 
-Status: BLOCKED_REAL_PHOTO_INPUT. No fabricated or downloaded images were
-added. Evidence Freeze, Alpha.5 r1 activation, PR #9 merge, obsolete PR
-closure, and branch deletion must remain blocked until authentic owner-held
-photographs and complete provenance are supplied.
+Status at the prior audit: photo validation was unavailable. The later project
+decision separates the modes: Alpha.5 integration is `ALPHA5_INTEGRATION_GO`
+when all non-photo gates pass; release remains `ALPHA5_RELEASE_NO_GO` and
+real-photo/physical-camera evidence is `DEFERRED_TO_BETA1`. No fabricated or
+downloaded images were added, and no Alpha.5 release baseline is activated.
 
 The local generated corpus completed 136/146 fixtures with zero false
 positives, zero accepted format misclassifications, 12/12 mixed-format

@@ -97,7 +97,11 @@ jobs:
         run: npm run benchmark:smoke
 
       - name: Multi-symbology benchmark
-        run: npm run benchmark:symbologies -- --gate
+        shell: bash
+        run: |
+          mode=release
+          if { [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ github.base_ref }}" = "develop/sdk-v2" ]; } || [ "${{ github.ref_name }}" = "develop/sdk-v2" ] || [ "${{ github.ref_name }}" = "architecture/sdk-v2-alpha5-multisymbology-foundation" ]; then mode=integration; fi
+          npm run benchmark:symbologies -- --gate --gate-mode="$mode"
 
       - name: Verify smoke benchmark artifacts
         run: |
