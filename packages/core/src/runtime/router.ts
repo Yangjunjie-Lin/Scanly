@@ -1,4 +1,4 @@
-import { getBuiltinScenario, validateScenario, type ScenarioDefinition } from "@scanly/scenario-schema";
+import { getBuiltinScenario, validateScenario, type BarcodeFormat, type ScenarioDefinition } from "@scanly/scenario-schema";
 import { SdkException, sdkError, type SdkErrorCode } from "../contracts/errors.js";
 import { validateFrame, type NormalizedFrame } from "../contracts/frame.js";
 import type { OperatorContext } from "../contracts/operator.js";
@@ -14,12 +14,15 @@ import { ValidatorRegistry } from "./validator-registry.js";
 import { ExecutionBudget, monotonicNow } from "./execution-budget.js";
 import { FrameMemoryBudget, type MemoryObservation } from "./memory-budget.js";
 import { inspectCapabilities, type ScanlyCapabilities } from "./capabilities.js";
+import { normalizeFormatSelection, type FormatSelection } from "../barcode/format-selection.js";
 
 const MAX_TRACE_EVENTS = 256;
 const MAX_TRACE_DETAIL_LENGTH = 512;
 
 export interface CaptureRouterOptions {
   scenario?: ScenarioDefinition;
+  /** Explicit format opt-in. Omitted means the scenario's QR-only default. */
+  formats?: FormatSelection | readonly BarcodeFormat[];
   engines?: EngineRegistry;
   operators?: OperatorRegistry;
   validators?: ValidatorRegistry;
@@ -69,7 +72,8 @@ export class CaptureRouter {
   private disposePromise?: Promise<void>;
 
   constructor(options: CaptureRouterOptions = {}) {
-    this.scenario = options.scenario ?? getBuiltinScenario("balanced");
+    const initial = options.scenario ?? getBuiltinScenario("balanced");
+    this.scenario = options.formats ? { ...initial, acceptedFormats: [...normalizeFormatSelection(options.formats).formats] } : initial;
     this.now = options.now ?? monotonicNow;
     this.engines = options.engines ?? new EngineRegistry();
     this.operators = options.operators ?? createDefaultOperatorRegistry();
@@ -88,9 +92,10 @@ export class CaptureRouter {
   getScenario(): ScenarioDefinition { return JSON.parse(JSON.stringify(this.scenario)) as ScenarioDefinition; }
   getCapabilities(): ScanlyCapabilities { return inspectCapabilities(this.engines, this.operators); }
 
-  async scan(frame: NormalizedFrame, options: { signal?: AbortSignal; scenario?: ScenarioDefinition } = {}): Promise<ScanOutcome> {
+  async scan(frame: NormalizedFrame, options: { signal?: AbortSignal; scenario?: ScenarioDefinition; formats?: FormatSelection | readonly BarcodeFormat[] } = {}): Promise<ScanOutcome> {
     const lease = new FrameLease(frame);
-    const scenario = options.scenario ?? this.scenario;
+    let scenario = options.scenario ?? this.scenario;
+    if (options.formats) scenario = { ...scenario, acceptedFormats: [...normalizeFormatSelection(options.formats).formats] };
     const frameId = frame && typeof frame === "object" && typeof frame.id === "string" && frame.id ? frame.id : "invalid-frame";
     const scenarioId = scenario && typeof scenario === "object" && typeof scenario.id === "string" ? scenario.id : "invalid";
     const started = this.now();

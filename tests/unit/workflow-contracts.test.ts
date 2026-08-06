@@ -8,7 +8,7 @@ describe("benchmark workflow contracts", () => {
   it("keeps stable full-benchmark checks and requires artifact assembly", () => {
     const workflow = read("benchmark.yml");
     expect(workflow).toContain("name: Full Benchmark");
-    for (const name of ["Prepare", "Comparison", "Assemble"]) {
+    for (const name of ["Prepare", "Comparison", "Assemble", "Symbologies"]) {
       expect(workflow).toContain(`name: ${name}`);
     }
     expect(workflow).toContain("name: ${{ matrix.label }}");
@@ -17,8 +17,13 @@ describe("benchmark workflow contracts", () => {
     expect(workflow).toContain("--warmup-iterations=1 --measured-iterations=3");
     expect(workflow).toContain("benchmark:assemble-canonical");
     for (const argument of ["--fast-csv=", "--balanced-csv=", "--robust-csv="]) expect(workflow).toContain(argument);
-    expect(workflow).toContain("needs: [profile, comparison]");
+    expect(workflow).toContain("--gate");
+    expect(workflow).toContain("--canonical-candidate");
+    expect(workflow).toContain("--symbologies=");
+    expect(workflow).toContain("needs: [symbologies, profile, comparison]");
+    expect(workflow).toContain("path: benchmark-artifacts/canonical");
     expect(workflow).toContain("pull_request:");
+    expect(workflow).toContain("- develop/sdk-v2");
     expect(workflow).toContain("- main");
     expect(workflow).not.toContain("    paths:");
     expect(workflow).toContain("npx tsx scripts/select-benchmark-gate-mode.ts --runtime-family=node24-win32-x64 --registry=benchmark-results/baselines/registry.json");
@@ -27,24 +32,34 @@ describe("benchmark workflow contracts", () => {
     expect(workflow).toContain("Full Benchmark gate mode: $env:SELECTED_MODE");
     expect(workflow).toContain("Active baseline: $env:SELECTED_BASELINE_ID");
     expect(workflow).toContain("Selection reason: $env:SELECTION_REASON");
+    expect(workflow).toContain("Evidence lifecycle: $env:EVIDENCE_LIFECYCLE");
     expect(workflow).not.toContain("$alpha3");
     expect(workflow).not.toContain("v2-alpha3-r*");
+    for (const script of ["verify-benchmark-evidence.ts", "freeze-baseline.ts", "activate-baseline.ts"]) {
+      const source = fs.readFileSync(path.join(process.cwd(), "scripts", script), "utf8");
+      expect(source).not.toContain("v2-alpha(?:3|4)");
+      expect(source).not.toContain("v2-alpha4-r");
+    }
+    for (const script of ["freeze-baseline.ts", "activate-baseline.ts"]) {
+      expect(fs.readFileSync(path.join(process.cwd(), "scripts", script), "utf8")).toContain("isValidBaselineId");
+    }
     const selector = fs.readFileSync(path.join(process.cwd(), "scripts", "select-benchmark-gate-mode.ts"), "utf8");
     expect(selector).toContain('"active-baseline"');
     expect(selector).toContain('"baseline-candidate"');
     expect(workflow.match(/ref: \$\{\{ github\.sha \}\}/g)?.length).toBeGreaterThanOrEqual(4);
   });
 
-  it("provides an isolated manual Alpha.3 bootstrap with all four artifacts", () => {
+  it("provides an isolated manual bootstrap with every schema 2.1 artifact", () => {
     const workflow = read("alpha3-baseline-candidate.yml");
-    expect(workflow).toContain("name: Alpha.3 Baseline Candidate");
+    expect(workflow).toContain("name: Baseline Candidate");
     expect(workflow).toContain("workflow_dispatch");
-    for (const job of ["fast:", "balanced:", "robust:", "comparison:", "assemble:"]) expect(workflow).toContain(job);
-    expect(workflow).toContain("needs: [fast, balanced, robust, comparison]");
+    for (const job of ["fast:", "balanced:", "robust:", "comparison:", "symbologies:", "assemble:"]) expect(workflow).toContain(job);
+    expect(workflow).toContain("needs: [fast, balanced, robust, comparison, symbologies]");
     expect(workflow).not.toContain("--allow-dirty-development");
     expect(workflow).toContain("retention-days: 21");
     expect(workflow).toContain("benchmark:summary");
     expect(workflow).toContain("quality:evidence:bootstrap");
+    expect(workflow).toContain("--symbologies=candidate/symbologies.json");
     expect(workflow).not.toMatch(/permissions:[\s\S]*contents:\s*write/);
     const profile = read("baseline-candidate-profile.yml");
     expect(profile).toContain("actions/checkout@v4");
@@ -54,13 +69,25 @@ describe("benchmark workflow contracts", () => {
     for (const argument of ["--fast-csv=", "--balanced-csv=", "--robust-csv="]) expect(workflow).toContain(argument);
   });
 
-  it("enforces release evidence when a manifest exists without automatic bootstrap fallback", () => {
+  it("selects an explicit evidence lifecycle instead of treating historical evidence as release evidence", () => {
     const workflow = read("ci.yml");
     expect(workflow).toContain("fetch-depth: 0");
-    expect(workflow).toContain("if [[ -f benchmark-results/canonical/canonical-evidence-manifest.json ]]");
-    expect(workflow).toContain("npm run quality:evidence:release");
-    expect(workflow).not.toContain("npm run quality:evidence:bootstrap");
-    expect(workflow).not.toMatch(/quality:evidence:release\s*\|\|/);
+    expect(workflow).toContain("npm run quality:evidence");
+    expect(workflow).not.toContain("quality:evidence:release");
+    expect(workflow).not.toContain("strict release evidence will become mandatory");
+    expect(workflow).toContain("npm run benchmark:symbologies -- --gate");
+    expect(workflow).toContain("Browser Multi-Symbology Integration");
+    expect(workflow).toContain("browser: Chromium");
+    expect(workflow).toContain("browser: Firefox");
+    expect(workflow).toContain("browser: WebKit");
+  });
+
+  it("uses setup-node v7 across v2 workflows", () => {
+    for (const file of ["ci.yml", "benchmark.yml", "browser-benchmark.yml", "public-api.yml", "baseline-candidate-profile.yml", "alpha3-baseline-candidate.yml"]) {
+      const workflow = read(file);
+      expect(workflow).not.toContain("actions/setup-node@v4");
+      expect(workflow).toContain("actions/setup-node@v7");
+    }
   });
 
   it("assembles all three browser reports", () => {

@@ -14,6 +14,7 @@ export function expectedPayloads(fixture: BenchmarkFixture): string[] {
 
 export function requiredPayloads(fixture: BenchmarkFixture): string[] {
   if (fixture.requiredInstances?.length) return fixture.requiredInstances.flatMap((entry) => Array.from({ length: entry.count }, () => entry.payload));
+  if (fixture.requiredResults?.length) return fixture.requiredResults.map((entry) => entry.payload);
   return fixture.requiredPayloads?.length
     ? fixture.requiredPayloads
     : expectedPayloads(fixture);

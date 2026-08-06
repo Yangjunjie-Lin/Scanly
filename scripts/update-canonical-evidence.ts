@@ -33,7 +33,7 @@ const readmePath = path.join(ROOT, "README.md");
 const readme = fs.readFileSync(readmePath, "utf8");
 const block = [
   "<!-- BENCHMARK_SUMMARY_START -->", "| Metric | Value |", "| --- | ---: |",
-  "| Evidence status | **Alpha.4 canonical evidence** |",
+  "| Evidence status | **Alpha.5 canonical evidence** |",
   `| Internal fixtures | ${balanced.total} |`, `| Generated fixtures | ${generated} |`, `| Project-owned photos | ${photos} |`,
   `| Success on fixture suite | **${balanced.passed}/${balanced.total} (${(balanced.successRate * 100).toFixed(1)}%)** on the current ${balanced.total}-case project fixture suite |`,
   `| Positive decode recall | **${positivePassed}/${balanced.positiveCases} (${(balanced.decodeRecall * 100).toFixed(1)}%)** |`,
@@ -59,9 +59,37 @@ const destinations: Array<[string, Buffer | string]> = [
   [path.join(ROOT, "benchmark-results", "latest-robust.json"), fs.readFileSync(bundle.reportPaths.robustJson)],
   [path.join(ROOT, "benchmark-results", "latest-robust.csv"), fs.readFileSync(bundle.reportPaths.robustCsv)],
   [path.join(ROOT, "benchmark-results", "comparison.json"), fs.readFileSync(bundle.reportPaths.comparisonJson)],
+  ...(bundle.reportPaths.symbologiesJson ? [[path.join(ROOT, "benchmark-results", "symbologies.json"), fs.readFileSync(bundle.reportPaths.symbologiesJson)] as [string, Buffer]] : []),
   [readmePath, updatedReadme], [path.join(ROOT, "docs", "benchmark.md"), docs],
   [path.join(canonicalDir, "canonical-evidence-manifest.json"), JSON.stringify(bundle.manifest, null, 2) + "\n"],
-  ...Object.entries(bundle.reportPaths).map(([key, source]) => [path.join(canonicalDir, path.basename(source)), fs.readFileSync(source)] as [string, Buffer]),
+  ...Object.entries(bundle.reportPaths).map(([key, source]) => [path.join(canonicalDir, path.basename(source!)), fs.readFileSync(source!)] as [string, Buffer]),
 ];
+if (bundle.manifest.schemaVersion === "2.1" && bundle.reports.symbologies) {
+  const manifest = bundle.manifest;
+  const symbologyDocs = path.join(ROOT, "docs", "symbologies.md");
+  const existing = fs.existsSync(symbologyDocs) ? fs.readFileSync(symbologyDocs, "utf8") : "";
+  const markerStart = "<!-- SYMBOLOGY_EVIDENCE_START -->";
+  const markerEnd = "<!-- SYMBOLOGY_EVIDENCE_END -->";
+  const block = [
+    markerStart,
+    "",
+    "## Canonical Alpha.5 symbology evidence",
+    "",
+    `| Field | Value |`,
+    `| --- | --- |`,
+    `| Evidence ID | \`${manifest.evidenceId}\` |`,
+    `| Manifest hash | \`${manifest.manifestHash}\` |`,
+    `| Symbology report hash | \`${manifest.reportHashes.symbologiesJson}\` |`,
+    `| Symbology manifest hash | \`${manifest.sourceIdentity.symbologyManifestHash}\` |`,
+    `| Symbology dataset hash | \`${manifest.sourceIdentity.symbologyDatasetHash}\` |`,
+    `| Project photos | ${manifest.fixtureCounts.symbologyProjectPhotos} |`,
+    `| Generated fixtures | ${manifest.fixtureCounts.symbologyGenerated} |`,
+    markerEnd,
+  ].join("\n");
+  const updatedDocs = existing.includes(markerStart) && existing.includes(markerEnd)
+    ? existing.replace(/<!-- SYMBOLOGY_EVIDENCE_START -->[\s\S]*?<!-- SYMBOLOGY_EVIDENCE_END -->/, block)
+    : `${existing.trimEnd()}\n\n${block}\n`;
+  destinations.push([symbologyDocs, updatedDocs]);
+}
 installFilesAtomically(destinations);
 console.log(`Updated all canonical aliases atomically from ${bundle.manifest.evidenceId}.`);

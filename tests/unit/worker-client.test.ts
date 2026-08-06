@@ -85,6 +85,18 @@ describe("normalized Worker runtime", () => {
     expect(worker.terminate).toHaveBeenCalledOnce();
   });
 
+  it("subscribes to AbortSignal and settles an in-flight Worker immediately", async () => {
+    const worker = new FakeWorker();
+    const client = new DecodeWorkerClient(() => worker);
+    const controller = new AbortController();
+    const pending = client.scan(frame(), getBuiltinScenario("fast"), { signal: controller.signal });
+    controller.abort();
+    const outcome = await pending;
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.error.code).toBe("cancelled");
+    expect(worker.terminate).toHaveBeenCalledOnce();
+  });
+
   it("ignores a response from an old source generation", async () => {
     const worker = new FakeWorker();
     const client = new DecodeWorkerClient(() => worker);
@@ -112,6 +124,44 @@ describe("normalized Worker runtime", () => {
     const outcome = await client.scan(frame(), getBuiltinScenario("fast"));
     expect(outcome.ok).toBe(false);
     if (!outcome.ok) expect(outcome.error.code).toBe("worker_initialization_failure");
+  });
+
+  it("bounds a silent Worker and releases the job with a typed initialization failure", async () => {
+    vi.useFakeTimers();
+    try {
+      const worker = new FakeWorker();
+      const client = new DecodeWorkerClient(() => worker);
+      const scenario = getBuiltinScenario("fast");
+      scenario.budgets.maxExecutionMs = 1;
+      const pending = client.scan(frame("silent"), scenario);
+      await vi.advanceTimersByTimeAsync(1);
+      const outcome = await pending;
+      expect(outcome.ok).toBe(false);
+      if (!outcome.ok) expect(outcome.error.code).toBe("worker_initialization_failure");
+      expect(worker.terminate).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("allows bounded Worker module startup headroom under the balanced deadline", async () => {
+    vi.useFakeTimers();
+    try {
+      const worker = new FakeWorker();
+      const client = new DecodeWorkerClient(() => worker);
+      const pending = client.scan(frame("slow-startup"), getBuiltinScenario("balanced"));
+      let settled = false;
+      void pending.then(() => { settled = true; });
+      await vi.advanceTimersByTimeAsync(4_999);
+      expect(settled).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      const outcome = await pending;
+      expect(outcome.ok).toBe(false);
+      if (!outcome.ok) expect(outcome.error.code).toBe("worker_initialization_failure");
+      expect(worker.terminate).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("survives 500 Worker terminate, recreate, cancellation, and recovery cycles", async () => {

@@ -1,10 +1,10 @@
-# Scanly SDK v2 Alpha.4 — preview
+# Scanly SDK v2 Alpha.5 — preview
 
 Scanly is a local-first barcode capture SDK foundation with a working browser QR reference application. The v2 alpha has one authoritative capture model: normalized upload, Worker, main-thread, Node, and sampled camera frames converge on a scenario-compiled Router backed by real operator and engine registries. It is not an ML model and has no image-upload backend.
 
 ![Next.js 15](https://img.shields.io/badge/Next.js-15-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
-![SDK](https://img.shields.io/badge/SDK-2.0.0--alpha.4-orange)
+![SDK](https://img.shields.io/badge/SDK-2.0.0--alpha.5-orange)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Live demo:** [https://qr-decoder-theta.vercel.app](https://qr-decoder-theta.vercel.app)
@@ -27,7 +27,14 @@ Scanly is a local-first barcode capture SDK foundation with a working browser QR
 - Optional ZXing-C++ WebAssembly engine with a pinned local asset, SHA-256 verification, lazy/deduplicated initialization, typed failures, bounded native results, and explicit disposal
 - Browser/Worker/Node engine composition ordered as jsQR → ZXing-C++ WASM → ZXing-JS, with Fast protecting first-frame cold-start latency and Balanced/Robust using an early native fallback
 
-QR Code Model 2 is the only format currently implemented and tested. Other symbologies in the public capability vocabulary are unsupported, not hidden support claims.
+Alpha.5 explicitly supports QR Code Model 2, Data Matrix ECC 200, PDF417, Code 128, EAN-13, EAN-8, UPC-A, and UPC-E. QR-only remains the default for existing consumers. The pinned ZXing-C++ WASM adapter receives a format mask for every request; jsQR and ZXing-JS remain QR-only engines. See [symbologies](docs/symbologies.md) for support boundaries.
+
+## Branch and release status
+
+- `main` is the unchanged v1.3 Stable line.
+- `develop/sdk-v2` is the authoritative SDK v2 integration branch and carries the consolidated Alpha.5 multi-symbology foundation.
+- `architecture/sdk-v2-beta1-realtime-scanner-foundation` is the next active Beta 1 development branch; real-photo and physical-camera validation are intentionally planned there.
+- Alpha.5 is an internal integration snapshot, not production-certified evidence. No Alpha.5 tag, GitHub Release, npm publication, Stable claim, or `Latest` release is authorized.
 
 ## Internal fixture benchmark
 
@@ -36,7 +43,7 @@ This is Scanly's internal regression suite—not universal accuracy, a third-par
 <!-- BENCHMARK_SUMMARY_START -->
 | Metric | Value |
 | --- | ---: |
-| Evidence status | **Alpha.4 canonical evidence** |
+| Evidence status | **Alpha.4 r4 canonical; Alpha.5 canonical evidence pending** |
 | Internal fixtures | 74 |
 | Generated fixtures | 65 |
 | Project-owned photos | 9 |
@@ -51,9 +58,11 @@ This is Scanly's internal regression suite—not universal accuracy, a third-par
 | Canonical CSV | [benchmark-results/latest.csv](benchmark-results/latest.csv) |
 <!-- BENCHMARK_SUMMARY_END -->
 
+External open-license photographs provide third-party real-world validation but do not satisfy the project-owned photograph release gate. The integration decision is `ALPHA5_INTEGRATION_GO`; release remains `ALPHA5_RELEASE_NO_GO` while the 0/12 project-owned photo corpus is `DEFERRED_TO_BETA1`.
+
 See [the full benchmark](docs/benchmark.md) and [fixture methodology](docs/testing.md).
 
-Benchmark output is deliberately separated: ordinary local runs write ignored development reports, while `benchmark:canonical-candidate` creates one clean candidate profile report (the deprecated `benchmark:canonical` name remains an alias). `benchmark:assemble-canonical` combines Fast, Balanced, Robust, and Comparison reports into a verified manifest; `benchmark:update-canonical` atomically updates tracked aliases and documentation; `benchmark:freeze` creates one immutable profile baseline; and `benchmark:activate` atomically activates all three baselines. Canonical evidence requires at least one warmup, three measured iterations per fixture, and a clean Git repository.
+Benchmark output is deliberately separated: ordinary local runs write ignored development reports, while `benchmark:canonical-candidate` creates one clean candidate profile report (the deprecated `benchmark:canonical` name remains an alias). `benchmark:assemble-canonical` combines Fast, Balanced, Robust, Comparison, and Symbologies reports into a verified schema 2.1 manifest; `benchmark:update-canonical` atomically updates tracked aliases and documentation; `benchmark:freeze` creates one immutable profile baseline; and `benchmark:activate` atomically activates all three baselines. Canonical profile and Comparison evidence requires at least one warmup, three measured iterations per fixture, and a clean Git repository; the Symbologies report records the complete per-format gate result.
 
 Profile intent is explicit: `fast` is the latency-first camera pass and accepts lower recall; `balanced` is the upload and general-purpose default; `robust` is the highest-cost bounded batch/offline completeness profile. The reference app uses fast for initial camera frames, derived balanced-strength escalation after misses, balanced for uploads, and robust only when explicitly selected.
 
@@ -146,15 +155,15 @@ See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 - Strong 3D perspective warp may exceed the heuristic pipeline.
 - Camera support depends on HTTPS, permissions, browser, and device hardware.
 - File and pixel limits reject unusually large images before full RGBA allocation.
-- Micro QR, rMQR, Data Matrix, PDF417, Aztec, 1D public support, native mobile bindings, Python, and .NET bindings are not implemented.
-- The Alpha.4 asset is standard WASM. Safe SIMD detection exists, but no SIMD artifact or acceleration claim is shipped until a reproducible SIMD build is measured.
+- Micro QR, rMQR, Aztec, Micro PDF417, DotCode, MaxiCode, GS1 DataBar/Composite, postal codes, and deferred 1D formats are not implemented. Native mobile bindings, Python, and .NET bindings are also outside Alpha.5.
+- The Alpha.5 asset is standard WASM. Safe SIMD detection exists, but no SIMD artifact or acceleration claim is shipped until a reproducible SIMD build is measured.
 - WASM cancellation is cooperative during synchronous native execution: late delivery is suppressed, but native code is not preempted.
 - Desktop browser automation is not real iOS/Android device validation; torch, zoom, orientation, and long-running camera behavior still need a physical device lab.
 - Statistically calibrated confidence is not available from the default QR path. Corners, raw bytes, and symbology identifiers are exposed only when the selected engine returns them; no input path fabricates metadata.
 
 ## Project status
 
-**SDK v2 alpha preview.** Scanly now has a unified, dependency-inverted, scenario-driven runtime that can be developed toward commercial barcode-capture maturity without another core architectural rewrite. Industrial or production readiness is not claimed: the dataset is internal, physical-device coverage is absent, only QR Code Model 2 is implemented, and the alpha API may change.
+**SDK v2 alpha preview.** Scanly now has a unified, dependency-inverted, scenario-driven runtime that can be developed toward commercial barcode-capture maturity without another core architectural rewrite. Industrial or production readiness is not claimed: the dataset is internal, physical-device coverage is absent, Alpha.5 multi-symbology coverage is still preview-level, and the alpha API may change.
 
 ## License
 

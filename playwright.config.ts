@@ -4,6 +4,10 @@ export default defineConfig({
   testDir: "tests/e2e",
   timeout: 60_000,
   fullyParallel: false,
+  // Each project launches CPU-heavy barcode decoding in an isolated browser.
+  // Serial execution keeps scenario deadlines representative of one consumer
+  // instead of making them depend on cross-browser CI CPU contention.
+  workers: 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   use: {

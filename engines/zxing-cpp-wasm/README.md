@@ -1,7 +1,7 @@
 # @scanly/engine-zxing-cpp-wasm
 
-Experimental, optional ZXing-C++ WebAssembly engine for Scanly SDK v2 Alpha.4.
-Only QR Code Model 2 is publicly enabled.
+Experimental, optional ZXing-C++ WebAssembly engine for Scanly SDK v2 Alpha.5.
+The public Alpha.5 mask enables QR Code Model 2, Data Matrix ECC 200, PDF417, Code 128, EAN-13, EAN-8, UPC-A, and UPC-E. Requests remain format-filtered; the engine never receives an implicit all-formats mask.
 
 The package never downloads code by default. Its loader resolves the packaged
 WASM asset relative to the installed package, verifies SHA-256, and initializes

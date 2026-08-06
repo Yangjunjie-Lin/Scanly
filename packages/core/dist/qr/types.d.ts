@@ -52,6 +52,8 @@ export interface DecodedCode {
         y: number;
     }>;
     symbologyIdentifier?: string;
+    isGs1?: boolean;
+    metadata?: Record<string, unknown>;
     preprocessing: PreprocessMethod;
     candidateIndex: number;
     scale: ScaleLabel;
@@ -113,6 +115,8 @@ export interface DecodeProgress {
     attemptCount: number;
 }
 export interface PipelineConfig {
+    /** Explicit public formats passed to every engine attempt. Defaults to QR-only. */
+    formats: BarcodeFormat[];
     maxCandidates: number;
     maxAttempts: number;
     timeoutMs: number;
@@ -171,6 +175,7 @@ export interface PipelineEngineExecutor {
     readonly engineIds: readonly string[];
     readonly versions?: Readonly<Record<string, string>>;
     decode(engineId: string, image: PixelBuffer, options: {
+        formats: readonly BarcodeFormat[];
         signal?: AbortSignal;
         findMultiple: boolean;
         inversion?: "unknown" | "original" | "inverted";

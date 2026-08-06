@@ -12,6 +12,7 @@ import { scenarioToPipelineConfig } from "./scenario-runtime.js";
 import { createCoordinateTransform, IDENTITY_MATRIX } from "../qr/geometry.js";
 import { monotonicNow } from "./execution-budget.js";
 import { normalizeRgbaOrientation } from "./frame-normalization.js";
+import { barcodeFormatClass } from "../barcode/format.js";
 export const BUILTIN_OPERATOR_IDS = [
     "scanly.frame-normalization",
     "scanly.roi",
@@ -31,7 +32,7 @@ const MAX_MESSAGE_LENGTH = 512;
 function descriptor(id, accepts, produces, cpu = "low") {
     return {
         id,
-        version: "2.0.0-alpha.4",
+        version: "2.0.0-alpha.5",
         accepts,
         produces,
         configurationSchemaId: "https://scanly.dev/schema/scenario/2.1",
@@ -201,7 +202,7 @@ function engineExecutor(registry, scenario) {
     return {
         engineIds: scenario.decoders.order,
         versions,
-        decode: (engineId, image, options) => registry.decode(engineId, createRgbaFrame(image.data, image.width, image.height, { id: `attempt-${engineId}`, sourceType: "pixel-buffer", ownership: "borrowed" }), { formats: scenario.acceptedFormats, findMultiple: options.findMultiple, signal: options.signal, inversion: options.inversion }),
+        decode: (engineId, image, options) => registry.decode(engineId, createRgbaFrame(image.data, image.width, image.height, { id: `attempt-${engineId}`, sourceType: "pixel-buffer", ownership: "borrowed" }), { formats: options.formats, findMultiple: options.findMultiple, signal: options.signal, inversion: options.inversion }),
     };
 }
 function mergeParallel(outcomes, engineOrder, started, deduplication, failurePolicy, requiredEngineIds) {
@@ -364,6 +365,7 @@ class ResultAggregationOperator {
         const resultTiming = timing(outcome);
         const results = outcome.results.slice(0, configuration.scenario.multiCode.maxResults).map((code) => ({
             format: code.format ?? "qr_code",
+            formatClass: barcodeFormatClass(code.format ?? "qr_code"),
             rawText: code.payload,
             ...(configuration.scenario.output.includeRawBytes && code.rawBytes ? { rawBytes: code.rawBytes } : {}),
             ...(code.cornerPoints ? { cornerPoints: code.cornerPoints } : {}),
@@ -374,6 +376,8 @@ class ResultAggregationOperator {
             frameId: frame.id,
             structuredPayload: null,
             ...(code.symbologyIdentifier ? { symbologyIdentifier: code.symbologyIdentifier } : {}),
+            ...(code.isGs1 !== undefined ? { isGs1: code.isGs1 } : {}),
+            ...(code.metadata ? { metadata: code.metadata } : {}),
             validation: { valid: true, validatorIds: [], messages: [] },
             warnings: [],
             timing: resultTiming,

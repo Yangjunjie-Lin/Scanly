@@ -12,6 +12,7 @@ import { ValidatorRegistry } from "./validator-registry.js";
 import { ExecutionBudget, monotonicNow } from "./execution-budget.js";
 import { FrameMemoryBudget } from "./memory-budget.js";
 import { inspectCapabilities } from "./capabilities.js";
+import { normalizeFormatSelection } from "../barcode/format-selection.js";
 const MAX_TRACE_EVENTS = 256;
 const MAX_TRACE_DETAIL_LENGTH = 512;
 function failure(frameId, scenarioId, code, message, totalMs, trace, cause) {
@@ -49,7 +50,8 @@ export class CaptureRouter {
     activeOperations = new Map();
     disposePromise;
     constructor(options = {}) {
-        this.scenario = options.scenario ?? getBuiltinScenario("balanced");
+        const initial = options.scenario ?? getBuiltinScenario("balanced");
+        this.scenario = options.formats ? { ...initial, acceptedFormats: [...normalizeFormatSelection(options.formats).formats] } : initial;
         this.now = options.now ?? monotonicNow;
         this.engines = options.engines ?? new EngineRegistry();
         this.operators = options.operators ?? createDefaultOperatorRegistry();
@@ -68,7 +70,9 @@ export class CaptureRouter {
     getCapabilities() { return inspectCapabilities(this.engines, this.operators); }
     async scan(frame, options = {}) {
         const lease = new FrameLease(frame);
-        const scenario = options.scenario ?? this.scenario;
+        let scenario = options.scenario ?? this.scenario;
+        if (options.formats)
+            scenario = { ...scenario, acceptedFormats: [...normalizeFormatSelection(options.formats).formats] };
         const frameId = frame && typeof frame === "object" && typeof frame.id === "string" && frame.id ? frame.id : "invalid-frame";
         const scenarioId = scenario && typeof scenario === "object" && typeof scenario.id === "string" ? scenario.id : "invalid";
         const started = this.now();

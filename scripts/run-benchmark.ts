@@ -20,9 +20,15 @@ import {
   type BenchmarkBaseline,
 } from "@scanly/benchmark";
 import { assertCleanRepository, collectSourceIdentity } from "./benchmark-provenance.js";
-import { resolveActiveBaseline, runtimeFamily } from "./baseline-registry.js";
-import { validateProfileReport } from "./canonical-evidence.js";
+import { loadBaselineRegistry, resolveActiveBaseline, runtimeFamily } from "./baseline-registry.js";
+import { validateProfileCorrectness, validateProfileReport } from "./canonical-evidence.js";
 import { benchmarkResultsToCsv } from "./benchmark-csv.js";
+import {
+  collectCurrentBenchmarkIdentity,
+  enforceGateModeForLifecycle,
+  selectBenchmarkGateMode,
+  type BenchmarkGateMode,
+} from "./select-benchmark-gate-mode.js";
 
 const ROOT = path.resolve(__dirname, "..");
 const MANIFEST_PATH = path.join(ROOT, "fixtures", "manifest.json");
@@ -213,6 +219,42 @@ async function loadBaseline(profile: BuiltinScenarioId, smoke = false): Promise<
   return { passedIds: new Set(raw.passedIds ?? []), metrics: raw };
 }
 
+function validateSmokeCandidate(summary: BenchmarkRunSummary): string[] {
+  const failures = evaluateBenchmarkGates(summary, summary, { fullSuite: false });
+  if (summary.total !== 11 || summary.results.length !== 11) failures.push("smoke fixture set is not exactly 11 entries");
+  if (summary.passed < 10) failures.push(`smoke passed ${summary.passed}/11; minimum is 10/11`);
+  if (summary.finalControlledMemoryBytes !== 0) failures.push("smoke final controlled memory is not zero");
+  return failures;
+}
+
+function validateDevelopmentProfile(summary: BenchmarkRunSummary, profile: BuiltinScenarioId): string[] {
+  const failures = validateProfileCorrectness(summary, profile);
+  if (summary.engineInitializationFailures !== 0 || summary.engineExecutionFailures !== 0) failures.push("report contains engine failures");
+  if (summary.cancellationCorrectness.passed !== summary.cancellationCorrectness.total) failures.push("cancellation correctness failed");
+  if (summary.phaseTimingAvailability.passed !== summary.phaseTimingAvailability.total) failures.push("phase timing is incomplete");
+  if (profile !== "fast" && summary.multipleCompleteness.complete !== summary.multipleCompleteness.total) failures.push("multi-code completeness failed");
+  if (summary.finalControlledMemoryBytes !== 0) failures.push("final controlled memory is nonzero");
+  if (profile === "robust" && !summary.results.find((result) => result.id === "66-multiple-twelve")?.pass) failures.push("Robust 12-code completeness failed");
+  return failures;
+}
+
+async function resolveGateMode(requestedMode: string | undefined): Promise<BenchmarkGateMode> {
+  if (requestedMode && !(["active-baseline", "baseline-candidate"] as const).includes(requestedMode as BenchmarkGateMode)) {
+    throw new Error("--gate-mode must be active-baseline or baseline-candidate.");
+  }
+  const registry = await loadBaselineRegistry(BASELINE_REGISTRY_PATH);
+  const family = runtimeFamily();
+  const current = await collectCurrentBenchmarkIdentity(registry, family, ROOT);
+  const selection = selectBenchmarkGateMode(registry, family, ROOT, current);
+  enforceGateModeForLifecycle(selection, current.lifecycleState);
+  if (requestedMode && requestedMode !== selection.mode) {
+    throw new Error(`Requested gate mode '${requestedMode}' is incompatible with the current source: ${selection.reason}.`);
+  }
+  console.log(`Benchmark gate mode: ${selection.mode} (${selection.reason})`);
+  if (selection.baselineId) console.log(`Active baseline: ${selection.baselineId}`);
+  return selection.mode;
+}
+
 async function runFixture(router: CaptureRouter, fixture: BenchmarkFixture): Promise<BenchmarkFixtureResult> {
   const filePath = path.join(ROOT, fixture.file);
   const t0 = Date.now();
@@ -319,8 +361,8 @@ async function main() {
   if (selectedModes > 1) throw new Error("Choose exactly one benchmark execution mode.");
   if ((canonical || canonicalCandidate) && allowDirtyDevelopment) throw new Error("Canonical candidate runs cannot use --allow-dirty-development.");
   if (canonical || canonicalCandidate || ciArtifact) assertCleanRepository(ROOT);
-  const gateMode = process.argv.find((argument) => argument.startsWith("--gate-mode="))?.split("=")[1] ?? "active-baseline";
-  if (!(["active-baseline", "baseline-candidate"] as const).includes(gateMode as "active-baseline")) throw new Error("--gate-mode must be active-baseline or baseline-candidate.");
+  const requestedGateMode = process.argv.find((argument) => argument.startsWith("--gate-mode="))?.split("=")[1];
+  const gateMode = await resolveGateMode(requestedGateMode);
   const profileArgument = process.argv.find((argument) => argument.startsWith("--profile="))?.split("=")[1] ?? "balanced";
   if (!["fast", "balanced", "robust"].includes(profileArgument)) throw new Error(`Unknown benchmark profile '${profileArgument}'.`);
   const profile = profileArgument as BuiltinScenarioId;
@@ -593,7 +635,13 @@ async function main() {
   console.log(`Wrote ${csvPath}`);
 
   const gateFailures = baseline.metrics ? evaluateBenchmarkGates(summary, baseline.metrics, { fullSuite: !smoke }) : [];
-  if (gateMode === "baseline-candidate") gateFailures.push(...validateProfileReport(summary, profile));
+  if (gateMode === "baseline-candidate") {
+    gateFailures.push(...(smoke
+      ? validateSmokeCandidate(summary)
+      : canonicalCompatible
+        ? validateProfileReport(summary, profile)
+        : validateDevelopmentProfile(summary, profile)));
+  }
   await router.dispose();
   if (failOnRegression && gateFailures.length > 0) {
     console.error(`Benchmark gate failed:\n- ${gateFailures.join("\n- ")}`);

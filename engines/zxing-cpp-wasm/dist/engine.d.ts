@@ -5,9 +5,11 @@ export declare class ZxingCppWasmEngineImpl implements ZxingCppWasmEngine {
     readonly id = "zxing-cpp-wasm";
     readonly version = "3.1.1+zxing-cpp.6c2961d";
     readonly capabilities: {
-        formats: "qr_code"[];
+        formats: readonly ["qr_code", "data_matrix", "pdf417", "code_128", "ean_13", "ean_8", "upc_a", "upc_e"];
+        formatClasses: readonly ["matrix", "stacked", "linear"];
         supportsMultiple: boolean;
         returnsRawBytes: boolean;
+        supportsRawBytes: boolean;
         returnsCornerPoints: boolean;
         threadSafe: boolean;
         estimatedScratchBytesPerPixel: number;
@@ -15,6 +17,7 @@ export declare class ZxingCppWasmEngineImpl implements ZxingCppWasmEngine {
         runtimeKinds: readonly ["browser", "worker", "node"];
         supportsInversion: boolean;
         supportsStructuredAppend: boolean;
+        supportsGs1: boolean;
         supportsOrientation: boolean;
         initializationMode: "lazy";
         executionModel: "wasm";

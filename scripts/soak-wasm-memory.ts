@@ -1,8 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
-import { createRgbaFrame } from "@scanly/core";
+import { createRgbaFrame, type NormalizedFrame } from "@scanly/core";
 import { loadPixelBufferFromPath } from "@scanly/node";
 import { createZxingCppWasmEngine } from "@scanly/engine-zxing-cpp-wasm";
+import type { BarcodeFormat } from "@scanly/scenario-schema";
 
 const root = path.resolve(__dirname, "..");
 const argument = process.argv.find((item) => item.startsWith("--iterations="));
@@ -12,8 +13,18 @@ if (!Number.isInteger(iterations) || iterations < 1 || iterations > 10_000) {
 }
 
 async function main(): Promise<void> {
-  const pixels = await loadPixelBufferFromPath(path.join(root, "fixtures", "01-clear-url.png"));
-  const frame = createRgbaFrame(pixels.data, pixels.width, pixels.height);
+  const manifest = JSON.parse(await fs.promises.readFile(path.join(root, "fixtures", "alpha5", "manifest.json"), "utf8")) as {
+    fixtures: Array<{ id: string; file: string; format?: BarcodeFormat; expectedPayload: string; expectedOutcome: string; difficultyTags: string[] }>;
+  };
+  const cases: Array<{ format: BarcodeFormat; payload: string; frame: NormalizedFrame }> = [];
+  const qrPixels = await loadPixelBufferFromPath(path.join(root, "fixtures", "01-clear-url.png"));
+  cases.push({ format: "qr_code", payload: "https://scanly.example/clear", frame: createRgbaFrame(qrPixels.data, qrPixels.width, qrPixels.height) });
+  for (const format of ["data_matrix", "pdf417", "code_128", "ean_13", "ean_8", "upc_a", "upc_e"] as const) {
+    const fixture = manifest.fixtures.find((entry) => entry.format === format && entry.expectedOutcome === "decode" && entry.difficultyTags.length === 1 && entry.difficultyTags[0] === "clear");
+    if (!fixture) throw new Error(`Missing clear memory-soak fixture for ${format}.`);
+    const pixels = await loadPixelBufferFromPath(path.join(root, fixture.file));
+    cases.push({ format, payload: fixture.expectedPayload, frame: createRgbaFrame(pixels.data, pixels.width, pixels.height) });
+  }
   const engine = createZxingCppWasmEngine();
   const coldStarted = performance.now();
   await engine.initialize();
@@ -23,7 +34,8 @@ async function main(): Promise<void> {
   const warmInitializationMs = performance.now() - warmStarted;
 
   for (let index = 0; index < 25; index += 1) {
-    const outcome = await engine.decode(frame, { formats: ["qr_code"], findMultiple: false });
+    const testCase = cases[index % cases.length];
+    const outcome = await engine.decode(testCase.frame, { formats: [testCase.format], findMultiple: false });
     if (!outcome.ok) throw new Error(`WASM warm-up failed at iteration ${index}.`);
   }
   const warmed = engine.getMemoryObservation();
@@ -31,8 +43,9 @@ async function main(): Promise<void> {
   const processBefore = process.memoryUsage();
   const started = performance.now();
   for (let index = 0; index < iterations; index += 1) {
-    const outcome = await engine.decode(frame, { formats: ["qr_code"], findMultiple: false });
-    if (!outcome.ok || outcome.results[0].text !== "https://scanly.example/clear") {
+    const testCase = cases[index % cases.length];
+    const outcome = await engine.decode(testCase.frame, { formats: [testCase.format], findMultiple: false });
+    if (!outcome.ok || outcome.results[0].text !== testCase.payload || outcome.results[0].format !== testCase.format) {
       throw new Error(`WASM soak decode failed at iteration ${index}.`);
     }
   }
@@ -54,6 +67,8 @@ async function main(): Promise<void> {
     schemaVersion: "1.0",
     runtime: { node: process.version, platform: process.platform, arch: process.arch, gcExposed: typeof global.gc === "function" },
     iterations,
+    formats: cases.map(({ format }) => format),
+    formatMaskChanges: Math.max(0, iterations - 1),
     coldInitializationMs,
     warmInitializationMs,
     elapsedMs,

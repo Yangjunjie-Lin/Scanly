@@ -93,10 +93,12 @@ export async function collectSourceIdentity(options: SourceIdentityOptions): Pro
 const EVIDENCE_ONLY_PATHS = [
   /^benchmark-results\/(?:latest-fast|latest|latest-robust)\.(?:json|csv)$/,
   /^benchmark-results\/comparison\.json$/,
+  /^benchmark-results\/symbologies\.json$/,
   /^benchmark-results\/canonical\/.+$/,
-  /^benchmark-results\/baselines\/v2-alpha(?:3|4)-r\d+-(?:fast|balanced|robust)-node24-windows-x64\.json$/,
+  /^benchmark-results\/baselines\/v2-(?:alpha\d+-r\d+|beta\d+-r\d+|rc\d+-r\d+|r\d+)-(?:fast|balanced|robust)-node24-windows-x64\.json$/,
   /^benchmark-results\/baselines\/registry\.json$/,
   /^docs\/benchmark\.md$/,
+  /^docs\/symbologies\.md$/,
   /^README\.md$/,
 ] as const;
 

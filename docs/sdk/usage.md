@@ -1,6 +1,6 @@
 # SDK usage
 
-The default Browser and Node composition includes the Alpha.4 WASM plugin but its binary is loaded lazily. Pass `zxingCppWasm: false` to the corresponding capture-router factory for a JavaScript-only installation, or create and register `createZxingCppWasmEngine()` explicitly for preload/prewarm control. See [WASM engine deployment](../wasm-engine.md).
+The default Browser and Node composition includes the Alpha.5 WASM plugin but its binary is loaded lazily. Pass `zxingCppWasm: false` to the corresponding capture-router factory for a JavaScript-only installation, or create and register `createZxingCppWasmEngine()` explicitly for preload/prewarm control. See [WASM engine deployment](../wasm-engine.md).
 
 The v2 packages are preview packages prepared for later publication; this repository does not publish them automatically.
 
@@ -31,7 +31,7 @@ The browser runtime uses a module Worker by default and transfers the decoded RG
 import { CaptureRouter, createRgbaFrame } from "@scanly/core";
 import { getBuiltinScenario } from "@scanly/scenario-schema";
 
-const router = new CaptureRouter({ scenario: getBuiltinScenario("balanced") });
+const router = new CaptureRouter({ scenario: getBuiltinScenario("balanced"), formats: ["qr_code"] });
 const frame = createRgbaFrame(rgba, width, height, {
   id: crypto.randomUUID(),
   sourceType: "pixel-buffer",
@@ -39,6 +39,15 @@ const frame = createRgbaFrame(rgba, width, height, {
 });
 const outcome = await router.scan(frame, { signal: abortController.signal });
 ```
+
+Opt into additional formats explicitly:
+
+```ts
+const retail = new CaptureRouter({ formats: { formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128"] } });
+const result = await retail.scan(frame);
+```
+
+Every successful result carries its detected `format` and `formatClass`; UPC/EAN payload identity is preserved and invalid checksums are rejected.
 
 Borrowed buffers remain caller-owned. For `owned` or `transferred` frames, supply `dispose` when the source has a release contract; the Router calls it after the frame finishes.
 

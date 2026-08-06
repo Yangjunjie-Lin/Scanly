@@ -1,4 +1,5 @@
 export const DEFAULT_PIPELINE_CONFIG = {
+    formats: ["qr_code"],
     maxCandidates: 5,
     maxAttempts: 96,
     timeoutMs: 12_000,
@@ -34,6 +35,8 @@ export const DEFAULT_PIPELINE_CONFIG = {
 };
 export function validatePipelineConfig(config) {
     const issues = [];
+    if (!Array.isArray(config.formats) || config.formats.length === 0)
+        issues.push("formats must contain at least one public barcode format.");
     for (const key of ["maxCandidates", "maxAttempts", "timeoutMs", "maxPixels", "previewSize", "maxMultipleResults", "maxIntermediateAllocations", "maxIntermediateBytes"]) {
         const value = config[key];
         if (typeof value !== "number" || !Number.isFinite(value) || !Number.isInteger(value) || value < 1)

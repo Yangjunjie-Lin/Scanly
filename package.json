@@ -1,7 +1,7 @@
 {
   "name": "scanly",
   "private": true,
-  "version": "2.0.0-alpha.4",
+  "version": "2.0.0-alpha.5",
   "workspaces": [
     "apps/*",
     "packages/*",
@@ -13,7 +13,8 @@
     "npm": ">=10"
   },
   "overrides": {
-    "postcss": "8.5.19"
+    "postcss": "8.5.25",
+    "sharp": "0.35.3"
   },
   "scripts": {
     "predev": "npm run build:packages",
@@ -31,6 +32,7 @@
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
     "test:coverage": "vitest run --coverage",
+    "test:symbologies": "vitest run tests/unit/multisymbology-contracts.test.ts tests/unit/zxing-cpp-formats.test.ts tests/unit/parsers.test.ts tests/integration/zxing-cpp-multisymbology.test.ts",
     "test:e2e": "playwright test",
     "test:e2e:chromium": "playwright test --project=chromium",
     "test:e2e:firefox": "playwright test --project=firefox",
@@ -39,6 +41,7 @@
     "test:wasm:memory": "node --expose-gc --import tsx scripts/soak-wasm-memory.ts",
     "benchmark": "tsx scripts/run-benchmark.ts",
     "benchmark:smoke": "tsx scripts/run-benchmark.ts --smoke --gate",
+    "benchmark:symbologies": "tsx scripts/benchmark-symbologies.ts",
     "benchmark:compare": "tsx scripts/compare-engines.ts",
     "benchmark:browser": "playwright test -c playwright.benchmark.config.ts",
     "benchmark:assemble-canonical": "tsx scripts/assemble-canonical-evidence.ts",
@@ -55,20 +58,23 @@
     "benchmark:profiles": "tsx scripts/run-benchmark.ts --profile=fast --gate && tsx scripts/run-benchmark.ts --profile=balanced --gate && tsx scripts/run-benchmark.ts --profile=robust --gate",
     "benchmark:canonical-candidate": "tsx scripts/run-benchmark.ts --canonical-candidate --gate-mode=baseline-candidate --measured-iterations=3 --warmup-iterations=1",
     "benchmark:canonical": "npm run benchmark:canonical-candidate --",
-    "fixtures:generate": "tsx scripts/generate-fixtures.ts",
+    "fixtures:generate": "tsx scripts/generate-fixtures.ts && tsx scripts/generate-symbology-fixtures.ts",
+    "fixtures:verify-external": "tsx scripts/verify-external-open-license.ts",
     "scenarios:generate": "tsx scripts/export-scenarios.ts",
     "workflows:verify": "node scripts/verify-workflows.mjs",
     "quality:static": "npm run workflows:verify && tsx scripts/verify-quality-gates.ts --static",
-    "quality:evidence:bootstrap": "tsx scripts/verify-benchmark-evidence.ts --mode=baseline-bootstrap",
+    "quality:evidence:source": "tsx scripts/verify-benchmark-evidence.ts --mode=source-development",
+    "quality:evidence:bootstrap": "tsx scripts/verify-benchmark-evidence.ts --mode=evidence-bootstrap",
+    "quality:evidence:active": "tsx scripts/verify-benchmark-evidence.ts --mode=active-baseline",
     "quality:evidence:release": "tsx scripts/verify-benchmark-evidence.ts --mode=release",
-    "quality:evidence": "npm run quality:evidence:release --",
+    "quality:evidence": "tsx scripts/verify-benchmark-evidence.ts --mode=auto",
     "quality:gates": "npm run quality:static && npm run quality:evidence --",
     "docs:check": "tsx scripts/check-doc-links.ts",
     "check": "npm run quality:gates && npm run docs:check && npm run lint && npm run typecheck && npm run test:coverage && npm run build && npm run api:snapshot && npm run packages:smoke && npm run packages:tarball",
     "verify": "npm run check && npm run test:e2e && npm run benchmark:smoke"
   },
   "dependencies": {
-    "next": "15.5.20",
+    "next": "15.5.22",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
@@ -82,12 +88,13 @@
     "@vitest/coverage-v8": "^3.2.4",
     "esbuild": "^0.28.1",
     "eslint": "^8.57.0",
-    "eslint-config-next": "15.5.20",
+    "eslint-config-next": "15.5.22",
     "js-yaml": "^4.3.0",
     "playwright": "^1.58.2",
     "qrcode": "^1.5.4",
     "tsx": "^4.21.0",
     "typescript": "^5.5.3",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "zxing-wasm": "3.1.1"
   }
 }

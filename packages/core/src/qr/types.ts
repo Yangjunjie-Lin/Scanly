@@ -87,6 +87,8 @@ export interface DecodedCode {
   engineMetadata?: import("../contracts/engine.js").EngineExecutionMetadata;
   cornerPoints?: Array<{ x: number; y: number }>;
   symbologyIdentifier?: string;
+  isGs1?: boolean;
+  metadata?: Record<string, unknown>;
   preprocessing: PreprocessMethod;
   candidateIndex: number;
   scale: ScaleLabel;
@@ -155,6 +157,8 @@ export interface DecodeProgress {
 }
 
 export interface PipelineConfig {
+  /** Explicit public formats passed to every engine attempt. Defaults to QR-only. */
+  formats: BarcodeFormat[];
   maxCandidates: number;
   maxAttempts: number;
   timeoutMs: number;
@@ -215,10 +219,11 @@ export interface MultiCodeStallPolicy {
 export interface PipelineEngineExecutor {
   readonly engineIds: readonly string[];
   readonly versions?: Readonly<Record<string, string>>;
-  decode(engineId: string, image: PixelBuffer, options: { signal?: AbortSignal; findMultiple: boolean; inversion?: "unknown" | "original" | "inverted" }): Promise<EngineOutcome>;
+  decode(engineId: string, image: PixelBuffer, options: { formats: readonly BarcodeFormat[]; signal?: AbortSignal; findMultiple: boolean; inversion?: "unknown" | "original" | "inverted" }): Promise<EngineOutcome>;
 }
 
 export const DEFAULT_PIPELINE_CONFIG: PipelineConfig = {
+  formats: ["qr_code"],
   maxCandidates: 5,
   maxAttempts: 96,
   timeoutMs: 12_000,
@@ -255,6 +260,7 @@ export const DEFAULT_PIPELINE_CONFIG: PipelineConfig = {
 
 export function validatePipelineConfig(config: PipelineConfig): string[] {
   const issues: string[] = [];
+  if (!Array.isArray(config.formats) || config.formats.length === 0) issues.push("formats must contain at least one public barcode format.");
   for (const key of ["maxCandidates", "maxAttempts", "timeoutMs", "maxPixels", "previewSize", "maxMultipleResults", "maxIntermediateAllocations", "maxIntermediateBytes"] as const) {
     const value = config[key];
     if (typeof value !== "number" || !Number.isFinite(value) || !Number.isInteger(value) || value < 1) issues.push(`${key} must be a positive integer.`);

@@ -21,10 +21,21 @@ type PendingJob = {
   setupMs: number;
   generation: number;
   transferMs?: number;
+  attemptCount: number;
+  receivedMessage: boolean;
+  deadlineAt: number;
+  watchdog?: ReturnType<typeof setTimeout>;
+  signal?: AbortSignal;
+  onAbort?: () => void;
   resolve: (outcome: ScanOutcome) => void;
   onStage?: WorkerScanOptions["onStage"];
   onProgress?: WorkerScanOptions["onProgress"];
 };
+
+// Module loading and WASM initialization can exceed two seconds when multiple
+// browsers contend for CPU in CI. Five seconds still leaves seven seconds of
+// the balanced scenario for a bounded main-thread fallback.
+const WORKER_STARTUP_WATCHDOG_MS = 5_000;
 
 let singleton: DecodeWorkerClient | null = null;
 type WorkerDebugState = { created: number; terminated: number; decodePosted: number; workerDecodeCount: number; mainThreadDecodeCount: number; workerDegraded: boolean; workerRestartCount: number; lastPath: "worker" | "main-thread" | null };
@@ -43,12 +54,23 @@ function defaultWorkerFactory(): DecodeWorkerLike {
   return new Worker(new URL("./decode-worker.js", import.meta.url), { type: "module" }) as DecodeWorkerLike;
 }
 
-function workerFailure(job: Pick<PendingJob, "frameId" | "scenarioId" | "startedAt">, message: string, code: "worker_initialization_failure" | "engine_execution_failure" = "engine_execution_failure"): ScanFailure {
-  return { ok: false, error: sdkError(code, `Image decoder Worker failed: ${message.slice(0, 2_048)}`), frameId: job.frameId, scenarioId: job.scenarioId, attemptCount: 0, timing: { totalMs: Date.now() - job.startedAt } };
+function workerFailure(job: Pick<PendingJob, "frameId" | "scenarioId" | "startedAt"> & Partial<Pick<PendingJob, "attemptCount" | "setupMs" | "transferMs">>, message: string, code: "worker_initialization_failure" | "engine_execution_failure" = "engine_execution_failure"): ScanFailure {
+  return {
+    ok: false,
+    error: sdkError(code, `Image decoder Worker failed: ${message.slice(0, 2_048)}`),
+    frameId: job.frameId,
+    scenarioId: job.scenarioId,
+    attemptCount: job.attemptCount ?? 0,
+    timing: {
+      totalMs: Date.now() - job.startedAt,
+      ...(job.setupMs === undefined ? {} : { workerSetupMs: job.setupMs }),
+      ...(job.transferMs === undefined ? {} : { workerTransferMs: job.transferMs }),
+    },
+  };
 }
 
-function cancelled(job: Pick<PendingJob, "frameId" | "scenarioId" | "startedAt">): ScanFailure {
-  return { ok: false, error: sdkError("cancelled", "Decode cancelled."), frameId: job.frameId, scenarioId: job.scenarioId, attemptCount: 0, timing: { totalMs: Date.now() - job.startedAt } };
+function cancelled(job: Pick<PendingJob, "frameId" | "scenarioId" | "startedAt"> & Partial<Pick<PendingJob, "attemptCount">>): ScanFailure {
+  return { ok: false, error: sdkError("cancelled", "Decode cancelled."), frameId: job.frameId, scenarioId: job.scenarioId, attemptCount: job.attemptCount ?? 0, timing: { totalMs: Date.now() - job.startedAt } };
 }
 
 export function getDecodeWorkerClient(): DecodeWorkerClient { return (singleton ??= new DecodeWorkerClient()); }
@@ -74,21 +96,35 @@ export class DecodeWorkerClient {
   private handleMessage(message: WorkerResponse): void {
     const job = this.pending;
     if (!job || message.jobId !== job.jobId || message.jobId !== this.currentJobId || message.generation !== job.generation) return;
+    if (Date.now() >= job.deadlineAt) { this.failWatchdog(job, job.receivedMessage ? "engine_execution_failure" : "worker_initialization_failure"); return; }
+    if (!job.receivedMessage) {
+      job.receivedMessage = true;
+      if (job.watchdog !== undefined) clearTimeout(job.watchdog);
+      job.watchdog = setTimeout(() => this.failWatchdog(job, "engine_execution_failure"), Math.max(1, job.deadlineAt - Date.now()));
+    }
     if (job.transferMs === undefined) job.transferMs = Math.max(0, Date.now() - job.postedAt);
     if (message.type === "stage") { job.onStage?.(message.stage); return; }
-    if (message.type === "progress") { job.onProgress?.({ attemptCount: message.attemptCount }); return; }
+    if (message.type === "progress") { job.attemptCount = Math.max(job.attemptCount, message.attemptCount); job.onProgress?.({ attemptCount: message.attemptCount }); return; }
     if (message.type === "cancelled") { this.finish(job, cancelled(job)); return; }
     if (message.type === "error") { this.finish(job, workerFailure(job, message.message)); this.restartWorker(); return; }
     this.finish(job, { ...message.outcome, timing: { ...message.outcome.timing, workerSetupMs: job.setupMs, workerTransferMs: job.transferMs ?? 0 } });
   }
 
   private handleWorkerError(message: string): void {
-    if (this.pending) this.finish(this.pending, workerFailure(this.pending, message, "worker_initialization_failure"));
+    if (this.pending) this.finish(this.pending, workerFailure(this.pending, message, this.pending.receivedMessage ? "engine_execution_failure" : "worker_initialization_failure"));
+    this.restartWorker();
+  }
+
+  private failWatchdog(job: PendingJob, code: "worker_initialization_failure" | "engine_execution_failure"): void {
+    if (this.pending !== job) return;
+    this.finish(job, workerFailure(job, `Worker did not complete before the ${job.deadlineAt - job.startedAt} ms deadline.`, code));
     this.restartWorker();
   }
 
   private finish(job: PendingJob, outcome: ScanOutcome): void {
     if (this.pending !== job) return;
+    if (job.watchdog !== undefined) clearTimeout(job.watchdog);
+    if (job.signal && job.onAbort) job.signal.removeEventListener("abort", job.onAbort);
     this.pending = null;
     this.currentJobId = null;
     job.resolve(outcome);
@@ -114,9 +150,21 @@ export class DecodeWorkerClient {
     catch (error) { return workerFailure(identity, error instanceof Error ? error.message : String(error), "worker_initialization_failure"); }
     const { serialized, transfer } = toTransferableFrame(frame, options.preserveSourceForFallback);
     return new Promise<ScanOutcome>((resolve) => {
-      const job: PendingJob = { jobId, generation, ...identity, postedAt: Date.now(), setupMs, resolve, onStage: options.onStage, onProgress: options.onProgress };
+      const postedAt = Date.now();
+      const deadlineAt = postedAt + Math.max(1, scenario.budgets.maxExecutionMs);
+      const job: PendingJob = {
+        jobId, generation, ...identity, postedAt, setupMs, attemptCount: 0, receivedMessage: false, deadlineAt, resolve,
+        signal: options.signal, onStage: options.onStage, onProgress: options.onProgress,
+      };
+      job.onAbort = () => { if (this.pending === job) this.cancel(); };
+      job.watchdog = setTimeout(
+        () => this.failWatchdog(job, "worker_initialization_failure"),
+        Math.min(WORKER_STARTUP_WATCHDOG_MS, Math.max(1, deadlineAt - Date.now())),
+      );
       this.currentJobId = jobId;
       this.pending = job;
+      options.signal?.addEventListener("abort", job.onAbort, { once: true });
+      if (options.signal?.aborted) { this.cancel(); return; }
       try {
         const state = debugState(); if (state) state.decodePosted += 1;
         worker.postMessage({ type: "scan", jobId, generation, frame: serialized, scenario, progress: Boolean(options.onProgress) }, transfer);
@@ -131,6 +179,8 @@ export class DecodeWorkerClient {
     const job = this.pending;
     if (!job || !this.currentJobId) return;
     const jobId = this.currentJobId;
+    if (job.watchdog !== undefined) clearTimeout(job.watchdog);
+    if (job.signal && job.onAbort) job.signal.removeEventListener("abort", job.onAbort);
     this.pending = null;
     this.currentJobId = null;
     try { this.worker?.postMessage({ type: "cancel", jobId, generation: job.generation }); } catch { /* termination is authoritative */ }

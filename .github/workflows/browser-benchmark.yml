@@ -11,7 +11,7 @@ on:
         options: [smoke, full]
   pull_request:
   push:
-    branches: [architecture/sdk-v2-alpha3-industrial-validation, architecture/sdk-v2-alpha4-zxing-cpp-wasm]
+    branches: [architecture/sdk-v2-alpha3-industrial-validation, architecture/sdk-v2-alpha4-zxing-cpp-wasm, architecture/sdk-v2-alpha5-multisymbology-foundation, develop/sdk-v2]
   schedule:
     - cron: "17 3 * * 1"
 
@@ -36,7 +36,7 @@ jobs:
       BROWSER_BENCHMARK_KIND: ${{ github.event_name == 'workflow_dispatch' && inputs.suite || github.event_name == 'schedule' && 'full' || 'smoke' }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 20, cache: npm }
       - run: npm ci
       - run: npm run wasm:verify
@@ -58,7 +58,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 20, cache: npm }
       - run: npm ci
       - uses: actions/download-artifact@v4
