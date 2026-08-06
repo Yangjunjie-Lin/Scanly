@@ -145,6 +145,13 @@ async function writeIfChanged(file: string, bytes: Buffer): Promise<void> {
   if (!prior?.equals(bytes)) await fs.promises.writeFile(file, bytes);
 }
 
+async function writeTextIfChanged(file: string, text: string): Promise<void> {
+  await fs.promises.mkdir(path.dirname(file), { recursive: true });
+  const prior = await fs.promises.readFile(file, "utf8").catch(() => null);
+  if (prior?.replace(/\r\n/g, "\n") === text.replace(/\r\n/g, "\n")) return;
+  await fs.promises.writeFile(file, text);
+}
+
 function positiveSpecs(): PositiveSpec[] {
   const specs: PositiveSpec[] = [];
   for (let index = 0; index < 24; index += 1) {
@@ -303,7 +310,7 @@ async function main(): Promise<void> {
       : "Generated Alpha.5 corpus. Project-owned real-photo fixtures remain an outstanding release gate until fixtures/alpha5/project-photos/manifest.json is populated.",
     fixtures: [...fixtures, ...projectPhotoFixtures, ...externalFixtures],
   };
-  await writeIfChanged(path.join(OUTPUT, "manifest.json"), Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`));
+  await writeTextIfChanged(path.join(OUTPUT, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
   console.log(`Generated ${fixtures.length} Alpha.5 generated fixtures + ${projectPhotoFixtures.length} project photos + ${externalFixtures.length} external photographs: ${specs.length} single positive, ${mixedPairs.length} mixed, ${fixtures.filter((fixture) => fixture.expectedOutcome === "no-symbol").length} negative.`);
 }
 
