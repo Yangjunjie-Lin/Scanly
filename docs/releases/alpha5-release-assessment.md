@@ -26,7 +26,7 @@
 | `package-lock.json` SHA-256 | `b21740e7ee0dc27c8cedd16b6fbe46d805e0eb6723c19b966388b30805be1f4b` |
 | Alpha.5 manifest SHA-256 | `847692502858e6ba4a2f3cfca8840856f6637d4bff14d63b88617bc39d97ba85` |
 
-本地 `git pull --ff-only` 成功并显示已是最新；远端分支仍为 `78266777dfba3e4f294d03c3e8dd764085f91a88`。PR #9 当前为 OPEN、Draft、base 正确、mergeable，但远端检查属于旧 SHA，不能作为 `b2f7665` 的结果。
+审计开始时，本地 `git pull --ff-only` 成功，而远端分支为 `78266777dfba3e4f294d03c3e8dd764085f91a88`；该旧 SHA 的检查没有被复用。随后 hardening 和评估提交已推送。PR #9 保持 OPEN、Draft、base `develop/sdk-v2`、mergeable；没有标记 Ready，也没有合并。
 
 ## Project-photo audit
 
@@ -103,7 +103,7 @@ Tier B 不成立。独立真实照片不是 `>=100`，每族不是 `>=25`；hold
 | --- | --- |
 | real-photo recall / dataset coverage | **BLOCKER**：实际照片为 0，四族覆盖和 recall gate 无分母 |
 | evidence mismatch | **BLOCKER**：没有 Alpha.5 Source/Evidence Freeze、schema 2.1 Canonical Manifest、`v2-alpha5-r1` active baseline |
-| remote CI | **BLOCKER**：`0628bf3` 的 Full Benchmark 在 Windows checkout 中发现 `fixtures/alpha5/manifest.json` 的 CRLF/LF 工作树漂移；`b1b0d19` 已修复生成器，但 exact-SHA 远程结果尚未完成 |
+| remote CI | **BLOCKER**：`0628bf3` 的 Full Benchmark 发现 manifest CRLF/LF 漂移；`b1b0d19` 修复后，PR head `1e3ab07` 的 Full Benchmark run `31082890203` 中 `Prepare` 成功、`Symbologies` 因照片 gate 失败，Fast/Balanced/Robust/Comparison 当时仍在运行。失败或 pending 均不满足发布条件 |
 | device validation / reliability | **BLOCKER for Tier B**：缺少 macOS、Android、iOS 及 2 小时 Worker evidence |
 | package installation / supply chain | 本地 tarball 和 audit 通过；SBOM、离线消费者验证和 release hashes 尚未生成，不能视为 release-complete |
 | latency | 本机 Balanced/Robust P95 高于工业 profile 的 1,000 ms 总体要求；硬件/use-case profile 尚未冻结，不能宣称 Tier B |
