@@ -61,6 +61,7 @@ Alpha.5 生成语料为 146 条：112 条正例、34 条负例；项目照片为
 | project-owned photo corpus | 0/12；四族均 0/3 | **FAILED** |
 | project-photo exact recall | 分母为 0，不能计算；不可假定通过 | **FAILED** |
 | Tier A aggregate | symbology gate `21/32`；其余失败均由照片缺失引起（外部语料 gate 为 informational） | **FAILED** |
+| exact-SHA remote CI | Public API、WASM Build、multi-symbology unit/integration、package tarball 通过；主 CI canonical evidence、Full Benchmark Symbologies、Firefox Browser Benchmark 失败 | **FAILED** |
 
 维护的旧 QR smoke 在本机为 `10/11`，唯一失败为文档化的 damaged fixture；`false positives=0`、`timeouts=0`。旧的开发 profile 文件曾在远端 SHA `7826677` 记录 Fast `62/74`、Balanced `73/74`、Robust `73/74`，但该 SHA 不是当前 Source Commit，不能冻结或复用为 Alpha.5 证据。
 
@@ -93,6 +94,8 @@ Alpha.5 生成语料为 146 条：112 条正例、34 条负例；项目照片为
 
 这些是开发比较结果，不是 Alpha.5 immutable baseline；没有在本次未冻结的情况下把它们宣传成工业延迟保证。
 
+独立 Windows Firefox browser smoke benchmark 的 7 个 fixture 全部通过（Playwright test 9.4 秒，报告 P95 1,541 ms）。同一 source code 在两次 Ubuntu GitHub runner 的 Firefox Browser Benchmark 中均达到 120 秒 test timeout，未生成报告；Chromium 和 WebKit job 通过。尝试在 Ubuntu 24.04 WSL clean worktree 复现，但 `npm ci`/build 在 Windows 挂载盘上 10 分钟内未完成，因此该本地 Linux 复现标记为 unavailable，不能替代远端失败。
+
 ## Tier B industrial-grade evidence
 
 Tier B 不成立。独立真实照片不是 `>=100`，每族不是 `>=25`；holdout 为 0；真实负例不是 `>=100`；没有实体验证的 macOS、Android 浏览器或 iOS Safari 证据；没有 10,000 次之外的 `>=2 小时`持续 Worker/session 证据；没有定义并冻结的多硬件 latency profile；没有本次 Source Commit 对应的 SBOM、离线 bundle、release provenance 或远程完整 Actions 结果。因此不得作 industrial-grade engineering evidence claim。
@@ -103,7 +106,7 @@ Tier B 不成立。独立真实照片不是 `>=100`，每族不是 `>=25`；hold
 | --- | --- |
 | real-photo recall / dataset coverage | **BLOCKER**：实际照片为 0，四族覆盖和 recall gate 无分母 |
 | evidence mismatch | **BLOCKER**：没有 Alpha.5 Source/Evidence Freeze、schema 2.1 Canonical Manifest、`v2-alpha5-r1` active baseline |
-| remote CI | **BLOCKER**：`0628bf3` 的 Full Benchmark 发现 manifest CRLF/LF 漂移；`b1b0d19` 修复后，PR head `1e3ab07` 的 Full Benchmark run `31082890203` 中 `Prepare` 成功、`Symbologies` 因照片 gate 失败，Fast/Balanced/Robust/Comparison 当时仍在运行。失败或 pending 均不满足发布条件 |
+| remote CI | **BLOCKER**：`b1b0d19` 修复 manifest 漂移后，PR head `1e3ab07` 的 Full Benchmark `Prepare` 成功、`Symbologies` 因照片 gate 失败；主 CI 因 Alpha.4 canonical manifest 的 SDK/dataset/package-lock/source 不兼容而失败；Firefox Browser Benchmark 两次在 120 秒超时。失败或 pending 均不满足发布条件 |
 | device validation / reliability | **BLOCKER for Tier B**：缺少 macOS、Android、iOS 及 2 小时 Worker evidence |
 | package installation / supply chain | 本地 tarball 和 audit 通过；SBOM、离线消费者验证和 release hashes 尚未生成，不能视为 release-complete |
 | latency | 本机 Balanced/Robust P95 高于工业 profile 的 1,000 ms 总体要求；硬件/use-case profile 尚未冻结，不能宣称 Tier B |
