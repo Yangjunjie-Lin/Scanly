@@ -7,4 +7,5 @@ export * from "./runtime.js";
 export * from "./worker/worker-client.js";
 export * from "./worker/worker-messages.js";
 export * from "./worker/transferable-buffer.js";
+export * from "./scanner/index.js";
 //# sourceMappingURL=index.d.ts.map

@@ -2,7 +2,7 @@ import { type CaptureRouter, type ScanFailure, type ScanOutcome } from "@scanly/
 import { type ScenarioDefinition } from "@scanly/scenario-schema";
 import { type DecodeWorkerFactory } from "./worker/worker-client.js";
 import { type CameraEscalationOptions } from "./camera-strategy.js";
-export interface CameraCapabilities {
+interface CameraCapabilities {
     torch: boolean;
     minZoom?: number;
     maxZoom?: number;
@@ -57,6 +57,7 @@ export declare class BrowserCameraSource {
     private stableKey;
     private stableCount;
     private stopped;
+    private paused;
     private workerAvailable;
     private workerRetryFrames;
     private consecutiveWorkerRestarts;
@@ -71,6 +72,10 @@ export declare class BrowserCameraSource {
     setTorch(enabled: boolean): Promise<void>;
     setZoom(zoom: number): Promise<void>;
     stop(): void;
+    /** Compatibility adapter controls; ScannerSession owns the new runtime policy. */
+    pause(): void;
+    resume(): void;
+    getState(): "idle" | "starting" | "running" | "paused" | "stopped";
     dispose(): Promise<void>;
     private schedule;
     private sample;
@@ -80,4 +85,5 @@ export declare class BrowserCameraSource {
     private internalStop;
     private currentTrack;
 }
+export {};
 //# sourceMappingURL=camera-source.d.ts.map

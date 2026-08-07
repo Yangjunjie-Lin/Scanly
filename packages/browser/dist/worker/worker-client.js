@@ -54,6 +54,9 @@ export class DecodeWorkerClient {
     currentJobId = null;
     pending = null;
     seq = 0;
+    createdCount = 0;
+    terminatedCount = 0;
+    peakActiveTaskCount = 0;
     constructor(workerFactory = defaultWorkerFactory) {
         this.workerFactory = workerFactory;
     }
@@ -62,6 +65,7 @@ export class DecodeWorkerClient {
             return { worker: this.worker, setupMs: 0 };
         const started = Date.now();
         this.worker = this.workerFactory();
+        this.createdCount += 1;
         this.worker.onmessage = (event) => isWorkerResponse(event.data) ? this.handleMessage(event.data) : this.handleWorkerError("Worker returned a malformed message.");
         this.worker.onerror = (event) => this.handleWorkerError(event.message || "Unknown Worker error");
         return { worker: this.worker, setupMs: Date.now() - started };
@@ -131,6 +135,7 @@ export class DecodeWorkerClient {
         }
         catch { /* crashed Worker */ }
         if (hadWorker) {
+            this.terminatedCount += 1;
             const state = debugState();
             if (state)
                 state.terminated += 1;
@@ -166,6 +171,7 @@ export class DecodeWorkerClient {
             job.watchdog = setTimeout(() => this.failWatchdog(job, "worker_initialization_failure"), Math.min(WORKER_STARTUP_WATCHDOG_MS, Math.max(1, deadlineAt - Date.now())));
             this.currentJobId = jobId;
             this.pending = job;
+            this.peakActiveTaskCount = Math.max(this.peakActiveTaskCount, 1);
             options.signal?.addEventListener("abort", job.onAbort, { once: true });
             if (options.signal?.aborted) {
                 this.cancel();
@@ -202,5 +208,8 @@ export class DecodeWorkerClient {
         job.resolve(cancelled(job));
     }
     dispose() { this.cancel(); this.restartWorker(); }
+    getStatistics() {
+        return { workerCreatedCount: this.createdCount, workerTerminatedCount: this.terminatedCount, activeTaskCount: this.pending ? 1 : 0, peakActiveTaskCount: this.peakActiveTaskCount };
+    }
 }
 //# sourceMappingURL=worker-client.js.map

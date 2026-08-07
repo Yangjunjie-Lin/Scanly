@@ -43,6 +43,9 @@ export declare class DecodeWorkerClient {
     private currentJobId;
     private pending;
     private seq;
+    private createdCount;
+    private terminatedCount;
+    private peakActiveTaskCount;
     constructor(workerFactory?: DecodeWorkerFactory);
     private ensureWorker;
     private handleMessage;
@@ -53,6 +56,12 @@ export declare class DecodeWorkerClient {
     scan(frame: NormalizedFrame, scenario: ScenarioDefinition, options?: WorkerScanOptions): Promise<ScanOutcome>;
     cancel(): void;
     dispose(): void;
+    getStatistics(): {
+        workerCreatedCount: number;
+        workerTerminatedCount: number;
+        activeTaskCount: number;
+        peakActiveTaskCount: number;
+    };
 }
 export {};
 //# sourceMappingURL=worker-client.d.ts.map

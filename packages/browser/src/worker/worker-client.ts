@@ -82,12 +82,16 @@ export class DecodeWorkerClient {
   private currentJobId: string | null = null;
   private pending: PendingJob | null = null;
   private seq = 0;
+  private createdCount = 0;
+  private terminatedCount = 0;
+  private peakActiveTaskCount = 0;
   constructor(private readonly workerFactory: DecodeWorkerFactory = defaultWorkerFactory) {}
 
   private ensureWorker(): { worker: DecodeWorkerLike; setupMs: number } {
     if (this.worker) return { worker: this.worker, setupMs: 0 };
     const started = Date.now();
     this.worker = this.workerFactory();
+    this.createdCount += 1;
     this.worker.onmessage = (event) => isWorkerResponse(event.data) ? this.handleMessage(event.data) : this.handleWorkerError("Worker returned a malformed message.");
     this.worker.onerror = (event) => this.handleWorkerError(event.message || "Unknown Worker error");
     return { worker: this.worker, setupMs: Date.now() - started };
@@ -133,7 +137,7 @@ export class DecodeWorkerClient {
   private restartWorker(): void {
     const hadWorker = Boolean(this.worker);
     try { this.worker?.terminate(); } catch { /* crashed Worker */ }
-    if (hadWorker) { const state = debugState(); if (state) state.terminated += 1; }
+    if (hadWorker) { this.terminatedCount += 1; const state = debugState(); if (state) state.terminated += 1; }
     this.worker = null;
   }
 
@@ -163,6 +167,7 @@ export class DecodeWorkerClient {
       );
       this.currentJobId = jobId;
       this.pending = job;
+      this.peakActiveTaskCount = Math.max(this.peakActiveTaskCount, 1);
       options.signal?.addEventListener("abort", job.onAbort, { once: true });
       if (options.signal?.aborted) { this.cancel(); return; }
       try {
@@ -189,4 +194,7 @@ export class DecodeWorkerClient {
   }
 
   dispose(): void { this.cancel(); this.restartWorker(); }
+  getStatistics(): { workerCreatedCount: number; workerTerminatedCount: number; activeTaskCount: number; peakActiveTaskCount: number } {
+    return { workerCreatedCount: this.createdCount, workerTerminatedCount: this.terminatedCount, activeTaskCount: this.pending ? 1 : 0, peakActiveTaskCount: this.peakActiveTaskCount };
+  }
 }

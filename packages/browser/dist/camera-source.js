@@ -32,6 +32,7 @@ export class BrowserCameraSource {
     stableKey = null;
     stableCount = 0;
     stopped = true;
+    paused = false;
     workerAvailable = true;
     workerRetryFrames = 0;
     consecutiveWorkerRestarts = 0;
@@ -54,6 +55,7 @@ export class BrowserCameraSource {
         this.generation += 1;
         const generation = this.generation;
         this.stopped = false;
+        this.paused = false;
         this.video = video;
         this.options = options;
         this.strategy = new CameraEscalationController(options.escalation);
@@ -141,13 +143,20 @@ export class BrowserCameraSource {
         await track.applyConstraints({ advanced: [{ zoom }] });
     }
     stop() { this.internalStop(true); }
+    /** Compatibility adapter controls; ScannerSession owns the new runtime policy. */
+    pause() { if (!this.stopped)
+        this.paused = true; }
+    resume() { if (this.stopped)
+        return; this.paused = false; this.schedule(this.generation, 0); }
+    getState() { if (this.stopped)
+        return this.video ? "stopped" : "idle"; return this.paused ? "paused" : "running"; }
     async dispose() {
         this.internalStop(true);
         this.worker.dispose();
         await this.session.dispose();
     }
     schedule(generation, delay) {
-        if (this.stopped || generation !== this.generation)
+        if (this.stopped || this.paused || generation !== this.generation)
             return;
         const videoWithFrames = this.video;
         if (videoWithFrames?.requestVideoFrameCallback && delay === undefined) {
@@ -161,7 +170,7 @@ export class BrowserCameraSource {
         this.timer = setTimeout(() => void this.sample(generation), delay ?? cadence);
     }
     async sample(generation) {
-        if (this.stopped || generation !== this.generation)
+        if (this.stopped || this.paused || generation !== this.generation)
             return;
         if (this.activeFrame) {
             this.schedule(generation);
@@ -304,6 +313,7 @@ export class BrowserCameraSource {
             return;
         const options = this.options;
         this.stopped = true;
+        this.paused = false;
         this.generation += 1;
         if (this.timer)
             clearTimeout(this.timer);
