@@ -1,7 +1,7 @@
 import { sdkError, type NormalizedFrame, type ScanFailure, type ScanOutcome } from "@scanly/core";
 import type { ScenarioDefinition } from "@scanly/scenario-schema";
 import { toTransferableFrame } from "./transferable-buffer.js";
-import { isWorkerResponse, type WorkerRequest, type WorkerResponse } from "./worker-messages.js";
+import { isWorkerResponse, type WorkerRequest, type WorkerResponse, type WorkerWasmMemoryObservation } from "./worker-messages.js";
 
 export interface DecodeWorkerLike {
   onmessage: ((event: MessageEvent<WorkerResponse>) => void) | null;
@@ -73,6 +73,23 @@ function cancelled(job: Pick<PendingJob, "frameId" | "scenarioId" | "startedAt">
   return { ok: false, error: sdkError("cancelled", "Decode cancelled."), frameId: job.frameId, scenarioId: job.scenarioId, attemptCount: job.attemptCount ?? 0, timing: { totalMs: Date.now() - job.startedAt } };
 }
 
+function combineWasmMemory(
+  left: WorkerWasmMemoryObservation | undefined,
+  right: WorkerWasmMemoryObservation | undefined,
+): WorkerWasmMemoryObservation | undefined {
+  if (!left) return right ? { ...right } : undefined;
+  if (!right) return { ...left };
+  return {
+    initialLinearMemoryBytes: left.initialLinearMemoryBytes + right.initialLinearMemoryBytes,
+    currentLinearMemoryBytes: left.currentLinearMemoryBytes + right.currentLinearMemoryBytes,
+    peakLinearMemoryBytes: left.peakLinearMemoryBytes + right.peakLinearMemoryBytes,
+    inputAllocationBytes: left.inputAllocationBytes + right.inputAllocationBytes,
+    peakInputAllocationBytes: left.peakInputAllocationBytes + right.peakInputAllocationBytes,
+    activeNativeResultCount: left.activeNativeResultCount + right.activeNativeResultCount,
+    releasedNativeResultCount: left.releasedNativeResultCount + right.releasedNativeResultCount,
+  };
+}
+
 export function getDecodeWorkerClient(): DecodeWorkerClient { return (singleton ??= new DecodeWorkerClient()); }
 export function resetDecodeWorkerClientForTests(): void { singleton?.dispose(); singleton = null; }
 export function disposeDecodeWorkerClient(): void { singleton?.dispose(); singleton = null; }
@@ -85,6 +102,10 @@ export class DecodeWorkerClient {
   private createdCount = 0;
   private terminatedCount = 0;
   private peakActiveTaskCount = 0;
+  private wasmObservationCount = 0;
+  private workerWasmDecodeCount = 0;
+  private wasmMemory?: WorkerWasmMemoryObservation;
+  private unconfirmedRealmMemory?: WorkerWasmMemoryObservation;
   constructor(private readonly workerFactory: DecodeWorkerFactory = defaultWorkerFactory) {}
 
   private ensureWorker(): { worker: DecodeWorkerLike; setupMs: number } {
@@ -111,6 +132,13 @@ export class DecodeWorkerClient {
     if (message.type === "progress") { job.attemptCount = Math.max(job.attemptCount, message.attemptCount); job.onProgress?.({ attemptCount: message.attemptCount }); return; }
     if (message.type === "cancelled") { this.finish(job, cancelled(job)); return; }
     if (message.type === "error") { this.finish(job, workerFailure(job, message.message)); this.restartWorker(); return; }
+    if (message.wasmMemory) {
+      this.wasmMemory = { ...message.wasmMemory };
+      this.wasmObservationCount += 1;
+      if (message.outcome.ok && message.outcome.results.some((result) => result.engine.id === "zxing-cpp-wasm")) {
+        this.workerWasmDecodeCount += 1;
+      }
+    }
     this.finish(job, { ...message.outcome, timing: { ...message.outcome.timing, workerSetupMs: job.setupMs, workerTransferMs: job.transferMs ?? 0 } });
   }
 
@@ -135,10 +163,33 @@ export class DecodeWorkerClient {
   }
 
   private restartWorker(): void {
-    const hadWorker = Boolean(this.worker);
-    try { this.worker?.terminate(); } catch { /* crashed Worker */ }
-    if (hadWorker) { this.terminatedCount += 1; const state = debugState(); if (state) state.terminated += 1; }
+    const worker = this.worker;
+    if (!worker) return;
+    // Detach callbacks first: a Worker whose termination throws must not be
+    // able to corrupt a subsequently created Worker's ownership state.
+    worker.onmessage = null;
+    worker.onerror = null;
     this.worker = null;
+    try {
+      worker.terminate();
+    } catch {
+      // Keep the last realm observation intact. We cannot claim either a
+      // terminated Worker or released realm memory when terminate() failed.
+      this.unconfirmedRealmMemory = combineWasmMemory(this.unconfirmedRealmMemory, this.wasmMemory);
+      this.wasmMemory = undefined;
+      return;
+    }
+    this.terminatedCount += 1;
+    const state = debugState();
+    if (state) state.terminated += 1;
+    if (this.wasmMemory) {
+      this.wasmMemory = {
+        ...this.wasmMemory,
+        currentLinearMemoryBytes: 0,
+        inputAllocationBytes: 0,
+        activeNativeResultCount: 0,
+      };
+    }
   }
 
   async scan(frame: NormalizedFrame, scenario: ScenarioDefinition, options: WorkerScanOptions = {}): Promise<ScanOutcome> {
@@ -194,7 +245,22 @@ export class DecodeWorkerClient {
   }
 
   dispose(): void { this.cancel(); this.restartWorker(); }
-  getStatistics(): { workerCreatedCount: number; workerTerminatedCount: number; activeTaskCount: number; peakActiveTaskCount: number } {
-    return { workerCreatedCount: this.createdCount, workerTerminatedCount: this.terminatedCount, activeTaskCount: this.pending ? 1 : 0, peakActiveTaskCount: this.peakActiveTaskCount };
+  getStatistics() {
+    const memory = combineWasmMemory(this.unconfirmedRealmMemory, this.wasmMemory);
+    return {
+      workerCreatedCount: this.createdCount,
+      workerTerminatedCount: this.terminatedCount,
+      activeTaskCount: this.pending ? 1 : 0,
+      peakActiveTaskCount: this.peakActiveTaskCount,
+      wasmObservationCount: this.wasmObservationCount,
+      workerWasmDecodeCount: this.workerWasmDecodeCount,
+      ...(memory ? {
+        wasmInputAllocationBytes: memory.inputAllocationBytes,
+        wasmActiveNativeResultCount: memory.activeNativeResultCount,
+        wasmCurrentLinearMemoryBytes: memory.currentLinearMemoryBytes,
+        wasmPeakLinearMemoryBytes: memory.peakLinearMemoryBytes,
+        wasmReleasedNativeResultCount: memory.releasedNativeResultCount,
+      } : {}),
+    };
   }
 }

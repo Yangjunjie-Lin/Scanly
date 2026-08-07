@@ -48,6 +48,27 @@ describe("FrameScheduler", () => {
     expect(scheduler.getStatistics().active).toBe(1); expect(scheduler.getStatistics().pending).toBe(1); expect(scheduler.getStatistics().peakPending).toBe(1);
     release(); await scheduler.waitForIdle(); expect(seen).toEqual(["sequence-1", "sequence-3"]); expect(dropped).toBe(1); await scheduler.stop();
   });
+  it("releases the pre-pause pending frame and never decodes it after resume", async () => {
+    let releaseActive!: () => void;
+    const activeGate = new Promise<void>((resolve) => { releaseActive = resolve; });
+    const seen: string[] = [];
+    let dropped = 0;
+    const scheduler = new FrameScheduler(async (input) => {
+      seen.push(input.id);
+      if (input.id === "sequence-1") await activeGate;
+      input.dispose?.();
+      return { decodeMs: 1, success: true };
+    }, { initialDecodeFps: 15, onDropped: () => { dropped += 1; } });
+    const pending = frame(2);
+    scheduler.start(); scheduler.submit(frame(1)); scheduler.submit(pending);
+    expect(scheduler.getStatistics().pending).toBe(1);
+    scheduler.pause();
+    expect(scheduler.getStatistics().pending).toBe(0);
+    expect((pending.dispose as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1);
+    scheduler.resume(); releaseActive(); await scheduler.waitForIdle();
+    scheduler.submit(frame(3)); await scheduler.waitForIdle();
+    expect(seen).toEqual(["sequence-1", "sequence-3"]); expect(dropped).toBe(1); await scheduler.stop();
+  });
 });
 
 describe("bounded decode escalation", () => {
@@ -100,6 +121,20 @@ describe("ScannerSession", () => {
     const session = new ScannerSession({ source, decoder: new FakeDecoder(), confirmation: { mode: "immediate" }, quality: { blurThreshold: 0, contrastThreshold: 0 } });
     const listener = vi.fn(); session.onResult(listener); await session.start(); await new Promise<void>((r) => setTimeout(r, 0)); session.pause(); expect(session.getState()).toBe("paused"); resolve(); await session.stop();
     expect(listener).toHaveBeenCalledTimes(1); expect(session.getStatistics().staleEvents).toBe(0);
+  });
+  it("counts and blocks a public-event attempt after re-entrant generation invalidation", async () => {
+    let releaseFrame!: () => void;
+    const frameGate = new Promise<void>((resolve) => { releaseFrame = resolve; });
+    const source = new DeterministicFrameSequenceSource(async function* () { await frameGate; yield frame(1); });
+    const decoder = new FakeDecoder((input) => {
+      const first = result(input.id, "FIRST", 2); const second = result(input.id, "SECOND", 18);
+      return { ...success(input.id, first), results: [first, second] };
+    });
+    const session = new ScannerSession({ source, decoder, confirmation: { mode: "immediate" }, repeatPolicy: { mode: "allow" }, quality: { blurThreshold: 0, contrastThreshold: 0 } });
+    const listener = vi.fn(() => session.pause()); session.onResult(listener);
+    await session.start(); releaseFrame(); await source.finished(); await session.stop();
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(session.getStatistics()).toMatchObject({ emittedEvents: 1, staleEvents: 1 });
   });
   it("isolates an engine exception and keeps the session usable", async () => {
     let calls = 0;

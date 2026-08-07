@@ -150,14 +150,35 @@ describe("benchmark workflow contracts", () => {
     }
   });
 
-  it("runs the Beta 1 realtime unit, integration, soak, benchmark, and cross-browser simulator gates", () => {
+  it("runs the Beta 1 realtime unit, integration, two-layer soak, benchmark, and cross-browser simulator gates", () => {
     const ci = read("ci.yml");
-    for (const job of ["Real-Time Scanner Unit", "Real-Time Scanner Integration", "Scanner Soak", "Real-Time Benchmark"]) expect(ci).toContain(`name: ${job}`);
+    for (const job of ["Real-Time Scanner Unit", "Real-Time Scanner Integration", "Scanner Core Soak", "Scanner Worker/WASM Soak", "Real-Time Benchmark"]) expect(ci).toContain(`name: ${job}`);
     expect(ci).toContain("npm run benchmark:realtime");
-    expect(ci).toContain("capturedFrames!==10000");
+    expect(ci).toContain("npm run benchmark:realtime -- --allow-missing-worker-wasm");
+    expect(ci).toContain("npm run test:scanner:core-soak");
+    expect(ci).toContain("npm run test:scanner:worker-wasm-soak -- --iterations=1000");
+    expect(ci).toContain("npm run benchmark:realtime -- --require-worker-wasm");
+    expect(ci).toContain("needs: [realtime-scanner-integration, scanner-core-soak, scanner-worker-wasm-soak]");
+    expect(ci).toContain("!r.aggregateGates.pass");
+    expect(ci).toContain("workerCreatedCount!==1");
+    expect(ci).toContain("workerEvidence!=='not-applicable'");
+    const extended = read("scanner-extended-soak.yml");
+    expect(extended).toContain("schedule:");
+    expect(extended).toContain("workflow_dispatch:");
+    expect(extended).toContain("npm run test:scanner:worker-wasm-soak:extended");
+    expect(extended).toContain("r.observed.iterations!==10000");
     const simulator = fs.readFileSync(path.join(process.cwd(), "tests", "browser-benchmark", "scanner-runtime.spec.ts"), "utf8");
     expect(simulator).toContain("ScannerSession simulator");
     expect(simulator).toContain("staleEvents");
     expect(simulator).toContain("finalControlledMemory");
+    const browserWorkflow = read("browser-benchmark.yml");
+    expect(browserWorkflow).toContain("playwright.benchmark.config.ts");
+    for (const spec of ["lifecycle", "repeat", "backpressure"]) {
+      const source = fs.readFileSync(
+        path.join(process.cwd(), "tests", "browser-benchmark", `scanner-runtime-${spec}.spec.ts`),
+        "utf8",
+      );
+      expect(source).toContain(`scenario).toBe("${spec}")`);
+    }
   });
 });

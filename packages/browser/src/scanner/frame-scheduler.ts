@@ -41,7 +41,18 @@ export class FrameScheduler {
     this.drain();
   }
 
-  pause(): void { this.paused = true; }
+  pause(): void {
+    this.paused = true;
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = null;
+    if (this.pending) {
+      this.release(this.pending);
+      this.pending = null;
+      this.options.onDropped?.();
+    }
+    this.resolveIdle();
+    this.notify();
+  }
   resume(): void { if (!this.running) return; this.paused = false; this.drain(); }
 
   submit(frame: NormalizedFrame): "admitted" | "queued-latest" | "dropped" {

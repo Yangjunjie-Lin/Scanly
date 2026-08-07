@@ -7,8 +7,11 @@ All notable changes follow semantic versioning.
 - Entered `2.0.0-beta.1` development on `architecture/sdk-v2-beta1-realtime-scanner-foundation` for the persistent real-time scanner runtime.
 - Preserved the Alpha.5 static upload, multi-symbology, Browser/Worker/Node, checksum, format, and evidence integration gates as frozen regression requirements.
 - Added `ScannerSession`, latest-frame `FrameScheduler`, low-cost `FrameQualityAnalyzer`, bounded decode escalation, temporal confirmation, ROI reuse, physical-instance repeat suppression, typed camera capabilities, and deterministic `MediaStream`/sequence frame sources.
-- Added 20 deterministic real-time sequence scenarios and a 10,000-frame session disposal soak. The first Beta baseline records TTFD, TTFC, effective decode FPS, profile distribution, frame drops, Worker bounds, and final controlled memory without claiming a performance gate.
-- Beta 1 remains a preview: no tag, GitHub Release, npm publication, Stable claim, or `v2-beta1-r1` evidence activation is authorized during runtime foundation development.
+- Replaced nominal real-time scenario labels with 20 semantic Ground Truth drivers covering escalation, repeat identity, quality recovery, ROI, lifecycle, cancellation, backpressure, temporal geometry, malformed frames, Worker recovery, and disposal. Report schema `2.0-beta1` records independent expected/observed values, traceable assertions, failure reasons, metrics, and event/profile/diagnostic timelines; correctness gates are observation-derived.
+- Split reliability evidence into a 10,000-frame fake-decoder Scanner Core Soak with `workerEvidence: "not-applicable"`, a pull-request tier of at least 1,000 actual `BrowserScannerFrameDecoder`/persistent Worker/ZXing-C++ WASM executions, and a scheduled/manual 10,000-frame Worker/WASM tier.
+- Added browser real-time smoke, lifecycle, once-per-session repeat, and latest-frame backpressure coverage to the Chromium, Firefox, and WebKit Browser Benchmark matrix.
+- Expanded camera capability state tests for unsupported torch/zoom, manual zoom override, auto-zoom cooldown and maximum clamp, anti-oscillation behavior, and source-switch refresh. This is state-logic coverage, not physical auto-zoom validation.
+- Beta 1 runtime integration can be `GO` only when runtime gates pass. Release remains `NO-GO` while Issue #13, physical-device evidence, and the project-owned 0/12 photo gate remain open; no tag, GitHub Release, npm publication, Stable claim, or `v2-beta1-r1` evidence activation is authorized.
 
 ## Alpha.5 integration closure
 

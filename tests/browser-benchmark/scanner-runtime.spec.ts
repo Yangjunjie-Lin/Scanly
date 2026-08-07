@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("runs the deterministic ScannerSession simulator in every browser", async ({ page }) => {
+test("browser realtime smoke runs the deterministic ScannerSession simulator in every browser", async ({ page }) => {
   await page.goto("/scanner-runtime-test");
   const report = page.getByTestId("scanner-runtime-report");
   await expect(report).not.toHaveText("running", { timeout: 30_000 });

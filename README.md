@@ -68,7 +68,13 @@ Alpha.5 integration evidence is development evidence. It is not frozen canonical
 
 ### Beta 1 real-time scanner foundation
 
-The active Beta 1 branch introduces the SDK-owned `ScannerSession`, `FrameScheduler`, `FrameQualityAnalyzer`, bounded Fast/Balanced/Robust escalation, temporal confirmation, repeat suppression, temporal ROI reuse, capability detection, and deterministic camera simulation. React is an adapter only; it does not own decode, Worker, temporal, or memory state. `npm run benchmark:realtime` records 20 deterministic frame sequences plus a 10,000-frame disposal soak with TTFD, TTFC, effective decode FPS, frame drops, profile distribution, duplicate suppression, Worker bounds, and final controlled memory. This is Beta 1 development evidence and must not be described as physical-camera, industrial, or production certification.
+The active Beta 1 branch introduces the SDK-owned `ScannerSession`, `FrameScheduler`, `FrameQualityAnalyzer`, bounded Fast/Balanced/Robust escalation, temporal confirmation, repeat suppression, temporal ROI reuse, capability detection, and deterministic camera simulation. React is an adapter only; it does not own decode, Worker, temporal, or memory state.
+
+The real-time benchmark has 20 semantic Ground Truth scenarios with scenario-specific drivers: lifecycle actions, pixel quality, decode profiles, ROI requests, Worker recovery, geometry identity, and backpressure are executed and observed rather than inferred from scenario names. Report schema `2.0-beta1` stores independent `expected` and `observed` values, assertion results and failure reasons, metrics, and event/profile/diagnostic timelines. False-confirmed, stale-event, repeat, physical-instance, drop, and queue gates are derived from those reports rather than hard-coded.
+
+Reliability evidence is split by scope. Scanner Core Soak runs 10,000 frames with a fake decoder and records `workerEvidence: "not-applicable"`; it validates scheduler, temporal, ownership, lifecycle, and controlled-memory cleanup, not Worker/WASM behavior. The separate pull-request soak runs at least 1,000 actual frames through `BrowserScannerFrameDecoder`, one persistent `DecodeWorkerClient`, a browser Worker, and ZXing-C++ WASM. A scheduled/manual extended tier runs 10,000 real Worker/WASM frames. The Browser Benchmark runs real-time smoke, lifecycle, repeat, and backpressure cases in Chromium, Firefox, and WebKit.
+
+Camera unit coverage validates unsupported capabilities, manual override, auto-zoom cooldown and clamp, anti-oscillation state, and source-switch refresh. It is not physical auto-zoom evidence. Beta 1 runtime integration may be `GO` when runtime gates pass, but release remains `NO-GO` while [Issue #13](https://github.com/Yangjunjie-Lin/Scanly/issues/13), physical-camera/device validation, and the project-owned **0/12** photo gate remain open. No `v2-beta1-r1` evidence activation is authorized, and this document does not claim a GitHub PR exact-SHA check result.
 
 See [Beta 1 real-time runtime](docs/beta1-realtime-runtime.md) for the lifecycle, bounded escalation, temporal correctness, memory, and evidence boundaries.
 
@@ -167,7 +173,7 @@ Run `npm run benchmark` for ignored development evidence after decoding-pipeline
 | Firefox | Upload supported; camera depends on browser/device permissions |
 | Safari / iOS Safari | Upload and camera supported with HTTPS and platform permission constraints |
 
-Automated desktop coverage is not a claim that every browser/device combination has been tested. Camera E2E remains Chromium-only because CI media-device simulation is not stable across all engines.
+Automated desktop coverage is not a claim that every browser/device combination has been tested. The deterministic ScannerSession Browser Benchmark suite runs in Chromium, Firefox, and WebKit; media-device camera E2E remains Chromium-only because CI device simulation is not stable across all engines.
 
 The seven-fixture PR job is **Browser Benchmark Smoke**. **Browser Full Benchmark** covers all suitable fixtures only on manual or scheduled runs; neither substitutes for a certified physical-device lab.
 

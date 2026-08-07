@@ -15,10 +15,16 @@ describe("real multi-code Router evidence", () => {
     ["68-multiple-same-three", 3, "balanced"],
   ] as const)("returns complete ordered physical instances for %s", async (id, count, profile) => {
     const fixture = fixtures.find((entry) => entry.id === id)!;
-    const router = createNodeCaptureRouter({ scenario: getBuiltinScenario(profile) });
+    const scenario = getBuiltinScenario(profile);
+    // V8 instrumentation makes the five-code result aggregation exceed the
+    // production 12 s wall-clock budget on Windows. This suite is a
+    // correctness/instance-order contract; normal benchmarks retain and gate
+    // the unmodified production deadline.
+    if (process.env.npm_lifecycle_event === "test:coverage") scenario.budgets.maxExecutionMs = Math.max(20_000, scenario.budgets.maxExecutionMs);
+    const router = createNodeCaptureRouter({ scenario });
     try {
       const outcome = await router.scan(await loadNormalizedFrameFromPath(fixture.file, id));
-      expect(outcome.ok).toBe(true);
+      expect(outcome.ok, outcome.ok ? undefined : `${outcome.error.code}: ${outcome.error.message}`).toBe(true);
       if (!outcome.ok) return;
       expect(outcome.results).toHaveLength(count);
       expect(outcome.results.map((result) => result.rawText)).toEqual(fixture.requiredInstances?.flatMap((entry) => Array.from({ length: entry.count }, () => entry.payload)) ?? fixture.requiredPayloads);

@@ -13,6 +13,16 @@ export type WorkerRequest = {
     jobId: string;
     generation: number;
 };
+/** Live ZXing-C++ resources observed inside the Worker realm after a decode. */
+export interface WorkerWasmMemoryObservation {
+    initialLinearMemoryBytes: number;
+    currentLinearMemoryBytes: number;
+    peakLinearMemoryBytes: number;
+    inputAllocationBytes: number;
+    peakInputAllocationBytes: number;
+    activeNativeResultCount: number;
+    releasedNativeResultCount: number;
+}
 export type WorkerResponse = {
     type: "stage";
     jobId: string;
@@ -28,6 +38,7 @@ export type WorkerResponse = {
     jobId: string;
     generation: number;
     outcome: ScanOutcome;
+    wasmMemory?: WorkerWasmMemoryObservation;
 } | {
     type: "cancelled";
     jobId: string;

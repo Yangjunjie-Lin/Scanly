@@ -72,7 +72,14 @@ export class BrowserScannerFrameDecoder {
         const worker = this.worker.getStatistics();
         const wasm = this.router.engines.get("zxing-cpp-wasm");
         const memory = wasm?.getMemoryObservation?.();
-        return { ...worker, ...(memory ? { wasmInputAllocationBytes: memory.inputAllocationBytes, wasmActiveNativeResultCount: memory.activeNativeResultCount, wasmCurrentLinearMemoryBytes: memory.currentLinearMemoryBytes, wasmPeakLinearMemoryBytes: memory.peakLinearMemoryBytes } : {}) };
+        return {
+            ...worker,
+            wasmInputAllocationBytes: (worker.wasmInputAllocationBytes ?? 0) + (memory?.inputAllocationBytes ?? 0),
+            wasmActiveNativeResultCount: (worker.wasmActiveNativeResultCount ?? 0) + (memory?.activeNativeResultCount ?? 0),
+            wasmCurrentLinearMemoryBytes: (worker.wasmCurrentLinearMemoryBytes ?? 0) + (memory?.currentLinearMemoryBytes ?? 0),
+            wasmPeakLinearMemoryBytes: (worker.wasmPeakLinearMemoryBytes ?? 0) + (memory?.peakLinearMemoryBytes ?? 0),
+            wasmReleasedNativeResultCount: (worker.wasmReleasedNativeResultCount ?? 0) + (memory?.releasedNativeResultCount ?? 0),
+        };
     }
 }
 const once = (fn) => {
@@ -117,6 +124,8 @@ export class ScannerSession {
     stateListeners = new Set();
     diagnosticListeners = new Set();
     generation = 0;
+    lifecycleGeneration = 0;
+    stopPromise = null;
     activeDecodeController = null;
     frameSequence = 0;
     eventSequence = 0;
@@ -159,6 +168,7 @@ export class ScannerSession {
         if (this.state === "failed" || this.state === "stopped")
             this.reset();
         this.setState("starting");
+        const lifecycleGeneration = ++this.lifecycleGeneration;
         this.generation += 1;
         this.startedAt = Date.now();
         this.quality.reset();
@@ -166,12 +176,13 @@ export class ScannerSession {
         this.scheduler.reset();
         this.scheduler.start();
         try {
-            await this.source.start((frame) => this.acceptFrame(frame), (error) => this.handleSourceError(error), () => { queueMicrotask(() => { if (this.state === "scanning")
-                void this.stop(); }); });
-            if (this.state !== "failed")
+            await this.source.start((frame) => this.acceptFrame(frame, lifecycleGeneration), (error) => this.handleSourceError(error, lifecycleGeneration), () => this.handleSourceEnded(lifecycleGeneration));
+            if (lifecycleGeneration === this.lifecycleGeneration && this.getState() === "starting")
                 this.setState("scanning");
         }
         catch (error) {
+            if (lifecycleGeneration !== this.lifecycleGeneration || this.getState() !== "starting")
+                return;
             this.setState("failed");
             this.emitDiagnostic({ type: "error", timestamp: Date.now(), error: sdkError("camera_unavailable", error instanceof Error ? error.message : String(error)) });
             throw error;
@@ -208,22 +219,40 @@ export class ScannerSession {
     async stop() {
         if (["idle", "stopped"].includes(this.state))
             return;
-        if (this.state === "stopping")
+        if (this.state === "stopping") {
+            await this.stopPromise;
             return;
-        this.setState("stopping");
+        }
+        this.lifecycleGeneration += 1;
         this.generation += 1;
         this.activeDecodeController?.abort();
         this.decoder.cancel();
-        await this.source.stop();
-        await this.scheduler.stop();
-        this.candidates.reset();
-        this.roi.reset();
-        this.setState("stopped");
-        this.emitDiagnostic({ type: "scheduler", timestamp: Date.now(), detail: "session stopped; pending frames and active decode are zero" });
+        const stopping = Promise.resolve().then(async () => {
+            try {
+                await this.source.stop();
+            }
+            finally {
+                await this.scheduler.stop();
+                this.candidates.reset();
+                this.roi.reset();
+                this.setState("stopped");
+                this.emitDiagnostic({ type: "scheduler", timestamp: Date.now(), detail: "session stopped; pending frames and active decode are zero" });
+            }
+        });
+        this.stopPromise = stopping;
+        this.setState("stopping");
+        try {
+            await stopping;
+        }
+        finally {
+            if (this.stopPromise === stopping)
+                this.stopPromise = null;
+        }
     }
     reset() {
         if (this.state === "scanning" || this.state === "starting" || this.state === "paused")
             throw new Error("Stop the scanner session before reset().");
+        this.lifecycleGeneration += 1;
         this.generation += 1;
         this.candidates.reset();
         this.repeats.reset();
@@ -249,7 +278,10 @@ export class ScannerSession {
         const elapsed = Math.max(1, now - (this.startedAt || now));
         const sorted = [...this.decodeLatencies].sort((a, b) => a - b);
         const p95 = sorted.length ? sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * 0.95) - 1)] : 0;
-        return { ...this.counters, averageDecodeMs: this.decodeLatencies.length ? this.decodeLatencies.reduce((a, b) => a + b, 0) / this.decodeLatencies.length : 0, p95DecodeMs: p95, effectiveDecodeFps: scheduler.effectiveDecodeFps || (this.counters.admittedFrames * 1_000 / elapsed), frameDropRate: this.counters.capturedFrames ? this.counters.droppedFrames / this.counters.capturedFrames : 0, ...(this.firstDecodeAt === undefined ? {} : { timeToFirstDecodeMs: this.firstDecodeAt - this.startedAt }), ...(this.firstConfirmedAt === undefined ? {} : { timeToFirstConfirmedScanMs: this.firstConfirmedAt - this.startedAt }), currentWorkerMemory: decoder?.wasmCurrentLinearMemoryBytes ?? this.currentWorkerMemory, peakControlledMemory: Math.max(this.peakControlledMemory, decoder?.wasmPeakLinearMemoryBytes ?? 0), activeDecodeCount: scheduler.active, pendingFrameCount: scheduler.pending, peakPendingFrameCount: scheduler.peakPending, workerCreatedCount: decoder?.workerCreatedCount ?? 0, workerTerminatedCount: decoder?.workerTerminatedCount ?? 0, wasmInputAllocationBytes: decoder?.wasmInputAllocationBytes ?? 0, wasmActiveNativeResultCount: decoder?.wasmActiveNativeResultCount ?? 0, finalControlledMemory: this.state === "stopped" || this.state === "idle" ? 0 : this.currentWorkerMemory };
+        const currentWorkerMemory = decoder?.wasmCurrentLinearMemoryBytes ?? this.currentWorkerMemory;
+        const wasmInputAllocationBytes = decoder?.wasmInputAllocationBytes ?? 0;
+        const decoderControlledMemory = Math.max(currentWorkerMemory, wasmInputAllocationBytes);
+        return { ...this.counters, averageDecodeMs: this.decodeLatencies.length ? this.decodeLatencies.reduce((a, b) => a + b, 0) / this.decodeLatencies.length : 0, p95DecodeMs: p95, effectiveDecodeFps: scheduler.effectiveDecodeFps || (this.counters.admittedFrames * 1_000 / elapsed), frameDropRate: this.counters.capturedFrames ? this.counters.droppedFrames / this.counters.capturedFrames : 0, ...(this.firstDecodeAt === undefined ? {} : { timeToFirstDecodeMs: this.firstDecodeAt - this.startedAt }), ...(this.firstConfirmedAt === undefined ? {} : { timeToFirstConfirmedScanMs: this.firstConfirmedAt - this.startedAt }), currentWorkerMemory, peakControlledMemory: Math.max(this.peakControlledMemory, decoder?.wasmPeakLinearMemoryBytes ?? 0), activeDecodeCount: scheduler.active, pendingFrameCount: scheduler.pending, peakPendingFrameCount: scheduler.peakPending, workerCreatedCount: decoder?.workerCreatedCount ?? 0, workerTerminatedCount: decoder?.workerTerminatedCount ?? 0, activeTaskCount: decoder?.activeTaskCount ?? 0, peakActiveTaskCount: decoder?.peakActiveTaskCount ?? 0, workerWasmDecodeCount: decoder?.workerWasmDecodeCount ?? 0, wasmInputAllocationBytes, wasmActiveNativeResultCount: decoder?.wasmActiveNativeResultCount ?? 0, wasmPeakLinearMemoryBytes: decoder?.wasmPeakLinearMemoryBytes ?? 0, wasmReleasedNativeResultCount: decoder?.wasmReleasedNativeResultCount ?? 0, finalControlledMemory: scheduler.active + scheduler.pending + decoderControlledMemory };
     }
     onResult(listener) { this.resultListeners.add(listener); return () => this.resultListeners.delete(listener); }
     onStateChange(listener) { this.stateListeners.add(listener); return () => this.stateListeners.delete(listener); }
@@ -258,7 +290,11 @@ export class ScannerSession {
     setTorch(enabled) { return this.capabilityController?.setTorch(enabled) ?? Promise.resolve({ ok: false, error: sdkError("unsupported_browser_capability", "Torch is not available for this scanner source.") }); }
     setZoom(value, manual = true) { return this.capabilityController?.setZoom(value, manual) ?? Promise.resolve({ ok: false, error: sdkError("unsupported_browser_capability", "Zoom is not available for this scanner source.") }); }
     requestFocus() { return this.capabilityController?.requestFocus() ?? Promise.resolve({ ok: false, error: sdkError("unsupported_browser_capability", "Focus is not available for this scanner source.") }); }
-    async acceptFrame(frame) {
+    async acceptFrame(frame, lifecycleGeneration) {
+        if (lifecycleGeneration !== this.lifecycleGeneration) {
+            releaseFrame(frame);
+            return;
+        }
         this.counters.capturedFrames += 1;
         const release = once(() => { if (frame.ownership !== "borrowed")
             frame.dispose?.(); });
@@ -318,7 +354,7 @@ export class ScannerSession {
                 this.escalation.observe(true, now);
                 this.roi.update(outcome.primary, frame, now);
                 for (const result of outcome.results)
-                    this.observeResult(result, frame, quality, now, frameId);
+                    this.observeResult(result, frame, quality, now, frameId, generation);
             }
             else {
                 this.escalation.observe(false, now);
@@ -333,7 +369,11 @@ export class ScannerSession {
             releaseFrame(frame);
         }
     }
-    observeResult(result, frame, quality, now, frameId) {
+    observeResult(result, frame, quality, now, frameId, generation) {
+        if (!this.canPublishGeneration(generation)) {
+            this.counters.staleEvents += 1;
+            return;
+        }
         const barcode = toDecodedBarcode(result);
         const geometry = geometryFor(result, frame);
         const detected = this.event("detected", barcode, frameId, now, 1, geometry);
@@ -355,8 +395,12 @@ export class ScannerSession {
             this.emitDiagnostic({ type: "event", timestamp: now, frameId, event: suppressed });
             return;
         }
-        this.counters.emittedEvents += 1;
         const emitted = this.event("emitted", barcode, frameId, now, observation.candidate.observationCount, geometry, decision.physicalInstanceId);
+        if (!this.canPublishGeneration(generation)) {
+            this.counters.staleEvents += 1;
+            return;
+        }
+        this.counters.emittedEvents += 1;
         for (const listener of this.resultListeners) {
             try {
                 listener(emitted);
@@ -379,12 +423,30 @@ export class ScannerSession {
     event(type, barcode, frameId, timestamp, observationCount, geometry, physicalInstanceId, suppressionReason) {
         return { id: `scan-event-${++this.eventSequence}`, type, barcode, frameId, timestamp, observationCount, ...(geometry ? { geometry } : {}), ...(physicalInstanceId ? { physicalInstanceId } : {}), ...(suppressionReason ? { suppressionReason } : {}) };
     }
+    canPublishGeneration(generation) { return generation === this.generation && (this.state === "starting" || this.state === "scanning"); }
     emitQualityHint(quality, frameId, timestamp) {
         const hint = quality.underexposed ? { type: "increase_light", confidence: 1 - quality.brightness } : quality.overexposed || quality.glareDominated ? { type: "reduce_glare", confidence: Math.max(quality.glareRatio, quality.brightness) } : quality.blurred ? { type: "hold_steady", confidence: 1 - quality.blurScore } : { type: "searching", confidence: quality.usable ? 0.45 : 0.8 };
         this.emitDiagnostic({ type: "hint", timestamp, frameId, hint });
     }
-    handleSourceError(error) { if (this.state === "stopping" || this.state === "stopped")
-        return; this.setState("failed"); this.activeDecodeController?.abort(); this.decoder.cancel(); void this.scheduler.stop(); void this.source.stop(); this.emitDiagnostic({ type: "error", timestamp: Date.now(), error: sdkError("source_disconnected", error instanceof Error ? error.message : String(error), undefined, error) }); }
+    handleSourceEnded(lifecycleGeneration) {
+        queueMicrotask(() => {
+            if (lifecycleGeneration !== this.lifecycleGeneration || !["starting", "scanning", "paused"].includes(this.state))
+                return;
+            void this.stop();
+        });
+    }
+    handleSourceError(error, lifecycleGeneration) {
+        if (lifecycleGeneration !== this.lifecycleGeneration || this.state === "stopping" || this.state === "stopped")
+            return;
+        this.lifecycleGeneration += 1;
+        this.generation += 1;
+        this.setState("failed");
+        this.activeDecodeController?.abort();
+        this.decoder.cancel();
+        void this.scheduler.stop();
+        void this.source.stop();
+        this.emitDiagnostic({ type: "error", timestamp: Date.now(), error: sdkError("source_disconnected", error instanceof Error ? error.message : String(error), undefined, error) });
+    }
     setState(state) { if (this.state === state)
         return; this.state = state; for (const listener of this.stateListeners) {
         try {

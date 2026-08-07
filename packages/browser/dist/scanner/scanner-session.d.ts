@@ -28,14 +28,17 @@ export declare class BrowserScannerFrameDecoder implements ScannerFrameDecoder {
     cancel(): void;
     dispose(): Promise<void>;
     getStatistics(): {
-        wasmInputAllocationBytes?: number | undefined;
-        wasmActiveNativeResultCount?: number | undefined;
-        wasmCurrentLinearMemoryBytes?: number | undefined;
-        wasmPeakLinearMemoryBytes?: number | undefined;
+        wasmInputAllocationBytes: number;
+        wasmActiveNativeResultCount: number;
+        wasmCurrentLinearMemoryBytes: number;
+        wasmPeakLinearMemoryBytes: number;
+        wasmReleasedNativeResultCount: number;
         workerCreatedCount: number;
         workerTerminatedCount: number;
         activeTaskCount: number;
         peakActiveTaskCount: number;
+        wasmObservationCount: number;
+        workerWasmDecodeCount: number;
     };
 }
 export interface ScannerSessionOptions {
@@ -70,6 +73,8 @@ export declare class ScannerSession {
     private readonly stateListeners;
     private readonly diagnosticListeners;
     private generation;
+    private lifecycleGeneration;
+    private stopPromise;
     private activeDecodeController;
     private frameSequence;
     private eventSequence;
@@ -102,7 +107,9 @@ export declare class ScannerSession {
     private observeResult;
     private emitLost;
     private event;
+    private canPublishGeneration;
     private emitQualityHint;
+    private handleSourceEnded;
     private handleSourceError;
     private setState;
     private emitDiagnostic;

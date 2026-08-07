@@ -24,7 +24,19 @@ export class FrameScheduler {
         this.startedAt = this.options.now?.() ?? Date.now();
         this.drain();
     }
-    pause() { this.paused = true; }
+    pause() {
+        this.paused = true;
+        if (this.timer)
+            clearTimeout(this.timer);
+        this.timer = null;
+        if (this.pending) {
+            this.release(this.pending);
+            this.pending = null;
+            this.options.onDropped?.();
+        }
+        this.resolveIdle();
+        this.notify();
+    }
     resume() { if (!this.running)
         return; this.paused = false; this.drain(); }
     submit(frame) {

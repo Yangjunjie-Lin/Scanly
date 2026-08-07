@@ -87,8 +87,13 @@ export interface ScannerSessionStatistics {
     peakPendingFrameCount: number;
     workerCreatedCount: number;
     workerTerminatedCount: number;
+    activeTaskCount: number;
+    peakActiveTaskCount: number;
+    workerWasmDecodeCount: number;
     wasmInputAllocationBytes: number;
     wasmActiveNativeResultCount: number;
+    wasmPeakLinearMemoryBytes: number;
+    wasmReleasedNativeResultCount: number;
     finalControlledMemory: number;
 }
 export interface ScannerDiagnostic {
@@ -123,10 +128,13 @@ export interface ScannerDecoderStatistics {
     workerTerminatedCount: number;
     activeTaskCount: number;
     peakActiveTaskCount: number;
+    wasmObservationCount?: number;
+    workerWasmDecodeCount?: number;
     wasmInputAllocationBytes?: number;
     wasmActiveNativeResultCount?: number;
     wasmCurrentLinearMemoryBytes?: number;
     wasmPeakLinearMemoryBytes?: number;
+    wasmReleasedNativeResultCount?: number;
 }
 export interface ScannerFrameDecoder {
     decode(frame: NormalizedFrame, request: ScannerDecodeRequest): Promise<ScanOutcome>;

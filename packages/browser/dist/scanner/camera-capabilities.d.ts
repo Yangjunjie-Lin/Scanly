@@ -4,6 +4,7 @@ export declare class CameraCapabilityController {
     private readonly autoZoom;
     private lastAutoZoomAt;
     private manualZoomOverride;
+    private autoZoomOperation;
     constructor(track: () => MediaStreamTrack | undefined, autoZoom?: AutoZoomOptions);
     getCapabilities(): CameraCapabilities;
     setTorch(enabled: boolean): Promise<CapabilityResult<boolean>>;
