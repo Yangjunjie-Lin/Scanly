@@ -1,10 +1,10 @@
-# Scanly SDK v2 Alpha.5 — preview
+# Scanly SDK v2 Beta 1 — real-time scanner foundation
 
-Scanly is a local-first barcode capture SDK foundation with a working browser QR reference application. The v2 alpha has one authoritative capture model: normalized upload, Worker, main-thread, Node, and sampled camera frames converge on a scenario-compiled Router backed by real operator and engine registries. It is not an ML model and has no image-upload backend.
+Scanly is a local-first barcode capture SDK foundation with a working browser reference application. Beta 1 development extends the existing single-frame Router into a persistent, bounded, real-time scanner runtime while retaining normalized upload, Worker, main-thread, Node, and Alpha.5 multi-symbology compatibility. It is a Beta preview, not an ML model, production certification, or image-upload backend.
 
 ![Next.js 15](https://img.shields.io/badge/Next.js-15-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
-![SDK](https://img.shields.io/badge/SDK-2.0.0--alpha.5-orange)
+![SDK](https://img.shields.io/badge/SDK-2.0.0--beta.1-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Live demo:** [https://qr-decoder-theta.vercel.app](https://qr-decoder-theta.vercel.app)
@@ -32,9 +32,10 @@ Alpha.5 explicitly supports QR Code Model 2, Data Matrix ECC 200, PDF417, Code 1
 ## Branch and release status
 
 - `main` is the unchanged v1.3 Stable line.
-- `develop/sdk-v2` is the authoritative SDK v2 integration branch and carries the consolidated Alpha.5 multi-symbology foundation.
-- `architecture/sdk-v2-beta1-realtime-scanner-foundation` is the next active Beta 1 development branch; real-photo and physical-camera validation are intentionally planned there.
+- `develop/sdk-v2` is the frozen Alpha.5 integration baseline.
+- `architecture/sdk-v2-beta1-realtime-scanner-foundation` is the active Beta 1 development branch for the real-time scanner foundation; it does not modify `main`.
 - Alpha.5 is an internal integration snapshot, not production-certified evidence. No Alpha.5 tag, GitHub Release, npm publication, Stable claim, or `Latest` release is authorized.
+- Beta 1 remains development evidence. No Beta tag, GitHub Release, npm publication, Stable claim, or `Latest` release is authorized.
 
 ## Internal fixture benchmark
 

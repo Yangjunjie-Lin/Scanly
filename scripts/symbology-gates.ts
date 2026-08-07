@@ -1,6 +1,8 @@
 import type { BarcodeFormat } from "@scanly/scenario-schema";
 
-export const ALPHA5_SDK_VERSION = "2.0.0-alpha.5";
+/** Current development SDK version; retained alias keeps Alpha.5 gate imports source-compatible. */
+export const CURRENT_SDK_VERSION = "2.0.0-beta.1";
+export const ALPHA5_SDK_VERSION = CURRENT_SDK_VERSION;
 
 export interface SymbologyGateResult {
   id: string;

@@ -17,7 +17,7 @@ function sha256Text(value: string): string {
   return crypto.createHash("sha256").update(value.replace(/\r\n/g, "\n")).digest("hex");
 }
 
-function validRegistry(baselineId: string, sdkVersion = "2.0.0-alpha.5"): { registry: BaselineRegistry; root: string; current: CurrentBenchmarkIdentity } {
+function validRegistry(baselineId: string, sdkVersion = "2.0.0-beta.1"): { registry: BaselineRegistry; root: string; current: CurrentBenchmarkIdentity } {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "scanly-gate-mode-"));
   roots.push(root);
   const directory = path.join(root, "benchmark-results", "baselines");
@@ -166,7 +166,7 @@ describe("benchmark gate mode selector", () => {
 
   it("rejects an Alpha.4 active baseline for Alpha.5 source", () => {
     const { registry, root, current } = validRegistry("v2-alpha4-r4", "2.0.0-alpha.4");
-    expect(select(registry, root, { ...current, sdkVersion: "2.0.0-alpha.5" })).toMatchObject({ mode: "baseline-candidate", reason: expect.stringContaining("release track") });
+    expect(select(registry, root, { ...current, sdkVersion: "2.0.0-beta.1" })).toMatchObject({ mode: "baseline-candidate", reason: expect.stringContaining("release track") });
   });
 
   it("falls back for a mismatched legacy dataset", () => {

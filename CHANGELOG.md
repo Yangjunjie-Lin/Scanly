@@ -2,7 +2,13 @@
 
 All notable changes follow semantic versioning.
 
-## Unreleased — SDK v2 Alpha.5 integration
+## Unreleased — SDK v2 Beta 1 development
+
+- Entered `2.0.0-beta.1` development on `architecture/sdk-v2-beta1-realtime-scanner-foundation` for the persistent real-time scanner runtime.
+- Preserved the Alpha.5 static upload, multi-symbology, Browser/Worker/Node, checksum, format, and evidence integration gates as frozen regression requirements.
+- Beta 1 remains a preview: no tag, GitHub Release, npm publication, Stable claim, or `v2-beta1-r1` evidence activation is authorized during runtime foundation development.
+
+## Alpha.5 integration closure
 
 - Consolidated the Alpha.5 multi-symbology foundation into `develop/sdk-v2` as an internal development milestone.
 - Added explicit `integration` and strict `release` symbology gate modes. Integration accepts the absent project-owned photo corpus only as `DEFERRED_TO_BETA1`; generated correctness, checksum, false-positive, format, runtime, package, and API gates remain mandatory.
