@@ -19,19 +19,35 @@ The reproducible flow is:
 
 The repository records an explicit lifecycle rather than treating every tracked manifest as release evidence:
 
-1. source-development: source work may carry readable historical Alpha.4 evidence; that evidence is never validated as Alpha.5 release evidence.
+1. source-development: source work may carry internally verified historical Alpha.4 evidence; that evidence is never validated as Alpha.5 release evidence.
 2. baseline-candidate: Full Benchmark runs absolute gates without comparing against an incompatible active baseline.
-3. evidence-bootstrap: an external Alpha.5 candidate is schema- and gate-validated before activation.
-4. active-baseline: the canonical Alpha.5 evidence, source identities, and all three immutable baselines agree with the registry.
+3. evidence-bootstrap: an external release candidate is schema- and gate-validated before activation.
+4. active-baseline: current canonical evidence, source identities, and all three immutable baselines agree with the registry.
 5. release: an explicit release verification of an already active baseline.
 
 The lifecycle transitions are tested in tests/unit/evidence-lifecycle.test.ts. A stale active claim is a hard failure in active-baseline or release; before activation it falls back to baseline-candidate.
+
+Alpha.5 stops at integration and will not be retroactively released. The active
+registry therefore continues to identify immutable Alpha.4 r4 history while
+Alpha.5/Beta 1 source moves ahead. `v2-alpha5-r1` is an abandoned historical
+plan; the next eligible frozen family is `v2-beta1-r1`.
+
+## Evidence verification modes
+
+- `historical-baseline-validation` verifies the tracked canonical manifest hash, every referenced report hash, the registry mapping, immutable baseline file hashes, and the historical source/dataset/lockfile/engine identities entirely within the Alpha.4 r4 evidence set.
+- `source-development` performs historical-baseline validation and requires the current SDK source to remain explicitly ahead of that historical release identity.
+- `integration` performs the same historical validation, allows current source identity to differ, requires current evidence to remain pending/not activated, and—when an external integration candidate is supplied—validates all non-photo correctness, provenance, source, and artifact contracts.
+- `release` requires current source, tree, legacy and symbology datasets, package lock, engine/WASM identity, canonical manifest, aliases, immutable baselines, and registry to agree. Missing project photographs remain a hard failure.
+
+These modes never compare the current Alpha.5/Beta 1 tree to the historical
+Alpha.4 source as if they were one release. They also never downgrade release
+failures into integration success.
 
 ## Gate modes
 
 `--gate-mode=baseline-candidate` enforces absolute correctness, memory, timeout, iteration, and completeness contracts without comparing against an older dataset. `--gate-mode=active-baseline` performs normal regression checks against the active runtime-family baseline.
 
-`quality:evidence:bootstrap -- --canonical-manifest=<path>` explicitly validates an external candidate without requiring an already-active baseline. It is used only by the manual Baseline Candidate workflow or an explicit CLI invocation. `quality:evidence` auto-selects and prints the lifecycle state: historical Alpha.4 evidence is checked for readability in `source-development`, while matching activated Alpha.5 evidence is checked strictly in `active-baseline`. It never converts a failed strict check into a successful bootstrap result.
+`quality:evidence:bootstrap -- --canonical-manifest=<path>` explicitly validates an external release candidate without requiring an already-active baseline. It is used only by the manual Baseline Candidate workflow or an explicit CLI invocation. `quality:evidence` auto-selects and prints the lifecycle state: historical Alpha.4 evidence and its immutable baseline installation are checked in `source-development`; a matching activated future release is checked strictly in `active-baseline`. It never converts a failed strict check into a successful bootstrap result.
 
 ## Canonical CSV policy
 

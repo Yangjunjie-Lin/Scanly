@@ -4,7 +4,7 @@
 
 本次检出的可访问原始素材数为 0。当前 checkout、用户下载目录及 Codex 附件暂存目录中均未找到所述 12 个原始文件；Wikimedia 元数据可以核验，但原图 CDN 在本次执行期间返回 HTTP 429。为避免把缩略图、重编码副本或另行搜索的候选图片冒充用户提供的原件，本次没有接受或提交任何照片。
 
-外部 cohort 状态为 `BLOCKED_EXTERNAL_ASSET_INPUT`。项目自有照片仍为 0/12；Alpha.5 集成状态为 `ALPHA5_INTEGRATION_GO`（非照片门禁通过），发布状态为 `ALPHA5_RELEASE_NO_GO`，真实照片与物理相机验证 `DEFERRED_TO_BETA1`。未生成或激活 Alpha.5 final canonical evidence，也未激活 `v2-alpha5-r1`。
+外部 cohort 状态为 `BLOCKED_EXTERNAL_ASSET_INPUT`。项目自有照片仍为 0/12；Alpha.5 集成状态为 `ALPHA5_INTEGRATION_GO`（非照片门禁通过），发布状态为 `ALPHA5_RELEASE_NO_GO`，真实照片与物理相机验证 `DEFERRED_TO_BETA1`。未生成或激活 Alpha.5 final canonical evidence；`v2-alpha5-r1` 已明确归类为历史上放弃的发布计划，不需要激活。下一条可用的冻结证据族为 `v2-beta1-r1`。
 
 ## 接受与拒绝文件
 

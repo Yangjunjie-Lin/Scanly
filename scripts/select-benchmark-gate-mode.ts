@@ -14,6 +14,14 @@ import {
 } from "./evidence-lifecycle.js";
 
 export type BenchmarkGateMode = "active-baseline" | "baseline-candidate";
+export type WorkflowEvidenceMode = "integration" | "release";
+
+export interface WorkflowEvidenceContext {
+  eventName?: string;
+  refName?: string;
+  baseRef?: string;
+  manualGateMode?: string;
+}
 
 export interface GateModeSelection {
   mode: BenchmarkGateMode;
@@ -41,6 +49,14 @@ export interface CurrentBenchmarkIdentity {
 const PROFILES = ["fast", "balanced", "robust"] as const satisfies readonly BuiltinScenarioId[];
 const PORTABLE_FILE = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,191}\.json$/;
 const SHA256 = /^[a-f0-9]{64}$/;
+
+export function selectWorkflowEvidenceMode(context: WorkflowEvidenceContext): WorkflowEvidenceMode {
+  if (context.eventName === "workflow_dispatch" && context.manualGateMode === "release") return "release";
+  if (context.eventName === "pull_request" && context.baseRef === "develop/sdk-v2") return "integration";
+  if (context.refName === "develop/sdk-v2" || /^architecture\/sdk-v2-beta1-/.test(context.refName ?? "")) return "integration";
+  if (/^(?:release\/|rc\/|architecture\/sdk-v2-rc)/.test(context.refName ?? "")) return "release";
+  return "integration";
+}
 
 function candidate(runtimeFamily: string, reason: string): GateModeSelection {
   return { mode: "baseline-candidate", reason, runtimeFamily };
@@ -270,9 +286,16 @@ async function main(): Promise<void> {
   const current = await collectCurrentBenchmarkIdentity(registry, runtimeFamily, repositoryRoot);
   const selection = selectBenchmarkGateMode(registry, runtimeFamily, repositoryRoot, current);
   enforceGateModeForLifecycle(selection, current.lifecycleState);
+  const workflowMode = selectWorkflowEvidenceMode({
+    eventName: argument("event-name"),
+    refName: argument("ref-name"),
+    baseRef: argument("base-ref"),
+    manualGateMode: argument("manual-gate-mode"),
+  });
 
   const output = [
     `mode=${selection.mode}`,
+    `workflow-mode=${workflowMode}`,
     `reason=${selection.reason}`,
     `baseline-id=${selection.baselineId ?? ""}`,
     `lifecycle-state=${current.lifecycleState}`,

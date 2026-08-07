@@ -3,7 +3,29 @@
 评估日期：2026-08-06（Asia/Shanghai）  
 评估对象：`architecture/sdk-v2-alpha5-multisymbology-foundation`  发行候选版本：`2.0.0-alpha.5`
 
-## Decision
+## Final Alpha.5 integration result
+
+本节是当前权威状态，并取代下方合并前审计中的仓库状态描述。
+
+| 项目 | 最终值 |
+| --- | --- |
+| Final PR head | `0aa809bda007783d0858b08d07f9a36902dd3471` |
+| Merge commit | `b0fd251996690fef80909cf972dc28a18e5e2207` |
+| Final integration branch | `develop/sdk-v2` |
+| Final branch-consolidation commit | `5b7f023a7f8efb4ad85f60a8affb076ba24dfd41` |
+| PR #9 | **merged**, not Draft, source branch deleted |
+| Alpha.5 integration | **GO** |
+| Alpha.5 release | **NO-GO** |
+| Project-owned photographs | **0/12**, deferred to Beta 1 |
+| Last frozen evidence | **Alpha.4 r4** (`v2-alpha4-r4`) |
+
+Alpha.5 will not be retroactively released. No `v2-alpha5-r1` activation is required. The next eligible frozen evidence family is `v2-beta1-r1`.
+
+## Historical pre-merge audit — superseded by final integration closure
+
+以下内容保留为历史审计记录，反映 PR #9 合并前的精确状态。它已被上方 final integration result 取代，不得用作当前分支、PR 或 CI 状态。
+
+### Historical decision
 
 **ALPHA5_INTEGRATION_GO / ALPHA5_RELEASE_NO_GO**
 
@@ -11,7 +33,7 @@ PR #9 的 Alpha.5 多符号基础接受合并到 `develop/sdk-v2`，前提是所
 
 > Alpha.5 is accepted as the consolidated multi-symbology development foundation. Project-owned real-photo and physical-camera evidence are deferred to Beta 1. No Alpha.5 tag, GitHub Release, npm publication, or Stable claim is authorized.
 
-## Source and repository state
+### Historical source and repository state
 
 | 项目 | 实际值 |
 | --- | --- |
@@ -30,7 +52,7 @@ PR #9 的 Alpha.5 多符号基础接受合并到 `develop/sdk-v2`，前提是所
 
 审计开始时，本地 `git pull --ff-only` 成功，而远端分支为 `78266777dfba3e4f294d03c3e8dd764085f91a88`；该旧 SHA 的检查没有被复用。随后 hardening 和评估提交已推送。PR #9 保持 OPEN、Draft、base `develop/sdk-v2`、mergeable；没有标记 Ready，也没有合并。
 
-## Project-photo audit
+### Historical project-photo audit
 
 实际检查了：
 
@@ -48,7 +70,7 @@ PR #9 的 Alpha.5 多符号基础接受合并到 `develop/sdk-v2`，前提是所
 
 Alpha.5 生成语料为 146 条：112 条正例、34 条负例；项目照片为 0，外部开放许可照片为 0。生成器再次运行后报告 `100 single-format, 12 mixed, 34 negative` 且零 drift。生成图片不计入 project-owned real-photo gate。
 
-## Tier A evidence
+### Historical Tier A evidence
 
 | Gate | 实际结果 | 状态 |
 | --- | --- | --- |
@@ -67,7 +89,7 @@ Alpha.5 生成语料为 146 条：112 条正例、34 条负例；项目照片为
 
 维护的旧 QR smoke 在本机为 `10/11`，唯一失败为文档化的 damaged fixture；`false positives=0`、`timeouts=0`。旧的开发 profile 文件曾在远端 SHA `7826677` 记录 Fast `62/74`、Balanced `73/74`、Robust `73/74`，但该 SHA 不是当前 Source Commit，不能冻结或复用为 Alpha.5 证据。
 
-## Runtime, package, and reliability checks
+### Historical runtime, package, and reliability checks
 
 以下命令在 Windows x64 / Node `v24.15.0` 本地实际运行并通过：
 
@@ -98,11 +120,11 @@ Alpha.5 生成语料为 146 条：112 条正例、34 条负例；项目照片为
 
 独立 Windows Firefox browser smoke benchmark 的 7 个 fixture 全部通过（Playwright test 9.4 秒，报告 P95 1,541 ms）。同一 source code 在两次 Ubuntu GitHub runner 的 Firefox Browser Benchmark 中均达到 120 秒 test timeout，未生成报告；Chromium 和 WebKit job 通过。尝试在 Ubuntu 24.04 WSL clean worktree 复现，但 `npm ci`/build 在 Windows 挂载盘上 10 分钟内未完成，因此该本地 Linux 复现标记为 unavailable，不能替代远端失败。
 
-## Tier B industrial-grade evidence
+### Historical Tier B industrial-grade evidence
 
 Tier B 不成立。独立真实照片不是 `>=100`，每族不是 `>=25`；holdout 为 0；真实负例不是 `>=100`；没有实体验证的 macOS、Android 浏览器或 iOS Safari 证据；没有 10,000 次之外的 `>=2 小时`持续 Worker/session 证据；没有定义并冻结的多硬件 latency profile；没有本次 Source Commit 对应的 SBOM、离线 bundle、release provenance 或远程完整 Actions 结果。因此不得作 industrial-grade engineering evidence claim。
 
-## Failure classification
+### Historical failure classification
 
 | 类别 | 结论 |
 | --- | --- |
@@ -116,7 +138,7 @@ Tier B 不成立。独立真实照片不是 `>=100`，每族不是 `>=25`；hold
 
 `b2f7665` source commit 已包含有界的 format-mask 传播、持久 Worker/WASM 状态复用、tarball 验证和 native memory 释放断言；当前 source commit `b1b0d19` 另修复了 Windows CI 的 manifest 换行漂移：生成内容仅有 CRLF/LF 差异时不再重写文件，真实 JSON 内容变化仍由 `git diff` 门禁拦截。本次没有为掩盖照片证据缺失而修改解码器，也没有删除困难 fixture、放宽负例或改变 checksum gate；在证据输入缺失时继续调参没有可辩护的 before/after 改善。
 
-## Permitted and prohibited claims
+### Historical permitted and prohibited claims
 
 当前允许声明：**Alpha.5 integration accepted; Alpha.5 release not authorized**。项目自有照片与物理设备证据为 `DEFERRED_TO_BETA1`，不能声明：
 
@@ -127,6 +149,6 @@ Tier B 不成立。独立真实照片不是 `>=100`，每族不是 `>=25`；hold
 
 适用限制仍包括：不支持 Aztec、Micro QR、Micro PDF417、DotCode、MaxiCode、GS1 DataBar、DPM-specific mode、native iOS/Android SDK；没有 certified device laboratory 或 regulatory certification；严重曲面和反光金属证据有限。
 
-## Required next action
+### Historical required next action (abandoned Alpha.5 release plan)
 
-Beta 1 必须实际加入并审计至少 12 张 project-owned camera photographs（每族至少 3 张），补齐 provenance/expected payload/device metadata 后，才能运行严格 release gate，并在新的 Source Commit 上完成 Evidence Freeze、baseline-bootstrap、`v2-alpha5-r1` 原子激活、exact-SHA 远程 Actions 和离线 bundle 安装验证。Alpha.5 集成阶段保持 no tag / no release / no npm publication。
+原合并前计划要求在补齐至少 12 张 project-owned camera photographs 后激活 `v2-alpha5-r1`。该方案是 **historical abandoned release plan**，不再执行。Alpha.5 不会追溯发布，也不需要激活 `v2-alpha5-r1`。真实照片、物理相机与后续 release evidence 工作转入 Beta 1；下一条可用的冻结证据族为 `v2-beta1-r1`。

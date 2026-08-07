@@ -31,10 +31,10 @@ const generated = manifest.fixtures.filter((fixture) => fixture.sourceType === "
 const photos = manifest.fixtures.filter((fixture) => fixture.sourceType === "project-photo").length;
 const readmePath = path.join(ROOT, "README.md");
 const readme = fs.readFileSync(readmePath, "utf8");
+const releaseLabel = bundle.manifest.sdkVersion.replace(/^\d+\.\d+\.\d+-/, "").replace(/\.(\d+)$/, ".$1");
 const block = [
-  "<!-- BENCHMARK_SUMMARY_START -->", "| Metric | Value |", "| --- | ---: |",
-  "| Evidence status | **Alpha.5 canonical evidence** |",
-  `| Internal fixtures | ${balanced.total} |`, `| Generated fixtures | ${generated} |`, `| Project-owned photos | ${photos} |`,
+  "<!-- HISTORICAL_BENCHMARK_SUMMARY_START -->", `| Frozen ${releaseLabel} canonical evidence | Value |`, "| --- | ---: |",
+  `| Legacy QR fixtures | ${balanced.total} |`, `| Generated fixtures | ${generated} |`, `| Project-owned photographs | ${photos} |`,
   `| Success on fixture suite | **${balanced.passed}/${balanced.total} (${(balanced.successRate * 100).toFixed(1)}%)** on the current ${balanced.total}-case project fixture suite |`,
   `| Positive decode recall | **${positivePassed}/${balanced.positiveCases} (${(balanced.decodeRecall * 100).toFixed(1)}%)** |`,
   `| Negative false positives | **${balanced.falsePositiveCount}/${balanced.negativeCases} (${(balanced.falsePositiveRate * 100).toFixed(1)}%)** |`,
@@ -44,10 +44,10 @@ const block = [
   "| Fixture manifest | [fixtures/manifest.json](fixtures/manifest.json) |",
   "| Canonical JSON | [benchmark-results/latest.json](benchmark-results/latest.json) |",
   "| Canonical CSV | [benchmark-results/latest.csv](benchmark-results/latest.csv) |",
-  "<!-- BENCHMARK_SUMMARY_END -->",
+  "<!-- HISTORICAL_BENCHMARK_SUMMARY_END -->",
 ].join("\n");
-if (!readme.includes("<!-- BENCHMARK_SUMMARY_START -->") || !readme.includes("<!-- BENCHMARK_SUMMARY_END -->")) throw new Error("README benchmark summary markers are missing.");
-const updatedReadme = readme.replace(/<!-- BENCHMARK_SUMMARY_START -->[\s\S]*?<!-- BENCHMARK_SUMMARY_END -->/, block);
+if (!readme.includes("<!-- HISTORICAL_BENCHMARK_SUMMARY_START -->") || !readme.includes("<!-- HISTORICAL_BENCHMARK_SUMMARY_END -->")) throw new Error("README historical benchmark summary markers are missing.");
+const updatedReadme = readme.replace(/<!-- HISTORICAL_BENCHMARK_SUMMARY_START -->[\s\S]*?<!-- HISTORICAL_BENCHMARK_SUMMARY_END -->/, block);
 const docs = `# Benchmark\n\nThis document is generated only by the approved canonical evidence update command. Latency is environment-specific and is not a commercial parity claim.\n\n## Canonical source\n\n| Field | Value |\n| --- | --- |\n| Evidence ID | \`${bundle.manifest.evidenceId}\` |\n| Manifest hash | \`${bundle.manifest.manifestHash}\` |\n| Source commit | \`${bundle.manifest.sourceIdentity.sourceCommitSha}\` |\n| Source tree | \`${bundle.manifest.sourceIdentity.sourceTreeSha}\` |\n| Dataset hash | \`${bundle.manifest.sourceIdentity.datasetHash}\` |\n| Package-lock hash | \`${bundle.manifest.sourceIdentity.packageLockHash}\` |\n| Engine composition hash | \`${bundle.manifest.sourceIdentity.engineCompositionHash}\` |\n| WASM build hash | \`${bundle.manifest.sourceIdentity.wasmBuildHash}\` |\n| Native adapter hash | \`${bundle.manifest.sourceIdentity.nativeAdapterHash}\` |\n| Loader hash | \`${bundle.manifest.sourceIdentity.loaderHash}\` |\n| Repository dirty | false |\n| Warmup iterations | ${balanced.executionPolicy.warmupIterations} |\n| Measured iterations | ${balanced.executionPolicy.measuredIterations} |\n\n## Balanced correctness and latency\n\n| Metric | Value |\n| --- | ---: |\n| Fixtures | ${balanced.passed}/${balanced.total} |\n| Positive recall | ${positivePassed}/${balanced.positiveCases} |\n| False positives | ${balanced.falsePositiveCount}/${balanced.negativeCases} |\n| Average | ${balanced.averageMs.toFixed(2)} ms |\n| Median | ${balanced.medianMs.toFixed(2)} ms |\n| P95 | ${balanced.p95Ms.toFixed(2)} ms |\n| Peak controlled memory | ${balanced.controlledMemoryPeakBytes} bytes |\n| Final controlled memory | ${balanced.finalControlledMemoryBytes} bytes |\n| Remaining failure | ${remainingFailures} |\n| Parallel execution | ${bundle.reports.comparison.parallelExecution.status} |\n\nSee the canonical JSON aliases for per-fixture iteration timings, phase timing, variance, attempts, and profile-specific metrics.\n`;
 
 const canonicalDir = path.join(ROOT, "benchmark-results", "canonical");

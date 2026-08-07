@@ -58,13 +58,42 @@ performed during Alpha.5 consolidation.
 
 ## Branch cut
 
-The Beta 1 branch is created only after final develop validation:
+The Beta 1 branch was created only after the consolidation validation:
 
 `architecture/sdk-v2-beta1-realtime-scanner-foundation`
 
-Its base is the exact final remote `develop/sdk-v2` SHA recorded in the final
-Chinese consolidation report. The branch is a planning boundary only; no Beta 1
-scanner implementation is included and no release tag/package was created.
+Its base was the exact consolidated remote `develop/sdk-v2` SHA
+`5b7f023a7f8efb4ad85f60a8affb076ba24dfd41`. The branch is a planning
+boundary only; no Beta 1 scanner implementation is included and no release
+tag/package was created.
+
+## Final consolidation facts
+
+Snapshot reverified after `git fetch --all --tags --prune` on 2026-08-07:
+
+| Fact | Final value |
+| --- | --- |
+| `main` | `a96ec1731c4247e0121f3d25d65b57adc7f9cf7d` (unchanged) |
+| Final Alpha.5 merge commit | `b0fd251996690fef80909cf972dc28a18e5e2207` |
+| Final branch-consolidation commit / `develop/sdk-v2` | `5b7f023a7f8efb4ad85f60a8affb076ba24dfd41` |
+| Final Beta 1 branch SHA | `5b7f023a7f8efb4ad85f60a8affb076ba24dfd41` |
+| PR #9 | merged into `develop/sdk-v2`, not Draft; source branch deleted |
+| PR #10 | closed, not merged; Dependabot branch deleted |
+| PR #11 | closed, not merged; Dependabot branch deleted |
+| PR #12 | closed, not merged; Dependabot branch deleted |
+| Last frozen evidence | Alpha.4 r4 (`v2-alpha4-r4`) |
+| Alpha.5 project-owned photographs | 0/12, deferred to Beta 1 |
+
+The final remote branch inventory contained exactly:
+
+- `main`
+- `develop/sdk-v2`
+- `architecture/sdk-v2-beta1-realtime-scanner-foundation`
+
+The Alpha.5 feature branch, all three stale Dependabot branches, and every
+temporary consolidation branch were confirmed deleted. The Beta 1 branch and
+`develop/sdk-v2` pointed to the same commit, so no additional merge commit was
+introduced.
 
 ## Deferred Beta 1 registry
 
@@ -81,3 +110,18 @@ Planning issues cover:
    TypeScript/Node types; ESLint; Vitest/coverage; Playwright/accessibility;
    and Next lint integration. Each upgrade group requires its own tests and PR.
 
+The concrete Beta 1 issue registry was created and remained open at the
+consolidation boundary:
+
+| Issue | Scope | State |
+| --- | --- | --- |
+| #13 | project-owned real-photo and physical-camera validation | Open |
+| #14 | real-time scanner runtime foundation | Open |
+| #15 | isolate ZXing-JS compatibility upgrade | Open |
+| #16 | Next and React major migration | Open |
+| #17 | Sharp image-pipeline migration | Open |
+| #18 | TypeScript and Node type compatibility | Open |
+| #19 | ESLint configuration migration | Open |
+| #20 | Vitest and coverage migration | Open |
+| #21 | Playwright and accessibility migration | Open |
+| #22 | Next lint integration migration | Open |

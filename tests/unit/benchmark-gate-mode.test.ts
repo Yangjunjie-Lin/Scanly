@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { BaselineRegistry } from "../../scripts/baseline-registry.js";
-import { enforceGateModeForLifecycle, selectBenchmarkGateMode, type CurrentBenchmarkIdentity } from "../../scripts/select-benchmark-gate-mode.js";
+import { enforceGateModeForLifecycle, selectBenchmarkGateMode, selectWorkflowEvidenceMode, type CurrentBenchmarkIdentity } from "../../scripts/select-benchmark-gate-mode.js";
 
 const FAMILY = "node24-win32-x64";
 const roots: string[] = [];
@@ -65,6 +65,19 @@ function select(registry: BaselineRegistry, root: string, current: CurrentBenchm
 }
 
 describe("benchmark gate mode selector", () => {
+  it("classifies develop, Beta 1, and PR development as integration", () => {
+    expect(selectWorkflowEvidenceMode({ eventName: "push", refName: "develop/sdk-v2" })).toBe("integration");
+    expect(selectWorkflowEvidenceMode({ eventName: "push", refName: "architecture/sdk-v2-beta1-realtime-scanner-foundation" })).toBe("integration");
+    expect(selectWorkflowEvidenceMode({ eventName: "pull_request", baseRef: "develop/sdk-v2" })).toBe("integration");
+    expect(selectWorkflowEvidenceMode({ eventName: "workflow_dispatch", refName: "develop/sdk-v2", manualGateMode: "integration" })).toBe("integration");
+  });
+
+  it("enters release policy only through an explicit manual input or release candidate ref", () => {
+    expect(selectWorkflowEvidenceMode({ eventName: "workflow_dispatch", refName: "develop/sdk-v2", manualGateMode: "release" })).toBe("release");
+    expect(selectWorkflowEvidenceMode({ eventName: "push", refName: "rc/sdk-v2-beta1" })).toBe("release");
+    expect(selectWorkflowEvidenceMode({ eventName: "push", refName: "feature/unclassified" })).toBe("integration");
+  });
+
   it("selects active-baseline for matching Alpha.5 evidence", () => {
     const { registry, root, current } = validRegistry("v2-alpha5-r1");
     expect(select(registry, root, current)).toEqual({

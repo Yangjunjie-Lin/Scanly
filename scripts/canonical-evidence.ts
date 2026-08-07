@@ -6,6 +6,7 @@ import { validateBenchmarkCsv } from "./benchmark-csv.js";
 import {
   allSymbologyGatesPassed,
   evaluateSymbologyGates,
+  type SymbologyGateMode,
   type SymbologyGateResult,
   type SymbologyGateReport,
 } from "./symbology-gates.js";
@@ -353,7 +354,10 @@ export function validateCompatibleSources(reports: Array<BenchmarkRunSummary | C
   return failures;
 }
 
-export function validateSymbologyReport(report: Partial<SymbologyEvidenceReport>): string[] {
+export function validateSymbologyReport(
+  report: Partial<SymbologyEvidenceReport>,
+  gateMode: SymbologyGateMode = "release",
+): string[] {
   const failures: string[] = [];
   if (!report || typeof report !== "object") return ["symbology report is missing"];
   if (report.schemaVersion !== "alpha5-symbology-evidence-1") failures.push("symbology schema version is incompatible");
@@ -362,11 +366,11 @@ export function validateSymbologyReport(report: Partial<SymbologyEvidenceReport>
   if (!report.sourceIdentity?.commitSha || !report.sourceIdentity?.treeSha) failures.push("symbology source commit/tree is missing");
   if (!/^[a-f0-9]{64}$/.test(report.sourceIdentity?.symbologyManifestHash ?? "")) failures.push("symbology manifest hash is missing or invalid");
   if (!/^[a-f0-9]{64}$/.test(report.sourceIdentity?.datasetHash ?? "")) failures.push("symbology dataset hash is missing or invalid");
-  if ((report.corpus?.projectOwnedRealPhotos ?? 0) < 12) failures.push("symbology project-photo corpus is incomplete");
-  if (report.corpus?.realPhotoGateComplete !== true) failures.push("symbology real-photo gate is incomplete");
+  if (gateMode === "release" && (report.corpus?.projectOwnedRealPhotos ?? 0) < 12) failures.push("symbology project-photo corpus is incomplete");
+  if (gateMode === "release" && report.corpus?.realPhotoGateComplete !== true) failures.push("symbology real-photo gate is incomplete");
   if ((report.falsePositiveCount ?? -1) !== 0) failures.push("symbology report contains false positives");
   if ((report.acceptedFormatMisclassificationCount ?? -1) !== 0) failures.push("symbology report contains format misclassifications");
-  const gateResults = report.gateResults ?? evaluateSymbologyGates(report as SymbologyGateReport, { canonicalCandidate: true });
+  const gateResults = evaluateSymbologyGates(report as SymbologyGateReport, { canonicalCandidate: true, gateMode });
   if (!allSymbologyGatesPassed(gateResults)) {
     const failed = gateResults.filter((gate) => !gate.passed).map((gate) => gate.id);
     failures.push(`symbology release gates failed: ${failed.join(", ")}`);
@@ -378,7 +382,11 @@ function readJson<T>(file: string): T {
   return JSON.parse(fs.readFileSync(file, "utf8")) as T;
 }
 
-export function assembleCanonicalEvidence(inputs: Record<EvidenceReportKey, string>, outputDirectory: string): CanonicalEvidenceBundle {
+export function assembleCanonicalEvidence(
+  inputs: Record<EvidenceReportKey, string>,
+  outputDirectory: string,
+  gateMode: SymbologyGateMode = "release",
+): CanonicalEvidenceBundle {
   if (!inputs.symbologiesJson) throw new Error("Canonical evidence assembly requires --symbologies=<path>; the symbology report is mandatory for schema 2.1.");
   const reports = {
     fast: readJson<BenchmarkRunSummary>(inputs.fastJson),
@@ -394,7 +402,7 @@ export function assembleCanonicalEvidence(inputs: Record<EvidenceReportKey, stri
   }
   failures.push(...validateComparisonReport(reports.comparison).map((failure) => `comparison: ${failure}`));
   failures.push(...validateCompatibleSources([reports.fast, reports.balanced, reports.robust, reports.comparison]));
-  failures.push(...validateSymbologyReport(reports.symbologies).map((failure) => `symbologies: ${failure}`));
+  failures.push(...validateSymbologyReport(reports.symbologies, gateMode).map((failure) => `symbologies: ${failure}`));
   if (reports.symbologies.sourceIdentity?.commitSha !== reports.fast.sourceIdentity?.commitSha
     || reports.symbologies.sourceIdentity?.treeSha !== reports.fast.sourceIdentity?.treeSha) {
     failures.push("symbologies: source identity does not match profile reports");

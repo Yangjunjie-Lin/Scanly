@@ -7,7 +7,7 @@ import type { ScanResult, SdkErrorCode } from "@scanly/core";
 import { getBuiltinScenario, type ScenarioPresetId } from "@scanly/scenario-schema";
 
 type Mode = "camera" | "upload";
-type Preset = "balanced" | "multiformat-balanced" | "retail-fast" | "logistics-balanced" | "document-robust";
+type Preset = "balanced" | "robust" | "multiformat-balanced" | "retail-fast" | "logistics-balanced" | "document-robust";
 
 function formatLabel(format: ScanResult["format"]): string {
   return ({
@@ -332,6 +332,7 @@ export default function QRTool() {
         <label className="small" htmlFor="format-preset">Formats</label>
         <select id="format-preset" value={preset} onChange={(event) => selectPreset(event.target.value as Preset)} aria-label="Format preset" disabled={isScanning || isProcessing}>
           <option value="balanced">QR</option>
+          <option value="robust">QR Robust</option>
           <option value="retail-fast">Retail</option>
           <option value="logistics-balanced">Logistics</option>
           <option value="document-robust">Document</option>

@@ -22,30 +22,53 @@ function sameMultiset(left: string[], right: string[]): boolean {
 }
 
 test("records an isolated browser runtime benchmark", async ({ page, browser, browserName }, testInfo) => {
+  test.setTimeout(benchmarkKind === "full" ? 15 * 60_000 : 3 * 60_000);
   const results: Array<BrowserBenchmarkReport["results"][number] & { engineIds: string[]; wasmVariants: string[] }> = [];
   await page.goto("/");
   await page.getByRole("tab", { name: "Upload" }).click();
+  if (benchmarkKind === "full") await page.getByRole("combobox", { name: "Format preset" }).selectOption("robust");
+  const processingStatus = page.getByTestId("processing-status");
+  await expect(processingStatus).toContainText("Ready");
   for (const id of fixtureIds) {
     const fixture = manifest.fixtures.find((entry) => entry.id === id)!;
     const started = Date.now();
-    await page.getByTestId("upload-input").setInputFiles(path.join(root, fixture.file));
-    if (fixture.expectedOutcome === "decode") {
-      const expectedCount = fixture.expectedResultCount ?? 1;
-      if (expectedCount > 1) await expect(page.getByTestId("decoded-result-item")).toHaveCount(expectedCount, { timeout: 100_000 });
-      else await expect(page.getByTestId("decoded-output")).not.toHaveValue("", { timeout: 100_000 });
-    } else {
-      await expect(page.getByTestId("error-message")).toBeVisible({ timeout: 100_000 });
-      await expect(page.getByTestId("decoded-result-item")).toHaveCount(0);
-      await expect(page.getByTestId("decoded-output")).toHaveValue("");
+    console.log(`[browser-benchmark][${browserName}][${benchmarkKind}] fixture start: ${id}`);
+    try {
+      await page.getByTestId("upload-input").setInputFiles(path.join(root, fixture.file));
+      await expect(processingStatus).toContainText(/^(?:Decoded(?: \d+ codes)?|Failed to decode image)$/, { timeout: 100_000 });
+      const terminalStatus = await processingStatus.innerText();
+      if (fixture.expectedOutcome === "decode" && terminalStatus.startsWith("Decoded")) {
+        const expectedCount = fixture.expectedResultCount ?? 1;
+        if (expectedCount > 1) await expect(page.getByTestId("decoded-result-item")).toHaveCount(expectedCount);
+        else await expect(page.getByTestId("decoded-output")).not.toHaveValue("");
+      } else {
+        await expect(page.getByTestId("error-message")).toBeVisible();
+        await expect(page.getByTestId("decoded-result-item")).toHaveCount(0);
+        await expect(page.getByTestId("decoded-output")).toHaveValue("");
+      }
+      const payloads = await page.getByTestId("decoded-result-item").evaluateAll((elements) => elements.map((element) => element.getAttribute("data-payload") ?? ""));
+      const single = await page.getByTestId("decoded-output").inputValue();
+      const engineElements = payloads.length ? page.getByTestId("decoded-result-item") : page.getByTestId("decoded-output");
+      const engineIds = await engineElements.evaluateAll((elements) => elements.map((element) => element.getAttribute("data-engine") ?? "").filter(Boolean));
+      const wasmVariants = await engineElements.evaluateAll((elements) => elements.map((element) => element.getAttribute("data-engine-variant") ?? "").filter(Boolean));
+      const actual = payloads.length ? payloads : single ? [single] : [];
+      const required = fixture.requiredInstances?.flatMap((entry) => Array.from({ length: entry.count }, () => entry.payload)) ?? fixture.requiredPayloads ?? (Array.isArray(fixture.expectedPayload) ? fixture.expectedPayload : [fixture.expectedPayload]).filter(Boolean);
+      const elapsedMs = Date.now() - started;
+      results.push({ fixtureId: id, pass: fixture.expectedOutcome === "decode" ? sameMultiset(required, actual) : actual.length === 0, elapsedMs, payloads: actual, engineIds, wasmVariants });
+      console.log(`[browser-benchmark][${browserName}][${benchmarkKind}] fixture end: ${id} (${elapsedMs}ms)`);
+      await page.getByRole("button", { name: "Reset upload result" }).click();
+      await expect(processingStatus).toContainText("Ready");
+      await expect(page.getByTestId("upload-input")).toBeEnabled();
+    } catch (error) {
+      const diagnostics = await page.evaluate(() => ({
+        status: document.querySelector<HTMLElement>("[data-testid='processing-status']")?.innerText,
+        error: document.querySelector<HTMLElement>("[data-testid='error-message']")?.innerText,
+        worker: window.__SCANLY_WORKER_DEBUG__,
+      }));
+      console.error(`[browser-benchmark][${browserName}][${benchmarkKind}] fixture failed: ${id} (${Date.now() - started}ms)`, diagnostics);
+      await testInfo.attach(`fixture-${id}-diagnostics`, { body: Buffer.from(JSON.stringify(diagnostics, null, 2)), contentType: "application/json" });
+      throw error;
     }
-    const payloads = await page.getByTestId("decoded-result-item").evaluateAll((elements) => elements.map((element) => element.getAttribute("data-payload") ?? ""));
-    const single = await page.getByTestId("decoded-output").inputValue();
-    const engineElements = payloads.length ? page.getByTestId("decoded-result-item") : page.getByTestId("decoded-output");
-    const engineIds = await engineElements.evaluateAll((elements) => elements.map((element) => element.getAttribute("data-engine") ?? "").filter(Boolean));
-    const wasmVariants = await engineElements.evaluateAll((elements) => elements.map((element) => element.getAttribute("data-engine-variant") ?? "").filter(Boolean));
-    const actual = payloads.length ? payloads : single ? [single] : [];
-    const required = fixture.requiredInstances?.flatMap((entry) => Array.from({ length: entry.count }, () => entry.payload)) ?? fixture.requiredPayloads ?? (Array.isArray(fixture.expectedPayload) ? fixture.expectedPayload : [fixture.expectedPayload]).filter(Boolean);
-    results.push({ fixtureId: id, pass: fixture.expectedOutcome === "decode" ? sameMultiset(required, actual) : actual.length === 0, elapsedMs: Date.now() - started, payloads: actual, engineIds, wasmVariants });
   }
   const platform = await page.evaluate(() => ({ userAgent: navigator.userAgent, platform: navigator.platform, worker: typeof Worker !== "undefined", offscreen: typeof OffscreenCanvas !== "undefined", imageBitmap: typeof createImageBitmap !== "undefined", videoFrame: typeof VideoFrame !== "undefined", memory: "memory" in performance ? "performance.memory available but non-standard" : "browser heap observation unavailable", debug: window.__SCANLY_WORKER_DEBUG__ }));
   const positives = results.filter((result) => manifest.fixtures.find((fixture) => fixture.id === result.fixtureId)?.expectedOutcome === "decode");
@@ -107,4 +130,7 @@ test("records an isolated browser runtime benchmark", async ({ page, browser, br
     expect(report.metadata.observedEngineIds).toContain("zxing-cpp-wasm");
     expect(report.metadata.observedWasmVariants).toContain("standard");
   }
+  const closeStarted = Date.now();
+  await page.close();
+  console.log(`[browser-benchmark][${browserName}][${benchmarkKind}] page closed (${Date.now() - closeStarted}ms)`);
 });
