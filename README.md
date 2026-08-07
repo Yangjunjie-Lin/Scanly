@@ -66,6 +66,12 @@ The last fully frozen evidence is **Alpha.4 r4** (`v2-alpha4-r4`). Its dataset i
 
 Alpha.5 integration evidence is development evidence. It is not frozen canonical release evidence.
 
+### Beta 1 real-time scanner foundation
+
+The active Beta 1 branch introduces the SDK-owned `ScannerSession`, `FrameScheduler`, `FrameQualityAnalyzer`, bounded Fast/Balanced/Robust escalation, temporal confirmation, repeat suppression, temporal ROI reuse, capability detection, and deterministic camera simulation. React is an adapter only; it does not own decode, Worker, temporal, or memory state. `npm run benchmark:realtime` records 20 deterministic frame sequences plus a 10,000-frame disposal soak with TTFD, TTFC, effective decode FPS, frame drops, profile distribution, duplicate suppression, Worker bounds, and final controlled memory. This is Beta 1 development evidence and must not be described as physical-camera, industrial, or production certification.
+
+See [Beta 1 real-time runtime](docs/beta1-realtime-runtime.md) for the lifecycle, bounded escalation, temporal correctness, memory, and evidence boundaries.
+
 <!-- ALPHA5_INTEGRATION_SUMMARY_START -->
 | Current Alpha.5 development evidence | Value |
 | --- | ---: |
@@ -107,7 +113,7 @@ Profile intent is explicit: `fast` is the latency-first camera pass and accepts 
 | --- | --- |
 | `apps/web-demo` | Next.js reference application; consumes SDK APIs |
 | `packages/core` | dependency-light contracts, registries, compiler, router, session, bounded artifacts, and engine-agnostic QR primitives |
-| `packages/browser` | file loading, Worker ownership, camera source lifecycle |
+| `packages/browser` | file loading, persistent Worker ownership, `ScannerSession`, frame scheduling, temporal camera runtime |
 | `packages/node` | Sharp-isolated Node image loading and default engine composition |
 | `packages/react` | thin React lifecycle adapter |
 | `packages/scenario-schema` | scenario v2 types, validation, profiles |
@@ -190,7 +196,7 @@ See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 
 ## Project status
 
-**SDK v2 alpha preview.** Scanly now has a unified, dependency-inverted, scenario-driven runtime that can be developed toward commercial barcode-capture maturity without another core architectural rewrite. Industrial or production readiness is not claimed: the dataset is internal, physical-device coverage is absent, Alpha.5 multi-symbology coverage is still preview-level, and the alpha API may change.
+**SDK v2 Beta 1 development preview.** Scanly now has a unified, dependency-inverted, scenario-driven runtime with a persistent, bounded, temporally aware camera foundation. Industrial or production readiness is not claimed: the dataset is internal, physical-device coverage is absent, Alpha.5 multi-symbology coverage remains preview-level, and the Beta API may change.
 
 ## License
 

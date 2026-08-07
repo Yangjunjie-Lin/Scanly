@@ -6,6 +6,8 @@ All notable changes follow semantic versioning.
 
 - Entered `2.0.0-beta.1` development on `architecture/sdk-v2-beta1-realtime-scanner-foundation` for the persistent real-time scanner runtime.
 - Preserved the Alpha.5 static upload, multi-symbology, Browser/Worker/Node, checksum, format, and evidence integration gates as frozen regression requirements.
+- Added `ScannerSession`, latest-frame `FrameScheduler`, low-cost `FrameQualityAnalyzer`, bounded decode escalation, temporal confirmation, ROI reuse, physical-instance repeat suppression, typed camera capabilities, and deterministic `MediaStream`/sequence frame sources.
+- Added 20 deterministic real-time sequence scenarios and a 10,000-frame session disposal soak. The first Beta baseline records TTFD, TTFC, effective decode FPS, profile distribution, frame drops, Worker bounds, and final controlled memory without claiming a performance gate.
 - Beta 1 remains a preview: no tag, GitHub Release, npm publication, Stable claim, or `v2-beta1-r1` evidence activation is authorized during runtime foundation development.
 
 ## Alpha.5 integration closure

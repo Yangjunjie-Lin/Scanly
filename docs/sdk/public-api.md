@@ -9,7 +9,25 @@
 `ScanResult.orientation`, when present, is an engine-derived clockwise angle relative to the original normalized frame. A preprocessing attempt rotation is debug metadata only and is never exposed as symbol orientation.
 
 Static multi-code scans default to `payload-format-spatial` deduplication. Schema `2.1` also supports `payload`, `payload-format`, and `tracked-instance` policy selection. Geometry-proven separate instances with the same payload remain separate under the default; when geometry is unavailable, the documented fallback is payload plus format identity.
-- Scenario schema: `2.0`
+
+## Beta 1 real-time scanner runtime
+
+`@scanly/browser` exposes `ScannerSession` for continuous camera work. A session owns the camera source, persistent decode Worker, frame scheduler, temporal candidate store, ROI hint, repeat policy, cancellation generation, and diagnostics; a React adapter should only render state and subscribe to events.
+
+The runtime pipeline is bounded and latest-frame based:
+
+```text
+CameraFrameSource -> FrameScheduler -> FrameQualityAnalyzer
+  -> Fast/Balanced/Robust escalation -> temporal confirmation
+  -> RepeatSuppressor -> ScanEvent("emitted")
+```
+
+`FrameScheduler` permits one expensive decode and retains only the newest pending frame. `FrameQualityAnalyzer` reports heuristic blur, exposure, glare, contrast, edge density, and usability signals; unusable frames are admitted periodically as probes so a heuristic cannot permanently block a valid code. `TemporalCandidateStore` supports `immediate`, `confirm-two`, and `adaptive` confirmation. `RepeatSuppressor` supports `allow`, `cooldown`, `once-per-session`, and `physical-instance`; geometry and disappearance are used to distinguish equal payloads on separate physical symbols.
+
+`DeterministicFrameSequenceSource` is the CI camera simulator. `MediaStreamCameraFrameSource` is the browser-only media adapter. `CameraCapabilityController` feature-detects torch, zoom, and focus and returns typed `CapabilityResult` failures when a browser or track does not support a capability. The public `ScannerSessionStatistics` includes TTFD, TTFC, effective decode FPS, admission/drop counts, profile distribution, duplicate suppression, Worker counts, and controlled-memory cleanup.
+
+Beta 1 development evidence is collected by `npm run benchmark:realtime`; it runs 20 deterministic sequence scenarios and a 10,000-frame soak. These numbers are development baselines, not production or physical-device certification.
+- Scenario schema: `2.1`
 - Benchmark report schema: `2.0`
 - Engine metadata comes from each registered plugin instance; core contains no decoder version map.
 
