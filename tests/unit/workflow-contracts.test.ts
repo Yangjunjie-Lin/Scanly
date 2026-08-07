@@ -149,4 +149,15 @@ describe("benchmark workflow contracts", () => {
       expect(source).toContain("worker");
     }
   });
+
+  it("runs the Beta 1 realtime unit, integration, soak, benchmark, and cross-browser simulator gates", () => {
+    const ci = read("ci.yml");
+    for (const job of ["Real-Time Scanner Unit", "Real-Time Scanner Integration", "Scanner Soak", "Real-Time Benchmark"]) expect(ci).toContain(`name: ${job}`);
+    expect(ci).toContain("npm run benchmark:realtime");
+    expect(ci).toContain("capturedFrames!==10000");
+    const simulator = fs.readFileSync(path.join(process.cwd(), "tests", "browser-benchmark", "scanner-runtime.spec.ts"), "utf8");
+    expect(simulator).toContain("ScannerSession simulator");
+    expect(simulator).toContain("staleEvents");
+    expect(simulator).toContain("finalControlledMemory");
+  });
 });

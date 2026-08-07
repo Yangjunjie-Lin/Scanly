@@ -219,3 +219,68 @@ jobs:
       - run: npm run build:packages
       - run: npm run packages:smoke
       - run: npm run packages:tarball
+
+  realtime-scanner-unit:
+    name: Real-Time Scanner Unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v7
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: npx vitest run tests/unit/scanner-session.test.ts tests/unit/frame-scheduler.test.ts tests/unit/frame-quality.test.ts tests/unit/temporal-confirmation.test.ts tests/unit/repeat-policy.test.ts tests/unit/camera-roi.test.ts tests/unit/camera-capabilities.test.ts tests/unit/frame-source.test.ts tests/unit/scanner-lifecycle.test.ts tests/unit/scanner-worker.test.ts
+
+  realtime-scanner-integration:
+    name: Real-Time Scanner Integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v7
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: npm run benchmark:realtime
+      - name: Verify deterministic sequence report
+        run: node -e "const r=require('./benchmark-results/realtime/sequence-results.json'); if(r.scenarioCount!==20) throw new Error('Expected 20 realtime scenarios'); if(!r.gates.pass) throw new Error('Realtime gates failed'); if(r.soak.finalControlledMemory!==0 || r.soak.pendingFrameCount!==0 || r.soak.activeDecodeCount!==0) throw new Error('Realtime soak did not dispose cleanly');"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: realtime-sequences
+          if-no-files-found: error
+          path: benchmark-results/realtime/sequence-results.json
+
+  scanner-soak:
+    name: Scanner Soak
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v7
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: npm run benchmark:realtime
+      - name: Verify 10,000 frame cleanup
+        run: node -e "const r=require('./benchmark-results/realtime/sequence-results.json').soak; if(r.capturedFrames!==10000) throw new Error('Soak did not process 10,000 frames'); if(r.workerCreatedCount>1 || r.pendingFrameCount!==0 || r.activeDecodeCount!==0 || r.finalControlledMemory!==0 || r.wasmInputAllocationBytes!==0 || r.wasmActiveNativeResultCount!==0) throw new Error('Soak bounds failed');"
+
+  realtime-benchmark:
+    name: Real-Time Benchmark
+    needs: realtime-scanner-integration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v7
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: realtime-sequences
+          path: benchmark-results/realtime
+      - run: node -e "const r=require('./benchmark-results/realtime/sequence-results.json'); if(r.scenarioCount!==20) process.exit(1); console.log('Realtime benchmark evidence loaded');"
