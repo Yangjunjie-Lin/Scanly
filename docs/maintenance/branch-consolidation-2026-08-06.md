@@ -1,5 +1,7 @@
 # Branch consolidation audit (2026-08-06)
 
+> **Historical pre-consolidation audit. Superseded by [branch-consolidation-2026-08-07.md](branch-consolidation-2026-08-07.md). Do not use this document as current branch state.**
+
 This record is based on git fetch --all --tags --prune and the remote tips
 observed on 2026-08-07. main was read-only throughout the audit.
 
@@ -166,12 +168,14 @@ at Fast 62/74, Balanced 73/74, and Robust 73/74 with zero false positives,
 timeouts, or engine failures. These development results are not Canonical
 Evidence and do not satisfy the missing project-photo gate.
 
-## Final deletion proof
+## Historical deletion authorization state
 
-Deletion is not authorized by this audit yet. Before deletion, append the
-final tip SHAs, PR dispositions, merge commit, evidence IDs/hashes, and the
-result of git branch -r --no-merged origin/develop/sdk-v2.
+At the time of this audit, deletion had not yet been authorized. The audit
+required final tip SHAs, PR dispositions, the merge commit, evidence
+IDs/hashes, and the result of `git branch -r --no-merged
+origin/develop/sdk-v2` before deletion. Those later consolidation facts are
+recorded in the superseding 2026-08-07 authority.
 
-Every obsolete branch must then prove that all unique commits are ancestors of
-develop/sdk-v2, were semantically reapplied, or were deliberately rejected
-and documented. main and develop/sdk-v2 are never deletion candidates.
+The later consolidation proved that obsolete unique commits were ancestors of
+`develop/sdk-v2`, were semantically reapplied, or were deliberately rejected
+and documented. `main` and `develop/sdk-v2` were never deletion candidates.

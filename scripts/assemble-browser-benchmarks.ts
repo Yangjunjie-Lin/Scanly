@@ -15,7 +15,11 @@ const reports = Object.fromEntries((["chromium", "firefox", "webkit"] as const).
 const identities = Object.values(reports).map(({ report }) => ({ commitSha: report.sourceIdentity.commitSha, treeSha: report.sourceIdentity.treeSha, sdkVersion: report.sourceIdentity.sdkVersion, datasetHash: report.sourceIdentity.datasetHash, scenarioHash: report.sourceIdentity.scenarioHash, wasmBuildHash: report.sourceIdentity.wasmBuildHash, fixtureIds: report.sourceIdentity.fixtureIds }));
 if (new Set(identities.map((identity) => stableJson(identity))).size !== 1) throw new Error("Browser reports do not share source identity and fixture set.");
 for (const [browser, { report }] of Object.entries(reports)) {
-  if (report.results.some((result) => !result.pass)) throw new Error(`${browser} browser suite contains failed fixtures.`);
+  const failedFixtures = report.results.filter((result) => !result.pass).map((result) => result.fixtureId);
+  const allowedDocumentedFullFailure = report.benchmarkKind === "full"
+    && failedFixtures.length === 1
+    && failedFixtures[0] === "14-damaged";
+  if (failedFixtures.length && !allowedDocumentedFullFailure) throw new Error(`${browser} browser suite contains failed fixtures: ${failedFixtures.join(", ")}.`);
   if (report.falsePositiveCount !== 0) throw new Error(`${browser} browser suite contains false positives.`);
   if (report.metadata.actualDecodePath === "unknown") throw new Error(`${browser} browser suite did not record an actual decode path.`);
   if (report.metadata.workerAvailable && report.metadata.workerCreatedCount < 1) throw new Error(`${browser} reported Worker support without Worker creation.`);

@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import type { BenchmarkFixture, BenchmarkRunSummary } from "@scanly/benchmark";
 import { computeDatasetHash, sha256Text, verifyEvidenceCommitPolicy } from "./benchmark-provenance.js";
 import { loadBaselineRegistry, validateBaselineForActivation } from "./baseline-registry.js";
@@ -53,6 +54,78 @@ function validateReadableHistoricalEvidence(bundle: ReturnType<typeof readCanoni
   return failures;
 }
 
+async function validateHistoricalBaselineInstallation(
+  bundle: ReturnType<typeof readCanonicalEvidence>,
+  registryPath: string,
+): Promise<string[]> {
+  const failures = validateReadableHistoricalEvidence(bundle);
+  const manifest = bundle.manifest;
+  let registry;
+  try {
+    registry = await loadBaselineRegistry(registryPath);
+  } catch (error) {
+    return [...failures, `historical baseline registry is invalid: ${error instanceof Error ? error.message : String(error)}`];
+  }
+  for (const [family, active] of Object.entries(registry.activeBaselines)) {
+    const evidence = registry.activeEvidence?.[family];
+    if (!evidence) {
+      failures.push(`${family}: historical active evidence metadata is missing`);
+      continue;
+    }
+    const derivedIds = PROFILE_KEYS.map((profile) => baselineIdFromActiveFile(active[profile], profile));
+    if (derivedIds.some((id) => !id) || new Set(derivedIds).size !== 1) {
+      failures.push(`${family}: historical baseline filenames do not derive one baseline ID`);
+      continue;
+    }
+    if (evidence.baselineId !== derivedIds[0]) failures.push(`${family}: historical evidence baseline ID is stale`);
+    if (evidence.evidenceId !== manifest.evidenceId) failures.push(`${family}: historical evidence ID does not match the canonical manifest`);
+    if (evidence.canonicalManifestHash !== manifest.manifestHash) failures.push(`${family}: historical canonical manifest hash is stale`);
+    if (evidence.sourceCommit !== manifest.sourceIdentity.sourceCommitSha) failures.push(`${family}: historical source commit is stale`);
+    if (evidence.sourceTree && evidence.sourceTree !== manifest.sourceIdentity.sourceTreeSha) failures.push(`${family}: historical source tree is stale`);
+    if (evidence.sdkVersion && evidence.sdkVersion !== manifest.sdkVersion) failures.push(`${family}: historical SDK version is stale`);
+    if (evidence.packageLockHash && evidence.packageLockHash !== manifest.sourceIdentity.packageLockHash) failures.push(`${family}: historical package-lock hash is stale`);
+    if (evidence.datasetHash && evidence.datasetHash !== manifest.sourceIdentity.datasetHash) failures.push(`${family}: historical dataset hash is stale`);
+    if (evidence.engineCompositionHash !== manifest.sourceIdentity.engineCompositionHash) failures.push(`${family}: historical engine composition hash is stale`);
+    if (evidence.wasmBuildHash !== manifest.sourceIdentity.wasmBuildHash) failures.push(`${family}: historical WASM build hash is stale`);
+    for (const profile of PROFILE_KEYS) {
+      const file = active[profile];
+      const baselinePath = path.join(path.dirname(registryPath), file);
+      if (!fs.existsSync(baselinePath)) {
+        failures.push(`${family}/${profile}: historical baseline file is missing`);
+        continue;
+      }
+      const raw = fs.readFileSync(baselinePath);
+      if (evidence.baselineHashes?.[profile] !== sha256Text(raw)) failures.push(`${family}/${profile}: historical baseline hash mismatch`);
+      let baseline: Partial<BenchmarkRunSummary> & { evidenceId?: string; canonicalManifestHash?: string; reportHash?: string };
+      try {
+        baseline = JSON.parse(raw.toString("utf8")) as typeof baseline;
+      } catch {
+        failures.push(`${family}/${profile}: historical baseline JSON is malformed`);
+        continue;
+      }
+      failures.push(...validateBaselineForActivation(baseline, {
+        sdkVersion: manifest.sdkVersion,
+        fixtureCount: manifest.fixtureCount,
+        datasetHash: manifest.sourceIdentity.datasetHash,
+        profile,
+        runtimeFamily: family,
+      }).map((failure) => `${family}/${profile}: ${failure}`));
+      if (baseline.evidenceId !== manifest.evidenceId) failures.push(`${family}/${profile}: baseline evidence ID is stale`);
+      if (baseline.canonicalManifestHash !== manifest.manifestHash) failures.push(`${family}/${profile}: baseline canonical manifest hash is stale`);
+      if (baseline.reportHash !== legacyReportHash(manifest, PROFILE_REPORT_KEYS[profile].json)) failures.push(`${family}/${profile}: baseline report hash is stale`);
+      if (baseline.sourceIdentity?.commitSha !== manifest.sourceIdentity.sourceCommitSha
+        || baseline.sourceIdentity?.treeSha !== manifest.sourceIdentity.sourceTreeSha
+        || baseline.sourceIdentity?.packageLockHash !== manifest.sourceIdentity.packageLockHash
+        || baseline.sourceIdentity?.datasetHash !== manifest.sourceIdentity.datasetHash
+        || baseline.sourceIdentity?.engineCompositionHash !== manifest.sourceIdentity.engineCompositionHash
+        || baseline.sourceIdentity?.wasmBuildHash !== manifest.sourceIdentity.wasmBuildHash) {
+        failures.push(`${family}/${profile}: baseline source identity is inconsistent with historical evidence`);
+      }
+    }
+  }
+  return failures;
+}
+
 async function detectLifecycle(pkgVersion: string, manifestPath: string, registryPath: string): Promise<EvidenceLifecycleState> {
   if (!fs.existsSync(manifestPath)) return "source-development";
   let manifest: ReturnType<typeof readCanonicalEvidence>["manifest"];
@@ -84,15 +157,17 @@ async function detectLifecycle(pkgVersion: string, manifestPath: string, registr
 
 async function main(): Promise<void> {
   const requestedMode = value("mode") ?? "auto";
-  if (!(["auto", "source-development", "baseline-candidate", "evidence-bootstrap", "baseline-bootstrap", "active-baseline", "release"] as const).includes(requestedMode as "auto")) throw new Error("Evidence verification mode is invalid.");
+  if (!(["auto", "historical-baseline-validation", "source-development", "integration", "baseline-candidate", "evidence-bootstrap", "baseline-bootstrap", "active-baseline", "release"] as const).includes(requestedMode as "auto")) throw new Error("Evidence verification mode is invalid.");
   const supplied = value("canonical-manifest");
-  const manifestPath = supplied ? path.resolve(supplied) : path.join(ROOT, "benchmark-results", "canonical", "canonical-evidence-manifest.json");
+  const historicalManifestPath = path.join(ROOT, "benchmark-results", "canonical", "canonical-evidence-manifest.json");
+  const registryPath = path.join(ROOT, "benchmark-results", "baselines", "registry.json");
+  const manifestPath = supplied ? path.resolve(supplied) : historicalManifestPath;
   let mode = requestedMode === "baseline-bootstrap" ? "evidence-bootstrap" : requestedMode;
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8")) as { version: string };
-  if (mode === "auto") mode = await detectLifecycle(pkg.version, manifestPath, path.join(ROOT, "benchmark-results", "baselines", "registry.json"));
+  if (mode === "auto") mode = await detectLifecycle(pkg.version, manifestPath, registryPath);
   if (mode === "evidence-bootstrap" && !supplied) throw new Error("Evidence-bootstrap verification requires --canonical-manifest=<external path>.");
   if (!fs.existsSync(manifestPath)) {
-    if (mode === "source-development") {
+    if (mode === "source-development" || mode === "integration") {
       console.log("Evidence lifecycle verified (source-development): no canonical manifest is committed yet.");
       return;
     }
@@ -100,11 +175,26 @@ async function main(): Promise<void> {
   }
   const bundle = readCanonicalEvidence(manifestPath);
   const failures: string[] = [];
-  if (mode === "source-development" || mode === "baseline-candidate") {
-    failures.push(...validateReadableHistoricalEvidence(bundle));
-    if (failures.length) throw new Error(`Historical evidence readability verification failed (${mode}):\n- ${failures.join("\n- ")}`);
-    console.log(`Evidence lifecycle verified (${mode}): ${bundle.manifest.evidenceId} remains readable and is not active Alpha.5 release evidence.`);
-    return;
+  if (mode === "historical-baseline-validation" || mode === "source-development" || mode === "integration" || mode === "baseline-candidate") {
+    if (!fs.existsSync(historicalManifestPath)) failures.push("tracked historical canonical manifest is missing");
+    else {
+      const historicalBundle = readCanonicalEvidence(historicalManifestPath);
+      failures.push(...await validateHistoricalBaselineInstallation(historicalBundle, registryPath));
+      if ((mode === "source-development" || mode === "integration") && historicalBundle.manifest.sdkVersion === pkg.version) {
+        failures.push("current development source is not marked ahead of historical frozen evidence");
+      }
+      if (supplied && mode === "integration") {
+        const registry = await loadBaselineRegistry(registryPath);
+        if (Object.values(registry.activeEvidence ?? {}).some((entry) => entry.evidenceId === bundle.manifest.evidenceId || entry.canonicalManifestHash === bundle.manifest.manifestHash)) {
+          failures.push("current integration evidence candidate is incorrectly activated in the baseline registry");
+        }
+      }
+    }
+    if (failures.length) throw new Error(`Historical baseline verification failed (${mode}):\n- ${failures.join("\n- ")}`);
+    if (!(supplied && mode === "integration")) {
+      console.log(`Evidence lifecycle verified (${mode}): historical ${bundle.manifest.evidenceId} is internally consistent; current evidence remains pending.`);
+      return;
+    }
   }
   for (const profile of PROFILE_KEYS) failures.push(...validateProfileReport(bundle.reports[profile], profile).map((failure) => `${profile}: ${failure}`));
   failures.push(...validateComparisonReport(bundle.reports.comparison).map((failure) => `comparison: ${failure}`));
@@ -117,12 +207,18 @@ async function main(): Promise<void> {
   if (fixtureManifest.fixtures.length !== bundle.manifest.fixtureCount) failures.push("legacy QR fixture count does not match canonical manifest");
   if (datasetHash !== bundle.manifest.sourceIdentity.datasetHash) failures.push("legacy QR dataset hash does not match canonical manifest");
   if (lockHash !== bundle.manifest.sourceIdentity.packageLockHash) failures.push("package-lock hash does not match canonical manifest");
+  if (mode === "integration") {
+    const sourceCommit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" }).trim();
+    const sourceTree = execFileSync("git", ["rev-parse", "HEAD^{tree}"], { cwd: ROOT, encoding: "utf8" }).trim();
+    if (bundle.manifest.sourceIdentity.sourceCommitSha !== sourceCommit) failures.push("integration evidence source commit does not match the checked-out Head");
+    if (bundle.manifest.sourceIdentity.sourceTreeSha !== sourceTree) failures.push("integration evidence source tree does not match the checked-out Head");
+  }
 
   if (bundle.manifest.schemaVersion === "2.1") {
     const manifest = bundle.manifest as CanonicalEvidenceManifestV21;
     if (!bundle.reports.symbologies || !bundle.reportPaths.symbologiesJson) failures.push("Alpha.5 symbology report is missing from canonical evidence");
     else {
-      failures.push(...validateSymbologyReport(bundle.reports.symbologies).map((failure) => `symbologies: ${failure}`));
+      failures.push(...validateSymbologyReport(bundle.reports.symbologies, mode === "integration" ? "integration" : "release").map((failure) => `symbologies: ${failure}`));
       if (bundle.reports.symbologies.sourceIdentity?.symbologyManifestHash !== manifest.sourceIdentity.symbologyManifestHash) {
         failures.push("symbology manifest hash does not match canonical identity");
       }
@@ -134,7 +230,7 @@ async function main(): Promise<void> {
       }
     }
     if (manifest.fixtureCounts.legacyQr !== 74) failures.push("legacy QR fixture count must remain 74");
-    if (manifest.fixtureCounts.symbologyProjectPhotos < 12) failures.push("canonical fixtureCounts require at least 12 project photos");
+    if (mode !== "integration" && manifest.fixtureCounts.symbologyProjectPhotos < 12) failures.push("canonical fixtureCounts require at least 12 project photos");
     if (manifest.fixtureCounts.symbologyTotal < 146) failures.push("canonical fixtureCounts require at least 146 symbology fixtures");
   }
 
@@ -159,7 +255,6 @@ async function main(): Promise<void> {
     }
     failures.push(...verifyEvidenceCommitPolicy(ROOT, bundle.manifest.sourceIdentity.sourceCommitSha, bundle.manifest.sourceIdentity.sourceTreeSha, bundle.manifest.sourceIdentity.evidenceCommitSha ?? "HEAD"));
 
-    const registryPath = path.join(ROOT, "benchmark-results", "baselines", "registry.json");
     const registry = await loadBaselineRegistry(registryPath);
     const family = "node24-win32-x64";
     const evidence = registry.activeEvidence?.[family];

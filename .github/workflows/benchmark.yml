@@ -2,16 +2,20 @@ name: Full Benchmark
 
 on:
   workflow_dispatch:
+    inputs:
+      gate_mode:
+        description: Evidence gate policy
+        required: true
+        default: integration
+        type: choice
+        options: [integration, release]
   pull_request:
     branches:
       - develop/sdk-v2
   push:
     branches:
-      - main
       - develop/sdk-v2
-      - architecture/sdk-v2-alpha3-industrial-validation
-      - architecture/sdk-v2-alpha4-zxing-cpp-wasm
-      - architecture/sdk-v2-alpha5-multisymbology-foundation
+      - architecture/sdk-v2-beta1-**
 
 permissions:
   contents: read
@@ -19,11 +23,12 @@ permissions:
 jobs:
   symbologies:
     name: Symbologies
+    needs: prepare
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v7
         with: { node-version: 24, cache: npm }
       - run: npm ci
@@ -32,16 +37,8 @@ jobs:
       - run: git diff --exit-code -- fixtures
       - name: Verify clean symbologies checkout
         run: git status --porcelain --untracked-files=all | Tee-Object -Variable status; if ($status) { throw "symbologies checkout is dirty" }
-      - name: Run Alpha.5 symbology gate
-        shell: pwsh
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          BASE_REF: ${{ github.base_ref }}
-          REF_NAME: ${{ github.ref_name }}
-        run: |
-          $mode = "release"
-          if (($env:EVENT_NAME -eq "pull_request" -and $env:BASE_REF -eq "develop/sdk-v2") -or $env:REF_NAME -in @("develop/sdk-v2", "architecture/sdk-v2-alpha5-multisymbology-foundation")) { $mode = "integration" }
-          npm run benchmark:symbologies -- --canonical-candidate --gate --gate-mode=$mode --output=benchmark-results/ci/symbologies.json
+      - name: Run symbology gate
+        run: npm run benchmark:symbologies -- --canonical-candidate --gate --gate-mode=${{ needs.prepare.outputs.workflow-mode }} --output=benchmark-results/ci/symbologies.json
       - uses: actions/upload-artifact@v4
         with:
           name: benchmark-symbologies
@@ -54,12 +51,13 @@ jobs:
     runs-on: windows-latest
     outputs:
       gate-mode: ${{ steps.gate-mode.outputs.mode }}
+      workflow-mode: ${{ steps.gate-mode.outputs.workflow-mode }}
       baseline-id: ${{ steps.gate-mode.outputs.baseline-id }}
       lifecycle-state: ${{ steps.gate-mode.outputs.lifecycle-state }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v7
         with: { node-version: 24, cache: npm }
       - run: npm ci
@@ -73,7 +71,12 @@ jobs:
       - name: Select benchmark gate mode
         id: gate-mode
         shell: pwsh
-        run: npx tsx scripts/select-benchmark-gate-mode.ts --runtime-family=node24-win32-x64 --registry=benchmark-results/baselines/registry.json --github-output="$env:GITHUB_OUTPUT"
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          BASE_REF: ${{ github.base_ref }}
+          MANUAL_GATE_MODE: ${{ inputs.gate_mode }}
+        run: npx tsx scripts/select-benchmark-gate-mode.ts --runtime-family=node24-win32-x64 --registry=benchmark-results/baselines/registry.json --event-name=$env:EVENT_NAME --ref-name=$env:REF_NAME --base-ref=$env:BASE_REF --manual-gate-mode=$env:MANUAL_GATE_MODE --github-output="$env:GITHUB_OUTPUT"
       - name: Summarize benchmark gate mode
         shell: pwsh
         env:
@@ -81,8 +84,10 @@ jobs:
           SELECTED_BASELINE_ID: ${{ steps.gate-mode.outputs.baseline-id }}
           SELECTION_REASON: ${{ steps.gate-mode.outputs.reason }}
           EVIDENCE_LIFECYCLE: ${{ steps.gate-mode.outputs.lifecycle-state }}
+          WORKFLOW_MODE: ${{ steps.gate-mode.outputs.workflow-mode }}
         run: |
           "Full Benchmark gate mode: $env:SELECTED_MODE" >> $env:GITHUB_STEP_SUMMARY
+          "Workflow evidence policy: $env:WORKFLOW_MODE" >> $env:GITHUB_STEP_SUMMARY
           if ($env:SELECTED_BASELINE_ID) { "Active baseline: $env:SELECTED_BASELINE_ID" >> $env:GITHUB_STEP_SUMMARY }
           "Evidence lifecycle: $env:EVIDENCE_LIFECYCLE" >> $env:GITHUB_STEP_SUMMARY
           "Selection reason: $env:SELECTION_REASON" >> $env:GITHUB_STEP_SUMMARY
@@ -108,7 +113,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v7
         with: { node-version: 24, cache: npm }
       - run: npm ci
@@ -137,7 +142,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v7
         with: { node-version: 24, cache: npm }
       - run: npm ci
@@ -157,13 +162,13 @@ jobs:
           path: benchmark-results/candidates/comparison.json
 
   assemble:
-    needs: [symbologies, profile, comparison]
+    needs: [prepare, symbologies, profile, comparison]
     name: Assemble
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v7
         with: { node-version: 24, cache: npm }
       - run: npm ci
@@ -172,12 +177,12 @@ jobs:
           pattern: benchmark-*
           merge-multiple: true
           path: benchmark-artifacts
-      - run: npm run benchmark:assemble-canonical -- --fast=benchmark-artifacts/latest-fast.json --fast-csv=benchmark-artifacts/latest-fast.csv --balanced=benchmark-artifacts/latest.json --balanced-csv=benchmark-artifacts/latest.csv --robust=benchmark-artifacts/latest-robust.json --robust-csv=benchmark-artifacts/latest-robust.csv --comparison=benchmark-artifacts/comparison.json --symbologies=benchmark-artifacts/symbologies.json --output=benchmark-artifacts/canonical
-      - run: npm run benchmark:verify-evidence -- --mode=evidence-bootstrap --canonical-manifest=benchmark-artifacts/canonical/canonical-evidence-manifest.json
-      - run: npm run benchmark:summary -- --manifest=benchmark-artifacts/canonical/canonical-evidence-manifest.json
+      - run: npm run benchmark:assemble-canonical -- --gate-mode=${{ needs.prepare.outputs.workflow-mode }} --fast=benchmark-artifacts/latest-fast.json --fast-csv=benchmark-artifacts/latest-fast.csv --balanced=benchmark-artifacts/latest.json --balanced-csv=benchmark-artifacts/latest.csv --robust=benchmark-artifacts/latest-robust.json --robust-csv=benchmark-artifacts/latest-robust.csv --comparison=benchmark-artifacts/comparison.json --symbologies=benchmark-artifacts/symbologies.json --output=benchmark-artifacts/${{ needs.prepare.outputs.workflow-mode }}
+      - run: npm run benchmark:verify-evidence -- --mode=${{ needs.prepare.outputs.workflow-mode }} --canonical-manifest=benchmark-artifacts/${{ needs.prepare.outputs.workflow-mode }}/canonical-evidence-manifest.json
+      - run: npm run benchmark:summary -- --manifest=benchmark-artifacts/${{ needs.prepare.outputs.workflow-mode }}/canonical-evidence-manifest.json
       - uses: actions/upload-artifact@v4
         with:
           name: benchmark-assembled
           retention-days: 21
           if-no-files-found: error
-          path: benchmark-artifacts/canonical
+          path: benchmark-artifacts/${{ needs.prepare.outputs.workflow-mode }}

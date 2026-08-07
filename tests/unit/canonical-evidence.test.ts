@@ -203,6 +203,32 @@ describe("canonical evidence assembly", () => {
     expect(bundle.reports.symbologies?.schemaVersion).toBe("alpha5-symbology-evidence-1");
   });
 
+  it("assembles 0/12 project-photo development evidence only in integration mode", () => {
+    const fixture = artifacts();
+    fixture.symbologies.corpus.projectOwnedRealPhotos = 0;
+    fixture.symbologies.corpus.realPhotoGateComplete = false;
+    fixture.symbologies.cohorts.projectOwnedRealPhotos = {
+      fixtureTotal: 0,
+      fixturePassed: 0,
+      resultTotal: 0,
+      exactResults: 0,
+      perFormatRecall: {
+        qr_code: { total: 0, decoded: 0, recall: null },
+        data_matrix: { total: 0, decoded: 0, recall: null },
+        pdf417: { total: 0, decoded: 0, recall: null },
+        code_128: { total: 0, decoded: 0, recall: null },
+        ean_13: { total: 0, decoded: 0, recall: null },
+        ean_8: { total: 0, decoded: 0, recall: null },
+        upc_a: { total: 0, decoded: 0, recall: null },
+        upc_e: { total: 0, decoded: 0, recall: null },
+      },
+    };
+    fixture.symbologies.realPhotoFamilyCounts = { data_matrix: 0, pdf417: 0, code_128: 0, retail: 0 };
+    fs.writeFileSync(fixture.paths.symbologiesJson, JSON.stringify(fixture.symbologies));
+    expect(() => assembleCanonicalEvidence(fixture.paths, path.join(fixture.root, "release"), "release")).toThrow(/project-photo|real-photo/);
+    expect(() => assembleCanonicalEvidence(fixture.paths, path.join(fixture.root, "integration"), "integration")).not.toThrow();
+  });
+
   it("rejects a missing symbologies input", () => {
     const fixture = artifacts();
     const { symbologiesJson: _ignored, ...legacyPaths } = fixture.paths;

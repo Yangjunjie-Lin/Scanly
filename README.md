@@ -40,23 +40,49 @@ Alpha.5 explicitly supports QR Code Model 2, Data Matrix ECC 200, PDF417, Code 1
 
 This is Scanly's internal regression suite—not universal accuracy, a third-party comparison, or an ML evaluation. Hard failures stay in the denominator.
 
-<!-- BENCHMARK_SUMMARY_START -->
-| Metric | Value |
+### Historical frozen evidence
+
+The last fully frozen evidence is **Alpha.4 r4** (`v2-alpha4-r4`). Its dataset is the legacy 74-fixture QR suite. The canonical evidence identity is `alpha4-cc1a5968d39ffbea`, sourced from commit `a139c8b7064a83c26cfba5a9ff4fb75c3f6c9f83` and tree `31da835767e4d691716f3c327f4cbb0b615d95ac`, as recorded by the [canonical manifest](benchmark-results/canonical/canonical-evidence-manifest.json) and [baseline registry](benchmark-results/baselines/registry.json).
+
+<!-- HISTORICAL_BENCHMARK_SUMMARY_START -->
+| Historical Alpha.4 r4 canonical evidence | Value |
 | --- | ---: |
-| Evidence status | **Alpha.4 r4 canonical; Alpha.5 canonical evidence pending** |
-| Internal fixtures | 74 |
+| Legacy QR fixtures | 74 |
 | Generated fixtures | 65 |
-| Project-owned photos | 9 |
-| Success on fixture suite | **73/74 (98.6%)** on the current 74-case project fixture suite |
+| Project-owned photographs | 9 |
+| Balanced success | **73/74 (98.6%)** |
 | Positive decode recall | **62/63 (98.4%)** |
 | Negative false positives | **0/11 (0.0%)** |
 | Remaining failure | `14-damaged` |
 | Parallel execution | **experimental** (measured against sequential parity policy) |
 | Benchmark date | 2026-07-18 |
 | Fixture manifest | [fixtures/manifest.json](fixtures/manifest.json) |
-| Canonical JSON | [benchmark-results/latest.json](benchmark-results/latest.json) |
-| Canonical CSV | [benchmark-results/latest.csv](benchmark-results/latest.csv) |
-<!-- BENCHMARK_SUMMARY_END -->
+| Canonical JSON | [benchmark-results/canonical/latest.json](benchmark-results/canonical/latest.json) |
+| Canonical CSV | [benchmark-results/canonical/latest.csv](benchmark-results/canonical/latest.csv) |
+<!-- HISTORICAL_BENCHMARK_SUMMARY_END -->
+
+### Current Alpha.5 integration corpus
+
+Alpha.5 integration evidence is development evidence. It is not frozen canonical release evidence.
+
+<!-- ALPHA5_INTEGRATION_SUMMARY_START -->
+| Current Alpha.5 development evidence | Value |
+| --- | ---: |
+| Generated Alpha.5 fixtures | 146 |
+| Single-format positives | 100 |
+| Mixed positives | 12 |
+| Negative fixtures | 34 |
+| Generated clean | **15/15** |
+| Generated difficult | **75/85** |
+| Mixed completeness | **12/12** |
+| GS1 recognition | **8/8** |
+| False positives | **0** |
+| Accepted-format misclassifications | **0** |
+| Invalid-checksum acceptances | **0** |
+| Project-owned Alpha.5 photographs | **0/12** |
+| Corpus manifest | [fixtures/alpha5/manifest.json](fixtures/alpha5/manifest.json) |
+| Project-photo manifest | [fixtures/alpha5/project-photos/manifest.json](fixtures/alpha5/project-photos/manifest.json) |
+<!-- ALPHA5_INTEGRATION_SUMMARY_END -->
 
 External open-license photographs provide third-party real-world validation but do not satisfy the project-owned photograph release gate. The integration decision is `ALPHA5_INTEGRATION_GO`; release remains `ALPHA5_RELEASE_NO_GO` while the 0/12 project-owned photo corpus is `DEFERRED_TO_BETA1`.
 

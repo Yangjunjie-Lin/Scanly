@@ -396,6 +396,28 @@ async function main(): Promise<void> {
     externalOpenLicenseRealWorld: externalSummary,
   };
 
+  if (cli.gate && cli.gateMode === "integration") {
+    const singleFormatPositives = manifest.fixtures.filter((fixture) => fixture.expectedOutcome === "decode" && fixture.requiredResults.length === 1).length;
+    const mixedPositives = manifest.fixtures.filter((fixture) => fixture.expectedOutcome === "decode" && fixture.requiredResults.length > 1).length;
+    const readme = fs.readFileSync(path.join(ROOT, "README.md"), "utf8");
+    const expectedReadmeRows = [
+      `| Generated Alpha.5 fixtures | ${report.corpus.generated} |`,
+      `| Single-format positives | ${singleFormatPositives} |`,
+      `| Mixed positives | ${mixedPositives} |`,
+      `| Negative fixtures | ${report.corpus.negative} |`,
+      `| Generated clean | **${report.cohorts.generatedClean.fixturePassed}/${report.cohorts.generatedClean.fixtureTotal}** |`,
+      `| Generated difficult | **${report.cohorts.generatedDifficult.fixturePassed}/${report.cohorts.generatedDifficult.fixtureTotal}** |`,
+      `| Mixed completeness | **${report.mixedFormatCompleteness.complete}/${report.mixedFormatCompleteness.total}** |`,
+      `| GS1 recognition | **${report.gs1RecognitionAccuracy.recognized}/${report.gs1RecognitionAccuracy.total}** |`,
+      `| False positives | **${report.falsePositiveCount}** |`,
+      `| Accepted-format misclassifications | **${report.acceptedFormatMisclassificationCount}** |`,
+      `| Invalid-checksum acceptances | **${report.invalidChecksumAcceptanceCount}** |`,
+      `| Project-owned Alpha.5 photographs | **${report.corpus.projectOwnedRealPhotos}/12** |`,
+    ];
+    const staleRows = expectedReadmeRows.filter((row) => !readme.includes(row));
+    if (staleRows.length) throw new Error(`README Alpha.5 integration summary is stale:\n- ${staleRows.join("\n- ")}`);
+  }
+
   if (cli.canonicalCandidate) {
     if (SDK_VERSION !== ALPHA5_SDK_VERSION) throw new Error(`Canonical symbology candidate requires SDK ${ALPHA5_SDK_VERSION}.`);
     if (repositoryDirty) throw new Error("Canonical symbology candidate requires a clean repository.");

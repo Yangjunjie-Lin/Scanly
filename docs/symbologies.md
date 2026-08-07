@@ -44,4 +44,4 @@ Alpha.5 Evidence Freeze requires at least 12 authentic project-owned photographs
 
 Until those assets are present, Alpha.5 integration may report `ALPHA5_INTEGRATION_GO`, while release remains `ALPHA5_RELEASE_NO_GO` and final Evidence Freeze is deferred to Beta 1.
 
-External open-license photographs provide third-party real-world validation but do not satisfy the project-owned photograph release gate. They are reported separately as `externalOpenLicenseRealWorld`; they cannot activate `v2-alpha5-r1` or produce Alpha.5 final canonical evidence.
+External open-license photographs provide third-party real-world validation but do not satisfy the project-owned photograph release gate. They are reported separately as `externalOpenLicenseRealWorld`; they could not activate the now-abandoned `v2-alpha5-r1` plan or produce Alpha.5 final canonical evidence. Alpha.5 will not be retroactively released; the next eligible frozen evidence family is `v2-beta1-r1`.

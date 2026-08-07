@@ -1,16 +1,14 @@
 name: CI
 
 on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - develop/sdk-v2
   push:
     branches:
-      - main
-      - master
-      - architecture/sdk-v2-foundation
-      - architecture/sdk-v2-alpha3-industrial-validation
-      - architecture/sdk-v2-alpha4-zxing-cpp-wasm
-      - architecture/sdk-v2-alpha5-multisymbology-foundation
       - develop/sdk-v2
-  pull_request:
+      - architecture/sdk-v2-beta1-**
 
 jobs:
   verify:
@@ -22,6 +20,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
 
       - name: Set up Node.js
@@ -97,11 +96,7 @@ jobs:
         run: npm run benchmark:smoke
 
       - name: Multi-symbology benchmark
-        shell: bash
-        run: |
-          mode=release
-          if { [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ github.base_ref }}" = "develop/sdk-v2" ]; } || [ "${{ github.ref_name }}" = "develop/sdk-v2" ] || [ "${{ github.ref_name }}" = "architecture/sdk-v2-alpha5-multisymbology-foundation" ]; then mode=integration; fi
-          npm run benchmark:symbologies -- --gate --gate-mode="$mode"
+        run: npm run benchmark:symbologies -- --gate --gate-mode=integration
 
       - name: Verify smoke benchmark artifacts
         run: |
@@ -130,6 +125,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v7
         with: { node-version: 20, cache: npm }
       - run: npm ci
@@ -141,6 +138,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v7
         with: { node-version: 24, cache: npm }
       - run: npm ci
@@ -170,6 +169,8 @@ jobs:
             label: Windows Node 24
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
@@ -195,6 +196,8 @@ jobs:
             project: webkit
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v7
         with: { node-version: 20, cache: npm }
       - run: npm ci
@@ -208,6 +211,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v7
         with: { node-version: 20, cache: npm }
       - run: npm ci
