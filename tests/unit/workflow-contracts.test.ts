@@ -165,6 +165,9 @@ describe("benchmark workflow contracts", () => {
     const extended = read("scanner-extended-soak.yml");
     expect(extended).toContain("schedule:");
     expect(extended).toContain("workflow_dispatch:");
+    expect(extended).toContain("types: [labeled]");
+    expect(extended).toContain("scanner-extended-soak");
+    expect(extended).toContain("inputs.ref || 'develop/sdk-v2'");
     expect(extended).toContain("npm run test:scanner:worker-wasm-soak:extended");
     expect(extended).toContain("r.observed.iterations!==10000");
     const simulator = fs.readFileSync(path.join(process.cwd(), "tests", "browser-benchmark", "scanner-runtime.spec.ts"), "utf8");

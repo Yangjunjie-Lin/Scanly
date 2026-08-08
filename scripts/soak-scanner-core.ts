@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { createRgbaFrame, sdkError, type NormalizedFrame, type ScanOutcome } from "@scanly/core";
+import { createRgbaFrame, type NormalizedFrame, type ScanOutcome, type ScanResult } from "@scanly/core";
 import {
   DeterministicFrameSequenceSource,
   ScannerSession,
@@ -39,6 +39,21 @@ function makeFrame(index: number, onDispose: () => void): NormalizedFrame {
   });
 }
 
+function coreResult(frameId: string): ScanResult {
+  return {
+    format: "qr_code",
+    rawText: "CORE-SOAK",
+    cornerPoints: [{ x: 3, y: 3 }, { x: 11, y: 3 }, { x: 11, y: 11 }, { x: 3, y: 11 }],
+    engine: { id: "jsqr", version: "core-soak" },
+    preprocessingPath: [],
+    frameId,
+    structuredPayload: null,
+    validation: { valid: true, validatorIds: [], messages: [] },
+    warnings: [],
+    timing: { totalMs: 0 },
+  };
+}
+
 async function waitForStopped(session: ScannerSession): Promise<void> {
   const deadline = Date.now() + 10_000;
   while (session.getState() !== "stopped") {
@@ -50,17 +65,22 @@ async function waitForStopped(session: ScannerSession): Promise<void> {
 async function main(): Promise<void> {
   let disposedFrames = 0;
   let decodeCalls = 0;
+  let roiRequests = 0;
+  let temporalStatePeak = 0;
   const source = new DeterministicFrameSequenceSource(function* () {
     for (let index = 0; index < iterations; index += 1) {
       yield makeFrame(index, () => { disposedFrames += 1; });
     }
   });
   const decoder: ScannerFrameDecoder = {
-    async decode(frame): Promise<ScanOutcome> {
+    async decode(frame, request): Promise<ScanOutcome> {
       decodeCalls += 1;
+      if (request.roi) roiRequests += 1;
+      const result = coreResult(frame.id);
       return {
-        ok: false,
-        error: sdkError("no_symbol_found", "Scanner Core Soak deterministic miss."),
+        ok: true,
+        results: [result],
+        primary: result,
         frameId: frame.id,
         scenarioId: "scanner-core-soak",
         attemptCount: 1,
@@ -87,6 +107,14 @@ async function main(): Promise<void> {
       contrastThreshold: 0,
       glareThreshold: 1,
     },
+    confirmation: { mode: "immediate" },
+    repeatPolicy: { mode: "once-per-session" },
+    roi: { timeoutMs: Math.max(2_500, iterations + 10) },
+  });
+  session.onDiagnostics((diagnostic) => {
+    if (diagnostic.event?.type === "emitted" || diagnostic.event?.type === "suppressed") {
+      temporalStatePeak = Math.max(temporalStatePeak, session.getStatistics().finalControlledMemory);
+    }
   });
 
   const startedAt = performance.now();
@@ -102,6 +130,11 @@ async function main(): Promise<void> {
     { id: "captured-frames", expected: iterations, observed: beforeDispose.capturedFrames, pass: beforeDispose.capturedFrames === iterations },
     { id: "admitted-frames", expected: iterations, observed: beforeDispose.admittedFrames, pass: beforeDispose.admittedFrames === iterations },
     { id: "core-decode-calls", expected: iterations, observed: decodeCalls, pass: decodeCalls === iterations },
+    { id: "core-decode-successes", expected: iterations, observed: afterDispose.decodeSuccesses, pass: afterDispose.decodeSuccesses === iterations },
+    { id: "temporal-confirmation-exercised", expected: 1, observed: afterDispose.confirmedEvents, pass: afterDispose.confirmedEvents >= 1 },
+    { id: "once-session-repeat-suppression-exercised", expected: Math.max(0, iterations - 1), observed: afterDispose.suppressedRepeats, pass: afterDispose.suppressedRepeats === Math.max(0, iterations - 1) },
+    { id: "roi-follow-up-requests", expected: Math.max(0, iterations - 1), observed: roiRequests, pass: roiRequests === Math.max(0, iterations - 1) },
+    { id: "temporal-state-observed-before-stop", expected: "> 0", observed: temporalStatePeak, pass: temporalStatePeak > 0 },
     { id: "owned-frames-released", expected: iterations, observed: disposedFrames, pass: disposedFrames === iterations },
     { id: "active-decodes-drained", expected: 0, observed: afterDispose.activeDecodeCount, pass: afterDispose.activeDecodeCount === 0 },
     { id: "pending-frames-drained", expected: 0, observed: afterDispose.pendingFrameCount, pass: afterDispose.pendingFrameCount === 0 },
@@ -127,6 +160,9 @@ async function main(): Promise<void> {
     observed: {
       ...afterDispose,
       decodeCalls,
+      decodeSuccesses: afterDispose.decodeSuccesses,
+      roiRequests,
+      temporalStatePeak,
       disposedFrames,
       elapsedMs,
       averageCoreFrameMs: elapsedMs / iterations,

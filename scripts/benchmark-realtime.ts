@@ -3,9 +3,9 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import {
   createRgbaFrame,
-  sdkError,
   type NormalizedFrame,
   type ScanOutcome,
+  type ScanResult,
 } from "@scanly/core";
 import {
   BROWSER_SDK_VERSION,
@@ -104,6 +104,21 @@ function coreFrame(index: number, onDispose: () => void): NormalizedFrame {
   });
 }
 
+function coreSoakResult(frameId: string): ScanResult {
+  return {
+    format: "qr_code",
+    rawText: "CORE-SOAK",
+    cornerPoints: [{ x: 3, y: 3 }, { x: 11, y: 3 }, { x: 11, y: 11 }, { x: 3, y: 11 }],
+    engine: { id: "jsqr", version: "core-soak" },
+    preprocessingPath: [],
+    frameId,
+    structuredPayload: null,
+    validation: { valid: true, validatorIds: [], messages: [] },
+    warnings: [],
+    timing: { totalMs: 0 },
+  };
+}
+
 async function waitForStopped(session: ScannerSession, label: string): Promise<void> {
   const deadline = Date.now() + 10_000;
   while (session.getState() !== "stopped") {
@@ -119,15 +134,20 @@ function soakAssertion(id: string, pass: boolean, expected: unknown, observed: u
 async function runCoreSoak(identity: ReturnType<typeof repositoryIdentity>, frames = 10_000): Promise<SoakReport> {
   let disposedFrames = 0;
   let decodeCalls = 0;
+  let roiRequests = 0;
+  let temporalStatePeak = 0;
   const source = new DeterministicFrameSequenceSource(function* () {
     for (let index = 0; index < frames; index += 1) yield coreFrame(index, () => { disposedFrames += 1; });
   });
   const decoder: ScannerFrameDecoder = {
-    async decode(frame): Promise<ScanOutcome> {
+    async decode(frame, request): Promise<ScanOutcome> {
       decodeCalls += 1;
+      if (request.roi) roiRequests += 1;
+      const result = coreSoakResult(frame.id);
       return {
-        ok: false,
-        error: sdkError("no_symbol_found", "Scanner Core Soak deterministic miss."),
+        ok: true,
+        results: [result],
+        primary: result,
         frameId: frame.id,
         scenarioId: "scanner-core-soak",
         attemptCount: 1,
@@ -149,7 +169,15 @@ async function runCoreSoak(identity: ReturnType<typeof repositoryIdentity>, fram
       contrastThreshold: 0,
       glareThreshold: 1,
     },
+    confirmation: { mode: "immediate" },
+    repeatPolicy: { mode: "once-per-session" },
+    roi: { timeoutMs: Math.max(2_500, frames + 10) },
     scheduler: { initialDecodeFps: 1_000, minimumDecodeFps: 1_000, maximumDecodeFps: 1_000 },
+  });
+  session.onDiagnostics((diagnostic) => {
+    if (diagnostic.event?.type === "emitted" || diagnostic.event?.type === "suppressed") {
+      temporalStatePeak = Math.max(temporalStatePeak, session.getStatistics().finalControlledMemory);
+    }
   });
   const startedAt = performance.now();
   await session.start();
@@ -162,6 +190,11 @@ async function runCoreSoak(identity: ReturnType<typeof repositoryIdentity>, fram
     soakAssertion("captured-frames", observed.capturedFrames === frames, frames, observed.capturedFrames, "Core soak must capture every generated frame."),
     soakAssertion("admitted-frames", observed.admittedFrames === frames, frames, observed.admittedFrames, "Core soak must exercise every frame through the scheduler."),
     soakAssertion("decode-calls", decodeCalls === frames, frames, decodeCalls, "Fake/core decoder must execute once per admitted frame."),
+    soakAssertion("decode-successes", observed.decodeSuccesses === frames, frames, observed.decodeSuccesses, "Core soak must exercise the temporal path with successful observations."),
+    soakAssertion("temporal-confirmation-exercised", observed.confirmedEvents >= 1, ">= 1", observed.confirmedEvents, "Core soak must populate and confirm a temporal candidate."),
+    soakAssertion("once-session-repeat-suppression-exercised", observed.suppressedRepeats === Math.max(0, frames - 1), Math.max(0, frames - 1), observed.suppressedRepeats, "Core soak must exercise repeat suppression after the first emission."),
+    soakAssertion("roi-follow-up-requests", roiRequests === Math.max(0, frames - 1), Math.max(0, frames - 1), roiRequests, "Core soak must issue ROI-bearing requests after the first geometry result."),
+    soakAssertion("temporal-state-observed-before-stop", temporalStatePeak > 0, "> 0", temporalStatePeak, "Core soak must observe nonzero temporal state before lifecycle cleanup."),
     soakAssertion("owned-frames-released", disposedFrames === frames, frames, disposedFrames, "Every owned frame must be released."),
     soakAssertion("active-decodes-drained", observed.activeDecodeCount === 0, 0, observed.activeDecodeCount, "Core soak must drain active decode state."),
     soakAssertion("pending-frames-drained", observed.pendingFrameCount === 0, 0, observed.pendingFrameCount, "Core soak must drain pending frame state."),
@@ -183,7 +216,7 @@ async function runCoreSoak(identity: ReturnType<typeof repositoryIdentity>, fram
       finalControlledMemory: 0,
       staleEvents: 0,
     },
-    observed: { ...observed, decodeCalls, disposedFrames, elapsedMs, averageCoreFrameMs: elapsedMs / frames },
+    observed: { ...observed, decodeCalls, roiRequests, temporalStatePeak, disposedFrames, elapsedMs, averageCoreFrameMs: elapsedMs / frames },
     assertions,
     pass: failureReasons.length === 0,
     status: failureReasons.length === 0 ? "passed" : "failed",

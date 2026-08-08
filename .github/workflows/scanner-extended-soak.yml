@@ -2,6 +2,16 @@ name: Scanner Extended Soak
 
 on:
   workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch or commit to exercise (defaults to the Beta 1 integration branch)
+        required: false
+        default: develop/sdk-v2
+        type: string
+  pull_request:
+    branches:
+      - develop/sdk-v2
+    types: [labeled]
   schedule:
     - cron: "43 3 * * *"
 
@@ -11,12 +21,13 @@ permissions:
 jobs:
   scanner-worker-wasm-extended-soak:
     name: Scanner Worker/WASM Extended Soak (10,000)
+    if: github.event_name != 'pull_request' || github.event.label.name == 'scanner-extended-soak'
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || inputs.ref || 'develop/sdk-v2' }}
       - uses: actions/setup-node@v7
         with: { node-version: 20, cache: npm }
       - run: npm ci
