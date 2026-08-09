@@ -16,12 +16,13 @@ import {
   type FormatFamily,
   type SymbologyGateResult,
 } from "./symbology-gates.js";
+import { diffExternalResultMultiset, isExternalFormatMisclassification, isExternalGs1Misclassification } from "./external-open-license-contract.js";
 
 const ROOT = path.resolve(__dirname, "..");
 const MANIFEST_PATH = path.join(ROOT, "fixtures", "alpha5", "manifest.json");
 const TRACKED_ALIAS = path.join(ROOT, "benchmark-results", "symbologies.json");
 
-interface RequiredResult { format: BarcodeFormat; payload: string }
+interface RequiredResult { format: BarcodeFormat; payload: string; isGs1?: boolean }
 interface Fixture {
   id: string;
   file: string;
@@ -30,6 +31,7 @@ interface Fixture {
   sourceType: "generated" | "project-photo" | "external-open-license";
   expectedPayload?: string | null;
   expectedFormat?: BarcodeFormat;
+  physicalInstanceCount?: number;
   payloadVerificationStatus?: "verified" | "unknown" | "sensitive";
   sourcePage?: string;
   sourceRepository?: string;
@@ -61,6 +63,7 @@ interface FixtureResult {
 interface ExternalCohortSummary {
   fixtureTotal: number;
   fixturePassed: number;
+  visiblePhysicalInstanceCount: number;
   resultTotal: number;
   exactResults: number;
   perFormatRecall: Record<BarcodeFormat, { total: number; decoded: number; recall: number | null }>;
@@ -74,6 +77,7 @@ interface ExternalCohortSummary {
   exactPayloadKnownPassed: number;
   exactPayloadRecall: number | null;
   formatMisclassificationCount: number;
+  gs1MisclassificationCount: number;
   falsePositiveCount: number;
   provenanceCompleteness: { complete: number; total: number; rate: number | null };
   publicRepositorySafety: { safe: number; total: number; rate: number | null };
@@ -90,9 +94,13 @@ function percentile(values: number[], p: number): number {
 }
 
 function exactRequired(required: readonly RequiredResult[], actual: readonly EngineDecodeResult[]): boolean {
-  const remaining = actual.map((result) => `${result.format}\u001f${result.text}`);
+  const remaining = [...actual];
   for (const result of required) {
-    const index = remaining.indexOf(`${result.format}\u001f${result.payload}`);
+    const index = remaining.findIndex((actualResult) => (
+      actualResult.format === result.format
+      && actualResult.text === result.payload
+      && (result.isGs1 === undefined || actualResult.isGs1 === result.isGs1)
+    ));
     if (index < 0) return false;
     remaining.splice(index, 1);
   }
@@ -159,7 +167,7 @@ async function main(): Promise<void> {
         : [...PUBLIC_BARCODE_FORMATS];
       const frame = await loadNormalizedFrameFromPath(path.join(ROOT, fixture.file), fixture.id);
       const fixtureStarted = performance.now();
-      const outcome = await engine.decode(frame, { formats: requestedFormats, findMultiple: fixture.requiredResults.length > 1 });
+      const outcome = await engine.decode(frame, { formats: requestedFormats, findMultiple: fixture.sourceType === "external-open-license" || fixture.requiredResults.length > 1 });
       const elapsedMs = performance.now() - fixtureStarted;
       const actual = outcome.ok ? outcome.results : [];
       const detectionOnly = fixture.sourceType === "external-open-license"
@@ -213,9 +221,13 @@ async function main(): Promise<void> {
   const cohortSummary = (entries: typeof positivePairs) => {
     const required = entries.flatMap(({ fixture }) => fixture.requiredResults);
     const exactResults = entries.reduce((total, { fixture, result }) => {
-      const remaining = result.actualResults.map((actual) => `${actual.format}\u001f${actual.payload}`);
+      const remaining = [...result.actualResults];
       return total + fixture.requiredResults.reduce((count, expected) => {
-        const index = remaining.indexOf(`${expected.format}\u001f${expected.payload}`);
+        const index = remaining.findIndex((actual) => (
+          actual.format === expected.format
+          && actual.payload === expected.payload
+          && (expected.isGs1 === undefined || actual.isGs1 === expected.isGs1)
+        ));
         if (index < 0) return count;
         remaining.splice(index, 1);
         return count + 1;
@@ -223,7 +235,11 @@ async function main(): Promise<void> {
     }, 0);
     const perFormatRecall = Object.fromEntries(PUBLIC_BARCODE_FORMATS.map((format) => {
       const expected = entries.flatMap(({ fixture }) => fixture.requiredResults).filter((result) => result.format === format);
-      const decoded = entries.reduce((count, { fixture, result }) => count + fixture.requiredResults.filter((required) => required.format === format && result.actualResults.some((actual) => actual.format === format && actual.payload === required.payload)).length, 0);
+      const decoded = entries.reduce((count, { fixture, result }) => count + fixture.requiredResults.filter((required) => required.format === format && result.actualResults.some((actual) => (
+        actual.format === format
+        && actual.payload === required.payload
+        && (required.isGs1 === undefined || actual.isGs1 === required.isGs1)
+      ))).length, 0);
       return [format, { total: expected.length, decoded, recall: expected.length ? decoded / expected.length : null }];
     })) as Record<BarcodeFormat, { total: number; decoded: number; recall: number | null }>;
     return {
@@ -244,29 +260,25 @@ async function main(): Promise<void> {
   const realPhotoSummary = cohortSummary(realPhotos);
   const externalDetectionOnly = externalPhotos.filter(({ fixture }) => fixture.payloadVerificationStatus === "unknown");
   const baseExternalSummary = cohortSummary(externalPhotos);
-  const externalPerFormatRecall = Object.fromEntries(PUBLIC_BARCODE_FORMATS.map((format) => {
-    const expected = externalPhotos.filter(({ fixture }) => (fixture.expectedFormat ?? fixture.format) === format);
-    const decoded = expected.filter(({ fixture, result }) => result.actualResults.some((actual) => (
-      actual.format === format
-      && (fixture.payloadVerificationStatus === "unknown" || fixture.expectedPayload === actual.payload)
-    ))).length;
-    return [format, { total: expected.length, decoded, recall: expected.length ? decoded / expected.length : null }];
-  })) as Record<BarcodeFormat, { total: number; decoded: number; recall: number | null }>;
   const completeExternalProvenance = externalPhotos.filter(({ fixture }) => [
     fixture.sourcePage, fixture.sourceRepository, fixture.originalFilename, fixture.author,
     fixture.license, fixture.licenseUrl, fixture.attribution, fixture.retrievedAt, fixture.provenanceNote,
   ].every((value) => typeof value === "string" && value.length > 0) && Array.isArray(fixture.modifications));
-  const expectedExternalFormat = ({ fixture }: typeof externalPhotos[number]) => fixture.expectedFormat ?? fixture.format;
-  const externalFormatMisclassificationCount = externalPhotos.reduce((count, entry) => (
-    count + entry.result.actualResults.filter((actual) => expectedExternalFormat(entry) !== actual.format).length
+  const externalDiffs = externalPhotos.map(({ fixture, result }) => ({
+    fixture,
+    diff: diffExternalResultMultiset(fixture.requiredResults, result.actualResults),
+  }));
+  const externalFormatMisclassificationCount = externalDiffs.reduce((count, { fixture, diff }) => (
+    count + diff.unexpected.filter((actual) => isExternalFormatMisclassification(fixture.requiredResults, actual)).length
   ), 0);
-  const externalFalsePositiveCount = externalPhotos.reduce((count, { fixture, result }) => count + result.actualResults.filter((actual) => {
-    if (fixture.payloadVerificationStatus === "unknown") return actual.format !== (fixture.expectedFormat ?? fixture.format);
-    return actual.format !== (fixture.expectedFormat ?? fixture.format) || actual.payload !== fixture.expectedPayload;
-  }).length, 0);
+  const externalFalsePositiveCount = externalDiffs.reduce((count, { diff }) => count + diff.unexpected.length, 0);
+  const externalGs1MisclassificationCount = externalDiffs.reduce((count, { fixture, diff }) => (
+    count + diff.unexpected.filter((actual) => isExternalGs1Misclassification(fixture.requiredResults, actual)).length
+  ), 0);
   const externalSummary: ExternalCohortSummary = {
     ...baseExternalSummary,
-    perFormatRecall: externalPerFormatRecall,
+    visiblePhysicalInstanceCount: externalPhotos.reduce((count, { fixture }) => count + (fixture.physicalInstanceCount ?? 0), 0),
+    perFormatRecall: baseExternalSummary.perFormatRecall,
     detectionOnlyTotal: externalDetectionOnly.length,
     detectionOnlyPassed: externalDetectionOnly.filter(({ result }) => result.pass).length,
     detectionOnlyRecall: externalDetectionOnly.length
@@ -280,6 +292,7 @@ async function main(): Promise<void> {
     exactPayloadKnownPassed: baseExternalSummary.exactResults,
     exactPayloadRecall: baseExternalSummary.resultTotal ? baseExternalSummary.exactResults / baseExternalSummary.resultTotal : null,
     formatMisclassificationCount: externalFormatMisclassificationCount,
+    gs1MisclassificationCount: externalGs1MisclassificationCount,
     falsePositiveCount: externalFalsePositiveCount,
     provenanceCompleteness: {
       complete: completeExternalProvenance.length,
@@ -402,6 +415,7 @@ async function main(): Promise<void> {
     const readme = fs.readFileSync(path.join(ROOT, "README.md"), "utf8");
     const expectedReadmeRows = [
       `| Generated Alpha.5 fixtures | ${report.corpus.generated} |`,
+      `| External open-license photographs | **${report.corpus.externalOpenLicenseCorpusCount}/12** |`,
       `| Single-format positives | ${singleFormatPositives} |`,
       `| Mixed positives | ${mixedPositives} |`,
       `| Negative fixtures | ${report.corpus.negative} |`,

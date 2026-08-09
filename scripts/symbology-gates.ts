@@ -45,6 +45,14 @@ export interface CohortSummary {
   p95LatencyMs?: number;
 }
 
+export interface ExternalOpenLicenseCohortSummary extends CohortSummary {
+  falsePositiveCount: number;
+  formatMisclassificationCount: number;
+  gs1MisclassificationCount: number;
+  provenanceCompleteness: { complete: number; total: number; rate: number | null };
+  publicRepositorySafety: { safe: number; total: number; rate: number | null };
+}
+
 export interface SymbologyGateReport {
   sdkVersion: string;
   sourceIdentity: {
@@ -57,7 +65,7 @@ export interface SymbologyGateReport {
     generatedDifficult: CohortSummary;
     generatedMixed: CohortSummary;
     projectOwnedRealPhotos: CohortSummary;
-    externalOpenLicenseRealWorld?: CohortSummary;
+    externalOpenLicenseRealWorld?: ExternalOpenLicenseCohortSummary;
   };
   corpus: {
     projectOwnedRealPhotos: number;
@@ -228,15 +236,78 @@ export function evaluateSymbologyGates(
     required: 12,
   });
 
-  const externalCount = report.corpus.externalOpenLicenseCorpusCount ?? 0;
-  push({
-    id: "external-open-license-corpus-count",
-    passed: externalCount >= 12,
-    actual: externalCount,
-    required: 12,
-    details: "non-release informational gate; external photographs never satisfy project-owned gate",
-    releaseRequired: false,
-  });
+  const externalCohort = report.cohorts.externalOpenLicenseRealWorld;
+  if (report.corpus.externalOpenLicenseCorpusCount !== undefined || externalCohort !== undefined) {
+    const externalCount = report.corpus.externalOpenLicenseCorpusCount ?? 0;
+    push({
+      id: "external-open-license-corpus-count",
+      passed: externalCount >= 12,
+      actual: externalCount,
+      required: 12,
+      details: "CI regression gate; external photographs never satisfy the project-owned release gate",
+    });
+
+    const exactCorrectness = externalCohort !== undefined
+      && externalCohort.fixtureTotal === externalCount
+      && externalCohort.fixtureTotal > 0
+      && externalCohort.fixturePassed === externalCohort.fixtureTotal
+      && externalCohort.resultTotal > 0
+      && externalCohort.exactResults === externalCohort.resultTotal;
+    push({
+      id: "external-open-license-exact-correctness",
+      passed: exactCorrectness,
+      actual: exactCorrectness,
+      required: true,
+      details: externalCohort
+        ? `${externalCohort.fixturePassed}/${externalCohort.fixtureTotal} fixtures; ${externalCohort.exactResults}/${externalCohort.resultTotal} semantic results`
+        : "external cohort summary missing",
+    });
+
+    push({
+      id: "external-open-license-zero-false-positives",
+      passed: externalCohort?.falsePositiveCount === 0,
+      actual: externalCohort?.falsePositiveCount ?? -1,
+      required: 0,
+    });
+    push({
+      id: "external-open-license-zero-format-misclassifications",
+      passed: externalCohort?.formatMisclassificationCount === 0,
+      actual: externalCohort?.formatMisclassificationCount ?? -1,
+      required: 0,
+    });
+    push({
+      id: "external-open-license-zero-gs1-misclassifications",
+      passed: externalCohort?.gs1MisclassificationCount === 0,
+      actual: externalCohort?.gs1MisclassificationCount ?? -1,
+      required: 0,
+    });
+
+    const provenanceComplete = externalCohort !== undefined
+      && externalCohort.provenanceCompleteness.total === externalCount
+      && externalCohort.provenanceCompleteness.complete === externalCohort.provenanceCompleteness.total;
+    push({
+      id: "external-open-license-provenance-complete",
+      passed: provenanceComplete,
+      actual: provenanceComplete,
+      required: true,
+      details: externalCohort
+        ? `${externalCohort.provenanceCompleteness.complete}/${externalCohort.provenanceCompleteness.total}`
+        : "external cohort summary missing",
+    });
+
+    const publicRepositorySafe = externalCohort !== undefined
+      && externalCohort.publicRepositorySafety.total === externalCount
+      && externalCohort.publicRepositorySafety.safe === externalCohort.publicRepositorySafety.total;
+    push({
+      id: "external-open-license-public-repository-safe",
+      passed: publicRepositorySafe,
+      actual: publicRepositorySafe,
+      required: true,
+      details: externalCohort
+        ? `${externalCohort.publicRepositorySafety.safe}/${externalCohort.publicRepositorySafety.total}`
+        : "external cohort summary missing",
+    });
+  }
 
   for (const family of Object.keys(FORMAT_FAMILIES) as FormatFamily[]) {
     const count = familyPhotoCount(report, family);

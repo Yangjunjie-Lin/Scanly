@@ -82,8 +82,9 @@ See [Beta 1 real-time runtime](docs/beta1-realtime-runtime.md) for the lifecycle
 | Current Alpha.5 development evidence | Value |
 | --- | ---: |
 | Generated Alpha.5 fixtures | 146 |
-| Single-format positives | 100 |
-| Mixed positives | 12 |
+| External open-license photographs | **12/12** |
+| Single-format positives | 109 |
+| Mixed positives | 15 |
 | Negative fixtures | 34 |
 | Generated clean | **15/15** |
 | Generated difficult | **75/85** |
@@ -97,7 +98,7 @@ See [Beta 1 real-time runtime](docs/beta1-realtime-runtime.md) for the lifecycle
 | Project-photo manifest | [fixtures/alpha5/project-photos/manifest.json](fixtures/alpha5/project-photos/manifest.json) |
 <!-- ALPHA5_INTEGRATION_SUMMARY_END -->
 
-External open-license photographs provide third-party real-world validation but do not satisfy the project-owned photograph release gate. The integration decision is `ALPHA5_INTEGRATION_GO`; release remains `ALPHA5_RELEASE_NO_GO` while the 0/12 project-owned photo corpus is `DEFERRED_TO_BETA1`.
+External open-license photographs provide third-party real-world validation but do not satisfy the project-owned photograph release gate. The 12/12 Wikimedia cohort is SHA-256 pinned and records 17 visible physical instances; its documented semantic deduplication contract passes exact all-format ZXing-C++ WASM Ground Truth verification (16/16 `(format, payload, isGs1)` results, including multi-code photographs). The integration decision is `ALPHA5_INTEGRATION_GO`; release remains `ALPHA5_RELEASE_NO_GO` while the 0/12 project-owned photo corpus is `DEFERRED_TO_BETA1`.
 
 See [the full benchmark](docs/benchmark.md) and [fixture methodology](docs/testing.md).
 
@@ -183,7 +184,7 @@ The seven-fixture PR job is **Browser Benchmark Smoke**. **Browser Full Benchmar
 - The project contains no analytics or user-behavior tracking.
 - Camera tracks stop after use or when leaving Camera mode.
 - Clipboard writes require an explicit button action and browser permission.
-- Benchmark images are repository fixtures: deterministic generated cases or project-owned photos.
+- Benchmark images are repository fixtures: deterministic generated cases, project-owned photos, or separately attributed third-party open-license photographs.
 - QR payloads render as text; only parsed `http:` and `https:` URLs can enable **Open Link**.
 
 See [SECURITY.md](SECURITY.md) for vulnerability reporting.

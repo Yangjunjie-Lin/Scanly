@@ -37,6 +37,8 @@ jobs:
       - run: git diff --exit-code -- fixtures
       - name: Verify clean symbologies checkout
         run: git status --porcelain --untracked-files=all | Tee-Object -Variable status; if ($status) { throw "symbologies checkout is dirty" }
+      - name: Verify external open-license real-photo cohort
+        run: npm run fixtures:verify-external -- --gate --output=benchmark-results/ci/external-open-license-validation.json
       - name: Run symbology gate
         run: npm run benchmark:symbologies -- --canonical-candidate --gate --gate-mode=${{ needs.prepare.outputs.workflow-mode }} --output=benchmark-results/ci/symbologies.json
       - uses: actions/upload-artifact@v4
@@ -44,7 +46,9 @@ jobs:
           name: benchmark-symbologies
           retention-days: 21
           if-no-files-found: error
-          path: benchmark-results/ci/symbologies.json
+          path: |
+            benchmark-results/ci/symbologies.json
+            benchmark-results/ci/external-open-license-validation.json
 
   prepare:
     name: Prepare

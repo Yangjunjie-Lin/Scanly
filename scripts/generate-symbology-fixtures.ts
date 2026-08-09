@@ -26,7 +26,7 @@ interface FixtureRecord {
   expectedRawBytes?: number[];
   expectedOutcome: "decode" | "no-symbol";
   expectedResultCount: number;
-  requiredResults: Array<{ format: BarcodeFormat; payload: string }>;
+  requiredResults: Array<{ format: BarcodeFormat; payload: string; isGs1?: boolean }>;
   orientation: number;
   difficultyTags: Difficulty[];
   license: string;
@@ -55,6 +55,9 @@ interface ExternalFixtureRecord extends Omit<FixtureRecord, "sourceType" | "gene
   modifications: unknown[];
   expectedFormat: BarcodeFormat;
   expectedPayload: string | null;
+  physicalInstanceCount: number;
+  physicalInstances: Array<{ format: BarcodeFormat; payload: string; isGs1: boolean; count: number }>;
+  semanticResultPolicy: "unique-format-payload-gs1";
   payloadVerificationStatus: "verified" | "unknown" | "sensitive";
   publicRepositorySafe: boolean;
   visualVerificationStatus: "verified";

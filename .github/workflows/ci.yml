@@ -95,6 +95,9 @@ jobs:
       - name: Benchmark smoke (regression gate)
         run: npm run benchmark:smoke
 
+      - name: External open-license real-photo gate
+        run: npm run fixtures:verify-external -- --gate --output=benchmark-results/development/external-open-license-validation.json
+
       - name: Multi-symbology benchmark
         run: npm run benchmark:symbologies -- --gate --gate-mode=integration
 
@@ -118,6 +121,7 @@ jobs:
           path: |
             benchmark-results/development/smoke-balanced.json
             benchmark-results/development/smoke-balanced.csv
+            benchmark-results/development/external-open-license-validation.json
             benchmark-results/ci/bundle-cost.json
 
   multisymbology-unit:

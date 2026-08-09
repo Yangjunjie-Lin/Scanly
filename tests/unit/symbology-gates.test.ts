@@ -8,6 +8,7 @@ import {
   formatGateFailureTable,
   isValidBaselineId,
   type CohortSummary,
+  type ExternalOpenLicenseCohortSummary,
   type FormatFamily,
   type PerFormatRecall,
   type SymbologyGateReport,
@@ -31,6 +32,26 @@ function perfectCohort(perFormatRecall = allPublicRecalls(10)): CohortSummary {
     resultTotal,
     exactResults: resultTotal,
     perFormatRecall,
+  };
+}
+
+function perfectExternalCohort(): ExternalOpenLicenseCohortSummary {
+  const perFormatRecall = allPublicRecalls(0);
+  perFormatRecall.data_matrix = perfectRecall(4);
+  perFormatRecall.code_128 = perfectRecall(4);
+  perFormatRecall.ean_13 = perfectRecall(7);
+  perFormatRecall.upc_a = perfectRecall(1);
+  return {
+    fixtureTotal: 12,
+    fixturePassed: 12,
+    resultTotal: 16,
+    exactResults: 16,
+    perFormatRecall,
+    falsePositiveCount: 0,
+    formatMisclassificationCount: 0,
+    gs1MisclassificationCount: 0,
+    provenanceCompleteness: { complete: 12, total: 12, rate: 1 },
+    publicRepositorySafety: { safe: 12, total: 12, rate: 1 },
   };
 }
 
@@ -68,6 +89,7 @@ function passingReport(): SymbologyGateReport {
         exactResults: resultTotal,
         perFormatRecall: realRecalls,
       },
+      externalOpenLicenseRealWorld: perfectExternalCohort(),
     },
     acceptedFormatMisclassificationCount: 0,
     formatSelectionAccuracy: 1,
@@ -86,16 +108,35 @@ function passingReport(): SymbologyGateReport {
 }
 
 describe("symbology release gates", () => {
-  it("reports the external corpus gate without treating it as a release gate", () => {
+  it("treats the external corpus and correctness evidence as blocking regression gates", () => {
     const report = passingReport();
     report.corpus.externalOpenLicenseCorpusCount = 0;
     const gates = evaluateSymbologyGates(report);
     const external = gates.find((gate) => gate.id === "external-open-license-corpus-count");
-    expect(external).toMatchObject({ passed: false, actual: 0, required: 12, releaseRequired: false });
-    expect(allSymbologyGatesPassed(gates)).toBe(true);
+    expect(external).toMatchObject({ passed: false, actual: 0, required: 12 });
+    expect(allSymbologyGatesPassed(gates)).toBe(false);
 
     report.corpus.externalOpenLicenseCorpusCount = 12;
-    expect(evaluateSymbologyGates(report).find((gate) => gate.id === "external-open-license-corpus-count")?.passed).toBe(true);
+    const passing = evaluateSymbologyGates(report);
+    expect(passing.find((gate) => gate.id === "external-open-license-corpus-count")?.passed).toBe(true);
+    expect(passing.find((gate) => gate.id === "external-open-license-exact-correctness")?.passed).toBe(true);
+    expect(allSymbologyGatesPassed(passing)).toBe(true);
+  });
+
+  it.each([
+    ["exact results", "external-open-license-exact-correctness", (cohort: ExternalOpenLicenseCohortSummary) => { cohort.exactResults -= 1; }],
+    ["false positives", "external-open-license-zero-false-positives", (cohort: ExternalOpenLicenseCohortSummary) => { cohort.falsePositiveCount = 1; }],
+    ["format classification", "external-open-license-zero-format-misclassifications", (cohort: ExternalOpenLicenseCohortSummary) => { cohort.formatMisclassificationCount = 1; }],
+    ["GS1 classification", "external-open-license-zero-gs1-misclassifications", (cohort: ExternalOpenLicenseCohortSummary) => { cohort.gs1MisclassificationCount = 1; }],
+    ["provenance", "external-open-license-provenance-complete", (cohort: ExternalOpenLicenseCohortSummary) => { cohort.provenanceCompleteness.complete -= 1; }],
+    ["public repository safety", "external-open-license-public-repository-safe", (cohort: ExternalOpenLicenseCohortSummary) => { cohort.publicRepositorySafety.safe -= 1; }],
+  ] as const)("fails the external %s regression gate", (_label, gateId, mutate) => {
+    const report = passingReport();
+    const cohort = report.cohorts.externalOpenLicenseRealWorld as ExternalOpenLicenseCohortSummary;
+    mutate(cohort);
+    const gates = evaluateSymbologyGates(report, { gateMode: "integration" });
+    expect(gates.find((gate) => gate.id === gateId)?.passed).toBe(false);
+    expect(allSymbologyGatesPassed(gates)).toBe(false);
   });
 
   it("passes every required gate for a complete report", () => {
