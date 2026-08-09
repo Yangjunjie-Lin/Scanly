@@ -36,12 +36,14 @@ Clean generated fixtures pass 15/15; difficult single-format fixtures pass 75/85
 
 ## Release gates
 
-`npm run benchmark:symbologies -- --gate --gate-mode=integration` evaluates the Alpha.5 integration gates and exits nonzero on any deterministic correctness, runtime, or package failure. The missing project-owned photo corpus is explicitly reported as `DEFERRED_TO_BETA1` and does not weaken the generated, mixed, GS1, false-positive, format, checksum, or legacy QR gates. Release/evidence work uses the strict default `--gate-mode=release` and continues to require the full physical-photo corpus, canonical evidence, immutable baselines, and real-device verification.
+`npm run benchmark:symbologies -- --gate --gate-mode=integration` evaluates the Alpha.5 regression and Beta 1 curated-photo gates and exits nonzero on any required deterministic correctness, provenance, safety, runtime, or package failure. Project-owned photo count is informational. Release/evidence work uses the strict default `--gate-mode=release` and additionally requires independent physical-camera/device evidence, canonical evidence, and immutable baselines.
 
-## Project-owned real photographs
+## Curated open-license camera photographs
 
-Alpha.5 Evidence Freeze requires at least 12 authentic project-owned photographs (minimum 3 per major family: Data Matrix, PDF417, Code 128, EAN/UPC). Capture instructions and the empty integration manifest live under [fixtures/alpha5/project-photos/](../fixtures/alpha5/project-photos/README.md).
+The Beta 1 photo gate requires at least 12 audited camera photographs with a minimum of three per major family: Data Matrix, PDF417, Code 128, and EAN/UPC. It also requires at least 80% overall semantic recall, at least two-thirds recall in every family, zero unexpected results, zero format/GS1 errors, and complete pinned provenance, redistribution rights, camera-photo, and sensitive-data review. The current 16-photo cohort is documented under [external-open-license](../fixtures/alpha5/external-open-license/README.md).
 
-Until those assets are present, Alpha.5 integration may report `ALPHA5_INTEGRATION_GO`, while release remains `ALPHA5_RELEASE_NO_GO` and final Evidence Freeze is deferred to Beta 1.
+With those curated assets present, Alpha.5 integration may report `ALPHA5_INTEGRATION_GO`. Release remains `ALPHA5_RELEASE_NO_GO` until the independent physical-camera/device evidence and the remaining release-only evidence are complete; final Evidence Freeze is deferred to Beta 1.
 
-External open-license photographs provide third-party real-world validation but do not satisfy the project-owned photograph release gate. They are reported separately as `externalOpenLicenseRealWorld`; the current 12/12 Wikimedia cohort records 17 visible physical instances and passes blocking CI regression gates over 16/16 exact `(format, payload, isGs1)` semantic results, provenance, and public-safety checks. This third-party evidence cannot activate the now-abandoned `v2-alpha5-r1` plan or produce Alpha.5 final canonical evidence. Alpha.5 will not be retroactively released; the next eligible frozen evidence family is `v2-beta1-r1`.
+The `externalOpenLicenseRealWorld` cohort currently records 16 originals, 21 visible physical instances, and 20/20 exact `(format, payload, isGs1)` semantic results. Project-owned photographs remain optional supplemental evidence at 0 and are never inferred from Internet assets. Physical-camera/device execution is an independent release gate and is still unavailable; therefore this evidence does not activate `v2-beta1-r1`.
+
+Curated open-license camera photographs satisfy the Beta 1 photo gate but do not constitute physical-camera/device evidence or project ownership.

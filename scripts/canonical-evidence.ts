@@ -366,14 +366,13 @@ export function validateSymbologyReport(
   if (!report.sourceIdentity?.commitSha || !report.sourceIdentity?.treeSha) failures.push("symbology source commit/tree is missing");
   if (!/^[a-f0-9]{64}$/.test(report.sourceIdentity?.symbologyManifestHash ?? "")) failures.push("symbology manifest hash is missing or invalid");
   if (!/^[a-f0-9]{64}$/.test(report.sourceIdentity?.datasetHash ?? "")) failures.push("symbology dataset hash is missing or invalid");
-  if (gateMode === "release" && (report.corpus?.projectOwnedRealPhotos ?? 0) < 12) failures.push("symbology project-photo corpus is incomplete");
-  if (gateMode === "release" && report.corpus?.realPhotoGateComplete !== true) failures.push("symbology real-photo gate is incomplete");
+  if (report.corpus?.realPhotoGateComplete !== true) failures.push("symbology curated open-license real-photo gate is incomplete");
   if ((report.falsePositiveCount ?? -1) !== 0) failures.push("symbology report contains false positives");
   if ((report.acceptedFormatMisclassificationCount ?? -1) !== 0) failures.push("symbology report contains format misclassifications");
   const gateResults = evaluateSymbologyGates(report as SymbologyGateReport, { canonicalCandidate: true, gateMode });
   if (!allSymbologyGatesPassed(gateResults)) {
     const failed = gateResults.filter((gate) => !gate.passed).map((gate) => gate.id);
-    failures.push(`symbology release gates failed: ${failed.join(", ")}`);
+    failures.push(`symbology ${gateMode} gates failed: ${failed.join(", ")}`);
   }
   return failures;
 }

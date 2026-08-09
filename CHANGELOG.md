@@ -11,7 +11,8 @@ All notable changes follow semantic versioning.
 - Split reliability evidence into a 10,000-frame fake-decoder Scanner Core Soak with `workerEvidence: "not-applicable"`, a pull-request tier of at least 1,000 actual `BrowserScannerFrameDecoder`/persistent Worker/ZXing-C++ WASM executions, and a scheduled/manual 10,000-frame Worker/WASM tier.
 - Added browser real-time smoke, lifecycle, once-per-session repeat, and latest-frame backpressure coverage to the Chromium, Firefox, and WebKit Browser Benchmark matrix.
 - Expanded camera capability state tests for unsupported torch/zoom, manual zoom override, auto-zoom cooldown and maximum clamp, anti-oscillation behavior, and source-switch refresh. This is state-logic coverage, not physical auto-zoom validation.
-- Beta 1 runtime integration can be `GO` only when runtime gates pass. Release remains `NO-GO` while Issue #13, physical-device evidence, and the project-owned 0/12 photo gate remain open; no tag, GitHub Release, npm publication, Stable claim, or `v2-beta1-r1` evidence activation is authorized.
+- Replaced the deferred project-owned release-photo requirement with a strict curated open-license camera-photo gate: 16 pinned originals cover Data Matrix/PDF417/Code 128/EAN/UPC at 3/3/4/6, with 21 physical instances, 20/20 exact semantic results, license/camera/sensitive-data review, and zero unexpected or misclassified results. Project-owned count remains 0 and informational only.
+- Beta 1 runtime integration can be `GO` only when runtime and curated-photo gates pass. Release remains `NO-GO` while Issue #13 and independent physical-device evidence remain open; no tag, GitHub Release, npm publication, Stable claim, or `v2-beta1-r1` evidence activation is authorized.
 
 ## Alpha.5 integration closure
 

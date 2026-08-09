@@ -1,5 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const e2ePort = 3210;
+const e2eBaseUrl = `http://127.0.0.1:${e2ePort}`;
+
 export default defineConfig({
   testDir: "tests/e2e",
   timeout: 60_000,
@@ -11,13 +14,15 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   use: {
-    baseURL: "http://127.0.0.1:3000",
+    baseURL: e2eBaseUrl,
     trace: "on-first-retry",
   },
   webServer: {
-    command: "npm run start",
-    url: "http://127.0.0.1:3000",
-    reuseExistingServer: !process.env.CI,
+    command: `npm run start -- --port ${e2ePort}`,
+    url: e2eBaseUrl,
+    // A healthy but unrelated app on the same port must never satisfy the
+    // evidence harness. Always launch the exact Scanly build under test.
+    reuseExistingServer: false,
     timeout: 120_000,
   },
   projects: [

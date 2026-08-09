@@ -56,9 +56,17 @@ jobs:
       - run: git diff --exit-code -- fixtures
       - name: Verify clean symbologies checkout
         run: git status --porcelain --untracked-files=all | Tee-Object -Variable status; if ($status) { throw "symbologies checkout is dirty" }
+      - name: Verify curated open-license camera-photo cohort
+        run: npm run fixtures:verify-external -- --gate --output=benchmark-results/candidates/external-open-license-validation.json
       - run: npm run benchmark:symbologies -- --canonical-candidate --gate --output=benchmark-results/candidates/symbologies.json
       - uses: actions/upload-artifact@v4
-        with: { name: baseline-symbologies, path: benchmark-results/candidates/symbologies.json, if-no-files-found: error, retention-days: 21 }
+        with:
+          name: baseline-symbologies
+          path: |
+            benchmark-results/candidates/symbologies.json
+            benchmark-results/candidates/external-open-license-validation.json
+          if-no-files-found: error
+          retention-days: 21
   assemble:
     name: Assemble
     needs: [fast, balanced, robust, comparison, symbologies]

@@ -74,7 +74,7 @@ The real-time benchmark has 20 semantic Ground Truth scenarios with scenario-spe
 
 Reliability evidence is split by scope. Scanner Core Soak runs 10,000 frames with a fake decoder and records `workerEvidence: "not-applicable"`; it validates scheduler, temporal, ownership, lifecycle, and controlled-memory cleanup, not Worker/WASM behavior. The separate pull-request soak runs at least 1,000 actual frames through `BrowserScannerFrameDecoder`, one persistent `DecodeWorkerClient`, a browser Worker, and ZXing-C++ WASM. A scheduled/manual extended tier runs 10,000 real Worker/WASM frames. The Browser Benchmark runs real-time smoke, lifecycle, repeat, and backpressure cases in Chromium, Firefox, and WebKit.
 
-Camera unit coverage validates unsupported capabilities, manual override, auto-zoom cooldown and clamp, anti-oscillation state, and source-switch refresh. It is not physical auto-zoom evidence. Beta 1 runtime integration may be `GO` when runtime gates pass, but release remains `NO-GO` while [Issue #13](https://github.com/Yangjunjie-Lin/Scanly/issues/13), physical-camera/device validation, and the project-owned **0/12** photo gate remain open. No `v2-beta1-r1` evidence activation is authorized, and this document does not claim a GitHub PR exact-SHA check result.
+Camera unit coverage validates unsupported capabilities, manual override, auto-zoom cooldown and clamp, anti-oscillation state, and source-switch refresh. It is not physical auto-zoom evidence. The Beta 1 photo gate uses an audited open-license camera-photo cohort; project-owned photos remain optional supplemental evidence and are never fabricated or inferred from Internet assets. Beta 1 runtime integration may be `GO` when runtime gates pass, but release remains `NO-GO` while [Issue #13](https://github.com/Yangjunjie-Lin/Scanly/issues/13) and independent physical-camera/device validation remain open. No `v2-beta1-r1` evidence activation is authorized, and this document does not claim a GitHub PR exact-SHA check result.
 
 See [Beta 1 real-time runtime](docs/beta1-realtime-runtime.md) for the lifecycle, bounded escalation, temporal correctness, memory, and evidence boundaries.
 
@@ -82,8 +82,8 @@ See [Beta 1 real-time runtime](docs/beta1-realtime-runtime.md) for the lifecycle
 | Current Alpha.5 development evidence | Value |
 | --- | ---: |
 | Generated Alpha.5 fixtures | 146 |
-| External open-license photographs | **12/12** |
-| Single-format positives | 109 |
+| Curated open-license camera photographs | **16 (minimum 12)** |
+| Single-format positives | 113 |
 | Mixed positives | 15 |
 | Negative fixtures | 34 |
 | Generated clean | **15/15** |
@@ -93,12 +93,14 @@ See [Beta 1 real-time runtime](docs/beta1-realtime-runtime.md) for the lifecycle
 | False positives | **0** |
 | Accepted-format misclassifications | **0** |
 | Invalid-checksum acceptances | **0** |
-| Project-owned Alpha.5 photographs | **0/12** |
+| Optional project-owned photographs | **0** |
 | Corpus manifest | [fixtures/alpha5/manifest.json](fixtures/alpha5/manifest.json) |
-| Project-photo manifest | [fixtures/alpha5/project-photos/manifest.json](fixtures/alpha5/project-photos/manifest.json) |
+| Optional project-photo manifest | [fixtures/alpha5/project-photos/manifest.json](fixtures/alpha5/project-photos/manifest.json) |
 <!-- ALPHA5_INTEGRATION_SUMMARY_END -->
 
-External open-license photographs provide third-party real-world validation but do not satisfy the project-owned photograph release gate. The 12/12 Wikimedia cohort is SHA-256 pinned and records 17 visible physical instances; its documented semantic deduplication contract passes exact all-format ZXing-C++ WASM Ground Truth verification (16/16 `(format, payload, isGs1)` results, including multi-code photographs). The integration decision is `ALPHA5_INTEGRATION_GO`; release remains `ALPHA5_RELEASE_NO_GO` while the 0/12 project-owned photo corpus is `DEFERRED_TO_BETA1`.
+The Beta 1 photo gate is a curated open-license camera-photo cohort kept separate from optional project-owned evidence. Its 16 SHA-256-pinned originals cover Data Matrix 3, PDF417 3, Code 128 4, and EAN/UPC 6; they record 21 visible physical instances and pass exact all-format ZXing-C++ WASM Ground Truth verification for 20/20 `(format, payload, isGs1)` semantic results. Every entry records original bytes, a trusted source, redistributable license evidence, camera-photo review, and sensitive-data review. The three PDF417 photographs are pinned to an Apache-2.0 ZXing commit whose history identifies them as Android-camera real-world images. Physical-camera/device evidence remains independent and unavailable, so Beta 1 release remains `NO-GO` even when this photo gate passes.
+
+Curated open-license camera photographs satisfy the Beta 1 photo gate but do not constitute physical-camera/device evidence or project ownership.
 
 See [the full benchmark](docs/benchmark.md) and [fixture methodology](docs/testing.md).
 

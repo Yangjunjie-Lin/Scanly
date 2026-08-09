@@ -44,14 +44,14 @@ describe("Alpha.5 release documentation policy", () => {
     expect(historical).toContain(`**${balanced.falsePositiveCount}/${balanced.negativeCases}`);
 
     expect(integration).toContain(`| Generated Alpha.5 fixtures | ${generated.length} |`);
-    expect(integration).toContain(`| External open-license photographs | **${external.length}/12** |`);
+    expect(integration).toContain(`| Curated open-license camera photographs | **${external.length} (minimum 12)** |`);
     expect(integration).toContain(`| Single-format positives | ${single.length} |`);
     expect(integration).toContain(`| Mixed positives | ${mixed.length} |`);
     expect(integration).toContain(`| Negative fixtures | ${negative.length} |`);
     expect(integration).toContain(`| Generated clean | **${clean.length}/${clean.length}** |`);
     expect(integration).toContain(`| Generated difficult | **75/${difficult.length}** |`);
     expect(integration).toContain(`| GS1 recognition | **${gs1.length}/${gs1.length}** |`);
-    expect(integration).toContain(`| Project-owned Alpha.5 photographs | **${photos.fixtures.length}/12** |`);
+    expect(integration).toContain(`| Optional project-owned photographs | **${photos.fixtures.length}** |`);
     expect(integration).not.toContain("73/74");
     expect(historical).not.toContain("Generated Alpha.5 fixtures");
     expect(readme).toContain("Alpha.5 integration evidence is development evidence. It is not frozen canonical release evidence.");

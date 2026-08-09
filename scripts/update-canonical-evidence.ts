@@ -82,7 +82,7 @@ if (bundle.manifest.schemaVersion === "2.1" && bundle.reports.symbologies) {
     `| Symbology report hash | \`${manifest.reportHashes.symbologiesJson}\` |`,
     `| Symbology manifest hash | \`${manifest.sourceIdentity.symbologyManifestHash}\` |`,
     `| Symbology dataset hash | \`${manifest.sourceIdentity.symbologyDatasetHash}\` |`,
-    `| Project photos | ${manifest.fixtureCounts.symbologyProjectPhotos} |`,
+    `| Optional project-owned photos | ${manifest.fixtureCounts.symbologyProjectPhotos} |`,
     `| Generated fixtures | ${manifest.fixtureCounts.symbologyGenerated} |`,
     markerEnd,
   ].join("\n");

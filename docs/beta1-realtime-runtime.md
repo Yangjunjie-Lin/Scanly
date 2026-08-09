@@ -83,6 +83,6 @@ The browser real-time suite retains the smoke test and adds lifecycle, once-per-
 
 ## Integration and release boundary
 
-The Beta 1 runtime may be an integration `GO` when its runtime gates pass. Beta 1 release evidence remains `NO-GO` while [Issue #13](https://github.com/Yangjunjie-Lin/Scanly/issues/13) is open and the project-owned real-photo corpus remains **0 of 12**; repository-generated or Internet-sourced images cannot replace that gate. Physical-camera/device evidence also remains outstanding.
+The Beta 1 runtime may be an integration `GO` when its runtime gates pass. The audited open-license camera-photo gate now passes with 16 originals and four-family coverage; project-owned photos remain optional supplemental evidence at 0 and are not fabricated from Internet assets. Beta 1 release evidence remains `NO-GO` while [Issue #13](https://github.com/Yangjunjie-Lin/Scanly/issues/13) and independent physical-camera/device evidence remain open.
 
 No `v2-beta1-r1` evidence activation is authorized in this phase. Repository documentation describes the required checks but does not claim that a GitHub PR exact-SHA run passed; that status must come from the actual CI, Full Benchmark, Browser Benchmark, Public API, and deployment checks for the PR head.

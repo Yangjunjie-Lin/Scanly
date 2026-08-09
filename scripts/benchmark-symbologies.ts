@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
-import { PUBLIC_BARCODE_FORMATS, SDK_VERSION, type EngineDecodeResult } from "@scanly/core";
+import { PUBLIC_BARCODE_FORMATS, SDK_VERSION } from "@scanly/core";
 import { createZxingCppWasmEngine } from "@scanly/engine-zxing-cpp-wasm";
 import { loadNormalizedFrameFromPath } from "@scanly/node";
 import type { BarcodeFormat } from "@scanly/scenario-schema";
@@ -16,7 +16,19 @@ import {
   type FormatFamily,
   type SymbologyGateResult,
 } from "./symbology-gates.js";
-import { diffExternalResultMultiset, isExternalFormatMisclassification, isExternalGs1Misclassification } from "./external-open-license-contract.js";
+import {
+  EXTERNAL_GROUND_TRUTH_REGISTRY_PATH,
+  deduplicateExternalSemanticResults,
+  diffExternalResultMultiset,
+  isAllowedExternalLicense,
+  isExternalFormatMisclassification,
+  isExternalGs1Misclassification,
+  validateExternalFixture,
+  validateExternalFixtureSet,
+  validateExternalGroundTruthRegistry,
+  type ExternalFixture,
+  type ExternalGroundTruthRegistry,
+} from "./external-open-license-contract.js";
 
 const ROOT = path.resolve(__dirname, "..");
 const MANIFEST_PATH = path.join(ROOT, "fixtures", "alpha5", "manifest.json");
@@ -34,11 +46,19 @@ interface Fixture {
   physicalInstanceCount?: number;
   payloadVerificationStatus?: "verified" | "unknown" | "sensitive";
   sourcePage?: string;
+  originalUrl?: string;
   sourceRepository?: string;
   originalFilename?: string;
+  originalWidth?: number;
+  originalHeight?: number;
+  originalByteLength?: number;
+  sha256?: string;
+  assetKind?: "camera-photograph";
   author?: string;
   license?: string;
   licenseUrl?: string;
+  rightsReviewStatus?: "verified";
+  sensitiveDataReviewStatus?: "passed";
   attribution?: string;
   retrievedAt?: string;
   modifications?: unknown[];
@@ -79,7 +99,12 @@ interface ExternalCohortSummary {
   formatMisclassificationCount: number;
   gs1MisclassificationCount: number;
   falsePositiveCount: number;
+  familyPhotoCounts: Record<FormatFamily, number>;
   provenanceCompleteness: { complete: number; total: number; rate: number | null };
+  redistributableLicenseCompliance: { complete: number; total: number; rate: number | null };
+  cameraPhotographVerification: { complete: number; total: number; rate: number | null };
+  rightsReviewCompleteness: { complete: number; total: number; rate: number | null };
+  sensitiveDataReviewCompleteness: { complete: number; total: number; rate: number | null };
   publicRepositorySafety: { safe: number; total: number; rate: number | null };
 }
 
@@ -93,12 +118,12 @@ function percentile(values: number[], p: number): number {
   return sorted[Math.min(sorted.length - 1, Math.ceil((p / 100) * sorted.length) - 1)];
 }
 
-function exactRequired(required: readonly RequiredResult[], actual: readonly EngineDecodeResult[]): boolean {
+function exactRequired(required: readonly RequiredResult[], actual: readonly RequiredResult[]): boolean {
   const remaining = [...actual];
   for (const result of required) {
     const index = remaining.findIndex((actualResult) => (
       actualResult.format === result.format
-      && actualResult.text === result.payload
+      && actualResult.payload === result.payload
       && (result.isGs1 === undefined || actualResult.isGs1 === result.isGs1)
     ));
     if (index < 0) return false;
@@ -150,7 +175,25 @@ async function main(): Promise<void> {
   }
 
   const manifestBytes = await fs.promises.readFile(MANIFEST_PATH);
-  const manifest = JSON.parse(manifestBytes.toString("utf8")) as { schemaVersion: string; fixtures: Fixture[] };
+  const manifest = JSON.parse(manifestBytes.toString("utf8")) as {
+    schemaVersion: string;
+    externalGroundTruth?: { registryPath: string; registrySha256: string; decoderIndependent: boolean } | null;
+    fixtures: Fixture[];
+  };
+  const externalFixtures = manifest.fixtures.filter((fixture) => fixture.sourceType === "external-open-license") as ExternalFixture[];
+  if (manifest.externalGroundTruth?.registryPath !== EXTERNAL_GROUND_TRUTH_REGISTRY_PATH
+    || manifest.externalGroundTruth.decoderIndependent !== true) {
+    throw new Error("Alpha.5 manifest external Ground Truth registry metadata is missing or not decoder-independent");
+  }
+  const groundTruthRegistryBytes = await fs.promises.readFile(path.join(ROOT, ...EXTERNAL_GROUND_TRUTH_REGISTRY_PATH.split("/")));
+  const groundTruthRegistrySha256 = hash(groundTruthRegistryBytes.toString("utf8").replaceAll("\r\n", "\n"));
+  if (manifest.externalGroundTruth.registrySha256 !== groundTruthRegistrySha256) {
+    throw new Error("Alpha.5 manifest external Ground Truth registry SHA-256 is stale");
+  }
+  const groundTruthRegistry = JSON.parse(groundTruthRegistryBytes.toString("utf8")) as ExternalGroundTruthRegistry;
+  validateExternalFixtureSet(externalFixtures);
+  validateExternalGroundTruthRegistry(externalFixtures, groundTruthRegistry);
+  for (const fixture of externalFixtures) validateExternalFixture(fixture);
   const engine = createZxingCppWasmEngine();
   const results: FixtureResult[] = [];
   const started = performance.now();
@@ -166,10 +209,26 @@ async function main(): Promise<void> {
         ? [...new Set(fixture.requiredResults.map((result) => result.format))]
         : [...PUBLIC_BARCODE_FORMATS];
       const frame = await loadNormalizedFrameFromPath(path.join(ROOT, fixture.file), fixture.id);
+      if (fixture.sourceType === "external-open-license") {
+        const bytes = await fs.promises.readFile(path.join(ROOT, fixture.file));
+        if (hash(bytes) !== fixture.sha256) throw new Error(`${fixture.id}: original SHA-256 mismatch`);
+        if (bytes.byteLength !== fixture.originalByteLength) throw new Error(`${fixture.id}: originalByteLength mismatch`);
+        if (frame.width !== fixture.originalWidth || frame.height !== fixture.originalHeight) {
+          throw new Error(`${fixture.id}: original dimensions mismatch`);
+        }
+      }
       const fixtureStarted = performance.now();
       const outcome = await engine.decode(frame, { formats: requestedFormats, findMultiple: fixture.sourceType === "external-open-license" || fixture.requiredResults.length > 1 });
       const elapsedMs = performance.now() - fixtureStarted;
-      const actual = outcome.ok ? outcome.results : [];
+      const decoded = outcome.ok ? outcome.results.map((result) => ({
+        format: result.format,
+        payload: result.text,
+        isGs1: result.isGs1 === true,
+        rawBytes: result.rawBytes?.byteLength ?? 0,
+      })) : [];
+      const actual = fixture.sourceType === "external-open-license"
+        ? deduplicateExternalSemanticResults(decoded)
+        : decoded;
       const detectionOnly = fixture.sourceType === "external-open-license"
         && fixture.payloadVerificationStatus === "unknown";
       const pass = fixture.expectedOutcome === "no-symbol"
@@ -180,7 +239,7 @@ async function main(): Promise<void> {
           && (!fixture.expectedGs1 || actual.some((result) => result.isGs1));
       results.push({
         id: fixture.id, pass, elapsedMs, requestedFormats, requiredResults: fixture.requiredResults,
-        actualResults: actual.map((result) => ({ format: result.format, payload: result.text, isGs1: result.isGs1 === true, rawBytes: result.rawBytes?.byteLength ?? 0 })),
+        actualResults: actual,
         ...(!outcome.ok ? { failureCategory: outcome.category } : {}),
       });
     }
@@ -261,9 +320,21 @@ async function main(): Promise<void> {
   const externalDetectionOnly = externalPhotos.filter(({ fixture }) => fixture.payloadVerificationStatus === "unknown");
   const baseExternalSummary = cohortSummary(externalPhotos);
   const completeExternalProvenance = externalPhotos.filter(({ fixture }) => [
-    fixture.sourcePage, fixture.sourceRepository, fixture.originalFilename, fixture.author,
+    fixture.sourcePage, fixture.originalUrl, fixture.sourceRepository, fixture.originalFilename, fixture.author,
     fixture.license, fixture.licenseUrl, fixture.attribution, fixture.retrievedAt, fixture.provenanceNote,
-  ].every((value) => typeof value === "string" && value.length > 0) && Array.isArray(fixture.modifications));
+  ].every((value) => typeof value === "string" && value.length > 0)
+    && Number.isInteger(fixture.originalWidth) && (fixture.originalWidth ?? 0) > 0
+    && Number.isInteger(fixture.originalHeight) && (fixture.originalHeight ?? 0) > 0
+    && Number.isInteger(fixture.originalByteLength) && (fixture.originalByteLength ?? 0) > 0
+    && Array.isArray(fixture.modifications));
+  const compliantExternalLicenses = externalPhotos.filter(({ fixture }) => (
+    typeof fixture.license === "string"
+    && typeof fixture.licenseUrl === "string"
+    && isAllowedExternalLicense(fixture.license, fixture.licenseUrl)
+  ));
+  const verifiedCameraPhotographs = externalPhotos.filter(({ fixture }) => fixture.assetKind === "camera-photograph");
+  const completeRightsReviews = externalPhotos.filter(({ fixture }) => fixture.rightsReviewStatus === "verified");
+  const completeSensitiveDataReviews = externalPhotos.filter(({ fixture }) => fixture.sensitiveDataReviewStatus === "passed");
   const externalDiffs = externalPhotos.map(({ fixture, result }) => ({
     fixture,
     diff: diffExternalResultMultiset(fixture.requiredResults, result.actualResults),
@@ -275,6 +346,20 @@ async function main(): Promise<void> {
   const externalGs1MisclassificationCount = externalDiffs.reduce((count, { fixture, diff }) => (
     count + diff.unexpected.filter((actual) => isExternalGs1Misclassification(fixture.requiredResults, actual)).length
   ), 0);
+  const externalFamilyPhotoCounts = Object.fromEntries(
+    (Object.keys(FORMAT_FAMILIES) as FormatFamily[]).map((family) => [
+      family,
+      externalPhotos.filter(({ fixture }) => {
+        const format = fixture.expectedFormat ?? fixture.format;
+        return format ? familyOf(format) === family : false;
+      }).length,
+    ]),
+  ) as Record<FormatFamily, number>;
+  const completion = (complete: number) => ({
+    complete,
+    total: externalPhotos.length,
+    rate: externalPhotos.length ? complete / externalPhotos.length : null,
+  });
   const externalSummary: ExternalCohortSummary = {
     ...baseExternalSummary,
     visiblePhysicalInstanceCount: externalPhotos.reduce((count, { fixture }) => count + (fixture.physicalInstanceCount ?? 0), 0),
@@ -294,11 +379,12 @@ async function main(): Promise<void> {
     formatMisclassificationCount: externalFormatMisclassificationCount,
     gs1MisclassificationCount: externalGs1MisclassificationCount,
     falsePositiveCount: externalFalsePositiveCount,
-    provenanceCompleteness: {
-      complete: completeExternalProvenance.length,
-      total: externalPhotos.length,
-      rate: externalPhotos.length ? completeExternalProvenance.length / externalPhotos.length : null,
-    },
+    familyPhotoCounts: externalFamilyPhotoCounts,
+    provenanceCompleteness: completion(completeExternalProvenance.length),
+    redistributableLicenseCompliance: completion(compliantExternalLicenses.length),
+    cameraPhotographVerification: completion(verifiedCameraPhotographs.length),
+    rightsReviewCompleteness: completion(completeRightsReviews.length),
+    sensitiveDataReviewCompleteness: completion(completeSensitiveDataReviews.length),
     publicRepositorySafety: {
       safe: externalPhotos.filter(({ fixture }) => fixture.publicRepositorySafe === true).length,
       total: externalPhotos.length,
@@ -308,9 +394,16 @@ async function main(): Promise<void> {
   const latencies = results.map((result) => result.elapsedMs);
   const memory = engine.getMemoryObservation();
   const repositoryDirty = (await git(["status", "--porcelain"])).length > 0;
-  const invalidChecksumAcceptanceCount = manifest.fixtures.reduce((count, fixture, index) => (
-    count + (fixture.difficultyTags.includes("checksum_invalid") && results[index].actualResults.length > 0 ? 1 : 0)
-  ), 0);
+  const checksumInvalidOutcomes = manifest.fixtures.flatMap((fixture, index) => (
+    fixture.difficultyTags.includes("checksum_invalid") ? [results[index]] : []
+  ));
+  const invalidChecksumAcceptanceCount = checksumInvalidOutcomes
+    .filter((result) => result.actualResults.length > 0).length;
+  const checksumRejectionCount = checksumInvalidOutcomes
+    .filter((result) => result.actualResults.length === 0 && result.failureCategory === "not-found").length;
+  const checksumEvaluationErrorCount = checksumInvalidOutcomes.length
+    - invalidChecksumAcceptanceCount
+    - checksumRejectionCount;
   const realPhotoFamilyCounts = Object.fromEntries(
     (Object.keys(FORMAT_FAMILIES) as FormatFamily[]).map((family) => [
       family,
@@ -341,12 +434,14 @@ async function main(): Promise<void> {
     },
     acceptedFormatMisclassificationCount: Object.entries(confusion).reduce((count, [expected, row]) => count + Object.entries(row).reduce((rowCount, [actual, value]) => rowCount + (actual === expected ? 0 : value), 0), 0),
     formatSelectionAccuracy: selectedResults ? selectedCorrect / selectedResults : null,
-    checksumRejectionCount: manifest.fixtures.filter((fixture, index) => fixture.difficultyTags.includes("checksum_invalid") && results[index].actualResults.length === 0).length,
+    checksumRejectionCount,
+    checksumEvaluationErrorCount,
     gs1RecognitionAccuracy: { total: gs1.length, recognized: gs1.filter(({ result }) => result.pass).length, accuracy: gs1.length ? gs1.filter(({ result }) => result.pass).length / gs1.length : null },
     mixedFormatCompleteness: { total: mixed.length, complete: mixed.filter(({ result }) => result.pass).length, rate: mixed.length ? mixed.filter(({ result }) => result.pass).length / mixed.length : null },
     falsePositiveCount: manifest.fixtures.reduce((count, fixture, index) => count + (fixture.expectedOutcome === "no-symbol" ? results[index].actualResults.length : 0), 0),
     invalidChecksumAcceptanceCount,
     realPhotoFamilyCounts,
+    physicalDeviceEvidence: "unavailable" as const,
   };
 
   const gateResults: SymbologyGateResult[] = evaluateSymbologyGates(gateInputs, {
@@ -354,11 +449,19 @@ async function main(): Promise<void> {
     gateMode: cli.gateMode,
   });
   const gatesPassed = allSymbologyGatesPassed(gateResults);
+  const integrationGateResults = evaluateSymbologyGates(gateInputs, {
+    canonicalCandidate: cli.canonicalCandidate,
+    gateMode: "integration",
+  });
+  const integrationGatesPassed = allSymbologyGatesPassed(integrationGateResults);
   const releaseGateResults = evaluateSymbologyGates(gateInputs, {
     canonicalCandidate: cli.canonicalCandidate,
     gateMode: "release",
   });
   const releaseGatesPassed = allSymbologyGatesPassed(releaseGateResults);
+  const curatedPhotoGateResults = gateResults.filter((gate) => gate.id.startsWith("curated-"));
+  const curatedPhotoGateComplete = curatedPhotoGateResults.length > 0
+    && curatedPhotoGateResults.every((gate) => gate.passed);
 
   const report = {
     schemaVersion: "alpha5-symbology-evidence-1",
@@ -367,9 +470,12 @@ async function main(): Promise<void> {
     mode: cli.canonicalCandidate ? "canonical-candidate" : cli.gate ? "gate" : "development",
     gateMode: cli.gateMode,
     decision: {
-      integration: gatesPassed ? "ALPHA5_INTEGRATION_GO" : "ALPHA5_INTEGRATION_NO_GO",
+      integration: integrationGatesPassed ? "ALPHA5_INTEGRATION_GO" : "ALPHA5_INTEGRATION_NO_GO",
       release: releaseGatesPassed ? "ALPHA5_RELEASE_GO" : "ALPHA5_RELEASE_NO_GO",
-      projectOwnedRealPhotoValidation: gateInputs.corpus.projectOwnedRealPhotos >= 12 ? "available" : "DEFERRED_TO_BETA1",
+      curatedOpenLicenseRealPhotoValidation: curatedPhotoGateComplete ? "PASS" : "FAIL",
+      projectOwnedRealPhotoValidation: "informational-only",
+      physicalDeviceEvidence: "unavailable",
+      beta1Release: "BETA1_RELEASE_NO_GO",
     },
     sourceIdentity: {
       ...gateInputs.sourceIdentity,
@@ -381,8 +487,10 @@ async function main(): Promise<void> {
       generated: manifest.fixtures.filter((fixture) => fixture.sourceType === "generated").length,
       projectOwnedRealPhotos: gateInputs.corpus.projectOwnedRealPhotos,
       externalOpenLicenseCorpusCount: gateInputs.corpus.externalOpenLicenseCorpusCount,
-      realPhotoGateComplete: gatesPassed && gateInputs.corpus.projectOwnedRealPhotos >= 12,
-      realPhotoFamilyCounts,
+      curatedOpenLicenseRealPhotos: gateInputs.corpus.externalOpenLicenseCorpusCount,
+      realPhotoGateComplete: curatedPhotoGateComplete,
+      realPhotoFamilyCounts: externalFamilyPhotoCounts,
+      projectOwnedRealPhotoFamilyCounts: realPhotoFamilyCounts,
     },
     cohorts: gateInputs.cohorts,
     passed: results.filter((result) => result.pass).length,
@@ -394,6 +502,7 @@ async function main(): Promise<void> {
     acceptedFormatMisclassificationCount: gateInputs.acceptedFormatMisclassificationCount,
     formatSelectionAccuracy: gateInputs.formatSelectionAccuracy,
     checksumRejectionCount: gateInputs.checksumRejectionCount,
+    checksumEvaluationErrorCount: gateInputs.checksumEvaluationErrorCount,
     invalidChecksumAcceptanceCount,
     gs1RecognitionAccuracy: gateInputs.gs1RecognitionAccuracy,
     mixedFormatCompleteness: gateInputs.mixedFormatCompleteness,
@@ -405,6 +514,7 @@ async function main(): Promise<void> {
     },
     gates: Object.fromEntries(gateResults.map((gate) => [gate.id, gate.passed])),
     gateResults,
+    physicalDeviceEvidence: "unavailable",
     results,
     externalOpenLicenseRealWorld: externalSummary,
   };
@@ -415,7 +525,7 @@ async function main(): Promise<void> {
     const readme = fs.readFileSync(path.join(ROOT, "README.md"), "utf8");
     const expectedReadmeRows = [
       `| Generated Alpha.5 fixtures | ${report.corpus.generated} |`,
-      `| External open-license photographs | **${report.corpus.externalOpenLicenseCorpusCount}/12** |`,
+      `| Curated open-license camera photographs | **${report.corpus.externalOpenLicenseCorpusCount} (minimum 12)** |`,
       `| Single-format positives | ${singleFormatPositives} |`,
       `| Mixed positives | ${mixedPositives} |`,
       `| Negative fixtures | ${report.corpus.negative} |`,
@@ -426,7 +536,7 @@ async function main(): Promise<void> {
       `| False positives | **${report.falsePositiveCount}** |`,
       `| Accepted-format misclassifications | **${report.acceptedFormatMisclassificationCount}** |`,
       `| Invalid-checksum acceptances | **${report.invalidChecksumAcceptanceCount}** |`,
-      `| Project-owned Alpha.5 photographs | **${report.corpus.projectOwnedRealPhotos}/12** |`,
+      `| Optional project-owned photographs | **${report.corpus.projectOwnedRealPhotos}** |`,
     ];
     const staleRows = expectedReadmeRows.filter((row) => !readme.includes(row));
     if (staleRows.length) throw new Error(`README Alpha.5 integration summary is stale:\n- ${staleRows.join("\n- ")}`);
@@ -438,7 +548,7 @@ async function main(): Promise<void> {
     if (!report.sourceIdentity.commitSha || !report.sourceIdentity.treeSha) throw new Error("Canonical symbology candidate requires Source Commit and Source Tree.");
     if (!gatesPassed) {
       console.error(formatGateFailureTable(gateResults));
-      throw new Error("Canonical symbology candidate failed one or more release gates.");
+      throw new Error(`Canonical symbology candidate failed one or more ${cli.gateMode} gates.`);
     }
   }
 

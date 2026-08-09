@@ -1,10 +1,12 @@
 # Alpha.5 外部开放许可实拍验证报告
 
+> 历史快照：本报告保留最初 12 张 Wikimedia cohort 的当时测量，不再描述当前 Beta 1 门禁。当前政策已升级为 16 张 curated open-license camera photographs（四家族 3/3/4/6，20/20 语义结果）；它们满足 Beta 1 照片门禁，但不构成 project ownership 或物理相机/设备验证。当前权威数据见 manifest、validation report、README 与 `docs/benchmark.md`。
+
 ## 结论
 
 Wikimedia Commons 外部开放许可实拍 cohort 已建立并通过独立门禁：12/12 张原图保留下载字节，逐张固定 SHA-256、作者、许可、来源页和已核验 payload；人工记录 17 个可见物理实例，并按明确的 `unique-format-payload-gs1` 合同形成 16 个语义结果。真实 ZXing-C++ WASM 全格式多结果解码得到 16/16 个必需结果，false positive 为 0，格式误判为 0。状态为 `PASS_EXTERNAL_OPEN_LICENSE`。
 
-这些图片是第三方开放许可实拍，不是 `project-owned`。项目自有照片仍为 0/12，因而 Beta 1 runtime integration 可继续 `GO`，但 Beta 1 release 仍为 `NO-GO`；Issue #13、实物相机/设备验证和 `project-owned` 照片门禁仍未关闭，也没有授权激活 `v2-beta1-r1`。
+这些图片是第三方开放许可实拍，不是 `project-owned`。在这份 Alpha.5 历史快照形成时，项目自有照片为 0/12，并曾被记录为旧 release 阻塞项。当前 Beta 1 政策已由文首说明取代：project-owned 数量仅作信息记录；尚未完成、仍阻止 Beta 1 release 的是独立实物相机/设备证据，因此没有授权激活 `v2-beta1-r1`。
 
 ## 实际门禁
 
@@ -23,7 +25,7 @@ Wikimedia Commons 外部开放许可实拍 cohort 已建立并通过独立门禁
 | GS1 语义误判 | 0 | PASS |
 | provenance 完整性 | 12/12 | PASS |
 | public-repository safety | 12/12 | PASS |
-| project-owned 原图 | 0/12 | FAIL（release 阻塞） |
+| project-owned 原图 | 0/12 | 历史 Alpha.5 release 阻塞项（当前政策已取代） |
 
 当前 tracked verifier 实测平均 / 中位 / P95 解码延迟为 249.330 / 196.224 / 536.093 ms。延迟是当前机器的 dirty development 证据，不是冻结性能基线；报告同时显式记录 commit、tree、dirty 状态、SDK 和引擎版本。权威原始值和逐图耗时保存在 `validation-report.json`，CI 另行生成 exact-SHA、`repositoryDirty=false` artifact。
 
@@ -50,7 +52,7 @@ Wikimedia Commons 外部开放许可实拍 cohort 已建立并通过独立门禁
 
 - `Barcode on food products in Israel 20.jpg`、Kiwi shoe polish 等候选在原图路径上实际解码为 `not-found`，未纳入。
 - 超过输入像素上限、只能依赖缩略图、许可不完整或重复度过高的候选未纳入。
-- Commons 的 PDF417 候选主要是证件、登机牌、票据、扫描件或生成图；为避免敏感数据和伪实拍，本 cohort 不声称 PDF417 外部实拍覆盖。
+- Commons 的 PDF417 候选主要是证件、登机牌、票据、扫描件或生成图；为避免敏感数据和伪实拍，最初 12 张 cohort 不声称 PDF417 外部实拍覆盖。当前 16 张 cohort 已通过固定 ZXing commit 的 Android 相机照片补充 3 张 PDF417，许可与拍摄来源由当前 manifest 单独审计。
 - 未使用互联网图片替换 `fixtures/alpha5/project-photos/`，也未把第三方许可图片声明为项目所有。
 
 ## 复现
@@ -61,4 +63,4 @@ npm run fixtures:generate
 npm run benchmark:symbologies -- --gate --gate-mode=integration
 ```
 
-External open-license photographs provide third-party real-world validation but do not satisfy the project-owned photograph release gate.
+Historical Alpha.5 note: external open-license photographs were not treated as project-owned release evidence. Under the current Beta 1 policy, project ownership is informational and physical-camera/device execution remains the independent release gate.
