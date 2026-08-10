@@ -2,6 +2,12 @@ import type { BarcodeTrack, TrackROI, TrackROIFrame, TrackROIPlan, TrackROISetOp
 import { translateGeometry } from "./geometry.js";
 
 const DEFAULT_MAX_ROIS = 32;
+const DEFAULT_MAX_CANDIDATE_TRACKS = 128;
+const HARD_MAX_CANDIDATE_TRACKS = 128;
+const HARD_MAX_ROIS = 32;
+const HARD_MAX_UNCOVERED_GRID_SIZE = 16;
+const HARD_MAX_UNCOVERED_REGIONS = 64;
+const HARD_MAX_GRID_CELL_CHECKS = HARD_MAX_UNCOVERED_GRID_SIZE ** 2;
 
 /**
  * Produces a bounded, renderer/decoder-neutral multi-target ROI plan. The plan
@@ -15,18 +21,26 @@ export class TrackROISet {
 
   constructor(options: TrackROISetOptions = {}) {
     this.options = {
-      maxROIs: positiveInteger(options.maxROIs, DEFAULT_MAX_ROIS),
+      maxCandidateTracks: boundedPositiveInteger(
+        options.maxCandidateTracks,
+        DEFAULT_MAX_CANDIDATE_TRACKS,
+        HARD_MAX_CANDIDATE_TRACKS,
+      ),
+      maxROIs: boundedPositiveInteger(options.maxROIs, DEFAULT_MAX_ROIS, HARD_MAX_ROIS),
       expansion: bounded(options.expansion, 0.25, 0, 2),
       missedFrameExpansion: bounded(options.missedFrameExpansion, 0.15, 0, 1),
       globalScanIntervalFrames: positiveInteger(options.globalScanIntervalFrames, 10),
-      uncoveredGridSize: positiveInteger(options.uncoveredGridSize, 4),
-      maxUncoveredRegions: positiveInteger(options.maxUncoveredRegions, 16),
+      uncoveredGridSize: boundedPositiveInteger(options.uncoveredGridSize, 4, HARD_MAX_UNCOVERED_GRID_SIZE),
+      maxUncoveredRegions: boundedPositiveInteger(options.maxUncoveredRegions, 16, HARD_MAX_UNCOVERED_REGIONS),
     };
   }
 
   plan(tracks: readonly BarcodeTrack[], frame: TrackROIFrame): TrackROIPlan {
     validateFrame(frame);
+    // Only a fixed prefix is inspected. The runtime tracker itself is bounded,
+    // but TrackROISet is public and must remain safe with arbitrary callers.
     const eligible = tracks
+      .slice(0, this.options.maxCandidateTracks)
       .filter((track) => track.state === "confirmed" || track.state === "lost")
       .sort((a, b) => statePriority(a.state) - statePriority(b.state) || a.trackId.localeCompare(b.trackId))
       .slice(0, this.options.maxROIs);
@@ -89,11 +103,12 @@ function createUncoveredGrid(
   if (tracked.length === 0) return [];
   const cellSize = 1 / gridSize;
   const uncovered: Array<{ x: number; y: number; width: number; height: number }> = [];
-  for (let row = 0; row < gridSize && uncovered.length < maximum; row += 1) {
-    for (let column = 0; column < gridSize && uncovered.length < maximum; column += 1) {
-      const cell = { x: column * cellSize, y: row * cellSize, width: cellSize, height: cellSize };
-      if (!tracked.some((roi) => rectanglesIntersect(cell, roi))) uncovered.push(cell);
-    }
+  const cellChecks = Math.min(HARD_MAX_GRID_CELL_CHECKS, gridSize * gridSize);
+  for (let index = 0; index < cellChecks && uncovered.length < maximum; index += 1) {
+    const row = Math.floor(index / gridSize);
+    const column = index % gridSize;
+    const cell = { x: column * cellSize, y: row * cellSize, width: cellSize, height: cellSize };
+    if (!tracked.some((roi) => rectanglesIntersect(cell, roi))) uncovered.push(cell);
   }
   return uncovered;
 }
@@ -109,6 +124,9 @@ function statePriority(state: BarcodeTrack["state"]): number { return state === 
 function clamp(value: number, minimum: number, maximum: number): number { return Math.max(minimum, Math.min(maximum, value)); }
 function positiveInteger(value: number | undefined, fallback: number): number {
   return value === undefined || !Number.isFinite(value) ? fallback : Math.max(1, Math.floor(value));
+}
+function boundedPositiveInteger(value: number | undefined, fallback: number, maximum: number): number {
+  return Math.min(maximum, positiveInteger(value, fallback));
 }
 function bounded(value: number | undefined, fallback: number, minimum: number, maximum: number): number {
   return value === undefined || !Number.isFinite(value) ? fallback : clamp(value, minimum, maximum);

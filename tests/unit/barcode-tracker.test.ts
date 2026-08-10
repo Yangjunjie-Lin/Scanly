@@ -69,4 +69,33 @@ describe("BarcodeTracker", () => {
     overlay.boundingBox.x = 999;
     expect(track.geometry.boundingBox.x).toBe(20);
   });
+
+  it("hard-bounds ROI candidates, grid work, and uncovered output under extreme configuration", () => {
+    const tracker = new BarcodeTracker({ confirmationObservations: 1 });
+    tracker.update([observation("A", 10)], 1, 10);
+    const source = tracker.getTracks()[0]!;
+    const candidates = Array.from({ length: 128 }, (_, index) => ({
+      ...source,
+      trackId: `candidate-${index}`,
+      physicalInstanceId: `physical-${index}`,
+    }));
+    Object.defineProperty(candidates, 128, {
+      get(): never { throw new Error("TrackROISet inspected an out-of-bound candidate."); },
+    });
+    candidates.length = 1_000_000;
+
+    const rois = new TrackROISet({
+      maxCandidateTracks: Number.MAX_SAFE_INTEGER,
+      maxROIs: Number.MAX_SAFE_INTEGER,
+      uncoveredGridSize: Number.MAX_SAFE_INTEGER,
+      maxUncoveredRegions: Number.MAX_SAFE_INTEGER,
+    });
+    const plan = rois.plan(candidates, { frameId: 2, width: 200, height: 100 });
+
+    expect(plan.trackedROIs).toHaveLength(32);
+    expect(plan.uncoveredRegions.length).toBeLessThanOrEqual(64);
+    expect(plan.uncoveredRegions.every((region) =>
+      [region.x, region.y, region.width, region.height].every(Number.isFinite),
+    )).toBe(true);
+  });
 });

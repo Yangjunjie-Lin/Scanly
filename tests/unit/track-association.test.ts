@@ -39,4 +39,31 @@ describe("track association", () => {
     expect(result.unmatchedTrackIndices).toEqual([0]);
     expect(result.unmatchedObservationIndices).toEqual([0]);
   });
+
+  it("makes payload and format mismatches hard-ineligible under permissive custom settings", () => {
+    const source = track("1", "A", 20);
+    const permissive = {
+      threshold: 1e300,
+      weights: {
+        payloadMismatch: 0,
+        formatMismatch: 0,
+        spatialDistance: 0,
+        iouPenalty: 0,
+        geometrySize: 0,
+        motionPrediction: 0,
+        timeSinceObservation: 0,
+      },
+    };
+    const wrongPayload = observed("B", 20);
+    const wrongFormat = { ...observed("A", 20), format: "qr_code" as const };
+
+    expect(calculateAssociationCost(source, wrongPayload, 2, permissive)).toBe(Number.POSITIVE_INFINITY);
+    expect(calculateAssociationCost(source, wrongFormat, 2, permissive)).toBe(Number.POSITIVE_INFINITY);
+    for (const mismatch of [wrongPayload, wrongFormat]) {
+      const result = associateTracks([source], [mismatch], 2, permissive);
+      expect(result.matches).toEqual([]);
+      expect(result.unmatchedTrackIndices).toEqual([0]);
+      expect(result.unmatchedObservationIndices).toEqual([0]);
+    }
+  });
 });

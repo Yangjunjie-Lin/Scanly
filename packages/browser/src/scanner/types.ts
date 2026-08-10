@@ -16,6 +16,8 @@ export type ScannerSessionState =
   | "failed";
 
 export type DecodeProfile = "fast" | "balanced" | "robust";
+export type ScannerDecodeMode = "single" | "tracking";
+export type ScannerDecodeROIPhase = "temporal" | "tracked-rois" | "uncovered-regions" | "full-frame";
 export type ConfirmationMode = "immediate" | "confirm-two" | "adaptive";
 
 export interface BarcodeGeometry {
@@ -85,6 +87,8 @@ export interface BarcodeObservationSet {
   frameHeight: number;
   generation: number;
   quality: FrameQuality;
+  decodeMode?: ScannerDecodeMode;
+  roiPhase?: ScannerDecodeROIPhase;
   profile?: DecodeProfile;
   decodeMs?: number;
   observations: readonly ScannerBarcodeObservation[];
@@ -168,6 +172,12 @@ export interface TemporalROIHint {
 export interface ScannerDecodeRequest {
   profile: DecodeProfile;
   quality: FrameQuality;
+  /** Defaults to the Beta 1 single-result behavior for third-party decoders. */
+  mode?: ScannerDecodeMode;
+  /** Bounded result ceiling used by tracking-aware multi-code decoders. */
+  maxResults?: number;
+  /** Identifies how the optional ROI was selected for this frame. */
+  roiPhase?: ScannerDecodeROIPhase;
   roi?: TemporalROIHint;
   signal: AbortSignal;
   generation: number;

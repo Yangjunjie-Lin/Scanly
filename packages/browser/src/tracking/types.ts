@@ -139,6 +139,8 @@ export interface TrackROIPlan {
 }
 
 export interface TrackROISetOptions {
+  /** Maximum input candidates inspected before ROI prioritization. */
+  maxCandidateTracks?: number;
   maxROIs?: number;
   expansion?: number;
   missedFrameExpansion?: number;

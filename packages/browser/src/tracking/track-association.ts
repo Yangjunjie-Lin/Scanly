@@ -4,8 +4,8 @@ import { geometryArea, geometryCenter, geometryDistanceScale, geometryIoU } from
 export const DEFAULT_ASSOCIATION_THRESHOLD = 2.5;
 
 export const DEFAULT_ASSOCIATION_WEIGHTS: Readonly<TrackAssociationWeights> = Object.freeze({
-  // The default threshold makes payload or format mismatch ineligible while
-  // still keeping those compatibility terms explicit and configurable.
+  // Compatibility weights remain explicit in the public cost schema, while
+  // the semantic eligibility gate below takes precedence over every weight.
   payloadMismatch: 8,
   formatMismatch: 8,
   spatialDistance: 0.9,
@@ -31,6 +31,12 @@ export function calculateAssociationCost(
   frameId: number,
   options: TrackAssociationOptions = {},
 ): number {
+  // Payload and format identify what was decoded, not merely how expensive a
+  // spatial association should be. A semantic mismatch is never a candidate,
+  // even when callers deliberately raise the threshold or zero custom weights.
+  if (track.payload !== observation.payload || track.format !== observation.format) {
+    return Number.POSITIVE_INFINITY;
+  }
   const weights = resolveWeights(options.weights);
   const currentCenter = geometryCenter(track.geometry);
   const observedCenter = geometryCenter(observation.geometry);
@@ -52,9 +58,7 @@ export function calculateAssociationCost(
   const missingFrames = Math.max(track.missedFrameCount, frameId - track.lastFrameId - 1, elapsedTimeFrames);
 
   const cost =
-    (track.payload === observation.payload ? 0 : weights.payloadMismatch)
-    + (track.format === observation.format ? 0 : weights.formatMismatch)
-    + spatialDistance * weights.spatialDistance
+    spatialDistance * weights.spatialDistance
     + (1 - geometryIoU(track.geometry, observation.geometry)) * weights.iouPenalty
     + sizePenalty * weights.geometrySize
     + (predictionDistance + directionConflict) * weights.motionPrediction
@@ -121,8 +125,11 @@ export function associateTracks(
   const matchedObservations = new Set<number>();
   const matches = assignedColumns.flatMap((column, trackIndex) => {
     if (column < 0 || column >= observations.length) return [];
+    const track = tracks[trackIndex];
+    const observation = observations[column];
+    if (!track || !observation || track.payload !== observation.payload || track.format !== observation.format) return [];
     const cost = costMatrix[trackIndex]?.[column] ?? Number.MAX_SAFE_INTEGER;
-    if (cost > threshold) return [];
+    if (!Number.isFinite(cost) || cost > threshold) return [];
     matchedObservations.add(column);
     return [{ trackIndex, observationIndex: column, cost }];
   });
