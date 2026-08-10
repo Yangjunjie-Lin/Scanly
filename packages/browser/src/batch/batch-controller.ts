@@ -17,7 +17,18 @@ export interface BatchControllerOptions {
   mode?: BatchMode;
   expectedCount?: number;
   expected?: readonly ExpectedBatchItem[];
+  /** Maximum live track snapshots retained by the batch view. Defaults to 64. */
+  maxRetainedTracks?: number;
+  /**
+   * Maximum confirmed physical-instance snapshots retained for completion and
+   * classification. Defaults to 256 and may not exceed 4096.
+   */
+  maxRetainedPhysicalInstances?: number;
 }
+
+export const DEFAULT_BATCH_MAX_RETAINED_TRACKS = 64;
+export const DEFAULT_BATCH_MAX_RETAINED_PHYSICAL_INSTANCES = 256;
+export const MAX_BATCH_RETENTION_LIMIT = 4_096;
 
 interface ExpectedSlot {
   item: ExpectedBatchItem;
@@ -38,6 +49,8 @@ export class BatchController {
   private readonly mode: BatchMode;
   private readonly expectedCount?: number;
   private readonly expectedSlots: ExpectedSlot[];
+  private readonly maxRetainedTracks: number;
+  private readonly maxRetainedPhysicalInstances: number;
   private readonly tracks = new Map<string, BarcodeTrack>();
   private readonly confirmedByPhysicalInstance = new Map<string, BarcodeTrack>();
   private readonly unexpectedByPhysicalInstance = new Map<string, BarcodeTrack>();
@@ -54,12 +67,37 @@ export class BatchController {
     trackRestoredEvents: 0,
     trackRetiredEvents: 0,
     batchCompletedEvents: 0,
+    peakRetainedTrackCount: 0,
+    peakRetainedPhysicalInstanceCount: 0,
+    peakUnexpectedQuantity: 0,
+    peakDuplicateQuantity: 0,
+    retentionRejectedTrackCount: 0,
+    retentionRejectedPhysicalInstanceCount: 0,
+    retentionEvictedPhysicalInstanceCount: 0,
   };
 
   constructor(options: BatchControllerOptions = {}) {
     this.mode = options.mode ?? "continuous";
+    this.maxRetainedTracks = validateRetentionLimit(
+      "maxRetainedTracks",
+      options.maxRetainedTracks,
+      DEFAULT_BATCH_MAX_RETAINED_TRACKS,
+    );
+    this.maxRetainedPhysicalInstances = validateRetentionLimit(
+      "maxRetainedPhysicalInstances",
+      options.maxRetainedPhysicalInstances,
+      DEFAULT_BATCH_MAX_RETAINED_PHYSICAL_INSTANCES,
+    );
     this.expectedCount = validateExpectedCount(this.mode, options.expectedCount);
     this.expectedSlots = validateExpectedItems(this.mode, options.expected);
+    const requiredPhysicalInstances = this.mode === "checklist"
+      ? this.expectedSlots.reduce((total, slot) => total + slot.quantity, 0)
+      : this.expectedCount ?? 0;
+    if (requiredPhysicalInstances > this.maxRetainedPhysicalInstances) {
+      throw new RangeError(
+        `maxRetainedPhysicalInstances (${this.maxRetainedPhysicalInstances}) must cover the batch objective (${requiredPhysicalInstances}).`,
+      );
+    }
   }
 
   getTracks(): readonly BarcodeTrack[] {
@@ -93,6 +131,10 @@ export class BatchController {
     const progress = this.mode === "checklist" ? matchedQuantity : state.confirmedPhysicalInstanceCount;
     return {
       confirmedPhysicalInstanceCount: state.confirmedPhysicalInstanceCount,
+      maxRetainedTracks: this.maxRetainedTracks,
+      maxRetainedPhysicalInstances: this.maxRetainedPhysicalInstances,
+      retainedTrackCount: this.tracks.size,
+      retainedPhysicalInstanceCount: this.confirmedByPhysicalInstance.size,
       matchedQuantity,
       missingQuantity,
       unexpectedQuantity: state.unexpected.length,
@@ -116,7 +158,7 @@ export class BatchController {
 
   /** Apply one complete, frame-level BarcodeTracker update. */
   applyTrackerUpdate(update: BarcodeTrackerUpdate): void {
-    if (this.status === "failed" || this.status === "cancelled") return;
+    if (this.status !== "collecting") return;
 
     const emittedTrackIds = new Set<string>();
     for (const track of update.newTracks) {
@@ -167,8 +209,13 @@ export class BatchController {
    * Each supplied confirmed track is still de-duplicated by physical identity.
    */
   applyTracks(tracks: readonly BarcodeTrack[], timestamp = Date.now()): void {
-    if (this.status === "failed" || this.status === "cancelled") return;
+    if (this.status !== "collecting") return;
     for (const track of tracks) {
+      if (track.state === "retired") {
+        this.tracks.delete(track.trackId);
+        this.emitTrack({ type: "track-retired", trackId: track.trackId, track: cloneTrack(track) });
+        continue;
+      }
       const prior = this.tracks.get(track.trackId);
       this.upsertTrack(track);
       if (!prior) this.emitTrack({ type: "track-added", track: cloneTrack(track) });
@@ -213,7 +260,26 @@ export class BatchController {
       trackRestoredEvents: 0,
       trackRetiredEvents: 0,
       batchCompletedEvents: 0,
+      peakRetainedTrackCount: 0,
+      peakRetainedPhysicalInstanceCount: 0,
+      peakUnexpectedQuantity: 0,
+      peakDuplicateQuantity: 0,
+      retentionRejectedTrackCount: 0,
+      retentionRejectedPhysicalInstanceCount: 0,
+      retentionEvictedPhysicalInstanceCount: 0,
     };
+  }
+
+  /**
+   * Release frame-derived evidence while preserving terminal status and
+   * aggregate counters. A subsequent start() calls reset() for a fresh batch.
+   */
+  releaseRetainedState(): void {
+    this.tracks.clear();
+    this.confirmedByPhysicalInstance.clear();
+    this.unexpectedByPhysicalInstance.clear();
+    this.duplicateByPhysicalInstance.clear();
+    for (const slot of this.expectedSlots) slot.physicalInstanceIds = [];
   }
 
   clear(): void {
@@ -223,6 +289,10 @@ export class BatchController {
   }
 
   private upsertTrack(track: BarcodeTrack): void {
+    if (!this.tracks.has(track.trackId) && this.tracks.size >= this.maxRetainedTracks) {
+      this.counters.retentionRejectedTrackCount += 1;
+      return;
+    }
     this.tracks.set(track.trackId, cloneTrack(track));
     const existing = this.confirmedByPhysicalInstance.get(track.physicalInstanceId);
     if (existing) this.confirmedByPhysicalInstance.set(track.physicalInstanceId, cloneTrack(track));
@@ -232,6 +302,7 @@ export class BatchController {
     if (this.duplicateByPhysicalInstance.has(track.physicalInstanceId)) {
       this.duplicateByPhysicalInstance.set(track.physicalInstanceId, cloneTrack(track));
     }
+    this.recordRetentionPeaks();
   }
 
   private confirmPhysicalTrack(track: BarcodeTrack): void {
@@ -247,10 +318,20 @@ export class BatchController {
     }
 
     const snapshot = cloneTrack(track);
+    const classification = this.mode === "checklist" ? this.classifyChecklistTrack(snapshot) : undefined;
+    if (this.confirmedByPhysicalInstance.size >= this.maxRetainedPhysicalInstances) {
+      const madeRoom = classification?.kind === "matched" && this.evictOldestNonMatchedPhysicalInstance();
+      if (!madeRoom) {
+        this.counters.retentionRejectedPhysicalInstanceCount += 1;
+        return;
+      }
+    }
     this.confirmedByPhysicalInstance.set(physicalInstanceId, snapshot);
-    if (this.mode !== "checklist") return;
+    if (!classification) {
+      this.recordRetentionPeaks();
+      return;
+    }
 
-    const classification = this.classifyChecklistTrack(snapshot);
     if (classification.kind === "matched") {
       classification.slot.physicalInstanceIds.push(physicalInstanceId);
       this.emit({ type: "item-matched", item: cloneItem(classification.slot.item), track: snapshot });
@@ -261,6 +342,36 @@ export class BatchController {
       this.unexpectedByPhysicalInstance.set(physicalInstanceId, snapshot);
       this.emit({ type: "unexpected-item", track: snapshot });
     }
+    this.recordRetentionPeaks();
+  }
+
+  private evictOldestNonMatchedPhysicalInstance(): boolean {
+    for (const physicalInstanceId of this.confirmedByPhysicalInstance.keys()) {
+      if (!this.unexpectedByPhysicalInstance.has(physicalInstanceId)
+        && !this.duplicateByPhysicalInstance.has(physicalInstanceId)) continue;
+      this.confirmedByPhysicalInstance.delete(physicalInstanceId);
+      this.unexpectedByPhysicalInstance.delete(physicalInstanceId);
+      this.duplicateByPhysicalInstance.delete(physicalInstanceId);
+      this.counters.retentionEvictedPhysicalInstanceCount += 1;
+      return true;
+    }
+    return false;
+  }
+
+  private recordRetentionPeaks(): void {
+    this.counters.peakRetainedTrackCount = Math.max(this.counters.peakRetainedTrackCount, this.tracks.size);
+    this.counters.peakRetainedPhysicalInstanceCount = Math.max(
+      this.counters.peakRetainedPhysicalInstanceCount,
+      this.confirmedByPhysicalInstance.size,
+    );
+    this.counters.peakUnexpectedQuantity = Math.max(
+      this.counters.peakUnexpectedQuantity,
+      this.unexpectedByPhysicalInstance.size,
+    );
+    this.counters.peakDuplicateQuantity = Math.max(
+      this.counters.peakDuplicateQuantity,
+      this.duplicateByPhysicalInstance.size,
+    );
   }
 
   private classifyChecklistTrack(track: BarcodeTrack): Classification {
@@ -328,6 +439,14 @@ function validateExpectedCount(mode: BatchMode, value: number | undefined): numb
   }
   if (!Number.isInteger(value) || value <= 0) throw new RangeError("expectedCount must be a positive integer.");
   return value;
+}
+
+function validateRetentionLimit(name: string, value: number | undefined, fallback: number): number {
+  const resolved = value ?? fallback;
+  if (!Number.isInteger(resolved) || resolved <= 0 || resolved > MAX_BATCH_RETENTION_LIMIT) {
+    throw new RangeError(`${name} must be a positive integer no greater than ${MAX_BATCH_RETENTION_LIMIT}.`);
+  }
+  return resolved;
 }
 
 function validateExpectedItems(mode: BatchMode, expected: readonly ExpectedBatchItem[] | undefined): ExpectedSlot[] {

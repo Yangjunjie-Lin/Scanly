@@ -95,19 +95,57 @@ export class BatchScanSession {
     if (this.disposed) return;
     this.stopRequested = true;
     this.invalidatePendingFrames();
-    await this.scanner.stop();
-    if (this.controller.getState().status === "collecting") this.controller.cancel();
+    const errors: unknown[] = [];
+    try {
+      await this.scanner.stop();
+    } catch (error) {
+      errors.push(error);
+      this.controller.fail(error);
+    } finally {
+      // A ScannerSession implementation may reject before changing state.
+      // Keep the generation closed so late observation callbacks cannot mutate
+      // the terminal batch state.
+      this.invalidatePendingFrames();
+      try { this.tracker.reset(); } catch (error) { errors.push(error); this.controller.fail(error); }
+      if (errors.length === 0 && this.controller.getState().status === "collecting") this.controller.cancel();
+      try { this.controller.releaseRetainedState(); } catch (error) { errors.push(error); }
+    }
+    if (errors.length === 1) throw errors[0];
+    if (errors.length > 1) throw new AggregateError(errors, "BatchScanSession stop failed after attempting runtime cleanup.");
   }
 
   async dispose(): Promise<void> {
     if (this.disposed) return;
-    await this.stop();
+    // Close callbacks before awaiting fallible delegated lifecycle methods.
     this.disposed = true;
-    for (const unsubscribe of this.subscriptions.splice(0)) unsubscribe();
-    if (this.disposeTracker) this.tracker.dispose();
-    if (this.disposeScanner) await this.scanner.dispose();
-    this.pendingScannerFrames.clear();
-    this.controller.clear();
+    this.stopRequested = true;
+    this.invalidatePendingFrames();
+    const errors: unknown[] = [];
+
+    try {
+      await this.scanner.stop();
+    } catch (error) {
+      errors.push(error);
+    } finally {
+      if (this.controller.getState().status === "collecting") this.controller.cancel();
+      for (const unsubscribe of this.subscriptions.splice(0)) {
+        try { unsubscribe(); } catch (error) { errors.push(error); }
+      }
+      if (this.disposeTracker) {
+        // Reset first so an injected/fallible dispose implementation cannot
+        // strand live identities owned by this composition.
+        try { this.tracker.reset(); } catch (error) { errors.push(error); }
+        try { this.tracker.dispose(); } catch (error) { errors.push(error); }
+      }
+      this.pendingScannerFrames.clear();
+      try { this.controller.clear(); } catch (error) { errors.push(error); }
+      if (this.disposeScanner) {
+        try { await this.scanner.dispose(); } catch (error) { errors.push(error); }
+      }
+    }
+
+    if (errors.length === 1) throw errors[0];
+    if (errors.length > 1) throw new AggregateError(errors, "BatchScanSession disposal failed after completing all cleanup steps.");
   }
 
   getTracks(): readonly BarcodeTrack[] {
@@ -145,7 +183,7 @@ export class BatchScanSession {
   }
 
   private observeScannerDiagnostic(diagnostic: ScannerDiagnostic): void {
-    if (this.disposed || !diagnostic.event || diagnostic.frameId === undefined) return;
+    if (this.disposed || this.stopRequested || !diagnostic.event || diagnostic.frameId === undefined) return;
     if (diagnostic.event.type !== "detected" && diagnostic.event.type !== "lost") return;
     if (this.scanner.getState() !== "starting" && this.scanner.getState() !== "scanning") return;
 
@@ -172,7 +210,7 @@ export class BatchScanSession {
   }
 
   private observeScannerObservationSet(set: BarcodeObservationSet): void {
-    if (this.disposed || (this.scanner.getState() !== "starting" && this.scanner.getState() !== "scanning")) return;
+    if (this.disposed || this.stopRequested || (this.scanner.getState() !== "starting" && this.scanner.getState() !== "scanning")) return;
     const observations: BarcodeObservation[] = set.observations.flatMap((observation) => observation.geometry ? [{
       payload: observation.barcode.text,
       format: observation.barcode.format,
@@ -188,7 +226,7 @@ export class BatchScanSession {
   private flushScannerFrame(frameId: number, pending: PendingScannerFrame): void {
     if (this.pendingScannerFrames.get(frameId) !== pending) return;
     this.pendingScannerFrames.delete(frameId);
-    if (this.disposed || pending.generation !== this.generation) return;
+    if (this.disposed || this.stopRequested || pending.generation !== this.generation) return;
     if (this.scanner.getState() !== "starting" && this.scanner.getState() !== "scanning") return;
     try {
       this.processFrame(pending.observations, { frameId, timestamp: pending.timestamp });

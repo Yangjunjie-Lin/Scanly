@@ -58,6 +58,18 @@ export type BatchEvent =
 
 export interface BatchStatistics {
   confirmedPhysicalInstanceCount: number;
+  maxRetainedTracks: number;
+  maxRetainedPhysicalInstances: number;
+  /** Current bounded controller snapshots, exposed for memory evidence. */
+  retainedTrackCount: number;
+  retainedPhysicalInstanceCount: number;
+  peakRetainedTrackCount: number;
+  peakRetainedPhysicalInstanceCount: number;
+  peakUnexpectedQuantity: number;
+  peakDuplicateQuantity: number;
+  retentionRejectedTrackCount: number;
+  retentionRejectedPhysicalInstanceCount: number;
+  retentionEvictedPhysicalInstanceCount: number;
   matchedQuantity: number;
   missingQuantity: number;
   unexpectedQuantity: number;

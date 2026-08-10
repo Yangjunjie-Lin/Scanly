@@ -35,12 +35,9 @@ describe("checklist duplicate quantity", () => {
 
     controller.applyTracks([product(1)], 1);
     controller.applyTracks([product(1, "physical-1")], 2);
-    controller.applyTracks([product(2), product(3)], 3);
-    expect(controller.getState()).toMatchObject({ status: "complete", confirmedPhysicalInstanceCount: 3 });
-    expect(controller.getState().matched).toHaveLength(3);
-    expect(controller.getState().duplicate).toHaveLength(0);
-
-    controller.applyTracks([product(4)], 4);
+    // The quota overflow is part of the same atomic input that completes the
+    // checklist. Once complete, classification evidence is frozen.
+    controller.applyTracks([product(2), product(3), product(4)], 3);
     const state = controller.getState();
     expect(state.confirmedPhysicalInstanceCount).toBe(4);
     expect(state.matched).toHaveLength(3);
@@ -50,5 +47,9 @@ describe("checklist duplicate quantity", () => {
     expect(eventTypes.filter((type) => type === "duplicate-item")).toHaveLength(1);
     expect(eventTypes.filter((type) => type === "batch-completed")).toHaveLength(1);
     expect(controller.getStatistics()).toMatchObject({ matchedQuantity: 3, duplicateQuantity: 1, completionAccuracy: 1 });
+
+    controller.applyTracks([product(5)], 4);
+    expect(controller.getState()).toEqual(state);
+    expect(eventTypes.filter((type) => type === "duplicate-item")).toHaveLength(1);
   });
 });
