@@ -1,0 +1,38 @@
+name: Tracking Benchmark
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - develop/sdk-v2
+  push:
+    branches:
+      - develop/sdk-v2
+      - architecture/sdk-v2-beta2-**
+
+permissions:
+  contents: read
+
+jobs:
+  tracking-benchmark:
+    name: Tracking Benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: npm run benchmark:tracking
+      - name: Verify exact-head tracking evidence
+        run: node -e "const {execFileSync}=require('node:child_process'); const r=require('./benchmark-results/tracking/tracking-results.json'); const head=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(); if(r.sourceCommit!==head || r.repositoryDirty) throw new Error('Tracking evidence is not from the clean exact head'); if(r.schemaVersion!=='2.3-beta2-development' || r.scenarioCount<24 || !r.pass || !r.scenarios.every(s=>s.pass && s.assertions.every(a=>a.pass)) || !r.aggregateGates.every(g=>g.pass)) throw new Error(r.failureReasons.join(', ') || 'Tracking benchmark failed'); const m=r.aggregateMetrics; if(m.falseTrackCount!==0 || m.identitySwitchCount!==0 || m.falseBatchCompletionCount!==0 || m.samePayloadScenarioPassCount!==m.samePayloadScenarioCount || m.batchScenarioPassCount!==m.batchScenarioCount) throw new Error('Tracking aggregate gates failed'); if(r.scaleBaselines.length!==4 || !r.scaleBaselines.every(s=>s.decoderCallsPerFrame===1 && s.maximumAssociationPairs<=s.targetCount*s.targetCount)) throw new Error('Scale baselines are missing or unbounded');"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tracking-benchmark
+          retention-days: 21
+          if-no-files-found: error
+          path: benchmark-results/tracking/tracking-results.json
