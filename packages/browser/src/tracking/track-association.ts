@@ -1,0 +1,220 @@
+import type { BarcodeTrack, BarcodeObservation, TrackAssociationResult, TrackAssociationWeights } from "./types.js";
+import { geometryArea, geometryCenter, geometryDistanceScale, geometryIoU } from "./geometry.js";
+
+export const DEFAULT_ASSOCIATION_THRESHOLD = 2.5;
+
+export const DEFAULT_ASSOCIATION_WEIGHTS: Readonly<TrackAssociationWeights> = Object.freeze({
+  // The default threshold makes payload or format mismatch ineligible while
+  // still keeping those compatibility terms explicit and configurable.
+  payloadMismatch: 8,
+  formatMismatch: 8,
+  spatialDistance: 0.9,
+  iouPenalty: 0.35,
+  geometrySize: 0.25,
+  // Prediction helps at crossings, but current geometry has the larger weight.
+  motionPrediction: 0.7,
+  timeSinceObservation: 0.08,
+});
+
+export interface TrackAssociationOptions {
+  threshold?: number;
+  weights?: Partial<TrackAssociationWeights>;
+  /** Current frame time, used to age associations after irregular capture. */
+  timestamp?: number;
+  /** Converts elapsed milliseconds to a comparable number of frame periods. */
+  nominalFrameDurationMs?: number;
+}
+
+export function calculateAssociationCost(
+  track: BarcodeTrack,
+  observation: BarcodeObservation,
+  frameId: number,
+  options: TrackAssociationOptions = {},
+): number {
+  const weights = resolveWeights(options.weights);
+  const currentCenter = geometryCenter(track.geometry);
+  const observedCenter = geometryCenter(observation.geometry);
+  const elapsedFrames = Math.max(1, frameId - track.lastFrameId);
+  const predictedCenter = track.velocity
+    ? {
+        x: currentCenter.x + track.velocity.x * elapsedFrames,
+        y: currentCenter.y + track.velocity.y * elapsedFrames,
+      }
+    : currentCenter;
+  const scale = geometryDistanceScale(track.geometry, observation.geometry);
+  const spatialDistance = Math.hypot(observedCenter.x - currentCenter.x, observedCenter.y - currentCenter.y) / scale;
+  const predictionDistance = Math.hypot(observedCenter.x - predictedCenter.x, observedCenter.y - predictedCenter.y) / scale;
+  const directionConflict = motionDirectionConflict(track, currentCenter, observedCenter, elapsedFrames);
+  const sizePenalty = Math.min(4, Math.abs(Math.log(geometryArea(observation.geometry) / geometryArea(track.geometry))));
+  const elapsedTimeFrames = options.timestamp === undefined
+    ? 0
+    : Math.max(0, (options.timestamp - track.lastSeenAt) / positive(options.nominalFrameDurationMs, 1000 / 30) - 1);
+  const missingFrames = Math.max(track.missedFrameCount, frameId - track.lastFrameId - 1, elapsedTimeFrames);
+
+  const cost =
+    (track.payload === observation.payload ? 0 : weights.payloadMismatch)
+    + (track.format === observation.format ? 0 : weights.formatMismatch)
+    + spatialDistance * weights.spatialDistance
+    + (1 - geometryIoU(track.geometry, observation.geometry)) * weights.iouPenalty
+    + sizePenalty * weights.geometrySize
+    + (predictionDistance + directionConflict) * weights.motionPrediction
+    + missingFrames * weights.timeSinceObservation;
+  return Number.isFinite(cost) ? cost : Number.MAX_SAFE_INTEGER;
+}
+
+function motionDirectionConflict(
+  track: BarcodeTrack,
+  current: { x: number; y: number },
+  observed: { x: number; y: number },
+  elapsedFrames: number,
+): number {
+  if (!track.velocity) return 0;
+  const expectedX = track.velocity.x * elapsedFrames;
+  const expectedY = track.velocity.y * elapsedFrames;
+  const expectedMagnitude = Math.hypot(expectedX, expectedY);
+  if (expectedMagnitude <= Number.EPSILON) return 0;
+  const actualX = observed.x - current.x;
+  const actualY = observed.y - current.y;
+  const actualMagnitude = Math.hypot(actualX, actualY);
+  // At a crossing, choosing the other object often looks like an implausible
+  // stop at the previous position. Preserve that evidence without rejecting a
+  // real stop outright: this is a soft cost and remains under the threshold.
+  if (actualMagnitude < expectedMagnitude * 0.25) return 1;
+  const cosine = Math.max(-1, Math.min(1,
+    (actualX * expectedX + actualY * expectedY) / (actualMagnitude * expectedMagnitude),
+  ));
+  return (1 - cosine) / 2;
+}
+
+/**
+ * Globally minimizes the bounded track/observation cost matrix. Dummy columns
+ * model an unmatched track, so an over-threshold pair can never steal a valid
+ * observation from another track.
+ */
+export function associateTracks(
+  tracks: readonly BarcodeTrack[],
+  observations: readonly BarcodeObservation[],
+  frameId: number,
+  options: TrackAssociationOptions = {},
+): TrackAssociationResult {
+  const threshold = nonNegative(options.threshold, DEFAULT_ASSOCIATION_THRESHOLD);
+  const costMatrix = tracks.map((track) => observations.map((observation) =>
+    calculateAssociationCost(track, observation, frameId, options),
+  ));
+
+  if (tracks.length === 0 || observations.length === 0) {
+    return {
+      matches: [],
+      unmatchedTrackIndices: tracks.map((_, index) => index),
+      unmatchedObservationIndices: observations.map((_, index) => index),
+      costMatrix,
+    };
+  }
+
+  // One dummy column per track guarantees columns >= rows and permits every
+  // row to choose the unmatched cost independently.
+  const assignmentMatrix = costMatrix.map((row) => [
+    ...row,
+    ...Array.from({ length: tracks.length }, () => threshold),
+  ]);
+  const assignedColumns = hungarianRowsToColumns(assignmentMatrix);
+  const matchedObservations = new Set<number>();
+  const matches = assignedColumns.flatMap((column, trackIndex) => {
+    if (column < 0 || column >= observations.length) return [];
+    const cost = costMatrix[trackIndex]?.[column] ?? Number.MAX_SAFE_INTEGER;
+    if (cost > threshold) return [];
+    matchedObservations.add(column);
+    return [{ trackIndex, observationIndex: column, cost }];
+  });
+  const matchedTracks = new Set(matches.map((match) => match.trackIndex));
+
+  return {
+    matches,
+    unmatchedTrackIndices: tracks.map((_, index) => index).filter((index) => !matchedTracks.has(index)),
+    unmatchedObservationIndices: observations.map((_, index) => index).filter((index) => !matchedObservations.has(index)),
+    costMatrix,
+  };
+}
+
+function resolveWeights(input: Partial<TrackAssociationWeights> | undefined): TrackAssociationWeights {
+  return {
+    payloadMismatch: nonNegative(input?.payloadMismatch, DEFAULT_ASSOCIATION_WEIGHTS.payloadMismatch),
+    formatMismatch: nonNegative(input?.formatMismatch, DEFAULT_ASSOCIATION_WEIGHTS.formatMismatch),
+    spatialDistance: nonNegative(input?.spatialDistance, DEFAULT_ASSOCIATION_WEIGHTS.spatialDistance),
+    iouPenalty: nonNegative(input?.iouPenalty, DEFAULT_ASSOCIATION_WEIGHTS.iouPenalty),
+    geometrySize: nonNegative(input?.geometrySize, DEFAULT_ASSOCIATION_WEIGHTS.geometrySize),
+    motionPrediction: nonNegative(input?.motionPrediction, DEFAULT_ASSOCIATION_WEIGHTS.motionPrediction),
+    timeSinceObservation: nonNegative(input?.timeSinceObservation, DEFAULT_ASSOCIATION_WEIGHTS.timeSinceObservation),
+  };
+}
+
+function nonNegative(value: number | undefined, fallback: number): number {
+  return value === undefined || !Number.isFinite(value) ? fallback : Math.max(0, value);
+}
+
+function positive(value: number | undefined, fallback: number): number {
+  return value === undefined || !Number.isFinite(value) ? fallback : Math.max(Number.EPSILON, value);
+}
+
+/** Hungarian minimum-cost assignment for a finite matrix with rows <= columns. */
+function hungarianRowsToColumns(matrix: readonly (readonly number[])[]): number[] {
+  const rowCount = matrix.length;
+  const columnCount = matrix[0]?.length ?? 0;
+  if (rowCount === 0) return [];
+  if (columnCount < rowCount) throw new RangeError("Hungarian assignment requires at least as many columns as rows.");
+
+  const rowPotential = new Array<number>(rowCount + 1).fill(0);
+  const columnPotential = new Array<number>(columnCount + 1).fill(0);
+  const columnMatch = new Array<number>(columnCount + 1).fill(0);
+  const predecessor = new Array<number>(columnCount + 1).fill(0);
+
+  for (let row = 1; row <= rowCount; row += 1) {
+    columnMatch[0] = row;
+    let currentColumn = 0;
+    const minimum = new Array<number>(columnCount + 1).fill(Number.POSITIVE_INFINITY);
+    const used = new Array<boolean>(columnCount + 1).fill(false);
+
+    do {
+      used[currentColumn] = true;
+      const currentRow = columnMatch[currentColumn] ?? 0;
+      let delta = Number.POSITIVE_INFINITY;
+      let nextColumn = 0;
+      for (let column = 1; column <= columnCount; column += 1) {
+        if (used[column]) continue;
+        const raw = matrix[currentRow - 1]?.[column - 1] ?? Number.MAX_SAFE_INTEGER;
+        const reduced = raw - (rowPotential[currentRow] ?? 0) - (columnPotential[column] ?? 0);
+        if (reduced < (minimum[column] ?? Number.POSITIVE_INFINITY)) {
+          minimum[column] = reduced;
+          predecessor[column] = currentColumn;
+        }
+        if ((minimum[column] ?? Number.POSITIVE_INFINITY) < delta) {
+          delta = minimum[column] ?? Number.POSITIVE_INFINITY;
+          nextColumn = column;
+        }
+      }
+      for (let column = 0; column <= columnCount; column += 1) {
+        if (used[column]) {
+          const matchedRow = columnMatch[column] ?? 0;
+          rowPotential[matchedRow] = (rowPotential[matchedRow] ?? 0) + delta;
+          columnPotential[column] = (columnPotential[column] ?? 0) - delta;
+        } else {
+          minimum[column] = (minimum[column] ?? Number.POSITIVE_INFINITY) - delta;
+        }
+      }
+      currentColumn = nextColumn;
+    } while ((columnMatch[currentColumn] ?? 0) !== 0);
+
+    do {
+      const nextColumn = predecessor[currentColumn] ?? 0;
+      columnMatch[currentColumn] = columnMatch[nextColumn] ?? 0;
+      currentColumn = nextColumn;
+    } while (currentColumn !== 0);
+  }
+
+  const assignment = new Array<number>(rowCount).fill(-1);
+  for (let column = 1; column <= columnCount; column += 1) {
+    const row = columnMatch[column] ?? 0;
+    if (row > 0) assignment[row - 1] = column - 1;
+  }
+  return assignment;
+}

@@ -69,6 +69,27 @@ export interface ScanEvent {
   suppressionReason?: string;
 }
 
+/** All valid decoder observations produced for one admitted frame. */
+export interface ScannerBarcodeObservation {
+  barcode: DecodedBarcode;
+  frameId: number;
+  timestamp: number;
+  geometry?: BarcodeGeometry;
+}
+
+/** Frame-level observation boundary consumed by multi-target tracking. */
+export interface BarcodeObservationSet {
+  frameId: number;
+  timestamp: number;
+  frameWidth: number;
+  frameHeight: number;
+  generation: number;
+  quality: FrameQuality;
+  profile?: DecodeProfile;
+  decodeMs?: number;
+  observations: readonly ScannerBarcodeObservation[];
+}
+
 export type ScannerHintType =
   | "move_closer"
   | "move_farther"
@@ -185,6 +206,7 @@ export interface CameraFrameSource {
 }
 
 export type ScanResultListener = (event: ScanEvent) => void;
+export type BarcodeObservationSetListener = (set: BarcodeObservationSet) => void;
 export type ScannerStateListener = (state: ScannerSessionState) => void;
 export type ScannerDiagnosticListener = (diagnostic: ScannerDiagnostic) => void;
 export type Unsubscribe = () => void;

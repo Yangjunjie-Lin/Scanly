@@ -19,6 +19,8 @@ import { TemporalCandidateStore, type TemporalCandidateStoreOptions } from "./te
 import { TemporalROI, type TemporalROIOptions } from "./temporal-roi.js";
 import type {
   AutoZoomOptions,
+  BarcodeObservationSet,
+  BarcodeObservationSetListener,
   BarcodeGeometry,
   CameraCapabilities,
   CameraFrameSource,
@@ -169,6 +171,7 @@ export class ScannerSession {
   private readonly autoZoom?: AutoZoomOptions;
   private readonly qualityProbeInterval: number;
   private readonly resultListeners = new Set<ScanResultListener>();
+  private readonly observationSetListeners = new Set<BarcodeObservationSetListener>();
   private readonly stateListeners = new Set<ScannerStateListener>();
   private readonly diagnosticListeners = new Set<ScannerDiagnosticListener>();
   private generation = 0;
@@ -284,7 +287,7 @@ export class ScannerSession {
     this.setState("idle");
   }
 
-  async dispose(): Promise<void> { await this.stop(); if (this.ownsDecoder) await this.decoder.dispose(); this.resultListeners.clear(); this.stateListeners.clear(); this.diagnosticListeners.clear(); }
+  async dispose(): Promise<void> { await this.stop(); if (this.ownsDecoder) await this.decoder.dispose(); this.resultListeners.clear(); this.observationSetListeners.clear(); this.stateListeners.clear(); this.diagnosticListeners.clear(); }
 
   getStatistics(): ScannerSessionStatistics {
     const scheduler = this.scheduler.getStatistics(); const decoder = this.decoder.getStatistics?.();
@@ -299,6 +302,7 @@ export class ScannerSession {
   }
 
   onResult(listener: ScanResultListener): Unsubscribe { this.resultListeners.add(listener); return () => this.resultListeners.delete(listener); }
+  onObservations(listener: BarcodeObservationSetListener): Unsubscribe { this.observationSetListeners.add(listener); return () => this.observationSetListeners.delete(listener); }
   onStateChange(listener: ScannerStateListener): Unsubscribe { this.stateListeners.add(listener); return () => this.stateListeners.delete(listener); }
   onDiagnostics(listener: ScannerDiagnosticListener): Unsubscribe { this.diagnosticListeners.add(listener); return () => this.diagnosticListeners.delete(listener); }
   getCameraCapabilities(): CameraCapabilities { return this.capabilityController?.getCapabilities() ?? { torch: false, focusMode: false }; }
@@ -324,7 +328,7 @@ export class ScannerSession {
     this.emitDiagnostic({ type: "frame-quality", timestamp: now, frameId, quality });
     this.emitQualityHint(quality, frameId, now);
     const periodicProbe = this.counters.admittedFrames % this.qualityProbeInterval === 0;
-    if (!quality.usable && !periodicProbe) { this.counters.qualityRejectedFrames += 1; this.roi.miss(); this.emitLost(now, frameId); releaseFrame(frame); return { quality, success: false }; }
+    if (!quality.usable && !periodicProbe) { this.counters.qualityRejectedFrames += 1; this.roi.miss(); this.emitObservationSet({ frameId, timestamp: now, frameWidth: frame.width, frameHeight: frame.height, generation: this.generation, quality, observations: [] }); this.emitLost(now, frameId); releaseFrame(frame); return { quality, success: false }; }
     if (periodicProbe) this.counters.periodicProbeFrames += 1;
     const profile = this.escalation.select(quality, this.roi.active, now);
     this.counters[`${profile}Attempts` as "fastAttempts" | "balancedAttempts" | "robustAttempts"] += 1;
@@ -343,11 +347,17 @@ export class ScannerSession {
     try {
       if (generation !== this.generation) { this.counters.staleResultsDiscarded += 1; return { quality, decodeMs: elapsed, success: false }; }
       if (outcome.ok) {
+        const observations = outcome.results.map((result) => {
+          const geometry = geometryFor(result, frame);
+          return { barcode: toDecodedBarcode(result), frameId, timestamp: now, ...(geometry ? { geometry } : {}) };
+        });
+        this.emitObservationSet({ frameId, timestamp: now, frameWidth: frame.width, frameHeight: frame.height, generation, quality, profile, decodeMs: elapsed, observations });
         this.emitLost(now, frameId);
         this.counters.decodeSuccesses += outcome.results.length; if (this.firstDecodeAt === undefined) this.firstDecodeAt = Date.now();
         this.escalation.observe(true, now); this.roi.update(outcome.primary, frame, now);
         for (const result of outcome.results) this.observeResult(result, frame, quality, now, frameId, generation);
       } else {
+        this.emitObservationSet({ frameId, timestamp: now, frameWidth: frame.width, frameHeight: frame.height, generation, quality, profile, decodeMs: elapsed, observations: [] });
         this.escalation.observe(false, now); this.roi.miss(); if (!isNoResult(outcome)) this.emitDiagnostic({ type: "decode", timestamp: now, frameId, profile, decodeMs: elapsed, error: outcome.error });
         this.emitLost(now, frameId);
       }
@@ -392,6 +402,12 @@ export class ScannerSession {
     return { id: `scan-event-${++this.eventSequence}`, type, barcode, frameId, timestamp, observationCount, ...(geometry ? { geometry } : {}), ...(physicalInstanceId ? { physicalInstanceId } : {}), ...(suppressionReason ? { suppressionReason } : {}) };
   }
   private canPublishGeneration(generation: number): boolean { return generation === this.generation && (this.state === "starting" || this.state === "scanning"); }
+  private emitObservationSet(set: BarcodeObservationSet): void {
+    if (!this.canPublishGeneration(set.generation)) return;
+    for (const listener of this.observationSetListeners) {
+      try { listener(set); } catch (error) { this.emitDiagnostic({ type: "error", timestamp: set.timestamp, frameId: set.frameId, error: sdkError("internal_invariant_failure", error instanceof Error ? error.message : String(error), undefined, error) }); }
+    }
+  }
   private emitQualityHint(quality: FrameQuality, frameId: number, timestamp: number): void {
     const hint: ScannerHint = quality.underexposed ? { type: "increase_light", confidence: 1 - quality.brightness } : quality.overexposed || quality.glareDominated ? { type: "reduce_glare", confidence: Math.max(quality.glareRatio, quality.brightness) } : quality.blurred ? { type: "hold_steady", confidence: 1 - quality.blurScore } : { type: "searching", confidence: quality.usable ? 0.45 : 0.8 };
     this.emitDiagnostic({ type: "hint", timestamp, frameId, hint });
