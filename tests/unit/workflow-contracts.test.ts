@@ -8,9 +8,10 @@ describe("benchmark workflow contracts", () => {
   it("keeps stable full-benchmark checks and requires artifact assembly", () => {
     const workflow = read("benchmark.yml");
     expect(workflow).toContain("name: Full Benchmark");
-    for (const name of ["Prepare", "Comparison", "Assemble", "Symbologies"]) {
+    for (const name of ["Prepare", "Comparison", "Symbologies"]) {
       expect(workflow).toContain(`name: ${name}`);
     }
+    expect(workflow).toContain("name: Full Benchmark / Assemble");
     expect(workflow).toContain("name: ${{ matrix.label }}");
     for (const name of ["Fast", "Balanced", "Robust"]) expect(workflow).toContain(`label: ${name}`);
     expect(workflow).not.toContain("--allow-dirty-development");
@@ -135,6 +136,7 @@ describe("benchmark workflow contracts", () => {
     for (const browser of ["Chromium", "Firefox", "WebKit"]) expect(workflow).toContain(browser);
     expect(workflow).toContain("assemble-browser-benchmarks.ts");
     expect(workflow).toContain("needs: browser-benchmark");
+    expect(workflow).toContain("name: Browser Benchmark / Assemble");
     expect(workflow).toContain("tracking-${{ matrix.browser }}.json");
     expect(assembler).toContain("2.3-beta2-browser-tracking");
     expect(assembler).toContain("trackingReports");
@@ -200,12 +202,27 @@ describe("benchmark workflow contracts", () => {
     expect(ci).toContain("m.falseBatchCompletionCount!==0");
     expect(ci).toContain("o.finalControlledMemory!==0");
     expect(ci).toContain("r.workerEvidence!=='actual-browser-worker'");
+    expect(ci).toContain("r.sourceTree!==tree");
+    expect(ci).toContain("r.schemaVersion!=='2.3-beta2-development'");
+    expect(ci).toContain("r.kind!=='tracking-core-soak'");
+    expect(ci).toContain("r.kind!=='tracking-worker-wasm-soak'");
+    expect(ci).toContain("!r.assertions.every(a=>a.pass)");
+    expect(ci).toContain("471f015df54522edafd4a6b80d15e3d8a165ffc14bb974aef41cca978472ee15");
+    expect(ci).toContain("320537c5a3bd759d267ec8be36188e64ace3276a9d4c7ba7104a6bfbfea9d679");
+    expect(ci).toContain("m.samePayloadScenarioCount!==6");
+    expect(ci).toContain("m.batchScenarioCount!==8");
+    expect(ci).toContain("git status --porcelain --untracked-files=all -- packages engines");
+    expect(ci).not.toContain("git diff --exit-code -- packages engines");
+    expect(ci).toContain("r.sourceCommit!==head || r.repositoryDirty");
 
     const tracking = read("tracking-benchmark.yml");
     expect(tracking).toContain("name: Tracking Benchmark");
     expect(tracking).toContain("Verify exact-head tracking evidence");
     expect(tracking).toContain("r.sourceCommit!==head");
+    expect(tracking).toContain("r.sourceTree!==tree");
     expect(tracking).toContain("r.repositoryDirty");
+    expect(tracking).toContain("c.requiredScenarioIds?.length!==34");
+    expect(tracking).toContain("c.samePayloadScenarioIds?.length!==6");
     expect(tracking).toContain("r.scaleBaselines.length!==4");
   });
 });
