@@ -7,7 +7,7 @@ export default function Page() {
         <div>
           <h1 style={{ margin: 0, fontSize: 28 }}>Scanly</h1>
           <div className="small">
-            Browser-side QR scanner with region detection and multi-layer decoder fallbacks. Camera or
+            Browser-side Beta 1 barcode scanner with bounded frame scheduling, temporal confirmation, and multi-layer decoder fallbacks. Camera or
             upload — processing stays on your device.
           </div>
         </div>

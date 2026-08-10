@@ -36,8 +36,8 @@ plan; the next eligible frozen family is `v2-beta1-r1`.
 
 - `historical-baseline-validation` verifies the tracked canonical manifest hash, every referenced report hash, the registry mapping, immutable baseline file hashes, and the historical source/dataset/lockfile/engine identities entirely within the Alpha.4 r4 evidence set.
 - `source-development` performs historical-baseline validation and requires the current SDK source to remain explicitly ahead of that historical release identity.
-- `integration` performs the same historical validation, allows current source identity to differ, requires current evidence to remain pending/not activated, and—when an external integration candidate is supplied—validates all non-photo correctness, provenance, source, and artifact contracts.
-- `release` requires current source, tree, legacy and symbology datasets, package lock, engine/WASM identity, canonical manifest, aliases, immutable baselines, and registry to agree. Missing project photographs remain a hard failure.
+- `integration` performs the same historical validation, allows current source identity to differ, requires current evidence to remain pending/not activated, and validates generated correctness plus the curated open-license camera-photo count, family, recall, provenance, license, safety, and Ground Truth contracts. Physical-device evidence is reported as unavailable but is non-blocking for runtime integration.
+- `release` requires current source, tree, legacy and symbology datasets, package lock, engine/WASM identity, canonical manifest, aliases, immutable baselines, and registry to agree. It also requires independent physical-camera/device evidence; curated photographs cannot satisfy that device gate.
 
 These modes never compare the current Alpha.5/Beta 1 tree to the historical
 Alpha.4 source as if they were one release. They also never downgrade release

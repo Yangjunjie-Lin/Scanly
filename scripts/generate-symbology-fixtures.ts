@@ -5,6 +5,14 @@ import sharp from "sharp";
 import { prepareZXingModule, writeBarcode } from "zxing-wasm/writer";
 import { barcodeFormatClass, compressUpcA } from "@scanly/core";
 import type { BarcodeFormat } from "@scanly/scenario-schema";
+import {
+  EXTERNAL_GROUND_TRUTH_REGISTRY_PATH,
+  validateExternalFixture,
+  validateExternalFixtureSet,
+  validateExternalGroundTruthRegistry,
+  type ExternalFixture,
+  type ExternalGroundTruthRegistry,
+} from "./external-open-license-contract.js";
 
 const ROOT = path.resolve(__dirname, "..");
 const OUTPUT = path.join(ROOT, "fixtures", "alpha5");
@@ -26,7 +34,7 @@ interface FixtureRecord {
   expectedRawBytes?: number[];
   expectedOutcome: "decode" | "no-symbol";
   expectedResultCount: number;
-  requiredResults: Array<{ format: BarcodeFormat; payload: string }>;
+  requiredResults: Array<{ format: BarcodeFormat; payload: string; isGs1?: boolean }>;
   orientation: number;
   difficultyTags: Difficulty[];
   license: string;
@@ -42,25 +50,7 @@ interface PositiveSpec {
   gs1?: boolean;
 }
 
-interface ExternalFixtureRecord extends Omit<FixtureRecord, "sourceType" | "generator" | "license" | "provenanceNote" | "expectedPayload"> {
-  sourceType: "external-open-license";
-  sourcePage: string;
-  sourceRepository: "Wikimedia Commons";
-  originalFilename: string;
-  author: string;
-  license: string;
-  licenseUrl: string;
-  attribution: string;
-  retrievedAt: string;
-  modifications: unknown[];
-  expectedFormat: BarcodeFormat;
-  expectedPayload: string | null;
-  payloadVerificationStatus: "verified" | "unknown" | "sensitive";
-  publicRepositorySafe: boolean;
-  visualVerificationStatus: "verified";
-  provenanceNote: "Third-party open-license real-world photograph; not project-owned.";
-  sha256: string;
-}
+type ExternalFixtureRecord = ExternalFixture;
 
 prepareZXingModule({ overrides: { locateFile: () => WRITER_ASSET, wasmBinary: fs.readFileSync(WRITER_ASSET) } });
 
@@ -286,17 +276,22 @@ async function main(): Promise<void> {
 
   const externalManifestPath = path.join(OUTPUT, "external-open-license", "manifest.json");
   let externalFixtures: ExternalFixtureRecord[] = [];
+  let externalGroundTruthRegistrySha256: string | null = null;
   if (fs.existsSync(externalManifestPath)) {
-    const externalManifest = JSON.parse(fs.readFileSync(externalManifestPath, "utf8")) as { fixtures?: ExternalFixtureRecord[] };
+    const externalManifest = JSON.parse(fs.readFileSync(externalManifestPath, "utf8")) as { groundTruthRegistry?: string; fixtures?: ExternalFixtureRecord[] };
+    if (externalManifest.groundTruthRegistry !== EXTERNAL_GROUND_TRUTH_REGISTRY_PATH) {
+      throw new Error(`External fixture manifest must reference ${EXTERNAL_GROUND_TRUTH_REGISTRY_PATH}.`);
+    }
+    const groundTruthRegistryPath = path.join(ROOT, ...EXTERNAL_GROUND_TRUTH_REGISTRY_PATH.split("/"));
+    if (!fs.existsSync(groundTruthRegistryPath)) throw new Error(`External Ground Truth registry missing: ${EXTERNAL_GROUND_TRUTH_REGISTRY_PATH}`);
+    const groundTruthRegistryBytes = fs.readFileSync(groundTruthRegistryPath);
+    const groundTruthRegistry = JSON.parse(groundTruthRegistryBytes.toString("utf8")) as ExternalGroundTruthRegistry;
     externalFixtures = (externalManifest.fixtures ?? []).filter((fixture) => fixture.sourceType === "external-open-license");
+    validateExternalFixtureSet(externalFixtures);
+    validateExternalGroundTruthRegistry(externalFixtures, groundTruthRegistry);
+    externalGroundTruthRegistrySha256 = require("node:crypto").createHash("sha256").update(groundTruthRegistryBytes.toString("utf8").replaceAll("\r\n", "\n")).digest("hex");
     for (const fixture of externalFixtures) {
-      if (fixture.provenanceNote !== "Third-party open-license real-world photograph; not project-owned.") {
-        throw new Error(`External fixture '${fixture.id}' has an invalid provenance note.`);
-      }
-      if (fixture.publicRepositorySafe !== true) throw new Error(`External fixture '${fixture.id}' is not public-repository-safe.`);
-      if (fixture.visualVerificationStatus !== "verified") throw new Error(`External fixture '${fixture.id}' has no recorded visual verification.`);
-      if (fixture.payloadVerificationStatus === "sensitive") throw new Error(`External fixture '${fixture.id}' contains sensitive payload data.`);
-      if (!fixture.sourcePage || fixture.sourceRepository !== "Wikimedia Commons") throw new Error(`External fixture '${fixture.id}' is missing Wikimedia provenance.`);
+      validateExternalFixture(fixture);
       if (!fs.existsSync(path.join(ROOT, fixture.file))) throw new Error(`External fixture file missing: ${fixture.file}`);
       const actualHash = require("node:crypto").createHash("sha256").update(fs.readFileSync(path.join(ROOT, fixture.file))).digest("hex");
       if (actualHash !== fixture.sha256) throw new Error(`External fixture '${fixture.id}' SHA-256 mismatch.`);
@@ -305,9 +300,14 @@ async function main(): Promise<void> {
 
   const manifest = {
     schemaVersion: "2.0-alpha5", seed: SEED, generatorVersion: 2,
+    externalGroundTruth: externalFixtures.length > 0 ? {
+      registryPath: EXTERNAL_GROUND_TRUTH_REGISTRY_PATH,
+      registrySha256: externalGroundTruthRegistrySha256,
+      decoderIndependent: true,
+    } : null,
     notes: projectPhotoFixtures.length || externalFixtures.length
-      ? `Generated Alpha.5 corpus merged with ${projectPhotoFixtures.length} project-owned and ${externalFixtures.length} third-party external-open-license fixtures. External photographs do not satisfy the project-owned release gate.`
-      : "Generated Alpha.5 corpus. Project-owned real-photo fixtures remain an outstanding release gate until fixtures/alpha5/project-photos/manifest.json is populated.",
+      ? `Generated Alpha.5 corpus merged with ${projectPhotoFixtures.length} optional project-owned and ${externalFixtures.length} curated third-party open-license camera photographs. The curated cohort is the Beta 1 photo gate; physical-device evidence remains independent.`
+      : "Generated Alpha.5 corpus. The curated open-license camera-photo evidence required by Beta 1 is missing.",
     fixtures: [...fixtures, ...projectPhotoFixtures, ...externalFixtures],
   };
   await writeTextIfChanged(path.join(OUTPUT, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);

@@ -230,7 +230,8 @@ async function main(): Promise<void> {
       }
     }
     if (manifest.fixtureCounts.legacyQr !== 74) failures.push("legacy QR fixture count must remain 74");
-    if (mode !== "integration" && manifest.fixtureCounts.symbologyProjectPhotos < 12) failures.push("canonical fixtureCounts require at least 12 project photos");
+    // Schema 2.1 retains project-owned photo count as an informational historical field.
+    // The mandatory curated open-license photo policy is validated from the symbology report.
     if (manifest.fixtureCounts.symbologyTotal < 146) failures.push("canonical fixtureCounts require at least 146 symbology fixtures");
   }
 

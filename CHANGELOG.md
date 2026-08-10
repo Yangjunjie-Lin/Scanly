@@ -2,7 +2,19 @@
 
 All notable changes follow semantic versioning.
 
-## Unreleased — SDK v2 Alpha.5 integration
+## Unreleased — SDK v2 Beta 1 development
+
+- Entered `2.0.0-beta.1` development on `architecture/sdk-v2-beta1-realtime-scanner-foundation` for the persistent real-time scanner runtime.
+- Preserved the Alpha.5 static upload, multi-symbology, Browser/Worker/Node, checksum, format, and evidence integration gates as frozen regression requirements.
+- Added `ScannerSession`, latest-frame `FrameScheduler`, low-cost `FrameQualityAnalyzer`, bounded decode escalation, temporal confirmation, ROI reuse, physical-instance repeat suppression, typed camera capabilities, and deterministic `MediaStream`/sequence frame sources.
+- Replaced nominal real-time scenario labels with 20 semantic Ground Truth drivers covering escalation, repeat identity, quality recovery, ROI, lifecycle, cancellation, backpressure, temporal geometry, malformed frames, Worker recovery, and disposal. Report schema `2.0-beta1` records independent expected/observed values, traceable assertions, failure reasons, metrics, and event/profile/diagnostic timelines; correctness gates are observation-derived.
+- Split reliability evidence into a 10,000-frame fake-decoder Scanner Core Soak with `workerEvidence: "not-applicable"`, a pull-request tier of at least 1,000 actual `BrowserScannerFrameDecoder`/persistent Worker/ZXing-C++ WASM executions, and a scheduled/manual 10,000-frame Worker/WASM tier.
+- Added browser real-time smoke, lifecycle, once-per-session repeat, and latest-frame backpressure coverage to the Chromium, Firefox, and WebKit Browser Benchmark matrix.
+- Expanded camera capability state tests for unsupported torch/zoom, manual zoom override, auto-zoom cooldown and maximum clamp, anti-oscillation behavior, and source-switch refresh. This is state-logic coverage, not physical auto-zoom validation.
+- Replaced the deferred project-owned release-photo requirement with a strict curated open-license camera-photo gate: 16 pinned originals cover Data Matrix/PDF417/Code 128/EAN/UPC at 3/3/4/6, with 21 physical instances, 20/20 exact semantic results, license/camera/sensitive-data review, and zero unexpected or misclassified results. Project-owned count remains 0 and informational only.
+- Beta 1 runtime integration can be `GO` only when runtime and curated-photo gates pass. Release remains `NO-GO` while Issue #13 and independent physical-device evidence remain open; no tag, GitHub Release, npm publication, Stable claim, or `v2-beta1-r1` evidence activation is authorized.
+
+## Alpha.5 integration closure
 
 - Consolidated the Alpha.5 multi-symbology foundation into `develop/sdk-v2` as an internal development milestone.
 - Added explicit `integration` and strict `release` symbology gate modes. Integration accepts the absent project-owned photo corpus only as `DEFERRED_TO_BETA1`; generated correctness, checksum, false-positive, format, runtime, package, and API gates remain mandatory.

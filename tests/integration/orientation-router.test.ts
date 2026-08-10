@@ -10,7 +10,12 @@ describe("CaptureRouter orientation contract", () => {
     const upright = await loadPixelBufferFromPath(path.resolve("fixtures/01-clear-url.png"));
     const sourceRotation = orientation === 0 ? 0 : ((360 - orientation) % 360) as 90 | 180 | 270;
     const source = rotateBuffer(upright, sourceRotation);
-    const router = createNodeCaptureRouter({ scenario: getBuiltinScenario("balanced") });
+    const scenario = getBuiltinScenario("balanced");
+    // V8 instrumentation plus concurrent integration files can cross the
+    // production 12 s wall-clock budget on Windows. This is an orientation
+    // correctness contract; normal benchmarks keep the production deadline.
+    if (process.env.npm_lifecycle_event === "test:coverage") scenario.budgets.maxExecutionMs = Math.max(20_000, scenario.budgets.maxExecutionMs);
+    const router = createNodeCaptureRouter({ scenario });
     try {
       const outcome = await router.scan(createRgbaFrame(source.data, source.width, source.height, { orientation, sourceType: "upload" }));
       expect(outcome.ok).toBe(true);

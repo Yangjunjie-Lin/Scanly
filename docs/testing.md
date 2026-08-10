@@ -48,6 +48,6 @@ Playwright starts production `next start`. Chromium runs the complete upload/res
 - `benchmark:smoke`: curated Router-path functional subset with historical, multiple, cancellation, timeout, and hard-attempt checks.
 - `benchmark:profiles`: the complete 63-case manifest for fast, balanced, and robust, with profile-specific immutable baselines and direct recall, exact-payload, false-positive, multi-completeness, average/median/P95 latency, average/P95 attempt, timeout, cancellation, initialization, and environment-compatibility gates.
 - `benchmark:compare`: identical-input Node comparison of raw engines and Scanly profiles; it is not a browser-device or commercial SDK comparison.
-- `benchmark:symbologies`: the 146-fixture generated Alpha.5 corpus with per-format recall/exactness, confusion, GS1, checksum-negative, mixed completeness, latency, and WASM-memory fields. It does not satisfy the missing project-owned photo gate.
+- `benchmark:symbologies`: the 146-fixture generated Alpha.5 corpus plus 16 curated open-license camera photographs, with per-format recall/exactness, four-family photo coverage/recall, provenance/license/safety, confusion, GS1, checksum-negative, mixed completeness, latency, and WASM-memory fields. Project-owned count is informational and physical-device evidence remains separate.
 
 Required canonical fixtures are asserted before use; missing files fail rather than silently returning. Temporary images use OS temporary directories and are cleaned after each suite.

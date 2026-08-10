@@ -10,11 +10,12 @@ class FakeWorker implements DecodeWorkerLike {
   readonly terminate = vi.fn();
   postMessage(message: WorkerRequest): void { this.posted.push(message); }
   emit(message: WorkerResponse): void { this.onmessage?.({ data: message } as MessageEvent<WorkerResponse>); }
+  emitRaw(message: unknown): void { this.onmessage?.({ data: message } as MessageEvent<WorkerResponse>); }
 }
 
 function frame(id = "frame") { return createRgbaFrame(new Uint8ClampedArray(16), 2, 2, { id, sourceType: "upload", ownership: "transferred" }); }
-function success(frameId = "frame"): ScanOutcome {
-  const result = { format: "qr_code" as const, rawText: "OK", engine: { id: "fake", version: "1" }, preprocessingPath: [], frameId, structuredPayload: null, validation: { valid: true, validatorIds: [], messages: [] }, warnings: [], timing: { totalMs: 2 } };
+function success(frameId = "frame", engineId = "fake"): ScanOutcome {
+  const result = { format: "qr_code" as const, rawText: "OK", engine: { id: engineId, version: "1" }, preprocessingPath: [], frameId, structuredPayload: null, validation: { valid: true, validatorIds: [], messages: [] }, warnings: [], timing: { totalMs: 2 } };
   return { ok: true, results: [result], primary: result, frameId, scenarioId: "fast", attemptCount: 1, timing: { totalMs: 2 } };
 }
 
@@ -58,6 +59,87 @@ describe("normalized Worker runtime", () => {
     expect(workers).toHaveLength(1);
     expect(workers[0].terminate).not.toHaveBeenCalled();
     client.dispose();
+  });
+
+  it("retains Worker-realm WASM evidence and clears live resources on termination", async () => {
+    const worker = new FakeWorker();
+    const client = new DecodeWorkerClient(() => worker);
+    const pending = client.scan(frame("wasm"), getBuiltinScenario("fast"));
+    const request = worker.posted[0];
+    if (request.type !== "scan") throw new Error("expected scan request");
+    worker.emit({
+      type: "result",
+      jobId: request.jobId,
+      generation: request.generation,
+      outcome: success("wasm", "zxing-cpp-wasm"),
+      wasmMemory: {
+        initialLinearMemoryBytes: 16_777_216,
+        currentLinearMemoryBytes: 16_777_216,
+        peakLinearMemoryBytes: 16_777_216,
+        inputAllocationBytes: 0,
+        peakInputAllocationBytes: 5_440,
+        activeNativeResultCount: 0,
+        releasedNativeResultCount: 1,
+      },
+    });
+    expect((await pending).ok).toBe(true);
+    expect(client.getStatistics()).toMatchObject({
+      workerCreatedCount: 1,
+      workerTerminatedCount: 0,
+      activeTaskCount: 0,
+      peakActiveTaskCount: 1,
+      wasmObservationCount: 1,
+      workerWasmDecodeCount: 1,
+      wasmInputAllocationBytes: 0,
+      wasmActiveNativeResultCount: 0,
+      wasmCurrentLinearMemoryBytes: 16_777_216,
+      wasmReleasedNativeResultCount: 1,
+    });
+    client.dispose();
+    expect(client.getStatistics()).toMatchObject({
+      workerTerminatedCount: 1,
+      wasmCurrentLinearMemoryBytes: 0,
+      wasmInputAllocationBytes: 0,
+      wasmActiveNativeResultCount: 0,
+      wasmReleasedNativeResultCount: 1,
+    });
+  });
+
+  it("does not claim termination or released realm memory when terminate throws", async () => {
+    const worker = new FakeWorker();
+    worker.terminate.mockImplementation(() => { throw new Error("termination failed"); });
+    const client = new DecodeWorkerClient(() => worker);
+    const pending = client.scan(frame("unconfirmed-termination"), getBuiltinScenario("fast"));
+    const request = worker.posted[0];
+    if (request.type !== "scan") throw new Error("expected scan request");
+    worker.emit({
+      type: "result",
+      jobId: request.jobId,
+      generation: request.generation,
+      outcome: success("unconfirmed-termination", "zxing-cpp-wasm"),
+      wasmMemory: {
+        initialLinearMemoryBytes: 16_777_216,
+        currentLinearMemoryBytes: 16_777_216,
+        peakLinearMemoryBytes: 16_777_216,
+        inputAllocationBytes: 4_096,
+        peakInputAllocationBytes: 4_096,
+        activeNativeResultCount: 1,
+        releasedNativeResultCount: 0,
+      },
+    });
+    expect((await pending).ok).toBe(true);
+
+    expect(() => client.dispose()).not.toThrow();
+    expect(client.getStatistics()).toMatchObject({
+      workerCreatedCount: 1,
+      workerTerminatedCount: 0,
+      activeTaskCount: 0,
+      wasmInputAllocationBytes: 4_096,
+      wasmActiveNativeResultCount: 1,
+      wasmCurrentLinearMemoryBytes: 16_777_216,
+    });
+    expect(worker.onmessage).toBeNull();
+    expect(worker.onerror).toBeNull();
   });
 
   it("ignores stale responses from replaced jobs", async () => {
@@ -109,7 +191,7 @@ describe("normalized Worker runtime", () => {
     expect((await pending).ok).toBe(true);
   });
 
-  it("maps Worker crashes and malformed responses to typed failures", async () => {
+  it("maps Worker crashes to typed failures", async () => {
     const worker = new FakeWorker();
     const client = new DecodeWorkerClient(() => worker);
     const crashed = client.scan(frame(), getBuiltinScenario("fast"));
@@ -117,6 +199,25 @@ describe("normalized Worker runtime", () => {
     const crashOutcome = await crashed;
     expect(crashOutcome.ok).toBe(false);
     if (!crashOutcome.ok) expect(crashOutcome.error.code).toBe("worker_initialization_failure");
+  });
+
+  it("maps malformed Worker responses to typed recoverable failures", async () => {
+    const worker = new FakeWorker();
+    const client = new DecodeWorkerClient(() => worker);
+    const pending = client.scan(frame("malformed"), getBuiltinScenario("fast"));
+    worker.emitRaw({
+      type: "result",
+      jobId: "job-with-invalid-outcome",
+      generation: 0,
+      outcome: null,
+    });
+    const outcome = await pending;
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) {
+      expect(outcome.error.code).toBe("worker_initialization_failure");
+      expect(outcome.error.message).toContain("malformed message");
+    }
+    expect(worker.terminate).toHaveBeenCalledOnce();
   });
 
   it("maps Worker construction failure without leaking a job", async () => {

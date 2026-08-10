@@ -1,10 +1,10 @@
-# Scanly SDK v2 Alpha.5 — preview
+# Scanly SDK v2 Beta 1 — real-time scanner foundation
 
-Scanly is a local-first barcode capture SDK foundation with a working browser QR reference application. The v2 alpha has one authoritative capture model: normalized upload, Worker, main-thread, Node, and sampled camera frames converge on a scenario-compiled Router backed by real operator and engine registries. It is not an ML model and has no image-upload backend.
+Scanly is a local-first barcode capture SDK foundation with a working browser reference application. Beta 1 development extends the existing single-frame Router into a persistent, bounded, real-time scanner runtime while retaining normalized upload, Worker, main-thread, Node, and Alpha.5 multi-symbology compatibility. It is a Beta preview, not an ML model, production certification, or image-upload backend.
 
 ![Next.js 15](https://img.shields.io/badge/Next.js-15-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
-![SDK](https://img.shields.io/badge/SDK-2.0.0--alpha.5-orange)
+![SDK](https://img.shields.io/badge/SDK-2.0.0--beta.1-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Live demo:** [https://qr-decoder-theta.vercel.app](https://qr-decoder-theta.vercel.app)
@@ -32,9 +32,10 @@ Alpha.5 explicitly supports QR Code Model 2, Data Matrix ECC 200, PDF417, Code 1
 ## Branch and release status
 
 - `main` is the unchanged v1.3 Stable line.
-- `develop/sdk-v2` is the authoritative SDK v2 integration branch and carries the consolidated Alpha.5 multi-symbology foundation.
-- `architecture/sdk-v2-beta1-realtime-scanner-foundation` is the next active Beta 1 development branch; real-photo and physical-camera validation are intentionally planned there.
+- `develop/sdk-v2` is the frozen Alpha.5 integration baseline.
+- `architecture/sdk-v2-beta1-realtime-scanner-foundation` is the active Beta 1 development branch for the real-time scanner foundation; it does not modify `main`.
 - Alpha.5 is an internal integration snapshot, not production-certified evidence. No Alpha.5 tag, GitHub Release, npm publication, Stable claim, or `Latest` release is authorized.
+- Beta 1 remains development evidence. No Beta tag, GitHub Release, npm publication, Stable claim, or `Latest` release is authorized.
 
 ## Internal fixture benchmark
 
@@ -65,12 +66,25 @@ The last fully frozen evidence is **Alpha.4 r4** (`v2-alpha4-r4`). Its dataset i
 
 Alpha.5 integration evidence is development evidence. It is not frozen canonical release evidence.
 
+### Beta 1 real-time scanner foundation
+
+The active Beta 1 branch introduces the SDK-owned `ScannerSession`, `FrameScheduler`, `FrameQualityAnalyzer`, bounded Fast/Balanced/Robust escalation, temporal confirmation, repeat suppression, temporal ROI reuse, capability detection, and deterministic camera simulation. React is an adapter only; it does not own decode, Worker, temporal, or memory state.
+
+The real-time benchmark has 20 semantic Ground Truth scenarios with scenario-specific drivers: lifecycle actions, pixel quality, decode profiles, ROI requests, Worker recovery, geometry identity, and backpressure are executed and observed rather than inferred from scenario names. Report schema `2.0-beta1` stores independent `expected` and `observed` values, assertion results and failure reasons, metrics, and event/profile/diagnostic timelines. False-confirmed, stale-event, repeat, physical-instance, drop, and queue gates are derived from those reports rather than hard-coded.
+
+Reliability evidence is split by scope. Scanner Core Soak runs 10,000 frames with a fake decoder and records `workerEvidence: "not-applicable"`; it validates scheduler, temporal, ownership, lifecycle, and controlled-memory cleanup, not Worker/WASM behavior. The separate pull-request soak runs at least 1,000 actual frames through `BrowserScannerFrameDecoder`, one persistent `DecodeWorkerClient`, a browser Worker, and ZXing-C++ WASM. A scheduled/manual extended tier runs 10,000 real Worker/WASM frames. The Browser Benchmark runs real-time smoke, lifecycle, repeat, and backpressure cases in Chromium, Firefox, and WebKit.
+
+Camera unit coverage validates unsupported capabilities, manual override, auto-zoom cooldown and clamp, anti-oscillation state, and source-switch refresh. It is not physical auto-zoom evidence. The Beta 1 photo gate uses an audited open-license camera-photo cohort; project-owned photos remain optional supplemental evidence and are never fabricated or inferred from Internet assets. Beta 1 runtime integration may be `GO` when runtime gates pass, but release remains `NO-GO` while [Issue #13](https://github.com/Yangjunjie-Lin/Scanly/issues/13) and independent physical-camera/device validation remain open. No `v2-beta1-r1` evidence activation is authorized, and this document does not claim a GitHub PR exact-SHA check result.
+
+See [Beta 1 real-time runtime](docs/beta1-realtime-runtime.md) for the lifecycle, bounded escalation, temporal correctness, memory, and evidence boundaries.
+
 <!-- ALPHA5_INTEGRATION_SUMMARY_START -->
 | Current Alpha.5 development evidence | Value |
 | --- | ---: |
 | Generated Alpha.5 fixtures | 146 |
-| Single-format positives | 100 |
-| Mixed positives | 12 |
+| Curated open-license camera photographs | **16 (minimum 12)** |
+| Single-format positives | 113 |
+| Mixed positives | 15 |
 | Negative fixtures | 34 |
 | Generated clean | **15/15** |
 | Generated difficult | **75/85** |
@@ -79,12 +93,14 @@ Alpha.5 integration evidence is development evidence. It is not frozen canonical
 | False positives | **0** |
 | Accepted-format misclassifications | **0** |
 | Invalid-checksum acceptances | **0** |
-| Project-owned Alpha.5 photographs | **0/12** |
+| Optional project-owned photographs | **0** |
 | Corpus manifest | [fixtures/alpha5/manifest.json](fixtures/alpha5/manifest.json) |
-| Project-photo manifest | [fixtures/alpha5/project-photos/manifest.json](fixtures/alpha5/project-photos/manifest.json) |
+| Optional project-photo manifest | [fixtures/alpha5/project-photos/manifest.json](fixtures/alpha5/project-photos/manifest.json) |
 <!-- ALPHA5_INTEGRATION_SUMMARY_END -->
 
-External open-license photographs provide third-party real-world validation but do not satisfy the project-owned photograph release gate. The integration decision is `ALPHA5_INTEGRATION_GO`; release remains `ALPHA5_RELEASE_NO_GO` while the 0/12 project-owned photo corpus is `DEFERRED_TO_BETA1`.
+The Beta 1 photo gate is a curated open-license camera-photo cohort kept separate from optional project-owned evidence. Its 16 SHA-256-pinned originals cover Data Matrix 3, PDF417 3, Code 128 4, and EAN/UPC 6; they record 21 visible physical instances and pass exact all-format ZXing-C++ WASM Ground Truth verification for 20/20 `(format, payload, isGs1)` semantic results. Every entry records original bytes, a trusted source, redistributable license evidence, camera-photo review, and sensitive-data review. The three PDF417 photographs are pinned to an Apache-2.0 ZXing commit whose history identifies them as Android-camera real-world images. Physical-camera/device evidence remains independent and unavailable, so Beta 1 release remains `NO-GO` even when this photo gate passes.
+
+Curated open-license camera photographs satisfy the Beta 1 photo gate but do not constitute physical-camera/device evidence or project ownership.
 
 See [the full benchmark](docs/benchmark.md) and [fixture methodology](docs/testing.md).
 
@@ -106,7 +122,7 @@ Profile intent is explicit: `fast` is the latency-first camera pass and accepts 
 | --- | --- |
 | `apps/web-demo` | Next.js reference application; consumes SDK APIs |
 | `packages/core` | dependency-light contracts, registries, compiler, router, session, bounded artifacts, and engine-agnostic QR primitives |
-| `packages/browser` | file loading, Worker ownership, camera source lifecycle |
+| `packages/browser` | file loading, persistent Worker ownership, `ScannerSession`, frame scheduling, temporal camera runtime |
 | `packages/node` | Sharp-isolated Node image loading and default engine composition |
 | `packages/react` | thin React lifecycle adapter |
 | `packages/scenario-schema` | scenario v2 types, validation, profiles |
@@ -160,7 +176,7 @@ Run `npm run benchmark` for ignored development evidence after decoding-pipeline
 | Firefox | Upload supported; camera depends on browser/device permissions |
 | Safari / iOS Safari | Upload and camera supported with HTTPS and platform permission constraints |
 
-Automated desktop coverage is not a claim that every browser/device combination has been tested. Camera E2E remains Chromium-only because CI media-device simulation is not stable across all engines.
+Automated desktop coverage is not a claim that every browser/device combination has been tested. The deterministic ScannerSession Browser Benchmark suite runs in Chromium, Firefox, and WebKit; media-device camera E2E remains Chromium-only because CI device simulation is not stable across all engines.
 
 The seven-fixture PR job is **Browser Benchmark Smoke**. **Browser Full Benchmark** covers all suitable fixtures only on manual or scheduled runs; neither substitutes for a certified physical-device lab.
 
@@ -170,7 +186,7 @@ The seven-fixture PR job is **Browser Benchmark Smoke**. **Browser Full Benchmar
 - The project contains no analytics or user-behavior tracking.
 - Camera tracks stop after use or when leaving Camera mode.
 - Clipboard writes require an explicit button action and browser permission.
-- Benchmark images are repository fixtures: deterministic generated cases or project-owned photos.
+- Benchmark images are repository fixtures: deterministic generated cases, project-owned photos, or separately attributed third-party open-license photographs.
 - QR payloads render as text; only parsed `http:` and `https:` URLs can enable **Open Link**.
 
 See [SECURITY.md](SECURITY.md) for vulnerability reporting.
@@ -189,7 +205,7 @@ See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 
 ## Project status
 
-**SDK v2 alpha preview.** Scanly now has a unified, dependency-inverted, scenario-driven runtime that can be developed toward commercial barcode-capture maturity without another core architectural rewrite. Industrial or production readiness is not claimed: the dataset is internal, physical-device coverage is absent, Alpha.5 multi-symbology coverage is still preview-level, and the alpha API may change.
+**SDK v2 Beta 1 development preview.** Scanly now has a unified, dependency-inverted, scenario-driven runtime with a persistent, bounded, temporally aware camera foundation. Industrial or production readiness is not claimed: the dataset is internal, physical-device coverage is absent, Alpha.5 multi-symbology coverage remains preview-level, and the Beta API may change.
 
 ## License
 

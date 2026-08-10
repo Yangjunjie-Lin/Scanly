@@ -1,0 +1,45 @@
+name: Scanner Extended Soak
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch or commit to exercise (defaults to the Beta 1 integration branch)
+        required: false
+        default: develop/sdk-v2
+        type: string
+  pull_request:
+    branches:
+      - develop/sdk-v2
+    types: [labeled]
+  schedule:
+    - cron: "43 3 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  scanner-worker-wasm-extended-soak:
+    name: Scanner Worker/WASM Extended Soak (10,000)
+    if: github.event_name != 'pull_request' || github.event.label.name == 'scanner-extended-soak'
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || inputs.ref || 'develop/sdk-v2' }}
+      - uses: actions/setup-node@v7
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: npm run wasm:verify
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:scanner:worker-wasm-soak:extended
+      - name: Verify 10,000 real Worker/WASM executions
+        run: node -e "const r=require('./benchmark-results/realtime/worker-wasm-soak.json'); const o=r.observed.afterDispose; if(!r.pass || r.tier!=='extended' || r.observed.iterations!==10000 || o.workerCreatedCount!==1 || o.workerTerminatedCount!==1 || o.workerWasmDecodeCount<10000 || o.activeTaskCount!==0 || o.wasmInputAllocationBytes!==0 || o.wasmActiveNativeResultCount!==0) throw new Error('Extended Worker/WASM Soak failed');"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: scanner-worker-wasm-extended-soak
+          retention-days: 21
+          if-no-files-found: error
+          path: benchmark-results/realtime/worker-wasm-soak.json

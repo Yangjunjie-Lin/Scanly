@@ -271,7 +271,7 @@ export function validateProfileReport(report: Partial<BenchmarkRunSummary>, prof
   if ((report.executionPolicy?.warmupIterations ?? 0) < 1) failures.push("warmup is below one iteration");
   if ((report.executionPolicy?.measuredIterations ?? 0) < 3) failures.push("measured iterations are below three");
   if (report.environment?.scenario !== profile) failures.push("profile metadata is incompatible");
-  if (report.environment?.sdkVersion !== "2.0.0-alpha.5") failures.push("SDK version is not 2.0.0-alpha.5");
+  if (report.environment?.sdkVersion !== "2.0.0-beta.1") failures.push("SDK version is not 2.0.0-beta.1");
   if (report.runtime?.kind !== "node" || !/^v?24\./.test(report.runtime?.nodeVersion ?? "") || report.runtime?.platform !== "win32" || report.runtime?.arch !== "x64") failures.push("runtime is not Node 24 Windows x64");
   if (report.environment?.fixtureCount !== 74 || report.total !== 74) failures.push("fixture count is not 74");
   for (const field of ["wasmBuildHash", "nativeAdapterHash", "loaderHash"] as const) {
@@ -309,7 +309,7 @@ export function validateComparisonReport(report: Partial<ComparisonReport>): str
   if (!report.executionPolicy?.canonical) failures.push("execution policy is not canonical-compatible");
   if ((report.executionPolicy?.warmupIterations ?? 0) < 1) failures.push("warmup is below one iteration");
   if ((report.executionPolicy?.measuredIterations ?? 0) < 3) failures.push("measured iterations are below three");
-  if (report.sdkVersion !== "2.0.0-alpha.5") failures.push("SDK version is not 2.0.0-alpha.5");
+  if (report.sdkVersion !== "2.0.0-beta.1") failures.push("SDK version is not 2.0.0-beta.1");
   if (runtime?.kind !== "node" || !/^v?24\./.test(runtime?.nodeVersion ?? "") || runtime?.platform !== "win32" || runtime?.arch !== "x64") failures.push("runtime is not Node 24 Windows x64");
   if (report.fixtureCount !== 74 || report.positiveCases !== 63 || report.negativeCases !== 11) failures.push("fixture contract is incompatible");
   if (report.finalControlledMemoryBytes !== 0) failures.push("final controlled memory is nonzero");
@@ -361,19 +361,18 @@ export function validateSymbologyReport(
   const failures: string[] = [];
   if (!report || typeof report !== "object") return ["symbology report is missing"];
   if (report.schemaVersion !== "alpha5-symbology-evidence-1") failures.push("symbology schema version is incompatible");
-  if (report.sdkVersion !== "2.0.0-alpha.5") failures.push("symbology SDK version is not 2.0.0-alpha.5");
+  if (report.sdkVersion !== "2.0.0-beta.1") failures.push("symbology SDK version is not 2.0.0-beta.1");
   if (!report.sourceIdentity || report.sourceIdentity.repositoryDirty !== false) failures.push("symbology source repository is dirty or provenance is missing");
   if (!report.sourceIdentity?.commitSha || !report.sourceIdentity?.treeSha) failures.push("symbology source commit/tree is missing");
   if (!/^[a-f0-9]{64}$/.test(report.sourceIdentity?.symbologyManifestHash ?? "")) failures.push("symbology manifest hash is missing or invalid");
   if (!/^[a-f0-9]{64}$/.test(report.sourceIdentity?.datasetHash ?? "")) failures.push("symbology dataset hash is missing or invalid");
-  if (gateMode === "release" && (report.corpus?.projectOwnedRealPhotos ?? 0) < 12) failures.push("symbology project-photo corpus is incomplete");
-  if (gateMode === "release" && report.corpus?.realPhotoGateComplete !== true) failures.push("symbology real-photo gate is incomplete");
+  if (report.corpus?.realPhotoGateComplete !== true) failures.push("symbology curated open-license real-photo gate is incomplete");
   if ((report.falsePositiveCount ?? -1) !== 0) failures.push("symbology report contains false positives");
   if ((report.acceptedFormatMisclassificationCount ?? -1) !== 0) failures.push("symbology report contains format misclassifications");
   const gateResults = evaluateSymbologyGates(report as SymbologyGateReport, { canonicalCandidate: true, gateMode });
   if (!allSymbologyGatesPassed(gateResults)) {
     const failed = gateResults.filter((gate) => !gate.passed).map((gate) => gate.id);
-    failures.push(`symbology release gates failed: ${failed.join(", ")}`);
+    failures.push(`symbology ${gateMode} gates failed: ${failed.join(", ")}`);
   }
   return failures;
 }

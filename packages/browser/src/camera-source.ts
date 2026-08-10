@@ -12,7 +12,7 @@ import { createBrowserCaptureRouter } from "./runtime.js";
 import { DecodeWorkerClient, markDecodePath, markWorkerRecovery, type DecodeWorkerFactory } from "./worker/worker-client.js";
 import { CameraEscalationController, type CameraEscalationOptions } from "./camera-strategy.js";
 
-export interface CameraCapabilities { torch: boolean; minZoom?: number; maxZoom?: number; currentZoom?: number; focusModes?: string[]; width?: number; height?: number }
+interface CameraCapabilities { torch: boolean; minZoom?: number; maxZoom?: number; currentZoom?: number; focusModes?: string[]; width?: number; height?: number }
 export interface CameraStartOptions {
   deviceId?: string;
   facingMode?: "user" | "environment";
@@ -69,6 +69,7 @@ export class BrowserCameraSource {
   private stableKey: string | null = null;
   private stableCount = 0;
   private stopped = true;
+  private paused = false;
   private workerAvailable = true;
   private workerRetryFrames = 0;
   private consecutiveWorkerRestarts = 0;
@@ -93,6 +94,7 @@ export class BrowserCameraSource {
     this.generation += 1;
     const generation = this.generation;
     this.stopped = false;
+    this.paused = false;
     this.video = video;
     this.options = options;
     this.strategy = new CameraEscalationController(options.escalation);
@@ -171,6 +173,11 @@ export class BrowserCameraSource {
 
   stop(): void { this.internalStop(true); }
 
+  /** Compatibility adapter controls; ScannerSession owns the new runtime policy. */
+  pause(): void { if (!this.stopped) this.paused = true; }
+  resume(): void { if (this.stopped) return; this.paused = false; this.schedule(this.generation, 0); }
+  getState(): "idle" | "starting" | "running" | "paused" | "stopped" { if (this.stopped) return this.video ? "stopped" : "idle"; return this.paused ? "paused" : "running"; }
+
   async dispose(): Promise<void> {
     this.internalStop(true);
     this.worker.dispose();
@@ -178,7 +185,7 @@ export class BrowserCameraSource {
   }
 
   private schedule(generation: number, delay?: number): void {
-    if (this.stopped || generation !== this.generation) return;
+    if (this.stopped || this.paused || generation !== this.generation) return;
     const videoWithFrames = this.video as (HTMLVideoElement & {
       requestVideoFrameCallback?: (callback: () => void) => number;
     }) | null;
@@ -194,7 +201,7 @@ export class BrowserCameraSource {
   }
 
   private async sample(generation: number): Promise<void> {
-    if (this.stopped || generation !== this.generation) return;
+    if (this.stopped || this.paused || generation !== this.generation) return;
     if (this.activeFrame) { this.schedule(generation); return; }
     const video = this.video;
     const canvas = this.canvas;
@@ -312,6 +319,7 @@ export class BrowserCameraSource {
     if (this.stopped && !this.video && !this.options) return;
     const options = this.options;
     this.stopped = true;
+    this.paused = false;
     this.generation += 1;
     if (this.timer) clearTimeout(this.timer);
     this.timer = null;

@@ -45,6 +45,21 @@ function workerFailure(job, message, code = "engine_execution_failure") {
 function cancelled(job) {
     return { ok: false, error: sdkError("cancelled", "Decode cancelled."), frameId: job.frameId, scenarioId: job.scenarioId, attemptCount: job.attemptCount ?? 0, timing: { totalMs: Date.now() - job.startedAt } };
 }
+function combineWasmMemory(left, right) {
+    if (!left)
+        return right ? { ...right } : undefined;
+    if (!right)
+        return { ...left };
+    return {
+        initialLinearMemoryBytes: left.initialLinearMemoryBytes + right.initialLinearMemoryBytes,
+        currentLinearMemoryBytes: left.currentLinearMemoryBytes + right.currentLinearMemoryBytes,
+        peakLinearMemoryBytes: left.peakLinearMemoryBytes + right.peakLinearMemoryBytes,
+        inputAllocationBytes: left.inputAllocationBytes + right.inputAllocationBytes,
+        peakInputAllocationBytes: left.peakInputAllocationBytes + right.peakInputAllocationBytes,
+        activeNativeResultCount: left.activeNativeResultCount + right.activeNativeResultCount,
+        releasedNativeResultCount: left.releasedNativeResultCount + right.releasedNativeResultCount,
+    };
+}
 export function getDecodeWorkerClient() { return (singleton ??= new DecodeWorkerClient()); }
 export function resetDecodeWorkerClientForTests() { singleton?.dispose(); singleton = null; }
 export function disposeDecodeWorkerClient() { singleton?.dispose(); singleton = null; }
@@ -54,6 +69,13 @@ export class DecodeWorkerClient {
     currentJobId = null;
     pending = null;
     seq = 0;
+    createdCount = 0;
+    terminatedCount = 0;
+    peakActiveTaskCount = 0;
+    wasmObservationCount = 0;
+    workerWasmDecodeCount = 0;
+    wasmMemory;
+    unconfirmedRealmMemory;
     constructor(workerFactory = defaultWorkerFactory) {
         this.workerFactory = workerFactory;
     }
@@ -62,6 +84,7 @@ export class DecodeWorkerClient {
             return { worker: this.worker, setupMs: 0 };
         const started = Date.now();
         this.worker = this.workerFactory();
+        this.createdCount += 1;
         this.worker.onmessage = (event) => isWorkerResponse(event.data) ? this.handleMessage(event.data) : this.handleWorkerError("Worker returned a malformed message.");
         this.worker.onerror = (event) => this.handleWorkerError(event.message || "Unknown Worker error");
         return { worker: this.worker, setupMs: Date.now() - started };
@@ -100,6 +123,13 @@ export class DecodeWorkerClient {
             this.restartWorker();
             return;
         }
+        if (message.wasmMemory) {
+            this.wasmMemory = { ...message.wasmMemory };
+            this.wasmObservationCount += 1;
+            if (message.outcome.ok && message.outcome.results.some((result) => result.engine.id === "zxing-cpp-wasm")) {
+                this.workerWasmDecodeCount += 1;
+            }
+        }
         this.finish(job, { ...message.outcome, timing: { ...message.outcome.timing, workerSetupMs: job.setupMs, workerTransferMs: job.transferMs ?? 0 } });
     }
     handleWorkerError(message) {
@@ -125,17 +155,36 @@ export class DecodeWorkerClient {
         job.resolve(outcome);
     }
     restartWorker() {
-        const hadWorker = Boolean(this.worker);
-        try {
-            this.worker?.terminate();
-        }
-        catch { /* crashed Worker */ }
-        if (hadWorker) {
-            const state = debugState();
-            if (state)
-                state.terminated += 1;
-        }
+        const worker = this.worker;
+        if (!worker)
+            return;
+        // Detach callbacks first: a Worker whose termination throws must not be
+        // able to corrupt a subsequently created Worker's ownership state.
+        worker.onmessage = null;
+        worker.onerror = null;
         this.worker = null;
+        try {
+            worker.terminate();
+        }
+        catch {
+            // Keep the last realm observation intact. We cannot claim either a
+            // terminated Worker or released realm memory when terminate() failed.
+            this.unconfirmedRealmMemory = combineWasmMemory(this.unconfirmedRealmMemory, this.wasmMemory);
+            this.wasmMemory = undefined;
+            return;
+        }
+        this.terminatedCount += 1;
+        const state = debugState();
+        if (state)
+            state.terminated += 1;
+        if (this.wasmMemory) {
+            this.wasmMemory = {
+                ...this.wasmMemory,
+                currentLinearMemoryBytes: 0,
+                inputAllocationBytes: 0,
+                activeNativeResultCount: 0,
+            };
+        }
     }
     async scan(frame, scenario, options = {}) {
         const startedAt = Date.now();
@@ -166,6 +215,7 @@ export class DecodeWorkerClient {
             job.watchdog = setTimeout(() => this.failWatchdog(job, "worker_initialization_failure"), Math.min(WORKER_STARTUP_WATCHDOG_MS, Math.max(1, deadlineAt - Date.now())));
             this.currentJobId = jobId;
             this.pending = job;
+            this.peakActiveTaskCount = Math.max(this.peakActiveTaskCount, 1);
             options.signal?.addEventListener("abort", job.onAbort, { once: true });
             if (options.signal?.aborted) {
                 this.cancel();
@@ -202,5 +252,23 @@ export class DecodeWorkerClient {
         job.resolve(cancelled(job));
     }
     dispose() { this.cancel(); this.restartWorker(); }
+    getStatistics() {
+        const memory = combineWasmMemory(this.unconfirmedRealmMemory, this.wasmMemory);
+        return {
+            workerCreatedCount: this.createdCount,
+            workerTerminatedCount: this.terminatedCount,
+            activeTaskCount: this.pending ? 1 : 0,
+            peakActiveTaskCount: this.peakActiveTaskCount,
+            wasmObservationCount: this.wasmObservationCount,
+            workerWasmDecodeCount: this.workerWasmDecodeCount,
+            ...(memory ? {
+                wasmInputAllocationBytes: memory.inputAllocationBytes,
+                wasmActiveNativeResultCount: memory.activeNativeResultCount,
+                wasmCurrentLinearMemoryBytes: memory.currentLinearMemoryBytes,
+                wasmPeakLinearMemoryBytes: memory.peakLinearMemoryBytes,
+                wasmReleasedNativeResultCount: memory.releasedNativeResultCount,
+            } : {}),
+        };
+    }
 }
 //# sourceMappingURL=worker-client.js.map

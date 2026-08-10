@@ -43,6 +43,13 @@ export declare class DecodeWorkerClient {
     private currentJobId;
     private pending;
     private seq;
+    private createdCount;
+    private terminatedCount;
+    private peakActiveTaskCount;
+    private wasmObservationCount;
+    private workerWasmDecodeCount;
+    private wasmMemory?;
+    private unconfirmedRealmMemory?;
     constructor(workerFactory?: DecodeWorkerFactory);
     private ensureWorker;
     private handleMessage;
@@ -53,6 +60,19 @@ export declare class DecodeWorkerClient {
     scan(frame: NormalizedFrame, scenario: ScenarioDefinition, options?: WorkerScanOptions): Promise<ScanOutcome>;
     cancel(): void;
     dispose(): void;
+    getStatistics(): {
+        wasmInputAllocationBytes?: number | undefined;
+        wasmActiveNativeResultCount?: number | undefined;
+        wasmCurrentLinearMemoryBytes?: number | undefined;
+        wasmPeakLinearMemoryBytes?: number | undefined;
+        wasmReleasedNativeResultCount?: number | undefined;
+        workerCreatedCount: number;
+        workerTerminatedCount: number;
+        activeTaskCount: number;
+        peakActiveTaskCount: number;
+        wasmObservationCount: number;
+        workerWasmDecodeCount: number;
+    };
 }
 export {};
 //# sourceMappingURL=worker-client.d.ts.map

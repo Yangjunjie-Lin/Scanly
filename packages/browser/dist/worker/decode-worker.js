@@ -8,6 +8,10 @@ let activeGeneration = 0;
 let activeStartedAt = 0;
 let abortController = null;
 function respond(message) { self.postMessage(message); }
+function observeWasmMemory() {
+    const engine = router.engines.get("zxing-cpp-wasm");
+    return engine?.getMemoryObservation?.();
+}
 self.onmessage = async (event) => {
     const message = event.data;
     if (!isWorkerRequest(message)) {
@@ -36,7 +40,7 @@ self.onmessage = async (event) => {
         if (activeJobId === message.jobId && activeGeneration === message.generation) {
             if (message.progress)
                 respond({ type: "progress", jobId: message.jobId, generation: message.generation, attemptCount: outcome.attemptCount });
-            respond({ type: "result", jobId: message.jobId, generation: message.generation, outcome });
+            respond({ type: "result", jobId: message.jobId, generation: message.generation, outcome, wasmMemory: observeWasmMemory() });
         }
     }
     catch (error) {

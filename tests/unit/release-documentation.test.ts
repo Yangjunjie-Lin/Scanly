@@ -19,11 +19,14 @@ describe("Alpha.5 release documentation policy", () => {
 
     const generatedLegacy = legacy.fixtures.filter((fixture) => fixture.sourceType === "generated").length;
     const projectPhotosLegacy = legacy.fixtures.filter((fixture) => fixture.sourceType === "project-photo").length;
+    const generated = alpha5.fixtures.filter((fixture) => fixture.sourceType === "generated");
+    const external = alpha5.fixtures.filter((fixture) => fixture.sourceType === "external-open-license");
     const single = alpha5.fixtures.filter((fixture) => fixture.expectedOutcome === "decode" && fixture.expectedResultCount === 1);
     const mixed = alpha5.fixtures.filter((fixture) => fixture.expectedOutcome === "decode" && fixture.expectedResultCount > 1);
     const negative = alpha5.fixtures.filter((fixture) => fixture.expectedOutcome !== "decode");
-    const clean = single.filter((fixture) => fixture.difficultyTags.length === 1 && fixture.difficultyTags[0] === "clear");
-    const difficult = single.filter((fixture) => !(fixture.difficultyTags.length === 1 && fixture.difficultyTags[0] === "clear"));
+    const clean = single.filter((fixture) => fixture.sourceType === "generated" && fixture.difficultyTags.length === 1 && fixture.difficultyTags[0] === "clear");
+    const difficult = single.filter((fixture) => fixture.sourceType === "generated" && !(fixture.difficultyTags.length === 1 && fixture.difficultyTags[0] === "clear"));
+    const gs1 = alpha5.fixtures.filter((fixture) => fixture.sourceType !== "external-open-license" && fixture.expectedGs1);
     const positivePassed = balanced.results.filter((result) => result.expectedOutcome === "decode" && result.pass).length;
 
     const readme = read("README.md");
@@ -40,14 +43,15 @@ describe("Alpha.5 release documentation policy", () => {
     expect(historical).toContain(`**${positivePassed}/${balanced.positiveCases}`);
     expect(historical).toContain(`**${balanced.falsePositiveCount}/${balanced.negativeCases}`);
 
-    expect(integration).toContain(`| Generated Alpha.5 fixtures | ${alpha5.fixtures.length} |`);
+    expect(integration).toContain(`| Generated Alpha.5 fixtures | ${generated.length} |`);
+    expect(integration).toContain(`| Curated open-license camera photographs | **${external.length} (minimum 12)** |`);
     expect(integration).toContain(`| Single-format positives | ${single.length} |`);
     expect(integration).toContain(`| Mixed positives | ${mixed.length} |`);
     expect(integration).toContain(`| Negative fixtures | ${negative.length} |`);
     expect(integration).toContain(`| Generated clean | **${clean.length}/${clean.length}** |`);
     expect(integration).toContain(`| Generated difficult | **75/${difficult.length}** |`);
-    expect(integration).toContain(`| GS1 recognition | **${alpha5.fixtures.filter((fixture) => fixture.expectedGs1).length}/${alpha5.fixtures.filter((fixture) => fixture.expectedGs1).length}** |`);
-    expect(integration).toContain(`| Project-owned Alpha.5 photographs | **${photos.fixtures.length}/12** |`);
+    expect(integration).toContain(`| GS1 recognition | **${gs1.length}/${gs1.length}** |`);
+    expect(integration).toContain(`| Optional project-owned photographs | **${photos.fixtures.length}** |`);
     expect(integration).not.toContain("73/74");
     expect(historical).not.toContain("Generated Alpha.5 fixtures");
     expect(readme).toContain("Alpha.5 integration evidence is development evidence. It is not frozen canonical release evidence.");

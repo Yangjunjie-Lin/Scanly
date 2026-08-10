@@ -47,19 +47,32 @@ function perfectCohort(perFormatRecall = allPublicRecalls(10)): CohortSummary {
   };
 }
 
+function curatedPhotoCohort() {
+  const perFormatRecall = allPublicRecalls(0);
+  perFormatRecall.data_matrix = perfectRecall(3);
+  perFormatRecall.pdf417 = perfectRecall(3);
+  perFormatRecall.code_128 = perfectRecall(3);
+  perFormatRecall.ean_13 = perfectRecall(3);
+  return {
+    ...perfectCohort(perFormatRecall),
+    falsePositiveCount: 0,
+    formatMisclassificationCount: 0,
+    gs1MisclassificationCount: 0,
+    familyPhotoCounts: { data_matrix: 3, pdf417: 3, code_128: 3, retail: 3 },
+    provenanceCompleteness: { complete: 12, total: 12, rate: 1 },
+    redistributableLicenseCompliance: { complete: 12, total: 12, rate: 1 },
+    cameraPhotographVerification: { complete: 12, total: 12, rate: 1 },
+    rightsReviewCompleteness: { complete: 12, total: 12, rate: 1 },
+    sensitiveDataReviewCompleteness: { complete: 12, total: 12, rate: 1 },
+    publicRepositorySafety: { safe: 12, total: 12, rate: 1 },
+  };
+}
+
 function buildSymbologiesReport(identity: {
   commitSha: string;
   treeSha: string;
   repositoryDirty: boolean;
 }): SymbologyEvidenceReport {
-  const realRecalls = Object.fromEntries(
-    PUBLIC_BARCODE_FORMATS.map((format) => [format, { total: 0, decoded: 0, recall: null }]),
-  ) as Record<BarcodeFormat, PerFormatRecall>;
-  realRecalls.data_matrix = perfectRecall(3);
-  realRecalls.pdf417 = perfectRecall(3);
-  realRecalls.code_128 = perfectRecall(3);
-  realRecalls.ean_13 = perfectRecall(3);
-  const resultTotal = Object.values(realRecalls).reduce((sum, metrics) => sum + metrics.total, 0);
   const gateInputs: SymbologyGateReport = {
     sdkVersion: ALPHA5_SDK_VERSION,
     sourceIdentity: {
@@ -67,32 +80,29 @@ function buildSymbologiesReport(identity: {
       treeSha: identity.treeSha,
       repositoryDirty: identity.repositoryDirty,
     },
-    corpus: { projectOwnedRealPhotos: 12 },
+    corpus: { projectOwnedRealPhotos: 0, externalOpenLicenseCorpusCount: 12 },
     cohorts: {
       generatedClean: perfectCohort(),
       generatedDifficult: perfectCohort(),
       generatedMixed: perfectCohort(),
-      projectOwnedRealPhotos: {
-        fixtureTotal: 12,
-        fixturePassed: 12,
-        resultTotal,
-        exactResults: resultTotal,
-        perFormatRecall: realRecalls,
-      },
+      projectOwnedRealPhotos: perfectCohort(allPublicRecalls(0)),
+      externalOpenLicenseRealWorld: curatedPhotoCohort(),
     },
     acceptedFormatMisclassificationCount: 0,
     formatSelectionAccuracy: 1,
     checksumRejectionCount: 4,
+    checksumEvaluationErrorCount: 0,
     gs1RecognitionAccuracy: { total: 4, recognized: 4, accuracy: 1 },
     mixedFormatCompleteness: { total: 4, complete: 4, rate: 1 },
     falsePositiveCount: 0,
     invalidChecksumAcceptanceCount: 0,
     realPhotoFamilyCounts: {
-      data_matrix: 3,
-      pdf417: 3,
-      code_128: 3,
-      retail: 3,
+      data_matrix: 0,
+      pdf417: 0,
+      code_128: 0,
+      retail: 0,
     } satisfies Record<FormatFamily, number>,
+    physicalDeviceEvidence: "passed",
   };
   const gateResults = evaluateSymbologyGates(gateInputs, { canonicalCandidate: true });
   return {
@@ -128,7 +138,7 @@ function artifacts() {
   for (const [profile, file] of [["fast", "latest-fast.json"], ["balanced", "latest.json"], ["robust", "latest-robust.json"]] as const) {
     const report = JSON.parse(fs.readFileSync(path.join(process.cwd(), "benchmark-results", file), "utf8")) as BenchmarkRunSummary;
     report.sourceIdentity = { ...identity, scenarioHash: profile.repeat(64).slice(0, 64) };
-    report.environment.sdkVersion = "2.0.0-alpha.5";
+    report.environment.sdkVersion = "2.0.0-beta.1";
     report.environment.warmInitializationMs = 0.01;
     report.environment.selectedWasmVariant = "standard";
     report.environment.wasmLinearMemoryPeakBytes = 22_282_240;
@@ -158,7 +168,7 @@ function artifacts() {
     uniqueWins: ["05-low-contrast"],
   });
   comparison.sourceIdentity = { ...identity, scenarioHash: "2".repeat(64) };
-  comparison.sdkVersion = "2.0.0-alpha.5";
+  comparison.sdkVersion = "2.0.0-beta.1";
   comparison.runtime = { kind: "node", nodeVersion: "v24.15.0", platform: "win32", arch: "x64" };
   comparison.executionPolicy = { mode: "canonical-candidate", evidenceType: "canonical-candidate", canonical: true, warmupIterations: 1, measuredIterations: 3, dirtyDevelopmentAllowed: false, updatesDocumentation: false };
   comparison.finalControlledMemoryBytes = 0;
@@ -203,29 +213,13 @@ describe("canonical evidence assembly", () => {
     expect(bundle.reports.symbologies?.schemaVersion).toBe("alpha5-symbology-evidence-1");
   });
 
-  it("assembles 0/12 project-photo development evidence only in integration mode", () => {
+  it("keeps 0 project-owned photos informational and requires physical-device evidence only for release", () => {
     const fixture = artifacts();
     fixture.symbologies.corpus.projectOwnedRealPhotos = 0;
-    fixture.symbologies.corpus.realPhotoGateComplete = false;
-    fixture.symbologies.cohorts.projectOwnedRealPhotos = {
-      fixtureTotal: 0,
-      fixturePassed: 0,
-      resultTotal: 0,
-      exactResults: 0,
-      perFormatRecall: {
-        qr_code: { total: 0, decoded: 0, recall: null },
-        data_matrix: { total: 0, decoded: 0, recall: null },
-        pdf417: { total: 0, decoded: 0, recall: null },
-        code_128: { total: 0, decoded: 0, recall: null },
-        ean_13: { total: 0, decoded: 0, recall: null },
-        ean_8: { total: 0, decoded: 0, recall: null },
-        upc_a: { total: 0, decoded: 0, recall: null },
-        upc_e: { total: 0, decoded: 0, recall: null },
-      },
-    };
     fixture.symbologies.realPhotoFamilyCounts = { data_matrix: 0, pdf417: 0, code_128: 0, retail: 0 };
+    fixture.symbologies.physicalDeviceEvidence = "unavailable";
     fs.writeFileSync(fixture.paths.symbologiesJson, JSON.stringify(fixture.symbologies));
-    expect(() => assembleCanonicalEvidence(fixture.paths, path.join(fixture.root, "release"), "release")).toThrow(/project-photo|real-photo/);
+    expect(() => assembleCanonicalEvidence(fixture.paths, path.join(fixture.root, "release"), "release")).toThrow(/physical-camera-device-evidence/);
     expect(() => assembleCanonicalEvidence(fixture.paths, path.join(fixture.root, "integration"), "integration")).not.toThrow();
   });
 

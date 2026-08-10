@@ -1,6 +1,8 @@
 import type { BarcodeFormat } from "@scanly/scenario-schema";
 
-export const ALPHA5_SDK_VERSION = "2.0.0-alpha.5";
+/** Current development SDK version; retained alias keeps Alpha.5 gate imports source-compatible. */
+export const CURRENT_SDK_VERSION = "2.0.0-beta.1";
+export const ALPHA5_SDK_VERSION = CURRENT_SDK_VERSION;
 
 export interface SymbologyGateResult {
   id: string;
@@ -43,6 +45,19 @@ export interface CohortSummary {
   p95LatencyMs?: number;
 }
 
+export interface ExternalOpenLicenseCohortSummary extends CohortSummary {
+  falsePositiveCount: number;
+  formatMisclassificationCount: number;
+  gs1MisclassificationCount: number;
+  familyPhotoCounts: Record<FormatFamily, number>;
+  provenanceCompleteness: { complete: number; total: number; rate: number | null };
+  redistributableLicenseCompliance: { complete: number; total: number; rate: number | null };
+  cameraPhotographVerification: { complete: number; total: number; rate: number | null };
+  rightsReviewCompleteness: { complete: number; total: number; rate: number | null };
+  sensitiveDataReviewCompleteness: { complete: number; total: number; rate: number | null };
+  publicRepositorySafety: { safe: number; total: number; rate: number | null };
+}
+
 export interface SymbologyGateReport {
   sdkVersion: string;
   sourceIdentity: {
@@ -55,7 +70,7 @@ export interface SymbologyGateReport {
     generatedDifficult: CohortSummary;
     generatedMixed: CohortSummary;
     projectOwnedRealPhotos: CohortSummary;
-    externalOpenLicenseRealWorld?: CohortSummary;
+    externalOpenLicenseRealWorld?: ExternalOpenLicenseCohortSummary;
   };
   corpus: {
     projectOwnedRealPhotos: number;
@@ -64,14 +79,18 @@ export interface SymbologyGateReport {
   acceptedFormatMisclassificationCount: number;
   formatSelectionAccuracy: number | null;
   checksumRejectionCount: number;
+  /** checksum_invalid fixtures that could not be evaluated due to a non-not-found engine/input failure. */
+  checksumEvaluationErrorCount: number;
   gs1RecognitionAccuracy: { total: number; recognized: number; accuracy: number | null };
   mixedFormatCompleteness: { total: number; complete: number; rate: number | null };
   falsePositiveCount: number;
   gates?: Record<string, boolean>;
-  /** Optional: count of checksum_invalid negatives that produced any decode. */
-  invalidChecksumAcceptanceCount?: number;
-  /** Optional: project-photo counts by family. */
+  /** Count of checksum_invalid negatives that produced any decode. */
+  invalidChecksumAcceptanceCount: number;
+  /** Historical project-owned counts, retained only as informational evidence. */
   realPhotoFamilyCounts?: Record<FormatFamily, number>;
+  /** Independent physical-camera/device evidence; photo fixtures cannot satisfy it. */
+  physicalDeviceEvidence?: "passed" | "unavailable";
   gateMode?: SymbologyGateMode;
 }
 
@@ -97,11 +116,7 @@ function familyPhotoCount(
   report: SymbologyGateReport,
   family: FormatFamily,
 ): number {
-  if (report.realPhotoFamilyCounts) return report.realPhotoFamilyCounts[family] ?? 0;
-  const formats = new Set(FORMAT_FAMILIES[family]);
-  return Object.entries(report.cohorts.projectOwnedRealPhotos.perFormatRecall)
-    .filter(([format, metrics]) => formats.has(format as BarcodeFormat) && metrics.total > 0)
-    .reduce((sum, [, metrics]) => sum + metrics.total, 0);
+  return report.cohorts.externalOpenLicenseRealWorld?.familyPhotoCounts[family] ?? 0;
 }
 
 function familyRecall(
@@ -129,11 +144,8 @@ export function evaluateSymbologyGates(
   options: { canonicalCandidate?: boolean; gateMode?: SymbologyGateMode } = {},
 ): SymbologyGateResult[] {
   const gates: SymbologyGateResult[] = [];
-  const deferProjectPhotoGates = (options.gateMode ?? "release") === "integration";
+  const releaseMode = (options.gateMode ?? "release") === "release";
   const push = (gate: SymbologyGateResult) => { gates.push(gate); };
-  const pushProjectPhotoGate = (gate: SymbologyGateResult) => {
-    push(deferProjectPhotoGates ? { ...gate, releaseRequired: false } : gate);
-  };
 
   push({
     id: "sdk-version",
@@ -197,15 +209,42 @@ export function evaluateSymbologyGates(
     required: 0,
   });
 
-  const invalidChecksum = report.invalidChecksumAcceptanceCount
-    ?? Math.max(0, /* inferred when callers omit */ 0);
-  // Prefer explicit count; when omitted, treat checksumRejectionCount as the maintained set size
-  // and require that every checksum_invalid fixture rejected (handled by callers setting invalidChecksumAcceptanceCount).
+  const invalidChecksumAcceptanceCount = report.invalidChecksumAcceptanceCount;
+  const checksumRejectionCount = report.checksumRejectionCount;
+  const checksumEvaluationErrorCount = report.checksumEvaluationErrorCount;
+  const acceptanceCountValid = Number.isSafeInteger(invalidChecksumAcceptanceCount)
+    && invalidChecksumAcceptanceCount >= 0;
+  const rejectionCountValid = Number.isSafeInteger(checksumRejectionCount)
+    && checksumRejectionCount >= 0;
+  const evaluationErrorCountValid = Number.isSafeInteger(checksumEvaluationErrorCount)
+    && checksumEvaluationErrorCount >= 0;
+  // Accepted, explicitly not-found, and evaluation-error outcomes form the exhaustive
+  // partition. Engine/input failures are never allowed to masquerade as checksum rejection.
+  const checksumInvalidTotal = acceptanceCountValid && rejectionCountValid && evaluationErrorCountValid
+    ? invalidChecksumAcceptanceCount + checksumRejectionCount + checksumEvaluationErrorCount
+    : 0;
   push({
     id: "zero-invalid-checksum-acceptance",
-    passed: (report.invalidChecksumAcceptanceCount ?? 0) === 0,
-    actual: report.invalidChecksumAcceptanceCount ?? invalidChecksum,
+    passed: acceptanceCountValid
+      && rejectionCountValid
+      && checksumInvalidTotal > 0
+      && invalidChecksumAcceptanceCount === 0,
+    actual: acceptanceCountValid ? invalidChecksumAcceptanceCount : -1,
     required: 0,
+    details: !acceptanceCountValid
+      ? "invalidChecksumAcceptanceCount is missing or is not a non-negative safe integer"
+      : !rejectionCountValid || !evaluationErrorCountValid || checksumInvalidTotal <= 0
+        ? "checksum outcome counts must establish a positive exhaustive checksum_invalid corpus denominator"
+        : `${checksumRejectionCount}/${checksumInvalidTotal} maintained checksum_invalid fixtures rejected`,
+  });
+  push({
+    id: "zero-checksum-evaluation-errors",
+    passed: evaluationErrorCountValid && checksumEvaluationErrorCount === 0,
+    actual: evaluationErrorCountValid ? checksumEvaluationErrorCount : -1,
+    required: 0,
+    details: evaluationErrorCountValid
+      ? `${checksumEvaluationErrorCount}/${checksumInvalidTotal} checksum_invalid fixtures ended in engine/input errors`
+      : "checksumEvaluationErrorCount is missing or is not a non-negative safe integer",
   });
 
   const gs1Total = report.gs1RecognitionAccuracy.total;
@@ -218,52 +257,139 @@ export function evaluateSymbologyGates(
     details: `${report.gs1RecognitionAccuracy.recognized}/${gs1Total}`,
   });
 
-  const photoCount = report.corpus.projectOwnedRealPhotos;
-  pushProjectPhotoGate({
-    id: "real-photo-corpus-count",
-    passed: photoCount >= 12,
-    actual: photoCount,
-    required: 12,
+  const projectOwnedCount = report.corpus.projectOwnedRealPhotos;
+  push({
+    id: "project-owned-real-photo-count-informational",
+    passed: projectOwnedCount >= 0,
+    actual: projectOwnedCount,
+    required: 0,
+    releaseRequired: false,
+    details: "optional supplemental evidence; Internet photographs remain classified as external open-license",
   });
 
-  const externalCount = report.corpus.externalOpenLicenseCorpusCount ?? 0;
+  const curatedCount = report.corpus.externalOpenLicenseCorpusCount ?? 0;
+  const curated = report.cohorts.externalOpenLicenseRealWorld;
   push({
-    id: "external-open-license-corpus-count",
-    passed: externalCount >= 12,
-    actual: externalCount,
+    id: "curated-open-license-real-photo-corpus-count",
+    passed: curatedCount >= 12 && curated?.fixtureTotal === curatedCount,
+    actual: curatedCount,
     required: 12,
-    details: "non-release informational gate; external photographs never satisfy project-owned gate",
-    releaseRequired: false,
+    details: curated ? `${curated.fixtureTotal} independently sourced camera photographs` : "curated cohort summary missing",
+  });
+
+  const curatedPerFormat = curated ? Object.values(curated.perFormatRecall) : [];
+  const reportedResultTotal = curatedPerFormat.reduce((sum, metric) => sum + metric.total, 0);
+  const reportedMatchedTotal = curatedPerFormat.reduce((sum, metric) => sum + metric.decoded, 0);
+  const reportedPhotoTotal = curated
+    ? Object.values(curated.familyPhotoCounts).reduce((sum, count) => sum + count, 0)
+    : 0;
+  const perFormatMetricsConsistent = curatedPerFormat.every((metric) => (
+    metric.total >= 0
+    && metric.decoded >= 0
+    && metric.decoded <= metric.total
+    && (metric.total === 0
+      ? metric.recall === null
+      : metric.recall !== null && Math.abs(metric.recall - metric.decoded / metric.total) <= 1e-12)
+  ));
+  const groundTruthPresent = curated !== undefined
+    && curated.fixtureTotal === curatedCount
+    && reportedPhotoTotal === curatedCount
+    && curated.resultTotal > 0
+    && reportedResultTotal === curated.resultTotal
+    && curated.exactResults >= 0
+    && curated.exactResults <= curated.resultTotal
+    && reportedMatchedTotal === curated.exactResults
+    && perFormatMetricsConsistent;
+  push({
+    id: "curated-open-license-ground-truth-present",
+    passed: groundTruthPresent,
+    actual: groundTruthPresent,
+    required: true,
+    details: curated
+      ? `${curated.exactResults}/${curated.resultTotal} expected semantic results observed`
+      : "curated cohort summary missing",
+  });
+
+  push({
+    id: "curated-open-license-zero-false-positives",
+    passed: curated?.falsePositiveCount === 0,
+    actual: curated?.falsePositiveCount ?? -1,
+    required: 0,
+  });
+  push({
+    id: "curated-open-license-zero-format-misclassifications",
+    passed: curated?.formatMisclassificationCount === 0,
+    actual: curated?.formatMisclassificationCount ?? -1,
+    required: 0,
+  });
+  push({
+    id: "curated-open-license-zero-gs1-misclassifications",
+    passed: curated?.gs1MisclassificationCount === 0,
+    actual: curated?.gs1MisclassificationCount ?? -1,
+    required: 0,
+  });
+
+  const pushCompleteCohortGate = (
+    id: string,
+    metric: { complete: number; total: number } | undefined,
+  ) => {
+    const complete = metric !== undefined
+      && metric.total === curatedCount
+      && metric.complete === metric.total;
+    push({
+      id,
+      passed: complete,
+      actual: complete,
+      required: true,
+      details: metric ? `${metric.complete}/${metric.total}` : "curated cohort summary missing",
+    });
+  };
+  pushCompleteCohortGate("curated-open-license-provenance-complete", curated?.provenanceCompleteness);
+  pushCompleteCohortGate("curated-open-license-license-compliant", curated?.redistributableLicenseCompliance);
+  pushCompleteCohortGate("curated-open-license-camera-photographs-verified", curated?.cameraPhotographVerification);
+  pushCompleteCohortGate("curated-open-license-rights-review-complete", curated?.rightsReviewCompleteness);
+  pushCompleteCohortGate("curated-open-license-sensitive-data-review-complete", curated?.sensitiveDataReviewCompleteness);
+
+  const publicRepositorySafe = curated !== undefined
+    && curated.publicRepositorySafety.total === curatedCount
+    && curated.publicRepositorySafety.safe === curated.publicRepositorySafety.total;
+  push({
+    id: "curated-open-license-public-repository-safe",
+    passed: publicRepositorySafe,
+    actual: publicRepositorySafe,
+    required: true,
+    details: curated
+      ? `${curated.publicRepositorySafety.safe}/${curated.publicRepositorySafety.total}`
+      : "curated cohort summary missing",
   });
 
   for (const family of Object.keys(FORMAT_FAMILIES) as FormatFamily[]) {
     const count = familyPhotoCount(report, family);
-    pushProjectPhotoGate({
-      id: `real-photo-family-${family}-coverage`,
+    push({
+      id: `curated-real-photo-family-${family}-coverage`,
       passed: count >= 3,
       actual: count,
       required: 3,
     });
   }
 
-  const realOverall = report.cohorts.projectOwnedRealPhotos;
-  const overallRecall = realOverall.resultTotal
-    ? realOverall.exactResults / realOverall.resultTotal
-    : photoCount >= 12 ? 0 : null;
-  pushProjectPhotoGate({
-    id: "real-photo-overall-recall",
-    passed: photoCount >= 12 && overallRecall !== null && overallRecall + 1e-12 >= 0.8,
+  const overallRecall = curated?.resultTotal
+    ? curated.exactResults / curated.resultTotal
+    : null;
+  push({
+    id: "curated-real-photo-overall-recall",
+    passed: curatedCount >= 12 && overallRecall !== null && overallRecall + 1e-12 >= 0.8,
     actual: overallRecall ?? 0,
     required: 0.8,
-    details: photoCount < 12
-      ? "real-photo corpus incomplete"
-      : `${realOverall.exactResults}/${realOverall.resultTotal}`,
+    details: curated?.resultTotal
+      ? `${curated.exactResults}/${curated.resultTotal}`
+      : "curated result denominator missing",
   });
 
   for (const family of Object.keys(FORMAT_FAMILIES) as FormatFamily[]) {
-    const metrics = familyRecall(realOverall, family);
-    pushProjectPhotoGate({
-      id: `real-photo-family-${family}-recall`,
+    const metrics = curated ? familyRecall(curated, family) : { total: 0, decoded: 0, recall: null };
+    push({
+      id: `curated-real-photo-family-${family}-recall`,
       passed: metrics.total > 0 && (metrics.recall ?? 0) + 1e-12 >= 2 / 3,
       actual: metrics.recall ?? 0,
       required: 2 / 3,
@@ -272,6 +398,17 @@ export function evaluateSymbologyGates(
         : "family denominator missing",
     });
   }
+
+  push({
+    id: "physical-camera-device-evidence",
+    passed: report.physicalDeviceEvidence === "passed",
+    actual: report.physicalDeviceEvidence === "passed",
+    required: true,
+    releaseRequired: releaseMode ? true : false,
+    details: report.physicalDeviceEvidence === "passed"
+      ? "independent physical-camera/device evidence is available"
+      : "unavailable; curated photographs do not exercise a physical camera device",
+  });
 
   const selection = report.formatSelectionAccuracy;
   push({

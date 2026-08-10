@@ -12,6 +12,13 @@ let abortController: AbortController | null = null;
 
 function respond(message: WorkerResponse): void { self.postMessage(message); }
 
+function observeWasmMemory(): Extract<WorkerResponse, { type: "result" }>["wasmMemory"] {
+  const engine = router.engines.get("zxing-cpp-wasm") as {
+    getMemoryObservation?: () => NonNullable<Extract<WorkerResponse, { type: "result" }>["wasmMemory"]>;
+  } | undefined;
+  return engine?.getMemoryObservation?.();
+}
+
 self.onmessage = async (event: MessageEvent<unknown>) => {
   const message = event.data;
   if (!isWorkerRequest(message)) {
@@ -40,7 +47,7 @@ self.onmessage = async (event: MessageEvent<unknown>) => {
     const outcome = await router.scan(fromTransferableFrame(message.frame), { signal, scenario: message.scenario });
     if (activeJobId === message.jobId && activeGeneration === message.generation) {
       if (message.progress) respond({ type: "progress", jobId: message.jobId, generation: message.generation, attemptCount: outcome.attemptCount });
-      respond({ type: "result", jobId: message.jobId, generation: message.generation, outcome });
+      respond({ type: "result", jobId: message.jobId, generation: message.generation, outcome, wasmMemory: observeWasmMemory() });
     }
   } catch (error) {
     if (activeJobId === message.jobId && activeGeneration === message.generation) respond({ type: "error", jobId: message.jobId, generation: message.generation, message: (error instanceof Error ? error.message : String(error)).slice(0, 2_048) });

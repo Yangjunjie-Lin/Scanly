@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { BrowserCameraSource, BrowserCaptureSession } from "@scanly/browser";
+import { BrowserCameraSource, BrowserCaptureSession, MediaStreamCameraFrameSource, ScannerSession } from "@scanly/browser";
 import { isSafeActionUrl } from "@scanly/parsers";
 import type { ScanResult, SdkErrorCode } from "@scanly/core";
 import { getBuiltinScenario, type ScenarioPresetId } from "@scanly/scenario-schema";
@@ -21,6 +21,18 @@ function retailMetadata(result: ScanResult | undefined): { checkDigitValid?: boo
   return value && typeof value === "object" ? value as { checkDigitValid?: boolean; normalizedGtin14?: string; expandedUpcA?: string } : null;
 }
 
+function resultFromScannerEvent(event: import("@scanly/browser").ScanEvent): ScanResult {
+  return {
+    format: event.barcode.format,
+    rawText: event.barcode.text,
+    ...(event.barcode.rawBytes ? { rawBytes: event.barcode.rawBytes } : {}),
+    ...(event.barcode.cornerPoints ? { cornerPoints: [...event.barcode.cornerPoints] } : {}),
+    engine: { id: event.barcode.engineId, version: event.barcode.engineVersion ?? "unknown" },
+    preprocessingPath: [], frameId: String(event.frameId), structuredPayload: null,
+    validation: { valid: true, validatorIds: [], messages: [] }, warnings: [], timing: { totalMs: 0 },
+  };
+}
+
 export default function QRTool() {
   const [mode, setMode] = useState<Mode>("camera");
   const [status, setStatus] = useState<string>("Idle");
@@ -33,6 +45,10 @@ export default function QRTool() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadReady, setUploadReady] = useState(false);
   const [preset, setPreset] = useState<Preset>("balanced");
+  const [scannerState, setScannerState] = useState<string>("idle");
+  const [scannerHint, setScannerHint] = useState<string>("searching");
+  const [torchEnabled, setTorchEnabled] = useState(false);
+  const [cameraCapabilities, setCameraCapabilities] = useState<{ torch: boolean; minZoom?: number; maxZoom?: number; currentZoom?: number }>({ torch: false });
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const uploadAbortRef = useRef<AbortController | null>(null);
@@ -42,6 +58,7 @@ export default function QRTool() {
 
   const uploadSession = useMemo(() => new BrowserCaptureSession(), []);
   const cameraSource = useMemo(() => new BrowserCameraSource(), []);
+  const scannerSessionRef = useRef<ScannerSession | null>(null);
 
   const primaryResult = results[0];
   const primary = primaryResult?.rawText ?? "";
@@ -96,6 +113,8 @@ export default function QRTool() {
     setUploadReady(true);
     return () => {
       setUploadReady(false);
+      void scannerSessionRef.current?.dispose();
+      scannerSessionRef.current = null;
       void cameraSource.dispose();
       uploadAbortRef.current?.abort();
       void uploadSession.dispose();
@@ -121,26 +140,29 @@ export default function QRTool() {
       setStatus("Requesting camera permission…");
       setIsScanning(true);
 
-      await cameraSource.start(videoRef.current, {
-        scenario: activeScenario,
-        deviceId: deviceId || undefined,
-        stopAfterResult: true,
-        onResult: (outcome) => {
-          if (!outcome.ok) return;
-          setResults(outcome.results);
-          setStatus("Decoded");
-          navigator.vibrate?.(50);
-          setIsScanning(false);
-        },
-        onError: (outcome) => {
-          setErrorReason(outcome.error.code);
-          setLastError(outcome.error.message);
-          setIsScanning(false);
-        },
+      await scannerSessionRef.current?.dispose();
+      const source = new MediaStreamCameraFrameSource({ video: videoRef.current, deviceId: deviceId || undefined, stopWhenPageHidden: true });
+      const session = new ScannerSession({ source, decoderOptions: { scenario: activeScenario }, confirmation: { mode: "adaptive" }, repeatPolicy: { mode: "physical-instance", cooldownMs: 1_500 }, quality: { sampleTarget: 1_024 } });
+      scannerSessionRef.current = session;
+      session.onStateChange((state) => { setScannerState(state); if (state === "scanning") setStatus("Scanning… keep the barcode inside the frame"); });
+      session.onResult((event) => {
+        setResults([resultFromScannerEvent(event)]);
+        setStatus("Decoded");
+        navigator.vibrate?.(50);
+        setIsScanning(false);
+        setScannerState("stopped");
+        setScannerHint("searching");
+        void session.stop();
       });
+      session.onDiagnostics((diagnostic) => { if (diagnostic.hint) setScannerHint(diagnostic.hint.type); if (diagnostic.error) { setErrorReason(diagnostic.error.code); setLastError(diagnostic.error.message); } });
+      await session.start();
+      const capabilities = session.getCameraCapabilities();
+      setCameraCapabilities({ torch: capabilities.torch, minZoom: capabilities.zoom?.min, maxZoom: capabilities.zoom?.max, currentZoom: capabilities.zoom?.current });
+      setScannerHint("searching");
       setStatus("Scanning… keep the barcode inside the frame");
     } catch (e) {
       setIsScanning(false);
+      setScannerState("failed");
       setStatus("Ready");
       const message = e instanceof Error ? e.message : String(e);
       setErrorReason(/NotAllowedError|permission denied/i.test(message) ? "camera_permission_denied" : "camera_unavailable");
@@ -158,7 +180,7 @@ export default function QRTool() {
   }
 
   function stopScan() {
-    cameraSource.stop();
+    void scannerSessionRef.current?.stop();
     // Stop any leftover media tracks
     const video = videoRef.current;
     const stream = video?.srcObject;
@@ -167,7 +189,45 @@ export default function QRTool() {
       video.srcObject = null;
     }
     setIsScanning(false);
+    setScannerState("stopped");
+    setScannerHint("searching");
     setStatus("Stopped");
+  }
+
+  function pauseScan() {
+    scannerSessionRef.current?.pause();
+    setScannerState("paused");
+    setScannerHint("hold_steady");
+    setStatus("Paused");
+  }
+
+  function resumeScan() {
+    scannerSessionRef.current?.resume();
+    setScannerState("running");
+    setScannerHint("searching");
+    setStatus("Scanning… keep the barcode inside the frame");
+  }
+
+  async function toggleTorch() {
+    try {
+      const result = await scannerSessionRef.current?.setTorch(!torchEnabled);
+      if (result && !result.ok) throw new Error(result.error.message);
+      setTorchEnabled((value) => !value);
+    } catch (error) {
+      setLastError(error instanceof Error ? error.message : String(error));
+      setErrorReason("unsupported_browser_capability");
+    }
+  }
+
+  async function setZoom(value: number) {
+    try {
+      const result = await scannerSessionRef.current?.setZoom(value);
+      if (result && !result.ok) throw new Error(result.error.message);
+      setCameraCapabilities((current) => ({ ...current, currentZoom: value }));
+    } catch (error) {
+      setLastError(error instanceof Error ? error.message : String(error));
+      setErrorReason("unsupported_browser_capability");
+    }
   }
 
   function resetUpload() {
@@ -368,6 +428,18 @@ export default function QRTool() {
             >
               Stop
             </button>
+            <button type="button" className="btn" onClick={scannerState === "paused" ? resumeScan : pauseScan} disabled={!isScanning} aria-label={scannerState === "paused" ? "Resume camera scan" : "Pause camera scan"}>
+              {scannerState === "paused" ? "Resume" : "Pause"}
+            </button>
+            <button type="button" className="btn" onClick={() => void toggleTorch()} disabled={!isScanning || !cameraCapabilities.torch} aria-label="Toggle torch">
+              {torchEnabled ? "Torch off" : "Torch on"}
+            </button>
+            {cameraCapabilities.minZoom !== undefined && cameraCapabilities.maxZoom !== undefined && (
+              <label className="small" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                Zoom
+                <input aria-label="Camera zoom" type="range" min={cameraCapabilities.minZoom} max={cameraCapabilities.maxZoom} step={0.1} value={cameraCapabilities.currentZoom ?? cameraCapabilities.minZoom} onChange={(event) => void setZoom(Number(event.target.value))} disabled={!isScanning} />
+              </label>
+            )}
 
             <div style={{ flex: 1 }} />
 
@@ -397,6 +469,10 @@ export default function QRTool() {
                 )}
               </select>
             </label>
+          </div>
+
+          <div className="small" aria-live="polite" data-testid="scanner-feedback" style={{ marginTop: 8 }}>
+            Scanner state: <span className="mono">{scannerState}</span> · hint: <span className="mono">{scannerHint}</span>
           </div>
 
           <div className="small" style={{ marginTop: 10 }}>
