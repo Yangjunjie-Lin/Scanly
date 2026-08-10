@@ -17,12 +17,14 @@ Static multi-code scans default to `payload-format-spatial` deduplication. Schem
 | Runtime values | Runtime types |
 | --- | --- |
 | `BarcodeTracker`, `associateTracks`, `calculateAssociationCost` | `BarcodeTrack`, `BarcodeTrackState`, `BarcodeObservation`, `BarcodeTrackerOptions`, `BarcodeTrackerUpdate`, `TrackingStatistics` |
-| `TrackROISet`, `createTrackOverlayModel`, `createTrackOverlayModels` | `TrackROI`, `TrackROIPlan`, `TrackROISetOptions`, `TrackOverlayModel` |
+| `TrackROISet`, `ScannerTrackingRuntime`, `createTrackOverlayModel`, `createTrackOverlayModels` | `TrackROI`, `TrackROIPlan`, `TrackROISetOptions`, `ScannerTrackingRuntimeOptions`, `ScannerDecodeMode`, `ScannerDecodeROIPhase`, `TrackOverlayModel` |
 | `BatchController`, `BatchScanSession` | `BatchScanSessionOptions`, `BatchMode`, `BatchStatus`, `BatchState`, `BatchEvent`, `ExpectedBatchItem`, `BatchStatistics` |
 
 Track identity is physical and spatial: `trackId` is not the payload. Association is a bounded deterministic assignment over payload/format compatibility, center distance, IoU, geometry size, motion prediction, and elapsed time. The lifecycle is `tentative`, `confirmed`, `lost`, and `retired`; a compatible reappearance inside the grace window restores the same identity.
 
 Batch completion uses confirmed physical tracks. `expected-count` cannot complete from repeat events, and checklist `quantity` supports multiple physical items carrying the same payload. `TrackOverlayModel` contains renderer-neutral geometry and labels; Canvas, SVG, DOM, and React remain consumers of that model.
+
+`BatchControllerOptions.maxRetainedTracks` and `maxRetainedPhysicalInstances` bound long-running continuous and checklist evidence. Terminal completion freezes classification state; statistics expose current/peak retention and rejected/evicted counts for reliability gates.
 
 See [Beta 2 barcode tracking and batch scan](../beta2-tracking-batch.md) for composition examples, bounded association behavior, ROI recovery, evidence, and non-claims.
 
