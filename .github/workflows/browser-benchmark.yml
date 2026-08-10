@@ -57,7 +57,9 @@ jobs:
         with:
           name: browser-${{ env.BROWSER_BENCHMARK_KIND }}-${{ matrix.browser }}
           if-no-files-found: error
-          path: benchmark-results/browser/${{ matrix.browser }}.json
+          path: |
+            benchmark-results/browser/${{ matrix.browser }}.json
+            benchmark-results/browser/tracking-${{ matrix.browser }}.json
 
   assemble:
     needs: browser-benchmark

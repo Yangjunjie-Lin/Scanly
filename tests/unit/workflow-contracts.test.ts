@@ -135,6 +135,9 @@ describe("benchmark workflow contracts", () => {
     for (const browser of ["Chromium", "Firefox", "WebKit"]) expect(workflow).toContain(browser);
     expect(workflow).toContain("assemble-browser-benchmarks.ts");
     expect(workflow).toContain("needs: browser-benchmark");
+    expect(workflow).toContain("tracking-${{ matrix.browser }}.json");
+    expect(assembler).toContain("2.3-beta2-browser-tracking");
+    expect(assembler).toContain("trackingReports");
     expect(assembler).toContain('report.benchmarkKind === "full"');
     expect(assembler).toContain('failedFixtures[0] === "14-damaged"');
     expect(assembler).toContain("failedFixtures.length === 1");

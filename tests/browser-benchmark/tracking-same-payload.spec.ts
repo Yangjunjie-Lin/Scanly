@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
-import { expectCleanTrackingEvidence, loadTrackingRuntimeReport, mappingsFor } from "./tracking-runtime-test-helpers";
+import { expectCleanTrackingEvidence, loadTrackingRuntimeReport, mappingsFor, recordTrackingRuntimeReport } from "./tracking-runtime-test-helpers";
 
-test("BarcodeTracker separates two same-payload physical objects while decoder order changes", async ({ page }) => {
+test("BarcodeTracker separates two same-payload physical objects while decoder order changes", async ({ page }, testInfo) => {
   const report = await loadTrackingRuntimeReport(page, "same-payload-two-targets");
 
   expect(report.scenario).toBe("same-payload-two-targets");
@@ -18,4 +18,5 @@ test("BarcodeTracker separates two same-payload physical objects while decoder o
   expect(objectA[0]?.trackId).not.toBe(objectB[0]?.trackId);
   expect(objectA[0]?.physicalInstanceId).not.toBe(objectB[0]?.physicalInstanceId);
   expect(report.trackingStatistics).toMatchObject({ createdTrackCount: 2, confirmedTrackCount: 2, peakTrackCount: 2 });
+  recordTrackingRuntimeReport(report, testInfo.project.name);
 });

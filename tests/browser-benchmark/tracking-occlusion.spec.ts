@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
-import { expectCleanTrackingEvidence, loadTrackingRuntimeReport, mappingsFor } from "./tracking-runtime-test-helpers";
+import { expectCleanTrackingEvidence, loadTrackingRuntimeReport, mappingsFor, recordTrackingRuntimeReport } from "./tracking-runtime-test-helpers";
 
-test("BarcodeTracker restores the same identity after bounded occlusion", async ({ page }) => {
+test("BarcodeTracker restores the same identity after bounded occlusion", async ({ page }, testInfo) => {
   const report = await loadTrackingRuntimeReport(page, "bounded-occlusion");
 
   expect(report.scenario).toBe("bounded-occlusion");
@@ -21,4 +21,5 @@ test("BarcodeTracker restores the same identity after bounded occlusion", async 
     restoredTrackCount: 1,
     retiredTrackCount: 0,
   });
+  recordTrackingRuntimeReport(report, testInfo.project.name);
 });

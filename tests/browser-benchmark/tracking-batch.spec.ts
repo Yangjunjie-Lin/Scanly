@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
-import { expectCleanTrackingEvidence, loadTrackingRuntimeReport, mappingsFor } from "./tracking-runtime-test-helpers";
+import { expectCleanTrackingEvidence, loadTrackingRuntimeReport, mappingsFor, recordTrackingRuntimeReport } from "./tracking-runtime-test-helpers";
 
-test("BatchController completes expected-count from three confirmed physical tracks", async ({ page }) => {
+test("BatchController completes expected-count from three confirmed physical tracks", async ({ page }, testInfo) => {
   const report = await loadTrackingRuntimeReport(page, "expected-count-batch");
 
   expect(report.scenario).toBe("expected-count-batch");
@@ -20,4 +20,5 @@ test("BatchController completes expected-count from three confirmed physical tra
     completionAccuracy: 1,
   });
   expect(report.batch?.events.filter(({ type }) => type === "batch-completed")).toHaveLength(1);
+  recordTrackingRuntimeReport(report, testInfo.project.name);
 });

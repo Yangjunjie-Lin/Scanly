@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
-import { expectCleanTrackingEvidence, loadTrackingRuntimeReport, mappingsFor } from "./tracking-runtime-test-helpers";
+import { expectCleanTrackingEvidence, loadTrackingRuntimeReport, mappingsFor, recordTrackingRuntimeReport } from "./tracking-runtime-test-helpers";
 
-test("BarcodeTracker keeps one moving target on one confirmed physical identity", async ({ page }) => {
+test("BarcodeTracker keeps one moving target on one confirmed physical identity", async ({ page }, testInfo) => {
   const report = await loadTrackingRuntimeReport(page, "single-target");
 
   expect(report.scenario).toBe("single-target");
@@ -22,4 +22,5 @@ test("BarcodeTracker keeps one moving target on one confirmed physical identity"
     confirmedTrackCount: 1,
     peakTrackCount: 1,
   });
+  recordTrackingRuntimeReport(report, testInfo.project.name);
 });
