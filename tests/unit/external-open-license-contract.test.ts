@@ -224,7 +224,6 @@ describe("external open-license Alpha.5 cohort", () => {
     const projectOwnedRealPhotos = projectPhotos.fixtures.filter((fixture) => fixture.sourceType === "project-photo").length;
     const expectedResults = manifest.fixtures.reduce((count, fixture) => count + fixture.requiredResults.length, 0);
     const visiblePhysicalInstances = manifest.fixtures.reduce((count, fixture) => count + fixture.physicalInstanceCount, 0);
-    const sdkVersion = (JSON.parse(read("package.json")) as { version: string }).version;
     expect(report).toMatchObject({
       schemaVersion: "2.2-beta1-curated-open-license-photo-report",
       status: "PASS_CURATED_OPEN_LICENSE_CAMERA_PHOTOS",
@@ -237,7 +236,10 @@ describe("external open-license Alpha.5 cohort", () => {
         decoderIndependent: true,
         independenceStatement: EXTERNAL_GROUND_TRUTH_INDEPENDENCE_STATEMENT,
       },
-      sdkVersion,
+      // This tracked report is immutable Beta 1 evidence. Beta 2 regression
+      // executes the verifier again; it must not relabel historical bytes as
+      // though they had been produced by the current SDK version.
+      sdkVersion: "2.0.0-beta.1",
       engine: { id: "zxing-cpp-wasm", version: "3.1.1+zxing-cpp.6c2961d" },
       fixtureCount: manifest.fixtures.length,
       requiredResultCount: expectedResults,
