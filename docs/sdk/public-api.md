@@ -2,7 +2,7 @@
 
 ## Version policy
 
-- SDK package version: `2.0.0-beta.1` (Beta 1 development preview)
+- SDK package version: `2.0.0-beta.2` (Beta 2 development preview)
 
 `ScanResult.cornerPoints` are always expressed as pixel coordinates in the original normalized frame. ROI offsets, candidate crops, resizing, scale caps, and clockwise decode-attempt rotations are inverted before publication. Invalid or implausibly out-of-frame engine points are omitted.
 

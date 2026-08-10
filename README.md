@@ -1,10 +1,10 @@
-# Scanly SDK v2 Beta 1 — real-time scanner foundation
+# Scanly SDK v2 Beta 2 — barcode tracking and batch scan foundation
 
-Scanly is a local-first barcode capture SDK foundation with a working browser reference application. Beta 1 development extends the existing single-frame Router into a persistent, bounded, real-time scanner runtime while retaining normalized upload, Worker, main-thread, Node, and Alpha.5 multi-symbology compatibility. It is a Beta preview, not an ML model, production certification, or image-upload backend.
+Scanly is a local-first barcode capture SDK foundation with a working browser reference application. Beta 2 development builds stable multi-target barcode tracking and batch scanning on the bounded Beta 1 real-time runtime while retaining normalized upload, Worker, main-thread, Node, and Alpha.5 multi-symbology compatibility. It is a Beta preview, not an ML model, industrial certification, or image-upload backend.
 
 ![Next.js 15](https://img.shields.io/badge/Next.js-15-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
-![SDK](https://img.shields.io/badge/SDK-2.0.0--beta.1-blue)
+![SDK](https://img.shields.io/badge/SDK-2.0.0--beta.2-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Live demo:** [https://qr-decoder-theta.vercel.app](https://qr-decoder-theta.vercel.app)
