@@ -200,7 +200,17 @@ export default function QRTool() {
 
       await disposeCameraRuntime();
       const source = new MediaStreamCameraFrameSource({ video: videoRef.current, deviceId: deviceId || undefined, stopWhenPageHidden: true });
-      const session = new ScannerSession({ source, decoderOptions: { scenario: activeScenario }, confirmation: { mode: "adaptive" }, repeatPolicy: { mode: "physical-instance", cooldownMs: 1_500 }, quality: { sampleTarget: 1_024 } });
+      const session = new ScannerSession({
+        source,
+        decoderOptions: { scenario: activeScenario },
+        confirmation: { mode: "adaptive" },
+        repeatPolicy: { mode: "physical-instance", cooldownMs: 1_500 },
+        quality: { sampleTarget: 1_024 },
+        decodeMode: cameraExperience === "tracking-batch" ? "tracking" : "single",
+        ...(cameraExperience === "tracking-batch" ? {
+          tracking: { maxResults: 32, trackerOptions: { maxTrackedBarcodes: 32, maxObservations: 32 } },
+        } : {}),
+      });
       scannerSessionRef.current = session;
       session.onStateChange((state) => {
         setScannerState(state);
