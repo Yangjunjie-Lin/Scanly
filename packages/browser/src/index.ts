@@ -8,3 +8,5 @@ export * from "./worker/worker-client.js";
 export * from "./worker/worker-messages.js";
 export * from "./worker/transferable-buffer.js";
 export * from "./scanner/index.js";
+export * from "./tracking/index.js";
+export * from "./batch/index.js";
