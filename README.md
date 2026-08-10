@@ -32,8 +32,8 @@ Alpha.5 explicitly supports QR Code Model 2, Data Matrix ECC 200, PDF417, Code 1
 ## Branch and release status
 
 - `main` is the unchanged v1.3 Stable line.
-- `develop/sdk-v2` is the frozen Alpha.5 integration baseline.
-- `architecture/sdk-v2-beta1-realtime-scanner-foundation` is the active Beta 1 development branch for the real-time scanner foundation; it does not modify `main`.
+- `develop/sdk-v2` contains the merged Beta 1 real-time runtime baseline.
+- `architecture/sdk-v2-beta2-barcode-tracking-foundation` is the active Beta 2 development branch; it was created from the Beta 1 merge and does not modify `main`.
 - Alpha.5 is an internal integration snapshot, not production-certified evidence. No Alpha.5 tag, GitHub Release, npm publication, Stable claim, or `Latest` release is authorized.
 - Beta 1 remains development evidence. No Beta tag, GitHub Release, npm publication, Stable claim, or `Latest` release is authorized.
 
@@ -68,15 +68,27 @@ Alpha.5 integration evidence is development evidence. It is not frozen canonical
 
 ### Beta 1 real-time scanner foundation
 
-The active Beta 1 branch introduces the SDK-owned `ScannerSession`, `FrameScheduler`, `FrameQualityAnalyzer`, bounded Fast/Balanced/Robust escalation, temporal confirmation, repeat suppression, temporal ROI reuse, capability detection, and deterministic camera simulation. React is an adapter only; it does not own decode, Worker, temporal, or memory state.
+The merged Beta 1 baseline introduces the SDK-owned `ScannerSession`, `FrameScheduler`, `FrameQualityAnalyzer`, bounded Fast/Balanced/Robust escalation, temporal confirmation, repeat suppression, temporal ROI reuse, capability detection, and deterministic camera simulation. React is an adapter only; it does not own decode, Worker, temporal, or memory state.
 
 The real-time benchmark has 20 semantic Ground Truth scenarios with scenario-specific drivers: lifecycle actions, pixel quality, decode profiles, ROI requests, Worker recovery, geometry identity, and backpressure are executed and observed rather than inferred from scenario names. Report schema `2.0-beta1` stores independent `expected` and `observed` values, assertion results and failure reasons, metrics, and event/profile/diagnostic timelines. False-confirmed, stale-event, repeat, physical-instance, drop, and queue gates are derived from those reports rather than hard-coded.
 
 Reliability evidence is split by scope. Scanner Core Soak runs 10,000 frames with a fake decoder and records `workerEvidence: "not-applicable"`; it validates scheduler, temporal, ownership, lifecycle, and controlled-memory cleanup, not Worker/WASM behavior. The separate pull-request soak runs at least 1,000 actual frames through `BrowserScannerFrameDecoder`, one persistent `DecodeWorkerClient`, a browser Worker, and ZXing-C++ WASM. A scheduled/manual extended tier runs 10,000 real Worker/WASM frames. The Browser Benchmark runs real-time smoke, lifecycle, repeat, and backpressure cases in Chromium, Firefox, and WebKit.
 
-Camera unit coverage validates unsupported capabilities, manual override, auto-zoom cooldown and clamp, anti-oscillation state, and source-switch refresh. It is not physical auto-zoom evidence. The Beta 1 photo gate uses an audited open-license camera-photo cohort; project-owned photos remain optional supplemental evidence and are never fabricated or inferred from Internet assets. Beta 1 runtime integration may be `GO` when runtime gates pass, but release remains `NO-GO` while [Issue #13](https://github.com/Yangjunjie-Lin/Scanly/issues/13) and independent physical-camera/device validation remain open. No `v2-beta1-r1` evidence activation is authorized, and this document does not claim a GitHub PR exact-SHA check result.
+Camera unit coverage validates unsupported capabilities, manual override, auto-zoom cooldown and clamp, anti-oscillation state, and source-switch refresh. It is not physical auto-zoom evidence. The Beta 1 photo gate uses an audited open-license camera-photo cohort; project-owned photos remain optional supplemental evidence and are never fabricated or inferred from Internet assets. Beta 1 runtime integration passed and was merged into `develop/sdk-v2`; [Issue #13](https://github.com/Yangjunjie-Lin/Scanly/issues/13) continues to track non-blocking physical-camera/device evidence. No `v2-beta1-r1` canonical evidence activation was performed.
 
 See [Beta 1 real-time runtime](docs/beta1-realtime-runtime.md) for the lifecycle, bounded escalation, temporal correctness, memory, and evidence boundaries.
+
+### Beta 2 barcode tracking and batch scan foundation
+
+Beta 2 composes `BarcodeTracker` and `BatchScanSession` over the existing `ScannerSession` observation-set boundary. A single bounded multi-code decode publishes every valid frame observation; deterministic Hungarian assignment then associates observations with stable physical tracks using payload/format compatibility, geometry, IoU, motion, and elapsed-time evidence. `trackId` and `physicalInstanceId` are not payload keys, so equal UPC labels on separate moving objects remain distinct.
+
+Track lifecycle is explicit (`tentative`, `confirmed`, `lost`, `retired`) with bounded occlusion recovery. `TrackROISet` provides predicted ROIs, uncovered-region work, and periodic full-frame recovery without multiplying full Robust decodes by target count. `TrackOverlayModel` keeps renderer data inside the SDK boundary while React, Canvas, or SVG owns presentation only.
+
+Batch composition supports continuous, expected-count, checklist, and unique-physical-instance modes. Expected counts and checklist quantities are satisfied by confirmed physical tracks, not repeated decoder events or `Set(payload)` cardinality; checklist state reports matched, missing, unexpected, and duplicate items.
+
+The development evidence harness defines 30 independent Ground Truth scenarios across basic, multi-object, identity, lifecycle, batch, and stress families. It evaluates identity switches, fragmentation, false tracks, matched/missed observations, track recall/precision, and false batch completion, and records 1/4/8/16-target performance baselines. Separate 10,000-frame Core and 1,000-frame real Worker/WASM tracking soaks retain their evidence boundaries. The deterministic browser subset covers single target, equal-payload instances, crossing, occlusion, and expected-count completion in Chromium, Firefox, and WebKit.
+
+See [Beta 2 tracking and batch scan](docs/beta2-tracking-batch.md). This remains development/integration evidence: it does not claim industrial tracking, warehouse certification, AR MatrixScan parity, or physical-device validation.
 
 <!-- ALPHA5_INTEGRATION_SUMMARY_START -->
 | Current Alpha.5 development evidence | Value |
@@ -98,7 +110,7 @@ See [Beta 1 real-time runtime](docs/beta1-realtime-runtime.md) for the lifecycle
 | Optional project-photo manifest | [fixtures/alpha5/project-photos/manifest.json](fixtures/alpha5/project-photos/manifest.json) |
 <!-- ALPHA5_INTEGRATION_SUMMARY_END -->
 
-The Beta 1 photo gate is a curated open-license camera-photo cohort kept separate from optional project-owned evidence. Its 16 SHA-256-pinned originals cover Data Matrix 3, PDF417 3, Code 128 4, and EAN/UPC 6; they record 21 visible physical instances and pass exact all-format ZXing-C++ WASM Ground Truth verification for 20/20 `(format, payload, isGs1)` semantic results. Every entry records original bytes, a trusted source, redistributable license evidence, camera-photo review, and sensitive-data review. The three PDF417 photographs are pinned to an Apache-2.0 ZXing commit whose history identifies them as Android-camera real-world images. Physical-camera/device evidence remains independent and unavailable, so Beta 1 release remains `NO-GO` even when this photo gate passes.
+The Beta 1 photo gate is a curated open-license camera-photo cohort kept separate from optional project-owned evidence. Its 16 SHA-256-pinned originals cover Data Matrix 3, PDF417 3, Code 128 4, and EAN/UPC 6; they record 21 visible physical instances and pass exact all-format ZXing-C++ WASM Ground Truth verification for 20/20 `(format, payload, isGs1)` semantic results. Every entry records original bytes, a trusted source, redistributable license evidence, camera-photo review, and sensitive-data review. The three PDF417 photographs are pinned to an Apache-2.0 ZXing commit whose history identifies them as Android-camera real-world images. Physical-camera/device evidence remains independent and unavailable; it is not represented by this cohort and does not block Beta 2 integration development.
 
 Curated open-license camera photographs satisfy the Beta 1 photo gate but do not constitute physical-camera/device evidence or project ownership.
 
@@ -205,7 +217,7 @@ See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 
 ## Project status
 
-**SDK v2 Beta 1 development preview.** Scanly now has a unified, dependency-inverted, scenario-driven runtime with a persistent, bounded, temporally aware camera foundation. Industrial or production readiness is not claimed: the dataset is internal, physical-device coverage is absent, Alpha.5 multi-symbology coverage remains preview-level, and the Beta API may change.
+**SDK v2 Beta 2 development preview.** Scanly is extending the bounded Beta 1 camera runtime with deterministic multi-target identity, occlusion-aware lifecycle, batch state, and renderer-neutral overlays. Industrial or production readiness is not claimed: physical-device coverage is absent, performance measurements are development baselines, Alpha.5 multi-symbology coverage remains preview-level, and the Beta API may change.
 
 ## License
 

@@ -1,12 +1,21 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { BrowserCameraSource, BrowserCaptureSession, MediaStreamCameraFrameSource, ScannerSession } from "@scanly/browser";
+import {
+  BatchScanSession,
+  BrowserCameraSource,
+  BrowserCaptureSession,
+  MediaStreamCameraFrameSource,
+  ScannerSession,
+  createTrackOverlayModels,
+} from "@scanly/browser";
+import type { BatchState, TrackOverlayModel } from "@scanly/browser";
 import { isSafeActionUrl } from "@scanly/parsers";
 import type { ScanResult, SdkErrorCode } from "@scanly/core";
 import { getBuiltinScenario, type ScenarioPresetId } from "@scanly/scenario-schema";
 
 type Mode = "camera" | "upload";
+type CameraExperience = "single" | "tracking-batch";
 type Preset = "balanced" | "robust" | "multiformat-balanced" | "retail-fast" | "logistics-balanced" | "document-robust";
 
 function formatLabel(format: ScanResult["format"]): string {
@@ -33,6 +42,40 @@ function resultFromScannerEvent(event: import("@scanly/browser").ScanEvent): Sca
   };
 }
 
+function trackColor(state: TrackOverlayModel["state"]): string {
+  if (state === "confirmed") return "#58d68d";
+  if (state === "lost") return "#f5b041";
+  if (state === "retired") return "#85929e";
+  return "#7fb3ff";
+}
+
+function trackOverlayStyle(track: TrackOverlayModel, video: HTMLVideoElement | null): React.CSSProperties {
+  const frameWidth = video?.videoWidth ?? 0;
+  const frameHeight = video?.videoHeight ?? 0;
+  const viewportWidth = video?.clientWidth ?? 0;
+  const viewportHeight = video?.clientHeight ?? 0;
+  if (!frameWidth || !frameHeight || !viewportWidth || !viewportHeight) return { display: "none" };
+
+  // Mirror the preview's object-fit: cover transform so SDK pixel geometry
+  // remains aligned when camera and preview aspect ratios differ.
+  const scale = Math.max(viewportWidth / frameWidth, viewportHeight / frameHeight);
+  const offsetX = (viewportWidth - frameWidth * scale) / 2;
+  const offsetY = (viewportHeight - frameHeight * scale) / 2;
+  const box = track.boundingBox;
+  const color = trackColor(track.state);
+  return {
+    position: "absolute",
+    left: offsetX + box.x * scale,
+    top: offsetY + box.y * scale,
+    width: Math.max(1, box.width * scale),
+    height: Math.max(1, box.height * scale),
+    border: `2px solid ${color}`,
+    borderRadius: 8,
+    boxShadow: `0 0 0 1px rgba(0,0,0,0.55), 0 0 12px ${color}55`,
+    opacity: track.state === "lost" ? 0.58 : 1,
+  };
+}
+
 export default function QRTool() {
   const [mode, setMode] = useState<Mode>("camera");
   const [status, setStatus] = useState<string>("Idle");
@@ -45,6 +88,10 @@ export default function QRTool() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadReady, setUploadReady] = useState(false);
   const [preset, setPreset] = useState<Preset>("balanced");
+  const [cameraExperience, setCameraExperience] = useState<CameraExperience>("single");
+  const [batchExpectedCount, setBatchExpectedCount] = useState(12);
+  const [batchState, setBatchState] = useState<BatchState | null>(null);
+  const [trackOverlays, setTrackOverlays] = useState<readonly TrackOverlayModel[]>([]);
   const [scannerState, setScannerState] = useState<string>("idle");
   const [scannerHint, setScannerHint] = useState<string>("searching");
   const [torchEnabled, setTorchEnabled] = useState(false);
@@ -59,6 +106,7 @@ export default function QRTool() {
   const uploadSession = useMemo(() => new BrowserCaptureSession(), []);
   const cameraSource = useMemo(() => new BrowserCameraSource(), []);
   const scannerSessionRef = useRef<ScannerSession | null>(null);
+  const batchSessionRef = useRef<BatchScanSession | null>(null);
 
   const primaryResult = results[0];
   const primary = primaryResult?.rawText ?? "";
@@ -71,6 +119,15 @@ export default function QRTool() {
     ? JSON.stringify({ structuredPayload: primaryResult.structuredPayload, barcode: primaryResult.metadata }, null, 2)
     : "";
   const activeScenario = useMemo(() => getBuiltinScenario(preset as ScenarioPresetId), [preset]);
+
+  async function disposeCameraRuntime(): Promise<void> {
+    const batch = batchSessionRef.current;
+    const scanner = scannerSessionRef.current;
+    batchSessionRef.current = null;
+    scannerSessionRef.current = null;
+    if (batch) await batch.dispose();
+    else await scanner?.dispose();
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -113,8 +170,7 @@ export default function QRTool() {
     setUploadReady(true);
     return () => {
       setUploadReady(false);
-      void scannerSessionRef.current?.dispose();
-      scannerSessionRef.current = null;
+      void disposeCameraRuntime();
       void cameraSource.dispose();
       uploadAbortRef.current?.abort();
       void uploadSession.dispose();
@@ -125,6 +181,8 @@ export default function QRTool() {
     setLastError("");
     setErrorReason("");
     setResults([]);
+    setTrackOverlays([]);
+    setBatchState(null);
 
     if (!videoRef.current) {
       setLastError("Video element not ready.");
@@ -140,27 +198,62 @@ export default function QRTool() {
       setStatus("Requesting camera permission…");
       setIsScanning(true);
 
-      await scannerSessionRef.current?.dispose();
+      await disposeCameraRuntime();
       const source = new MediaStreamCameraFrameSource({ video: videoRef.current, deviceId: deviceId || undefined, stopWhenPageHidden: true });
       const session = new ScannerSession({ source, decoderOptions: { scenario: activeScenario }, confirmation: { mode: "adaptive" }, repeatPolicy: { mode: "physical-instance", cooldownMs: 1_500 }, quality: { sampleTarget: 1_024 } });
       scannerSessionRef.current = session;
-      session.onStateChange((state) => { setScannerState(state); if (state === "scanning") setStatus("Scanning… keep the barcode inside the frame"); });
+      session.onStateChange((state) => {
+        setScannerState(state);
+        if (state === "scanning") {
+          setStatus(cameraExperience === "tracking-batch" ? "Tracking physical barcode instances…" : "Scanning… keep the barcode inside the frame");
+        }
+      });
       session.onResult((event) => {
         setResults([resultFromScannerEvent(event)]);
-        setStatus("Decoded");
         navigator.vibrate?.(50);
-        setIsScanning(false);
-        setScannerState("stopped");
-        setScannerHint("searching");
-        void session.stop();
+        if (cameraExperience === "single") {
+          setStatus("Decoded");
+          setIsScanning(false);
+          setScannerState("stopped");
+          setScannerHint("searching");
+          void session.stop();
+        }
       });
       session.onDiagnostics((diagnostic) => { if (diagnostic.hint) setScannerHint(diagnostic.hint.type); if (diagnostic.error) { setErrorReason(diagnostic.error.code); setLastError(diagnostic.error.message); } });
-      await session.start();
+      if (cameraExperience === "tracking-batch") {
+        const batch = new BatchScanSession({
+          scanner: session,
+          mode: "expected-count",
+          expectedCount: batchExpectedCount,
+          trackerOptions: { maxTrackedBarcodes: 32, maxObservations: 32 },
+        });
+        batchSessionRef.current = batch;
+        setBatchState(batch.getBatchState());
+        batch.onTrack(() => {
+          setTrackOverlays([...createTrackOverlayModels(batch.getTracks())]);
+        });
+        batch.onBatchEvent((event) => {
+          setBatchState(batch.getBatchState());
+          if (event.type === "batch-completed") {
+            setStatus(`Batch complete: ${event.state.confirmedPhysicalInstanceCount} / ${event.state.expectedCount ?? batchExpectedCount}`);
+            setIsScanning(false);
+            navigator.vibrate?.([60, 40, 60]);
+            void batch.stop();
+          } else if (event.type === "batch-failed") {
+            setStatus("Batch failed");
+            setLastError(event.state.failureReason ?? "The tracking batch failed.");
+          }
+        });
+        await batch.start();
+      } else {
+        await session.start();
+      }
       const capabilities = session.getCameraCapabilities();
       setCameraCapabilities({ torch: capabilities.torch, minZoom: capabilities.zoom?.min, maxZoom: capabilities.zoom?.max, currentZoom: capabilities.zoom?.current });
       setScannerHint("searching");
-      setStatus("Scanning… keep the barcode inside the frame");
+      setStatus(cameraExperience === "tracking-batch" ? "Tracking physical barcode instances…" : "Scanning… keep the barcode inside the frame");
     } catch (e) {
+      await disposeCameraRuntime().catch(() => undefined);
       setIsScanning(false);
       setScannerState("failed");
       setStatus("Ready");
@@ -180,7 +273,8 @@ export default function QRTool() {
   }
 
   function stopScan() {
-    void scannerSessionRef.current?.stop();
+    if (batchSessionRef.current) void batchSessionRef.current.stop();
+    else void scannerSessionRef.current?.stop();
     // Stop any leftover media tracks
     const video = videoRef.current;
     const stream = video?.srcObject;
@@ -195,17 +289,19 @@ export default function QRTool() {
   }
 
   function pauseScan() {
-    scannerSessionRef.current?.pause();
+    if (batchSessionRef.current) batchSessionRef.current.pause();
+    else scannerSessionRef.current?.pause();
     setScannerState("paused");
     setScannerHint("hold_steady");
     setStatus("Paused");
   }
 
   function resumeScan() {
-    scannerSessionRef.current?.resume();
-    setScannerState("running");
+    if (batchSessionRef.current) batchSessionRef.current.resume();
+    else scannerSessionRef.current?.resume();
+    setScannerState("scanning");
     setScannerHint("searching");
-    setStatus("Scanning… keep the barcode inside the frame");
+    setStatus(cameraExperience === "tracking-batch" ? "Tracking physical barcode instances…" : "Scanning… keep the barcode inside the frame");
   }
 
   async function toggleTorch() {
@@ -333,6 +429,8 @@ export default function QRTool() {
     stopScan();
     void onCancelUpload();
     setMode("upload");
+    setTrackOverlays([]);
+    setBatchState(null);
     setLastError("");
     setErrorReason("");
     setResults([]);
@@ -398,6 +496,41 @@ export default function QRTool() {
           <option value="document-robust">Document</option>
           <option value="multiformat-balanced">All Alpha.5</option>
         </select>
+        {mode === "camera" && (
+          <>
+            <label className="small" htmlFor="camera-experience">Camera mode</label>
+            <select
+              id="camera-experience"
+              value={cameraExperience}
+              onChange={(event) => {
+                setCameraExperience(event.target.value as CameraExperience);
+                setTrackOverlays([]);
+                setBatchState(null);
+                setResults([]);
+              }}
+              aria-label="Camera scanning mode"
+              disabled={isScanning}
+            >
+              <option value="single">Single result</option>
+              <option value="tracking-batch">Tracking / Batch</option>
+            </select>
+            {cameraExperience === "tracking-batch" && (
+              <label className="small" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                Expected physical items
+                <input
+                  type="number"
+                  min={1}
+                  max={32}
+                  value={batchExpectedCount}
+                  onChange={(event) => setBatchExpectedCount(Math.min(32, Math.max(1, Number(event.target.value) || 1)))}
+                  aria-label="Expected physical barcode count"
+                  disabled={isScanning}
+                  style={{ width: 72, padding: "8px 10px", borderRadius: 10 }}
+                />
+              </label>
+            )}
+          </>
+        )}
       </div>
 
       {mode === "camera" && (
@@ -405,7 +538,17 @@ export default function QRTool() {
           <div className="videoWrap">
             <video ref={videoRef} muted playsInline aria-label="Camera preview" />
             <div className="overlay" aria-hidden="true">
-              <div className="scanBox" />
+              {cameraExperience === "single" ? (
+                <div className="scanBox" />
+              ) : (
+                trackOverlays.map((track) => (
+                  <div key={track.trackId} style={trackOverlayStyle(track, videoRef.current)}>
+                    <span style={{ position: "absolute", left: -2, top: -24, padding: "2px 6px", borderRadius: 6, color: "#071018", background: trackColor(track.state), fontSize: 11, fontWeight: 800, whiteSpace: "nowrap" }}>
+                      {track.trackId} · {track.state}
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
@@ -474,6 +617,33 @@ export default function QRTool() {
           <div className="small" aria-live="polite" data-testid="scanner-feedback" style={{ marginTop: 8 }}>
             Scanner state: <span className="mono">{scannerState}</span> · hint: <span className="mono">{scannerHint}</span>
           </div>
+
+          {cameraExperience === "tracking-batch" && (
+            <section aria-label="Tracking and batch state" style={{ marginTop: 14, padding: 12, border: "1px solid rgba(255,255,255,0.14)", borderRadius: 12 }}>
+              <div className="row" style={{ alignItems: "center", justifyContent: "space-between" }}>
+                <strong>Batch progress</strong>
+                <span className="mono" data-testid="batch-progress">
+                  {batchState?.confirmedPhysicalInstanceCount ?? 0} / {batchState?.expectedCount ?? batchExpectedCount} · {batchState?.status ?? "ready"}
+                </span>
+              </div>
+              <div className="small" style={{ marginTop: 8 }}>
+                Progress counts confirmed physical tracks, not repeated decoder events or unique payload strings.
+              </div>
+              {trackOverlays.length === 0 ? (
+                <p className="small">No barcode tracks yet.</p>
+              ) : (
+                <div style={{ display: "grid", gap: 8, marginTop: 10 }} data-testid="barcode-track-list">
+                  {trackOverlays.map((track) => (
+                    <div key={track.trackId} style={{ display: "grid", gridTemplateColumns: "minmax(90px, auto) minmax(0, 1fr) auto", gap: 10, alignItems: "center", padding: 9, borderRadius: 10, background: "rgba(255,255,255,0.05)", borderLeft: `4px solid ${trackColor(track.state)}` }}>
+                      <span className="mono">{track.trackId}</span>
+                      <span style={{ overflowWrap: "anywhere" }}>{track.payload}</span>
+                      <span className="small">{formatLabel(track.format)} · {track.state}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
 
           <div className="small" style={{ marginTop: 10 }}>
             If permission prompt doesn’t show: on iOS use Safari, ensure the site is HTTPS, and allow camera access.

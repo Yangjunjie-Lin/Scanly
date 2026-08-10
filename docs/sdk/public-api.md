@@ -10,6 +10,22 @@
 
 Static multi-code scans default to `payload-format-spatial` deduplication. Schema `2.1` also supports `payload`, `payload-format`, and `tracked-instance` policy selection. Geometry-proven separate instances with the same payload remain separate under the default; when geometry is unavailable, the documented fallback is payload plus format identity.
 
+## Beta 2 tracking and batch surface
+
+`@scanly/browser` exports tracking and batch composition from the package root. `ScannerSession.onObservations` publishes one complete `BarcodeObservationSet` per admitted frame, including every valid decoder result rather than only the primary result. `BatchScanSession` consumes that boundary and composes the existing scanner with `BarcodeTracker` and `BatchController`; it does not create another camera runtime.
+
+| Runtime values | Runtime types |
+| --- | --- |
+| `BarcodeTracker`, `associateTracks`, `calculateAssociationCost` | `BarcodeTrack`, `BarcodeTrackState`, `BarcodeObservation`, `BarcodeTrackerOptions`, `BarcodeTrackerUpdate`, `TrackingStatistics` |
+| `TrackROISet`, `createTrackOverlayModel`, `createTrackOverlayModels` | `TrackROI`, `TrackROIPlan`, `TrackROISetOptions`, `TrackOverlayModel` |
+| `BatchController`, `BatchScanSession` | `BatchScanSessionOptions`, `BatchMode`, `BatchStatus`, `BatchState`, `BatchEvent`, `ExpectedBatchItem`, `BatchStatistics` |
+
+Track identity is physical and spatial: `trackId` is not the payload. Association is a bounded deterministic assignment over payload/format compatibility, center distance, IoU, geometry size, motion prediction, and elapsed time. The lifecycle is `tentative`, `confirmed`, `lost`, and `retired`; a compatible reappearance inside the grace window restores the same identity.
+
+Batch completion uses confirmed physical tracks. `expected-count` cannot complete from repeat events, and checklist `quantity` supports multiple physical items carrying the same payload. `TrackOverlayModel` contains renderer-neutral geometry and labels; Canvas, SVG, DOM, and React remain consumers of that model.
+
+See [Beta 2 barcode tracking and batch scan](../beta2-tracking-batch.md) for composition examples, bounded association behavior, ROI recovery, evidence, and non-claims.
+
 ## Beta 1 real-time scanner runtime
 
 `@scanly/browser` exposes `ScannerSession` for continuous camera work. A session owns the camera source, persistent decode Worker, frame scheduler, temporal candidate store, ROI hint, repeat policy, cancellation generation, and diagnostics; a React adapter should only render state and subscribe to events.
