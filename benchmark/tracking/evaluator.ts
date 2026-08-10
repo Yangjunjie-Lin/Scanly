@@ -53,13 +53,15 @@ export class TrackingEvaluator {
   private readonly priorTrackByObject = new Map<string, string>();
   private readonly priorMatchedFrameByObject = new Map<string, number>();
   private readonly trackIdsByObject = new Map<string, Set<string>>();
-  private readonly matchedTrackIds = new Set<string>();
+  private readonly matchedConfirmedTrackIds = new Set<string>();
   private readonly confirmedTrackIds = new Set<string>();
   private readonly confirmedTrackLifetimes = new Map<string, { first: number; last: number }>();
   private identitySwitchCount = 0;
   private matchedObservationCount = 0;
   private missedObservationCount = 0;
   private falseTrackObservationCount = 0;
+  private falseConfirmedTrackObservationCount = 0;
+  private unmatchedTentativeTrackObservationCount = 0;
 
   constructor(groundTruth: readonly GroundTruthTrack[], options: TrackingEvaluatorOptions = {}) {
     this.groundTruth = groundTruth;
@@ -74,6 +76,7 @@ export class TrackingEvaluator {
     const visibleTracks = tracks.filter((track) =>
       track.lastFrameId === frameIndex && (track.state === "tentative" || track.state === "confirmed"),
     );
+    const visibleTrackById = new Map(visibleTracks.map((track) => [track.trackId, track]));
 
     for (const track of tracks) {
       if (track.state !== "confirmed") continue;
@@ -102,7 +105,9 @@ export class TrackingEvaluator {
       usedObjects.add(pair.objectId);
       usedTracks.add(pair.trackId);
       matches.push(pair);
-      this.matchedTrackIds.add(pair.trackId);
+      if (visibleTrackById.get(pair.trackId)?.state === "confirmed") {
+        this.matchedConfirmedTrackIds.add(pair.trackId);
+      }
       const history = this.trackIdsByObject.get(pair.objectId) ?? new Set<string>();
       history.add(pair.trackId);
       this.trackIdsByObject.set(pair.objectId, history);
@@ -119,10 +124,15 @@ export class TrackingEvaluator {
     }
 
     const missedObjectIds = truths.map(({ track }) => track.objectId).filter((id) => !usedObjects.has(id));
-    const unmatchedTrackIds = visibleTracks.map((track) => track.trackId).filter((id) => !usedTracks.has(id));
+    const unmatchedTracks = visibleTracks.filter((track) => !usedTracks.has(track.trackId));
+    const unmatchedTrackIds = unmatchedTracks.map((track) => track.trackId);
+    const unmatchedConfirmedTrackIds = unmatchedTracks.filter((track) => track.state === "confirmed").map((track) => track.trackId);
+    const unmatchedTentativeTrackIds = unmatchedTracks.filter((track) => track.state === "tentative").map((track) => track.trackId);
     this.matchedObservationCount += matches.length;
     this.missedObservationCount += missedObjectIds.length;
     this.falseTrackObservationCount += unmatchedTrackIds.length;
+    this.falseConfirmedTrackObservationCount += unmatchedConfirmedTrackIds.length;
+    this.unmatchedTentativeTrackObservationCount += unmatchedTentativeTrackIds.length;
 
     const evaluation: TrackingFrameEvaluation = {
       frameIndex,
@@ -131,6 +141,8 @@ export class TrackingEvaluator {
       matches,
       missedObjectIds,
       unmatchedTrackIds,
+      unmatchedConfirmedTrackIds,
+      unmatchedTentativeTrackIds,
       identitySwitches: frameIdentitySwitches,
     };
     this.frames.push(evaluation);
@@ -138,7 +150,11 @@ export class TrackingEvaluator {
   }
 
   finish(): TrackingEvaluationResult {
-    const falseTrackIds = [...this.confirmedTrackIds].filter((trackId) => !this.matchedTrackIds.has(trackId)).sort();
+    // A track is only exonerated by a Ground Truth match on a frame where it
+    // was confirmed. A tentative match cannot mask a later false confirmation.
+    const falseTrackIds = [...this.confirmedTrackIds]
+      .filter((trackId) => !this.matchedConfirmedTrackIds.has(trackId))
+      .sort();
     const fragmentation = [...this.trackIdsByObject.values()].reduce((sum, ids) => sum + Math.max(0, ids.size - 1), 0);
     const recallDenominator = this.matchedObservationCount + this.missedObservationCount;
     const precisionDenominator = this.matchedObservationCount + this.falseTrackObservationCount;
@@ -156,6 +172,8 @@ export class TrackingEvaluator {
         matchedObservationCount: this.matchedObservationCount,
         missedObservationCount: this.missedObservationCount,
         falseTrackObservationCount: this.falseTrackObservationCount,
+        falseConfirmedTrackObservationCount: this.falseConfirmedTrackObservationCount,
+        unmatchedTentativeTrackObservationCount: this.unmatchedTentativeTrackObservationCount,
         trackRecall: recallDenominator === 0 ? 1 : this.matchedObservationCount / recallDenominator,
         trackPrecision: precisionDenominator === 0 ? 1 : this.matchedObservationCount / precisionDenominator,
         averageTrackLifetimeFrames: lifetimes.length === 0 ? 0 : lifetimes.reduce((sum, value) => sum + value, 0) / lifetimes.length,

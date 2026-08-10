@@ -11,18 +11,33 @@ describe("tracking controlled-memory contract", () => {
       processedFrames: 10_000,
       decoderCalls: 10_000,
       decoderCallsPerFrame: 1,
-      peakTrackMapSize: 16,
-      peakLostTrackCount: 0,
+      peakTrackMapSize: 24,
+      peakLostTrackCount: 8,
       peakPendingObservationCount: 0,
-      peakROIState: 16,
-      eventHistorySize: 0,
+      peakROIState: 24,
+      eventHistoryCapacity: 64,
+      peakEventHistorySize: 64,
+      batchStatusBeforeDispose: "collecting",
+      batchMatchedQuantity: 16,
+      batchMissingQuantity: 1,
+      batchPeakRetainedTrackCount: 24,
+      batchPeakRetainedPhysicalInstanceCount: 32,
       finalActiveTrackCount: 0,
       finalLostTrackCount: 0,
       finalPendingObservationCount: 0,
       finalROIState: 0,
+      finalBatchRetainedTrackCount: 0,
+      finalBatchRetainedPhysicalInstanceCount: 0,
+      finalBatchUnexpectedQuantity: 0,
+      finalBatchDuplicateQuantity: 0,
+      finalEventHistorySize: 0,
       finalControlledMemory: 0,
     });
-    expect(Number(report.observed.peakAssociationPairs)).toBeLessThanOrEqual(256);
+    expect(Number(report.observed.retiredTrackCount)).toBeGreaterThan(0);
+    expect(Number(report.observed.batchUnexpectedQuantity)).toBeGreaterThan(0);
+    expect(Number(report.observed.batchDuplicateQuantity)).toBeGreaterThan(0);
+    expect(Number(report.observed.batchRetentionRejectedPhysicalInstanceCount)).toBeGreaterThan(0);
+    expect(Number(report.observed.peakAssociationPairs)).toBeLessThanOrEqual(24 ** 2);
     expect(Number(report.observed.fullFrameRecoveryCount)).toBeGreaterThanOrEqual(1_000);
   }, 60_000);
 });

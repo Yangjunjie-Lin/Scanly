@@ -51,6 +51,19 @@ export interface TrackingBatchExpectedItem {
   quantity?: number;
 }
 
+export interface TrackingBatchExpectedClassification {
+  /** Ground-truth object identity; never passed into the tracker/controller. */
+  objectId: string;
+  payload: string;
+  format: BarcodeFormat;
+}
+
+export interface TrackingBatchMissingDetail {
+  payload: string;
+  format?: BarcodeFormat;
+  quantity: number;
+}
+
 export type TrackingBatchExpectation =
   | { mode: "continuous"; status: "collecting" }
   | { mode: "expected-count"; expectedCount: number; status: "complete" | "collecting"; confirmedPhysicalInstanceCount?: number }
@@ -63,6 +76,11 @@ export type TrackingBatchExpectation =
       missingQuantity: number;
       unexpectedQuantity: number;
       duplicateQuantity: number;
+      /** Independent, per-object classification oracle. */
+      matched: readonly TrackingBatchExpectedClassification[];
+      missing: readonly TrackingBatchMissingDetail[];
+      unexpected: readonly TrackingBatchExpectedClassification[];
+      duplicate: readonly TrackingBatchExpectedClassification[];
     };
 
 export interface TrackingScenarioExpected {
@@ -76,6 +94,14 @@ export interface TrackingScenarioExpected {
   minimumTrackPrecision: number;
   samePayloadInstanceSeparation?: boolean;
   batch?: TrackingBatchExpectation;
+  lifecycle?: {
+    newTrackCount: number;
+    lostTransitionCount: number;
+    restoredTransitionCount: number;
+    retiredTransitionCount: number;
+    requiredOrder: readonly TrackingTrackTransitionType[];
+    restoredTrackMustMatchLostTrack?: boolean;
+  };
 }
 
 export interface TrackingSequenceScenario {
@@ -89,8 +115,8 @@ export interface TrackingSequenceScenario {
   expected: TrackingScenarioExpected;
   trackerOptions?: {
     confirmationObservations?: number;
-    lostGraceFrames?: number;
-    retirementFrames?: number;
+    /** Exact BarcodeTracker missed-frame retention boundary. */
+    maxMissedFrames?: number;
     maxTracks?: number;
     maxObservations?: number;
     associationThreshold?: number;
@@ -126,6 +152,8 @@ export interface TrackingFrameEvaluation {
   matches: readonly TrackingFrameMatch[];
   missedObjectIds: readonly string[];
   unmatchedTrackIds: readonly string[];
+  unmatchedConfirmedTrackIds: readonly string[];
+  unmatchedTentativeTrackIds: readonly string[];
   identitySwitches: number;
 }
 
@@ -138,6 +166,8 @@ export interface TrackingEvaluationMetrics {
   matchedObservationCount: number;
   missedObservationCount: number;
   falseTrackObservationCount: number;
+  falseConfirmedTrackObservationCount: number;
+  unmatchedTentativeTrackObservationCount: number;
   trackRecall: number;
   trackPrecision: number;
   averageTrackLifetimeFrames: number;
@@ -185,6 +215,8 @@ export interface TrackingScenarioReport {
     finalActiveTrackCount: number;
     finalLostTrackCount: number;
     finalPendingObservationCount: number;
+    finalBatchRetainedTrackCount: number;
+    finalBatchRetainedPhysicalInstanceCount: number;
     finalControlledMemory: number;
   };
   assertions: readonly TrackingAssertion[];
@@ -194,4 +226,32 @@ export interface TrackingScenarioReport {
   frameEvaluations: readonly TrackingFrameEvaluation[];
   objectTrackHistory: Readonly<Record<string, readonly string[]>>;
   trackTimeline: ReadonlyArray<{ frameIndex: number; tracks: readonly PredictedTrackSnapshot[] }>;
+  transitionTimeline: readonly TrackingTrackTransitionTimelineEntry[];
+  batchEventTimeline: readonly TrackingBatchEventTimelineEntry[];
+}
+
+export type TrackingTrackTransitionType = "new" | "lost" | "restored" | "retired";
+
+export interface TrackingTrackTransitionTimelineEntry {
+  sequence: number;
+  frameIndex: number;
+  timestampMs: number;
+  type: TrackingTrackTransitionType;
+  trackId: string;
+  physicalInstanceId: string;
+  payload: string;
+  format: BarcodeFormat;
+  state: PredictedTrackState;
+}
+
+export interface TrackingBatchEventTimelineEntry {
+  sequence: number;
+  frameIndex: number;
+  timestampMs: number;
+  type: string;
+  trackId?: string;
+  physicalInstanceId?: string;
+  payload?: string;
+  format?: BarcodeFormat;
+  status?: string;
 }

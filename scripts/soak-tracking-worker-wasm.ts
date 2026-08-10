@@ -4,6 +4,7 @@ import { createServer } from "node:http";
 import path from "node:path";
 import { build } from "esbuild";
 import { chromium } from "playwright";
+import { BROWSER_SDK_VERSION } from "../packages/browser/src/index.js";
 
 const root = path.resolve(__dirname, "..");
 const iterationArgument = process.argv.find((item) => item.startsWith("--iterations="));
@@ -36,6 +37,8 @@ type BrowserObservation = {
     wasmResultCount: number;
   };
   observationSetCount: number;
+  trackingModeObservationSetCount: number;
+  fullFrameTrackingObservationSetCount: number;
   multiResultObservationSetCount: number;
   completeObservationSetCount: number;
   wasmBackedObservationSetCount: number;
@@ -114,17 +117,6 @@ window.__runScanlyTrackingWorkerWasmSoak = async (iterations) => {
   scenario.semanticParsers = [];
 
   const decoder = new BrowserScannerFrameDecoder({ useWorker: true, scenario });
-  // Tracking needs one complete, full-frame observation set. This adapter only
-  // pins that evidence profile; decoding still goes through the real browser
-  // decoder, its persistent DecodeWorkerClient, and ZXing-C++ WASM.
-  const fullFrameBalancedDecoder = {
-    decode(frame, request) {
-      return decoder.decode(frame, { ...request, profile: "balanced", roi: undefined });
-    },
-    cancel() { decoder.cancel(); },
-    dispose() { return decoder.dispose(); },
-    getStatistics() { return decoder.getStatistics(); },
-  };
   const quality = {
     blurScore: 1,
     brightness: 0.5,
@@ -182,7 +174,17 @@ window.__runScanlyTrackingWorkerWasmSoak = async (iterations) => {
   });
   const session = new ScannerSession({
     source,
-    decoder: fullFrameBalancedDecoder,
+    decoder,
+    decodeMode: "tracking",
+    tracking: {
+      maxResults: EXPECTED_PAYLOADS.length,
+      profile: "balanced",
+      trackerOptions: { confirmationObservations: 1, maxTracks: EXPECTED_PAYLOADS.length, maxObservations: 8 },
+      // This soak proves complete multi-code Worker/WASM sets on every frame;
+      // deterministic ScannerSession tests separately exercise the tracked and
+      // uncovered ROI phases.
+      roi: { globalScanIntervalFrames: 1 },
+    },
     confirmation: { mode: "immediate" },
     repeatPolicy: { mode: "allow" },
     quality: {
@@ -197,6 +199,8 @@ window.__runScanlyTrackingWorkerWasmSoak = async (iterations) => {
   });
 
   let observationSetCount = 0;
+  let trackingModeObservationSetCount = 0;
+  let fullFrameTrackingObservationSetCount = 0;
   let multiResultObservationSetCount = 0;
   let completeObservationSetCount = 0;
   let wasmBackedObservationSetCount = 0;
@@ -210,6 +214,8 @@ window.__runScanlyTrackingWorkerWasmSoak = async (iterations) => {
   session.onObservations((set) => {
     try {
       observationSetCount += 1;
+      if (set.decodeMode === "tracking") trackingModeObservationSetCount += 1;
+      if (set.decodeMode === "tracking" && set.roiPhase === "full-frame") fullFrameTrackingObservationSetCount += 1;
       totalObservationCount += set.observations.length;
       if (set.observations.length > 1) multiResultObservationSetCount += 1;
       if (exactPayloadSet(set.observations)) completeObservationSetCount += 1;
@@ -266,6 +272,8 @@ window.__runScanlyTrackingWorkerWasmSoak = async (iterations) => {
   return {
     warmup,
     observationSetCount,
+    trackingModeObservationSetCount,
+    fullFrameTrackingObservationSetCount,
     multiResultObservationSetCount,
     completeObservationSetCount,
     wasmBackedObservationSetCount,
@@ -408,6 +416,8 @@ async function main(): Promise<void> {
     { id: "worker-wasm-multicode-warmup", expected: { resultCount: 3, payloads: expectedPayloads, minimumWasmResults: 1 }, observed: observed.warmup, pass: observed.warmup.ok && observed.warmup.resultCount === expectedPayloads.length && observed.warmup.wasmResultCount >= 1 },
     { id: "all-session-frames-admitted", expected: iterations, observed: runningScanner.admittedFrames, pass: runningScanner.admittedFrames === iterations },
     { id: "one-observation-set-per-frame", expected: iterations, observed: observed.observationSetCount, pass: observed.observationSetCount === iterations },
+    { id: "production-tracking-mode-per-frame", expected: iterations, observed: observed.trackingModeObservationSetCount, pass: observed.trackingModeObservationSetCount === iterations },
+    { id: "full-frame-tracking-soak-profile", expected: iterations, observed: observed.fullFrameTrackingObservationSetCount, pass: observed.fullFrameTrackingObservationSetCount === iterations },
     { id: "multi-result-path-preserved", expected: iterations, observed: observed.multiResultObservationSetCount, pass: observed.multiResultObservationSetCount === iterations },
     { id: "complete-ground-truth-payload-set", expected: iterations, observed: observed.completeObservationSetCount, pass: observed.completeObservationSetCount === iterations },
     { id: "wasm-backed-observation-sets", expected: iterations, observed: observed.wasmBackedObservationSetCount, pass: observed.wasmBackedObservationSetCount === iterations },
@@ -447,9 +457,11 @@ async function main(): Promise<void> {
     { id: "no-console-errors", expected: 0, observed: consoleErrors, pass: consoleErrors.length === 0 },
   ];
   const failureReasons = assertions.filter((assertion) => !assertion.pass).map((assertion) => assertion.id);
+  const pass = failureReasons.length === 0;
   const report = {
-    schemaVersion: "2.0-beta2",
+    schemaVersion: "2.3-beta2-development",
     kind: "tracking-worker-wasm-soak",
+    sdkVersion: BROWSER_SDK_VERSION,
     tier: iterations >= 10_000 ? "extended" : iterations >= 1_000 ? "pull-request" : "development-smoke",
     workerEvidence: "actual-browser-worker",
     wasmEvidence: "actual-zxing-cpp-wasm",
@@ -494,7 +506,8 @@ async function main(): Promise<void> {
       pageErrors,
     },
     assertions,
-    pass: failureReasons.length === 0,
+    pass,
+    status: pass ? "passed" : "failed",
     failureReasons,
   };
   const output = path.join(root, "benchmark-results", "tracking", "worker-wasm-soak.json");
