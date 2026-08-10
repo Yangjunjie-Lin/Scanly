@@ -5,10 +5,15 @@ import type { TrackingAssertion, TrackingScenarioReport } from "./types.js";
 export interface TrackingScaleReport {
   targetCount: 1 | 4 | 8 | 16;
   sourceScenarioId: string;
+  decoderEvidence: "deterministic-observation-driver";
+  decoderP50Ms: number;
+  decoderP95Ms: number;
   trackingP50Ms: number;
   trackingP95Ms: number;
   associationP50Ms: number;
   associationP95Ms: number;
+  totalFrameP50Ms: number;
+  totalFrameP95Ms: number;
   effectiveFps: number;
   decoderCalls: number;
   decoderCallsPerFrame: number;

@@ -121,7 +121,7 @@ function buildScenario(options: ScenarioOptions): TrackingSequenceScenario {
         });
     // Alternating order catches implementations that equate array position with identity.
     if (frameIndex % 2 === 1) observations.reverse();
-    return { frameIndex, timestampMs: 1_000 + frameIndex * 33, observations, decoderMs: 0.1 };
+    return { frameIndex, timestampMs: 1_000 + frameIndex * 33, observations };
   });
 
   return {

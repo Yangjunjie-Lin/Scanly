@@ -85,12 +85,15 @@ describe("tracking benchmark execution", () => {
     const result = await runTrackingSuite();
     expect(result.scales.map(({ targetCount }) => targetCount)).toEqual([1, 4, 8, 16]);
     for (const scale of result.scales) {
+      expect(scale.decoderEvidence).toBe("deterministic-observation-driver");
       expect(scale.decoderCalls).toBeGreaterThan(0);
       expect(scale.decoderCallsPerFrame).toBe(1);
       expect(scale.maximumAssociationPairs).toBeLessThanOrEqual(scale.targetCount ** 2);
       expect(scale.associationP50Ms).toBeGreaterThanOrEqual(0);
       expect(scale.associationP95Ms).toBeGreaterThanOrEqual(scale.associationP50Ms);
+      expect(scale.decoderP95Ms).toBeGreaterThanOrEqual(scale.decoderP50Ms);
       expect(scale.trackingP95Ms).toBeGreaterThanOrEqual(scale.trackingP50Ms);
+      expect(scale.totalFrameP95Ms).toBeGreaterThanOrEqual(scale.totalFrameP50Ms);
       expect(scale.effectiveFps).toBeGreaterThan(0);
     }
   });

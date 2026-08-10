@@ -7,6 +7,7 @@ import type {
   TrackingAssertion,
   TrackingBatchExpectation,
   TrackingLatencyMetrics,
+  TrackingObservationFrame,
   TrackingScenarioReport,
   TrackingSequenceScenario,
 } from "./types.js";
@@ -19,6 +20,37 @@ function percentile(values: readonly number[], quantile: number): number {
 
 function assertion(id: string, pass: boolean, expected: unknown, observed: unknown, message: string): TrackingAssertion {
   return { id, pass, expected, observed, message };
+}
+
+/**
+ * Counted deterministic multi-code boundary. It receives observation stimuli
+ * only (never Ground Truth object IDs) and measures the real work required to
+ * materialize the decoder-facing result set.
+ */
+class DeterministicObservationDriver {
+  calls = 0;
+
+  decode(frame: TrackingObservationFrame): { observations: BarcodeObservation[]; durationMs: number } {
+    const startedAt = performance.now();
+    this.calls += 1;
+    const observations = frame.observations.map((entry) => {
+      if (Object.prototype.hasOwnProperty.call(entry, "objectId")) {
+        throw new Error("Tracking observation input must not contain Ground Truth object identity.");
+      }
+      return {
+        payload: entry.payload,
+        format: entry.format,
+        geometry: {
+          boundingBox: { ...entry.geometry.boundingBox },
+          cornerPoints: entry.geometry.cornerPoints.map((point) => ({ ...point })),
+          frameWidth: entry.geometry.frameWidth,
+          frameHeight: entry.geometry.frameHeight,
+        },
+        confidence: entry.confidence,
+      };
+    });
+    return { observations, durationMs: Math.max(0, performance.now() - startedAt) };
+  }
 }
 
 function trackerOptions(scenario: TrackingSequenceScenario): BarcodeTrackerOptions {
@@ -101,28 +133,19 @@ export async function runTrackingScenario(scenario: TrackingSequenceScenario): P
   const decoderDurations: number[] = [];
   const totalDurations: number[] = [];
   const associationPairs: number[] = [];
+  const decoder = new DeterministicObservationDriver();
   const trackTimeline: Array<{ frameIndex: number; tracks: readonly PredictedTrackSnapshot[] }> = [];
   const startedAt = performance.now();
 
   for (const frame of scenario.observationFrames) {
-    const decoderMs = frame.decoderMs ?? 0;
-    const observations: BarcodeObservation[] = frame.observations.map((entry) => ({
-      payload: entry.payload,
-      format: entry.format,
-      geometry: {
-        boundingBox: { ...entry.geometry.boundingBox },
-        cornerPoints: entry.geometry.cornerPoints.map((point) => ({ ...point })),
-        frameWidth: entry.geometry.frameWidth,
-        frameHeight: entry.geometry.frameHeight,
-      },
-      confidence: entry.confidence,
-    }));
+    const totalStarted = performance.now();
+    const decoded = decoder.decode(frame);
     const trackingStarted = performance.now();
-    const update = tracker.update(observations, { frameId: frame.frameIndex, timestamp: frame.timestampMs });
+    const update = tracker.update(decoded.observations, { frameId: frame.frameIndex, timestamp: frame.timestampMs });
     const trackingMs = Math.max(0, performance.now() - trackingStarted);
     trackingDurations.push(trackingMs);
-    decoderDurations.push(decoderMs);
-    totalDurations.push(decoderMs + trackingMs);
+    decoderDurations.push(decoded.durationMs);
+    totalDurations.push(Math.max(0, performance.now() - totalStarted));
     associationPairs.push(update.association.costMatrix.reduce((sum, row) => sum + row.length, 0));
     batch?.applyTrackerUpdate(update);
     const tracks = update.tracks.map(snapshot);
@@ -162,7 +185,7 @@ export async function runTrackingScenario(scenario: TrackingSequenceScenario): P
     assertion("false-tracks", observed.falseTrackCount <= expected.maximumFalseTrackCount, `<= ${expected.maximumFalseTrackCount}`, observed.falseTrackCount, "No unmatched confirmed track may be created."),
     assertion("track-recall", observed.trackRecall >= expected.minimumTrackRecall, `>= ${expected.minimumTrackRecall}`, observed.trackRecall, "Visible ground-truth observations must be associated."),
     assertion("track-precision", observed.trackPrecision >= expected.minimumTrackPrecision, `>= ${expected.minimumTrackPrecision}`, observed.trackPrecision, "Predicted visible tracks must correspond to truth."),
-    assertion("bounded-decoder-calls", scenario.observationFrames.length === decoderDurations.length, "one multi-code decode call/frame", `${decoderDurations.length}/${scenario.observationFrames.length}`, "Tracking must not expand N targets into N full decode calls."),
+    assertion("bounded-decoder-calls", scenario.observationFrames.length === decoder.calls, "one instrumented multi-code observation-driver call/frame", `${decoder.calls}/${scenario.observationFrames.length}`, "Tracking must not expand N targets into N full decode calls."),
     assertion("bounded-association-pairs", maximumAssociationPairs <= (scenario.trackerOptions?.maxTracks ?? 32) * (scenario.trackerOptions?.maxObservations ?? 32), `<= ${(scenario.trackerOptions?.maxTracks ?? 32) * (scenario.trackerOptions?.maxObservations ?? 32)}`, maximumAssociationPairs, "Association work must remain inside configured track/observation bounds."),
     assertion("active-tracks-disposed", observed.finalActiveTrackCount === 0, 0, observed.finalActiveTrackCount, "Dispose must clear active tracks."),
     assertion("lost-tracks-disposed", observed.finalLostTrackCount === 0, 0, observed.finalLostTrackCount, "Dispose must clear lost-track retention."),
@@ -186,6 +209,7 @@ export async function runTrackingScenario(scenario: TrackingSequenceScenario): P
 
   const trackerMetrics = beforeDisposeStatistics;
   const metrics: TrackingLatencyMetrics = {
+    decoderEvidence: "deterministic-observation-driver",
     associationP50Ms: trackerMetrics.associationP50Ms,
     associationP95Ms: trackerMetrics.associationP95Ms,
     trackingP50Ms: percentile(trackingDurations, 0.5),
@@ -195,8 +219,8 @@ export async function runTrackingScenario(scenario: TrackingSequenceScenario): P
     totalFrameP50Ms: percentile(totalDurations, 0.5),
     totalFrameP95Ms: percentile(totalDurations, 0.95),
     effectiveFps: scenario.observationFrames.length / (elapsedMs / 1_000),
-    decoderCalls: scenario.observationFrames.length,
-    decoderCallsPerFrame: scenario.observationFrames.length === 0 ? 0 : 1,
+    decoderCalls: decoder.calls,
+    decoderCallsPerFrame: scenario.observationFrames.length === 0 ? 0 : decoder.calls / scenario.observationFrames.length,
     maximumAssociationPairs,
   };
   const failureReasons = assertions.filter((entry) => !entry.pass).map((entry) => `${entry.id}: ${entry.message}`);

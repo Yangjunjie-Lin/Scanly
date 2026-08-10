@@ -43,7 +43,6 @@ export interface TrackingObservationFrame {
   frameIndex: number;
   timestampMs: number;
   observations: readonly TrackingObservationSpec[];
-  decoderMs?: number;
 }
 
 export interface TrackingBatchExpectedItem {
@@ -160,6 +159,8 @@ export interface TrackingAssertion {
 }
 
 export interface TrackingLatencyMetrics {
+  /** Deterministic scenarios measure an instrumented observation-driver call. */
+  decoderEvidence: "deterministic-observation-driver";
   associationP50Ms: number;
   associationP95Ms: number;
   trackingP50Ms: number;
