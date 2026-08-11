@@ -1,10 +1,10 @@
-# Scanly SDK v2 Beta 2 — barcode tracking and batch scan foundation
+# Scanly SDK v2 Beta 3 — industrial robustness foundation
 
-Scanly is a local-first barcode capture SDK foundation with a working browser reference application. Beta 2 development builds stable multi-target barcode tracking and batch scanning on the bounded Beta 1 real-time runtime while retaining normalized upload, Worker, main-thread, Node, and Alpha.5 multi-symbology compatibility. It is a Beta preview, not an ML model, industrial certification, or image-upload backend.
+Scanly is a local-first barcode capture SDK foundation with a working browser reference application. Beta 3 development adds a diagnosis-driven, bounded difficult-barcode recovery layer beneath the existing scanner, tracker, and batch runtime while preserving Beta 2 physical tracking, Beta 1 real-time behavior, and Alpha.5 multi-symbology compatibility. It is a Beta preview, not industrial certification, production stability, or an image-upload backend.
 
 ![Next.js 15](https://img.shields.io/badge/Next.js-15-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
-![SDK](https://img.shields.io/badge/SDK-2.0.0--beta.2-blue)
+![SDK](https://img.shields.io/badge/SDK-2.0.0--beta.3-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Live demo:** [https://qr-decoder-theta.vercel.app](https://qr-decoder-theta.vercel.app)
@@ -32,8 +32,8 @@ Alpha.5 explicitly supports QR Code Model 2, Data Matrix ECC 200, PDF417, Code 1
 ## Branch and release status
 
 - `main` is the unchanged v1.3 Stable line.
-- `develop/sdk-v2` contains the merged Beta 1 real-time runtime baseline.
-- `architecture/sdk-v2-beta2-barcode-tracking-foundation` is the active Beta 2 development branch; it was created from the Beta 1 merge and does not modify `main`.
+- `develop/sdk-v2` contains the merged Beta 2 tracking and batch baseline.
+- `architecture/sdk-v2-beta3-industrial-robustness-foundation` is the active Beta 3 development branch; it was created from the Beta 2 merge and does not modify `main`.
 - Alpha.5 is an internal integration snapshot, not production-certified evidence. No Alpha.5 tag, GitHub Release, npm publication, Stable claim, or `Latest` release is authorized.
 - Beta 1 remains development evidence. No Beta tag, GitHub Release, npm publication, Stable claim, or `Latest` release is authorized.
 
@@ -77,6 +77,12 @@ Reliability evidence is split by scope. Scanner Core Soak runs 10,000 frames wit
 Camera unit coverage validates unsupported capabilities, manual override, auto-zoom cooldown and clamp, anti-oscillation state, and source-switch refresh. It is not physical auto-zoom evidence. The Beta 1 photo gate uses an audited open-license camera-photo cohort; project-owned photos remain optional supplemental evidence and are never fabricated or inferred from Internet assets. Beta 1 runtime integration passed and was merged into `develop/sdk-v2`; [Issue #13](https://github.com/Yangjunjie-Lin/Scanly/issues/13) continues to track non-blocking physical-camera/device evidence. No `v2-beta1-r1` canonical evidence activation was performed.
 
 See [Beta 1 real-time runtime](docs/beta1-realtime-runtime.md) for the lifecycle, bounded escalation, temporal correctness, memory, and evidence boundaries.
+
+### Beta 3 industrial difficult-barcode recovery foundation
+
+Beta 3 introduces heuristic difficulty diagnosis, a recovery-route registry, and a budgeted recovery planner. Recovery is deterministic and transforms only observable pixels: neural super-resolution, generative inpainting, and payload guessing are excluded. The default camera path remains bounded; the higher-cost `industrial` profile is explicit, and `dpm-experimental` remains opt-in. `ScanEvidence.evidenceScore` is supporting evidence rather than a calibrated probability.
+
+Data Matrix ECC 200 remains supported. Direct Part Mark Data Matrix is only an experimental recovery profile and is not industrial DPM certification. Recovery preserves inverse geometry mappings so published corners remain in original-frame coordinates and can enter the existing tracker.
 
 ### Beta 2 barcode tracking and batch scan foundation
 
@@ -217,7 +223,7 @@ See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 
 ## Project status
 
-**SDK v2 Beta 2 development preview.** Scanly is extending the bounded Beta 1 camera runtime with deterministic multi-target identity, occlusion-aware lifecycle, batch state, and renderer-neutral overlays. Industrial or production readiness is not claimed: physical-device coverage is absent, performance measurements are development baselines, Alpha.5 multi-symbology coverage remains preview-level, and the Beta API may change.
+**SDK v2 Beta 3 development preview.** Scanly is extending the bounded Beta 2 runtime with diagnosis-driven difficult-barcode recovery. Industrial certification and production readiness are not claimed: physical-device evidence is pending, DPM and curved recovery are experimental, performance measurements are development baselines, and the Beta API may change.
 
 ## License
 

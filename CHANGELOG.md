@@ -2,7 +2,14 @@
 
 All notable changes follow semantic versioning.
 
-## Unreleased — SDK v2 Beta 2 development
+## Unreleased — SDK v2 Beta 3 development
+
+- Entered `2.0.0-beta.3` development on `architecture/sdk-v2-beta3-industrial-robustness-foundation` from the Beta 2 merge commit on `develop/sdk-v2`.
+- Began a diagnosis-driven, budgeted industrial recovery layer for difficult barcode inputs while preserving Alpha.5 symbology, Beta 1 real-time, and Beta 2 tracking/batch regression gates.
+- Kept neural super-resolution and generative recovery out of the decode pipeline; DPM and curved-surface recovery remain explicitly experimental.
+- Beta 3 is development/integration evidence only: no tag, GitHub Release, npm publication, Stable claim, industrial certification, or canonical release freeze is authorized.
+
+## SDK v2 Beta 2 tracking and batch integration
 
 - Entered `2.0.0-beta.2` development on `architecture/sdk-v2-beta2-barcode-tracking-foundation` from the Beta 1 merge commit on `develop/sdk-v2`.
 - Preserved the complete Beta 1 real-time runtime and Alpha.5 multi-symbology evidence as mandatory regression gates.

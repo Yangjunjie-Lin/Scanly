@@ -38,8 +38,8 @@ for (const file of primary) {
   const pullBranches = triggers.pull_request?.branches ?? [];
   const pushBranches = triggers.push?.branches ?? [];
   if (!pullBranches.includes("develop/sdk-v2")) throw new Error(`${file}: pull requests must target develop/sdk-v2.`);
-  if (!pushBranches.includes("develop/sdk-v2") || !pushBranches.includes("architecture/sdk-v2-beta2-**")) {
-    throw new Error(`${file}: push routing must include develop/sdk-v2 and architecture/sdk-v2-beta2-**.`);
+  if (!pushBranches.includes("develop/sdk-v2") || !pushBranches.includes("architecture/sdk-v2-beta3-**")) {
+    throw new Error(`${file}: push routing must include develop/sdk-v2 and architecture/sdk-v2-beta3-**.`);
   }
   for (const deleted of deletedAlphaBranches) {
     if (pushBranches.includes(deleted)) throw new Error(`${file}: deleted Alpha branch remains a push target: ${deleted}.`);

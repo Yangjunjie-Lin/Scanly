@@ -57,7 +57,7 @@ describe("benchmark workflow contracts", () => {
       expect(workflow).toContain("workflow_dispatch:");
       expect(workflow).toContain("pull_request:");
       expect(workflow).toContain("- develop/sdk-v2");
-      expect(workflow).toContain("- architecture/sdk-v2-beta2-**");
+      expect(workflow).toContain("- architecture/sdk-v2-beta3-**");
       for (const deleted of [
         "architecture/sdk-v2-alpha3-industrial-validation",
         "architecture/sdk-v2-alpha4-zxing-cpp-wasm",
