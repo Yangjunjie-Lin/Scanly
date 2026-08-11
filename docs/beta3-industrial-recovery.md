@@ -36,6 +36,8 @@ Every plan caps:
 
 The planner ranks only diagnosis-supported routes and does not create a transformation × decoder × scale Cartesian product. Each transformed candidate uses a single-scale, zero-rotation recovery probe scenario with bounded engine fallback.
 
+The Beta 3 browser bundle development baseline is `244,340` gzip bytes, measured by `npm run bundle:analyze` with the repository-pinned esbuild and gzip settings. The bounded CI cap is `250,000` gzip bytes, leaving `5,660` bytes (about 2.3%) of headroom. This replaces the Beta 2 `240,000`-byte cap because the diagnosis, recovery, evidence, geometry, and Worker integration are now part of the exported browser SDK. It is a measured development budget, not permission to increase the limit when future code exceeds it; further growth requires either an explicit evidence-backed budget review or bundle/chunk optimization.
+
 ## Recovery routes
 
 The registry contains deterministic modules for local contrast, illumination normalization, diagnosed blur, glare masking, perspective rectification, small-module resize, damaged printing, quiet-zone padding, screen artifacts, mild cylindrical curvature, and experimental DPM. The measured default set is low contrast, illumination, blur, perspective, small module, and damaged printing. Glare, quiet-zone, and screen routes are explicit industrial/evaluation paths rather than ordinary-camera defaults; curved and DPM remain experimental.
