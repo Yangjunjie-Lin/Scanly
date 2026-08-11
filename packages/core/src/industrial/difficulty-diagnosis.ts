@@ -39,6 +39,8 @@ export class BarcodeDifficultyAnalyzer {
     let inkRight = 0;
     let inkTop = rows;
     let inkBottom = 0;
+    let horizontalBorderInk = 0; let horizontalBorderSamples = 0;
+    let verticalBorderInk = 0; let verticalBorderSamples = 0;
     const rowInkLeft = new Int32Array(rows); rowInkLeft.fill(columns);
     const rowInkRight = new Int32Array(rows); rowInkRight.fill(-1);
 
@@ -55,6 +57,8 @@ export class BarcodeDifficultyAnalyzer {
         sumSquares += value * value;
         if (value >= 248) clippedHigh += 1;
         if (value <= 7) clippedLow += 1;
+        if (row === 0 || row === rows - 1) { horizontalBorderSamples += 1; if (value < 180) horizontalBorderInk += 1; }
+        if (column === 0 || column === columns - 1) { verticalBorderSamples += 1; if (value < 180) verticalBorderInk += 1; }
         if (value < 180) { inkCount += 1; inkLeft = Math.min(inkLeft, column); inkRight = Math.max(inkRight, column); inkTop = Math.min(inkTop, row); inkBottom = Math.max(inkBottom, row); rowInkLeft[row] = Math.min(rowInkLeft[row], column); rowInkRight[row] = Math.max(rowInkRight[row], column); }
         if (column > 0) {
           const gradient = Math.abs(value - values[index - 1]);
@@ -105,6 +109,9 @@ export class BarcodeDifficultyAnalyzer {
     const colorFringe = chromaSum / count;
     const screenScore = Math.min(1, colorFringe * 2.8 + Math.max(0, local.periodicity - 0.72) * Math.max(0, transitionRatio - 0.2) * 2);
     const dpmLikelihood = clamp01((1 - contrast) * 0.35 + glareRatio * 0.25 + edgeDensity * 0.25 + damageScore * 0.15);
+    const horizontalBorderInkRatio = horizontalBorderInk / Math.max(1, horizontalBorderSamples);
+    const verticalBorderInkRatio = verticalBorderInk / Math.max(1, verticalBorderSamples);
+    const busyBorderRatio = frame.width / Math.max(1, frame.height) >= 2 ? verticalBorderInkRatio : Math.max(horizontalBorderInkRatio, verticalBorderInkRatio);
 
     const blur = levelFromHighBad(blurSignal, [0.28, 0.16, 0.08]);
     const motionBlur = (runtime.motionEstimate ?? 0) > 0.12 || (transitionRatio > 0.025 && anisotropy > 0.38)
@@ -130,7 +137,7 @@ export class BarcodeDifficultyAnalyzer {
       ["curved", severity(curvature)],
       ["small-module", severity(smallModule)],
       ["damaged", severity(printingDamage) + severity(occlusion) * 0.35],
-      ["quiet-zone", local.busyBorderRatio * 3],
+      ["quiet-zone", busyBorderRatio * 3],
       ["screen", severity(screenMoiré)],
       ["dpm", dpmLikelihood * 3],
     ];
@@ -149,7 +156,10 @@ export class BarcodeDifficultyAnalyzer {
         estimatedPixelsPerModule, inkAreaRatio, damageScore, occlusionScore, screenScore, colorFringe, diagonalSkew,
         perspectiveEnvelopeCenterRange: envelope.centerRange, perspectiveEnvelopeWidthVariation: envelope.widthVariation,
         illuminationVariation: local.illuminationVariation,
-        busyBorderRatio: local.busyBorderRatio,
+        busyBorderRatio,
+        horizontalBorderInkRatio,
+        verticalBorderInkRatio,
+        blockBusyBorderRatio: local.busyBorderRatio,
       },
     };
   }
