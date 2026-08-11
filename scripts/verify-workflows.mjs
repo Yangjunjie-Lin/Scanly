@@ -22,7 +22,7 @@ for (const file of workflowFiles) {
   }
 }
 
-const primary = ["ci.yml", "benchmark.yml", "browser-benchmark.yml", "public-api.yml", "tracking-benchmark.yml"];
+const primary = ["ci.yml", "benchmark.yml", "browser-benchmark.yml", "public-api.yml", "tracking-benchmark.yml", "industrial-benchmark.yml"];
 const deletedAlphaBranches = [
   "architecture/sdk-v2-alpha3-industrial-validation",
   "architecture/sdk-v2-alpha4-zxing-cpp-wasm",

@@ -426,3 +426,79 @@ jobs:
           name: tracking-worker-wasm-soak
           if-no-files-found: error
           path: benchmark-results/tracking/worker-wasm-soak.json
+
+  industrial-recovery-unit:
+    name: Industrial Recovery Unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v7
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: npx vitest run tests/unit/difficulty-diagnosis.test.ts tests/unit/recovery-planner.test.ts tests/unit/low-contrast-recovery.test.ts tests/unit/illumination-recovery.test.ts tests/unit/blur-recovery.test.ts tests/unit/glare-recovery.test.ts tests/unit/perspective-recovery.test.ts tests/unit/curved-recovery.test.ts tests/unit/small-module-recovery.test.ts tests/unit/damaged-recovery.test.ts tests/unit/quiet-zone-recovery.test.ts tests/unit/dpm-experimental.test.ts tests/unit/candidate-region.test.ts tests/unit/decode-candidate-conflict.test.ts tests/unit/scan-evidence.test.ts tests/unit/scanner-diagnostics.test.ts tests/unit/recovery-pipeline.test.ts tests/unit/industrial-memory.test.ts
+
+  industrial-recovery-integration:
+    name: Industrial Recovery Integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: npm run build:packages
+      - run: npm run fixtures:verify-industrial
+      - run: npx vitest run tests/unit/industrial-runtime-integration.test.ts tests/unit/industrial-worker.test.ts tests/unit/industrial-corpus.test.ts tests/unit/industrial-benchmark.test.ts
+      - run: npm run benchmark:industrial -- --gate
+
+  industrial-negative-gate:
+    name: Industrial Negative Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: npm run build:packages
+      - run: npm run benchmark:industrial:negative -- --full --gate
+      - name: Verify 120-case zero-FP exact-head evidence
+        run: node -e "const {execFileSync}=require('node:child_process'); const r=require('./benchmark-results/industrial/negative-results.json'); const head=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(), tree=execFileSync('git',['rev-parse','HEAD^{tree}'],{encoding:'utf8'}).trim(); if(r.sourceCommit!==head || r.sourceTree!==tree || r.repositoryDirty) throw new Error('Industrial negative evidence is not from the clean exact head/tree'); if(r.schemaVersion!=='beta3-industrial-development-1' || r.kind!=='industrial-negative-gate' || r.counts.negative!==120) throw new Error('Industrial negative corpus identity failed'); if(r.correctness.falsePositiveCount!==0 || r.correctness.formatConfusionCount!==0 || r.correctness.checksumFailureCount!==0 || !r.gates.falsePositivesZero) throw new Error('Industrial negative gate failed');"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: industrial-negative-gate
+          if-no-files-found: error
+          path: benchmark-results/industrial/negative-results.json
+
+  industrial-soak:
+    name: Industrial Soak
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: npm run build:packages
+      - run: npm run test:industrial:soak
+      - name: Verify 5,000-frame recovery cleanup
+        run: node -e "const {execFileSync}=require('node:child_process'); const r=require('./benchmark-results/industrial/industrial-soak.json'); const head=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(), tree=execFileSync('git',['rev-parse','HEAD^{tree}'],{encoding:'utf8'}).trim(), o=r.observed; if(r.sourceCommit!==head || r.sourceTree!==tree || r.repositoryDirty) throw new Error('Industrial soak is not from the clean exact head/tree'); if(r.schemaVersion!=='beta3-industrial-soak-1' || r.kind!=='industrial-recovery-core-soak' || !r.pass || o.iterations!==5000) throw new Error('Industrial soak identity failed'); if(o.finalTemporaryBuffers!==0 || o.finalRouteState!==0 || o.finalNativeResultCount!==0 || o.finalPendingScannerFrames!==0 || o.finalControlledMemory!==0) throw new Error('Industrial soak cleanup failed'); if(r.workerEvidence!=='not-applicable-core-soak') throw new Error('Core soak must not claim Worker evidence');"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: industrial-soak
+          if-no-files-found: error
+          path: benchmark-results/industrial/industrial-soak.json
