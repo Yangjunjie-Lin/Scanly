@@ -23,6 +23,7 @@ export * from "./barcode/format.js";
 export * from "./barcode/format-selection.js";
 export * from "./barcode/contracts.js";
 export * from "./barcode/retail.js";
+export * from "./industrial/index.js";
 export { SCENARIO_SCHEMA_VERSION, BUILTIN_SCENARIOS, getBuiltinScenario, validateScenario, migrateScenario } from "@scanly/scenario-schema";
 export type { ScenarioDefinition, ScenarioValidationIssue, BarcodeFormat, BarcodeFormatClass, BuiltinScenarioId, ScenarioPresetId } from "@scanly/scenario-schema";
 //# sourceMappingURL=index.d.ts.map

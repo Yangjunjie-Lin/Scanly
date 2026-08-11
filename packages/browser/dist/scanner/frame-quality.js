@@ -1,11 +1,14 @@
+import { BarcodeDifficultyAnalyzer } from "@scanly/core";
 function clamp01(value) { return Math.max(0, Math.min(1, value)); }
 /** Low-cost luminance/gradient quality analysis; no ML model or retained frame buffer. */
 export class FrameQualityAnalyzer {
     options;
     previous = null;
     previousShape = "";
+    difficultyAnalyzer;
     constructor(options = {}) {
         this.options = options;
+        this.difficultyAnalyzer = new BarcodeDifficultyAnalyzer({ sampleTarget: options.sampleTarget });
     }
     analyze(frame) {
         const target = Math.max(64, Math.min(4_096, this.options.sampleTarget ?? 1_024));
@@ -71,6 +74,10 @@ export class FrameQualityAnalyzer {
         };
     }
     reset() { this.previous = null; this.previousShape = ""; }
+    /** Separate Beta 3 routing evidence; this does not turn quality heuristics into Ground Truth. */
+    diagnose(frame, quality = this.analyze(frame)) {
+        return this.difficultyAnalyzer.analyze(frame, quality);
+    }
     luminance(frame, x, y) {
         const row = y * frame.rowStride;
         if (frame.pixelFormat === "gray8" || frame.pixelFormat === "yuv420")
