@@ -1,13 +1,15 @@
 import { CaptureRouter, type NormalizedFrame, type ScanOutcome } from "@scanly/core";
 import { type ScenarioDefinition } from "@scanly/scenario-schema";
 import { type DecodeWorkerFactory } from "../worker/worker-client.js";
+import { type ScannerTrackingRuntimeOptions } from "../tracking/scanner-tracking-runtime.js";
+import type { BarcodeTrack, TrackingStatistics } from "../tracking/types.js";
 import { CameraCapabilityController } from "./camera-capabilities.js";
 import { BoundedDecodeEscalation } from "./decode-escalation.js";
 import { type FrameQualityAnalyzerOptions } from "./frame-quality.js";
 import { type FrameSchedulerOptions } from "./frame-scheduler.js";
 import { type TemporalCandidateStoreOptions } from "./temporal-confirmation.js";
 import { type TemporalROIOptions } from "./temporal-roi.js";
-import type { AutoZoomOptions, CameraCapabilities, CameraFrameSource, CapabilityResult, RepeatPolicy, ScannerDecodeRequest, ScannerDiagnosticListener, ScannerFrameDecoder, ScannerSessionStatistics, ScannerSessionState, ScannerStateListener, ScanResultListener, Unsubscribe } from "./types.js";
+import type { AutoZoomOptions, BarcodeObservationSetListener, CameraCapabilities, CameraFrameSource, CapabilityResult, RepeatPolicy, ScannerDecodeRequest, ScannerDecodeMode, ScannerDiagnosticListener, ScannerFrameDecoder, ScannerSessionStatistics, ScannerSessionState, ScannerStateListener, ScanResultListener, Unsubscribe } from "./types.js";
 export interface BrowserScannerFrameDecoderOptions {
     router?: CaptureRouter;
     workerFactory?: DecodeWorkerFactory;
@@ -54,6 +56,10 @@ export interface ScannerSessionOptions {
     roi?: TemporalROIOptions;
     capabilityController?: CameraCapabilityController;
     autoZoom?: AutoZoomOptions;
+    /** Explicitly enables the bounded multi-code tracking decode path. */
+    decodeMode?: ScannerDecodeMode;
+    /** Tracker/ROI composition used only when decodeMode is "tracking". */
+    tracking?: ScannerTrackingRuntimeOptions;
 }
 export declare class ScannerSession {
     private state;
@@ -66,10 +72,13 @@ export declare class ScannerSession {
     private readonly candidates;
     private readonly repeats;
     private readonly roi;
+    private readonly decodeMode;
+    private readonly trackingRuntime?;
     private capabilityController?;
     private readonly autoZoom?;
     private readonly qualityProbeInterval;
     private readonly resultListeners;
+    private readonly observationSetListeners;
     private readonly stateListeners;
     private readonly diagnosticListeners;
     private generation;
@@ -96,8 +105,11 @@ export declare class ScannerSession {
     dispose(): Promise<void>;
     getStatistics(): ScannerSessionStatistics;
     onResult(listener: ScanResultListener): Unsubscribe;
+    onObservations(listener: BarcodeObservationSetListener): Unsubscribe;
     onStateChange(listener: ScannerStateListener): Unsubscribe;
     onDiagnostics(listener: ScannerDiagnosticListener): Unsubscribe;
+    getTracks(): readonly BarcodeTrack[];
+    getTrackingStatistics(): TrackingStatistics | undefined;
     getCameraCapabilities(): CameraCapabilities;
     setTorch(enabled: boolean): Promise<CapabilityResult<boolean>>;
     setZoom(value: number, manual?: boolean): Promise<CapabilityResult<number>>;
@@ -108,6 +120,7 @@ export declare class ScannerSession {
     private emitLost;
     private event;
     private canPublishGeneration;
+    private emitObservationSet;
     private emitQualityHint;
     private handleSourceEnded;
     private handleSourceError;

@@ -53,7 +53,7 @@ const SHA256 = /^[a-f0-9]{64}$/;
 export function selectWorkflowEvidenceMode(context: WorkflowEvidenceContext): WorkflowEvidenceMode {
   if (context.eventName === "workflow_dispatch" && context.manualGateMode === "release") return "release";
   if (context.eventName === "pull_request" && context.baseRef === "develop/sdk-v2") return "integration";
-  if (context.refName === "develop/sdk-v2" || /^architecture\/sdk-v2-beta1-/.test(context.refName ?? "")) return "integration";
+  if (context.refName === "develop/sdk-v2" || /^architecture\/sdk-v2-beta\d+-/.test(context.refName ?? "")) return "integration";
   if (/^(?:release\/|rc\/|architecture\/sdk-v2-rc)/.test(context.refName ?? "")) return "release";
   return "integration";
 }

@@ -15,7 +15,7 @@ on:
   push:
     branches:
       - develop/sdk-v2
-      - architecture/sdk-v2-beta1-**
+      - architecture/sdk-v2-beta2-**
   schedule:
     - cron: "17 3 * * 1"
 
@@ -57,11 +57,13 @@ jobs:
         with:
           name: browser-${{ env.BROWSER_BENCHMARK_KIND }}-${{ matrix.browser }}
           if-no-files-found: error
-          path: benchmark-results/browser/${{ matrix.browser }}.json
+          path: |
+            benchmark-results/browser/${{ matrix.browser }}.json
+            benchmark-results/browser/tracking-${{ matrix.browser }}.json
 
   assemble:
     needs: browser-benchmark
-    name: Assemble
+    name: Browser Benchmark / Assemble
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -17,7 +17,7 @@ function sha256Text(value: string): string {
   return crypto.createHash("sha256").update(value.replace(/\r\n/g, "\n")).digest("hex");
 }
 
-function validRegistry(baselineId: string, sdkVersion = "2.0.0-beta.1"): { registry: BaselineRegistry; root: string; current: CurrentBenchmarkIdentity } {
+function validRegistry(baselineId: string, sdkVersion = "2.0.0-beta.2"): { registry: BaselineRegistry; root: string; current: CurrentBenchmarkIdentity } {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "scanly-gate-mode-"));
   roots.push(root);
   const directory = path.join(root, "benchmark-results", "baselines");
@@ -65,73 +65,74 @@ function select(registry: BaselineRegistry, root: string, current: CurrentBenchm
 }
 
 describe("benchmark gate mode selector", () => {
-  it("classifies develop, Beta 1, and PR development as integration", () => {
+  it("classifies develop, Beta branches, and PR development as integration", () => {
     expect(selectWorkflowEvidenceMode({ eventName: "push", refName: "develop/sdk-v2" })).toBe("integration");
     expect(selectWorkflowEvidenceMode({ eventName: "push", refName: "architecture/sdk-v2-beta1-realtime-scanner-foundation" })).toBe("integration");
+    expect(selectWorkflowEvidenceMode({ eventName: "push", refName: "architecture/sdk-v2-beta2-barcode-tracking-foundation" })).toBe("integration");
     expect(selectWorkflowEvidenceMode({ eventName: "pull_request", baseRef: "develop/sdk-v2" })).toBe("integration");
     expect(selectWorkflowEvidenceMode({ eventName: "workflow_dispatch", refName: "develop/sdk-v2", manualGateMode: "integration" })).toBe("integration");
   });
 
   it("enters release policy only through an explicit manual input or release candidate ref", () => {
     expect(selectWorkflowEvidenceMode({ eventName: "workflow_dispatch", refName: "develop/sdk-v2", manualGateMode: "release" })).toBe("release");
-    expect(selectWorkflowEvidenceMode({ eventName: "push", refName: "rc/sdk-v2-beta1" })).toBe("release");
+    expect(selectWorkflowEvidenceMode({ eventName: "push", refName: "rc/sdk-v2-beta2" })).toBe("release");
     expect(selectWorkflowEvidenceMode({ eventName: "push", refName: "feature/unclassified" })).toBe("integration");
   });
 
-  it("selects active-baseline for matching Beta 1 evidence", () => {
-    const { registry, root, current } = validRegistry("v2-beta1-r1");
+  it("selects active-baseline for matching Beta 2 evidence", () => {
+    const { registry, root, current } = validRegistry("v2-beta2-r1");
     expect(select(registry, root, current)).toEqual({
       mode: "active-baseline",
       reason: "complete active evidence matches current source and runtime identities",
       runtimeFamily: FAMILY,
-      baselineId: "v2-beta1-r1",
+      baselineId: "v2-beta2-r1",
     });
   });
 
   it.each(["fast", "balanced", "robust"] as const)("falls back when the %s entry is missing", (profile) => {
-    const { registry, root, current } = validRegistry("v2-beta1-r1");
+    const { registry, root, current } = validRegistry("v2-beta2-r1");
     delete (registry.activeBaselines[FAMILY] as Partial<Record<typeof profile, string>>)[profile];
     expect(select(registry, root, current).mode).toBe("baseline-candidate");
   });
 
   it("falls back for mixed revisions", () => {
-    const { registry, root, current } = validRegistry("v2-beta1-r1");
-    registry.activeBaselines[FAMILY].fast = "v2-beta1-r2-fast-node24-windows-x64.json";
+    const { registry, root, current } = validRegistry("v2-beta2-r1");
+    registry.activeBaselines[FAMILY].fast = "v2-beta2-r2-fast-node24-windows-x64.json";
     expect(select(registry, root, current)).toMatchObject({ mode: "baseline-candidate", reason: expect.stringContaining("different baseline IDs") });
   });
 
   it("falls back when a filename does not match its baseline ID", () => {
-    const { registry, root, current } = validRegistry("v2-beta1-r1");
-    registry.activeEvidence![FAMILY].baselineId = "v2-beta1-r2";
+    const { registry, root, current } = validRegistry("v2-beta2-r1");
+    registry.activeEvidence![FAMILY].baselineId = "v2-beta2-r2";
     expect(select(registry, root, current)).toMatchObject({ mode: "baseline-candidate", reason: expect.stringContaining("does not match") });
   });
 
   it("falls back when active evidence is missing", () => {
-    const { registry, root, current } = validRegistry("v2-beta1-r1");
+    const { registry, root, current } = validRegistry("v2-beta2-r1");
     delete registry.activeEvidence![FAMILY];
     expect(select(registry, root, current).mode).toBe("baseline-candidate");
   });
 
   it("falls back when the evidence ID is missing", () => {
-    const { registry, root, current } = validRegistry("v2-beta1-r1");
+    const { registry, root, current } = validRegistry("v2-beta2-r1");
     registry.activeEvidence![FAMILY].evidenceId = "";
     expect(select(registry, root, current).mode).toBe("baseline-candidate");
   });
 
   it("falls back when the manifest hash is missing", () => {
-    const { registry, root, current } = validRegistry("v2-beta1-r1");
+    const { registry, root, current } = validRegistry("v2-beta2-r1");
     registry.activeEvidence![FAMILY].canonicalManifestHash = "";
     expect(select(registry, root, current).mode).toBe("baseline-candidate");
   });
 
   it("falls back when one baseline hash is missing", () => {
-    const { registry, root, current } = validRegistry("v2-beta1-r1");
+    const { registry, root, current } = validRegistry("v2-beta2-r1");
     registry.activeEvidence![FAMILY].baselineHashes.robust = "";
     expect(select(registry, root, current).mode).toBe("baseline-candidate");
   });
 
   it("falls back when a referenced baseline file is missing", () => {
-    const { registry, root, current } = validRegistry("v2-beta1-r1");
+    const { registry, root, current } = validRegistry("v2-beta2-r1");
     fs.rmSync(path.join(root, "benchmark-results", "baselines", registry.activeBaselines[FAMILY].balanced));
     expect(select(registry, root, current).mode).toBe("baseline-candidate");
   });
@@ -139,17 +140,17 @@ describe("benchmark gate mode selector", () => {
   it("falls back for malformed registry data", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "scanly-gate-mode-"));
     roots.push(root);
-    const { current } = validRegistry("v2-beta1-r1");
+    const { current } = validRegistry("v2-beta2-r1");
     expect(select(null as unknown as BaselineRegistry, root, current)).toMatchObject({ mode: "baseline-candidate", reason: "registry is malformed" });
   });
 
   it("falls back for an unsupported runtime family", () => {
-    const { registry, root, current } = validRegistry("v2-beta1-r1");
+    const { registry, root, current } = validRegistry("v2-beta2-r1");
     expect(selectBenchmarkGateMode(registry, "node24-linux-arm64", root, { ...current, runtimeFamily: "node24-linux-arm64" })).toMatchObject({ mode: "baseline-candidate", runtimeFamily: "node24-linux-arm64" });
   });
 
   it("falls back when the current architecture does not match the requested runtime", () => {
-    const { registry, root, current } = validRegistry("v2-beta1-r1");
+    const { registry, root, current } = validRegistry("v2-beta2-r1");
     expect(select(registry, root, { ...current, runtimeFamily: "node24-win32-arm64" })).toMatchObject({
       mode: "baseline-candidate",
       reason: expect.stringContaining("current runtime identity"),
@@ -159,23 +160,23 @@ describe("benchmark gate mode selector", () => {
   it("falls back for an empty registry", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "scanly-gate-mode-"));
     roots.push(root);
-    const { current } = validRegistry("v2-beta1-r1");
+    const { current } = validRegistry("v2-beta2-r1");
     const registry = { schemaVersion: "2.0", activeBaselines: {} } as BaselineRegistry;
     expect(select(registry, root, current).mode).toBe("baseline-candidate");
   });
 
-  it("rejects an Alpha.4 active baseline for Beta 1 source", () => {
+  it("rejects an Alpha.4 active baseline for Beta 2 source", () => {
     const { registry, root, current } = validRegistry("v2-alpha4-r4", "2.0.0-alpha.4");
-    expect(select(registry, root, { ...current, sdkVersion: "2.0.0-beta.1" })).toMatchObject({ mode: "baseline-candidate", reason: expect.stringContaining("release track") });
+    expect(select(registry, root, { ...current, sdkVersion: "2.0.0-beta.2" })).toMatchObject({ mode: "baseline-candidate", reason: expect.stringContaining("release track") });
   });
 
   it("falls back for a mismatched legacy dataset", () => {
-    const { registry, root, current } = validRegistry("v2-beta1-r1");
+    const { registry, root, current } = validRegistry("v2-beta2-r1");
     expect(select(registry, root, { ...current, legacyDatasetHash: "1".repeat(64) }).mode).toBe("baseline-candidate");
   });
 
   it("falls back for stale evidence in candidate lifecycle and hard-fails when active", () => {
-    const { registry, root, current } = validRegistry("v2-beta1-r1");
+    const { registry, root, current } = validRegistry("v2-beta2-r1");
     const stale = { ...current, canonicalManifestHash: "b".repeat(64), lifecycleState: "evidence-bootstrap" as const };
     expect(select(registry, root, stale).mode).toBe("baseline-candidate");
     expect(() => enforceGateModeForLifecycle(select(registry, root, stale), "active-baseline")).toThrow(/requires active-baseline/);

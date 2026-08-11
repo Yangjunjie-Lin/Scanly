@@ -2,13 +2,31 @@
 
 ## Version policy
 
-- SDK package version: `2.0.0-beta.1` (Beta 1 development preview)
+- SDK package version: `2.0.0-beta.2` (Beta 2 development preview)
 
 `ScanResult.cornerPoints` are always expressed as pixel coordinates in the original normalized frame. ROI offsets, candidate crops, resizing, scale caps, and clockwise decode-attempt rotations are inverted before publication. Invalid or implausibly out-of-frame engine points are omitted.
 
 `ScanResult.orientation`, when present, is an engine-derived clockwise angle relative to the original normalized frame. A preprocessing attempt rotation is debug metadata only and is never exposed as symbol orientation.
 
 Static multi-code scans default to `payload-format-spatial` deduplication. Schema `2.1` also supports `payload`, `payload-format`, and `tracked-instance` policy selection. Geometry-proven separate instances with the same payload remain separate under the default; when geometry is unavailable, the documented fallback is payload plus format identity.
+
+## Beta 2 tracking and batch surface
+
+`@scanly/browser` exports tracking and batch composition from the package root. `ScannerSession.onObservations` publishes one complete `BarcodeObservationSet` per admitted frame, including every valid decoder result rather than only the primary result. `BatchScanSession` consumes that boundary and composes the existing scanner with `BarcodeTracker` and `BatchController`; it does not create another camera runtime.
+
+| Runtime values | Runtime types |
+| --- | --- |
+| `BarcodeTracker`, `associateTracks`, `calculateAssociationCost` | `BarcodeTrack`, `BarcodeTrackState`, `BarcodeObservation`, `BarcodeTrackerOptions`, `BarcodeTrackerUpdate`, `TrackingStatistics` |
+| `TrackROISet`, `ScannerTrackingRuntime`, `createTrackOverlayModel`, `createTrackOverlayModels` | `TrackROI`, `TrackROIPlan`, `TrackROISetOptions`, `ScannerTrackingRuntimeOptions`, `ScannerDecodeMode`, `ScannerDecodeROIPhase`, `TrackOverlayModel` |
+| `BatchController`, `BatchScanSession` | `BatchScanSessionOptions`, `BatchMode`, `BatchStatus`, `BatchState`, `BatchEvent`, `ExpectedBatchItem`, `BatchStatistics` |
+
+Track identity is physical and spatial: `trackId` is not the payload. Association is a bounded deterministic assignment over payload/format compatibility, center distance, IoU, geometry size, motion prediction, and elapsed time. The lifecycle is `tentative`, `confirmed`, `lost`, and `retired`; a compatible reappearance inside the grace window restores the same identity.
+
+Batch completion uses confirmed physical tracks. `expected-count` cannot complete from repeat events, and checklist `quantity` supports multiple physical items carrying the same payload. `TrackOverlayModel` contains renderer-neutral geometry and labels; Canvas, SVG, DOM, and React remain consumers of that model.
+
+`BatchControllerOptions.maxRetainedTracks` and `maxRetainedPhysicalInstances` bound long-running continuous and checklist evidence. Terminal completion freezes classification state; statistics expose current/peak retention and rejected/evicted counts for reliability gates.
+
+See [Beta 2 barcode tracking and batch scan](../beta2-tracking-batch.md) for composition examples, bounded association behavior, ROI recovery, evidence, and non-claims.
 
 ## Beta 1 real-time scanner runtime
 

@@ -15,7 +15,7 @@ on:
   push:
     branches:
       - develop/sdk-v2
-      - architecture/sdk-v2-beta1-**
+      - architecture/sdk-v2-beta2-**
 
 permissions:
   contents: read
@@ -167,7 +167,7 @@ jobs:
 
   assemble:
     needs: [prepare, symbologies, profile, comparison]
-    name: Assemble
+    name: Full Benchmark / Assemble
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4

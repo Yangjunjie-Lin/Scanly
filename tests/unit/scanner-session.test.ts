@@ -102,6 +102,21 @@ describe("temporal confirmation and repeat policy", () => {
 });
 
 describe("ScannerSession", () => {
+  it("publishes every valid multi-code result as one frame observation set", async () => {
+    const source = new DeterministicFrameSequenceSource(function* () { yield frame(1); });
+    const decoder = new FakeDecoder((input) => {
+      const first = result(input.id, "MULTI-A", 2);
+      const second = result(input.id, "MULTI-B", 18);
+      return { ...success(input.id, first), results: [first, second] };
+    });
+    const session = new ScannerSession({ source, decoder, confirmation: { mode: "immediate" }, quality: { blurThreshold: 0, contrastThreshold: 0 } });
+    const sets: Array<{ frameId: number; payloads: string[] }> = [];
+    session.onObservations((set) => sets.push({ frameId: set.frameId, payloads: set.observations.map((observation) => observation.barcode.text) }));
+    await session.start(); await source.finished(); await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    expect(sets).toEqual([{ frameId: 1, payloads: ["MULTI-A", "MULTI-B"] }]);
+    await session.dispose();
+  });
+
   it("runs a deterministic source, confirms, emits once, and disposes all frames", async () => {
     const frames = Array.from({ length: 6 }, (_, index) => frame(index)); const source = new DeterministicFrameSequenceSource(() => frames);
     const decoder = new FakeDecoder(); const session = new ScannerSession({ source, decoder, confirmation: { mode: "confirm-two" }, repeatPolicy: { mode: "once-per-session" }, quality: { blurThreshold: 0, contrastThreshold: 0 } });

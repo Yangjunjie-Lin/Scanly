@@ -2,7 +2,14 @@
 
 All notable changes follow semantic versioning.
 
-## Unreleased — SDK v2 Beta 1 development
+## Unreleased — SDK v2 Beta 2 development
+
+- Entered `2.0.0-beta.2` development on `architecture/sdk-v2-beta2-barcode-tracking-foundation` from the Beta 1 merge commit on `develop/sdk-v2`.
+- Preserved the complete Beta 1 real-time runtime and Alpha.5 multi-symbology evidence as mandatory regression gates.
+- Began the bounded multi-target barcode tracking, physical-instance identity, occlusion recovery, batch scan, and deterministic tracking-evidence foundation.
+- Physical-device certification remains tracked separately in Issue #13 and is not claimed by Beta 2 integration evidence.
+
+## SDK v2 Beta 1 runtime integration
 
 - Entered `2.0.0-beta.1` development on `architecture/sdk-v2-beta1-realtime-scanner-foundation` for the persistent real-time scanner runtime.
 - Preserved the Alpha.5 static upload, multi-symbology, Browser/Worker/Node, checksum, format, and evidence integration gates as frozen regression requirements.

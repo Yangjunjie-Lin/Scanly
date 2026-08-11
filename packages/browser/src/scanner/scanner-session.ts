@@ -10,6 +10,11 @@ import {
 import { getBuiltinScenario, type ScenarioDefinition } from "@scanly/scenario-schema";
 import { createBrowserCaptureRouter } from "../runtime.js";
 import { DecodeWorkerClient, markDecodePath, type DecodeWorkerFactory } from "../worker/worker-client.js";
+import {
+  ScannerTrackingRuntime,
+  type ScannerTrackingRuntimeOptions,
+} from "../tracking/scanner-tracking-runtime.js";
+import type { BarcodeTrack, TrackingStatistics } from "../tracking/types.js";
 import { CameraCapabilityController } from "./camera-capabilities.js";
 import { BoundedDecodeEscalation } from "./decode-escalation.js";
 import { FrameQualityAnalyzer, type FrameQualityAnalyzerOptions } from "./frame-quality.js";
@@ -19,6 +24,8 @@ import { TemporalCandidateStore, type TemporalCandidateStoreOptions } from "./te
 import { TemporalROI, type TemporalROIOptions } from "./temporal-roi.js";
 import type {
   AutoZoomOptions,
+  BarcodeObservationSet,
+  BarcodeObservationSetListener,
   BarcodeGeometry,
   CameraCapabilities,
   CameraFrameSource,
@@ -28,6 +35,7 @@ import type {
   RepeatPolicy,
   ScanEvent,
   ScannerDecodeRequest,
+  ScannerDecodeMode,
   ScannerDiagnostic,
   ScannerDiagnosticListener,
   ScannerFrameDecoder,
@@ -77,9 +85,40 @@ export class BrowserScannerFrameDecoder implements ScannerFrameDecoder {
       semanticParsers: [...this.baseScenario.semanticParsers],
       output: { ...this.baseScenario.output },
     } : profile;
+    const rawTrackingMaxResults = request.maxResults ?? 32;
+    const requestedTrackingMaxResults = request.mode === "tracking"
+      ? Number.isFinite(rawTrackingMaxResults)
+        ? Math.max(1, Math.min(32, Math.floor(rawTrackingMaxResults)))
+        : 32
+      : undefined;
+    // A profile's attempt budget is also a hard upper bound on how many
+    // results one decode can produce. Keep the Beta 1 profile budget intact;
+    // uncovered-region and periodic full-frame passes can discover additional
+    // tracks across subsequent frames without creating an invalid scenario.
+    const trackingMaxResults = requestedTrackingMaxResults === undefined
+      ? undefined
+      : Math.min(requestedTrackingMaxResults, source.budgets.maxAttempts);
+    const decodeSource: ScenarioDefinition = trackingMaxResults === undefined ? source : {
+      ...source,
+      localization: {
+        ...source.localization,
+        maxCandidates: Math.max(source.localization.maxCandidates, trackingMaxResults),
+      },
+      multiCode: {
+        enabled: true,
+        maxResults: trackingMaxResults,
+        // Identity is assigned after decode by BarcodeTracker. Spatial
+        // deduplication keeps equal-payload objects at distinct geometries.
+        deduplication: "payload-format-spatial",
+      },
+      budgets: {
+        ...source.budgets,
+        maxCandidates: Math.max(source.budgets.maxCandidates, trackingMaxResults),
+      },
+    };
     const scenario: ScenarioDefinition = request.roi
-      ? { ...source, input: { ...source.input, roi: { mode: "relative", x: request.roi.x, y: request.roi.y, width: request.roi.width, height: request.roi.height } } }
-      : source;
+      ? { ...decodeSource, input: { ...decodeSource.input, roi: { mode: "relative", x: request.roi.x, y: request.roi.y, width: request.roi.width, height: request.roi.height } } }
+      : { ...decodeSource, input: { ...decodeSource.input, roi: { mode: "full-frame" } } };
     if (this.useWorker) {
       const started = Date.now();
       markDecodePath("worker");
@@ -133,6 +172,10 @@ export interface ScannerSessionOptions {
   roi?: TemporalROIOptions;
   capabilityController?: CameraCapabilityController;
   autoZoom?: AutoZoomOptions;
+  /** Explicitly enables the bounded multi-code tracking decode path. */
+  decodeMode?: ScannerDecodeMode;
+  /** Tracker/ROI composition used only when decodeMode is "tracking". */
+  tracking?: ScannerTrackingRuntimeOptions;
 }
 
 const once = <T extends () => void>(fn: T): T => {
@@ -165,10 +208,13 @@ export class ScannerSession {
   private readonly candidates: TemporalCandidateStore;
   private readonly repeats: RepeatSuppressor;
   private readonly roi: TemporalROI;
+  private readonly decodeMode: ScannerDecodeMode;
+  private readonly trackingRuntime?: ScannerTrackingRuntime;
   private capabilityController?: CameraCapabilityController;
   private readonly autoZoom?: AutoZoomOptions;
   private readonly qualityProbeInterval: number;
   private readonly resultListeners = new Set<ScanResultListener>();
+  private readonly observationSetListeners = new Set<BarcodeObservationSetListener>();
   private readonly stateListeners = new Set<ScannerStateListener>();
   private readonly diagnosticListeners = new Set<ScannerDiagnosticListener>();
   private generation = 0;
@@ -198,6 +244,10 @@ export class ScannerSession {
     this.candidates = new TemporalCandidateStore(options.confirmation);
     this.repeats = new RepeatSuppressor(options.repeatPolicy ?? { mode: "cooldown", cooldownMs: 1_500 });
     this.roi = new TemporalROI(options.roi);
+    this.decodeMode = options.decodeMode ?? "single";
+    this.trackingRuntime = this.decodeMode === "tracking"
+      ? new ScannerTrackingRuntime(options.tracking)
+      : undefined;
     this.autoZoom = options.autoZoom ?? { enabled: true };
     const trackSource = options.source as CameraFrameSource & { currentTrack?: () => MediaStreamTrack | undefined };
     this.capabilityController = options.capabilityController ?? (typeof trackSource.currentTrack === "function" ? new CameraCapabilityController(() => trackSource.currentTrack?.(), this.autoZoom) : undefined);
@@ -219,7 +269,7 @@ export class ScannerSession {
     const lifecycleGeneration = ++this.lifecycleGeneration;
     this.generation += 1;
     this.startedAt = Date.now();
-    this.quality.reset(); this.escalation.reset(); this.scheduler.reset();
+    this.quality.reset(); this.escalation.reset(); this.scheduler.reset(); this.trackingRuntime?.reset();
     this.scheduler.start();
     try {
       await this.source.start(
@@ -266,7 +316,7 @@ export class ScannerSession {
         await this.source.stop();
       } finally {
         await this.scheduler.stop();
-        this.candidates.reset(); this.repeats.reset(); this.roi.reset();
+        this.candidates.reset(); this.repeats.reset(); this.roi.reset(); this.trackingRuntime?.reset();
         this.setState("stopped");
         this.emitDiagnostic({ type: "scheduler", timestamp: Date.now(), detail: "session stopped; pending frames and active decode are zero" });
       }
@@ -278,13 +328,13 @@ export class ScannerSession {
 
   reset(): void {
     if (this.state === "scanning" || this.state === "starting" || this.state === "paused") throw new Error("Stop the scanner session before reset().");
-    this.lifecycleGeneration += 1; this.generation += 1; this.candidates.reset(); this.repeats.reset(); this.roi.reset(); this.escalation.reset(); this.quality.reset(); this.scheduler.reset();
+    this.lifecycleGeneration += 1; this.generation += 1; this.candidates.reset(); this.repeats.reset(); this.roi.reset(); this.trackingRuntime?.reset(); this.escalation.reset(); this.quality.reset(); this.scheduler.reset();
     this.decodeLatencies = []; this.firstDecodeAt = undefined; this.firstConfirmedAt = undefined; this.startedAt = 0; this.peakControlledMemory = 0; this.currentWorkerMemory = 0;
     this.counters = { capturedFrames: 0, admittedFrames: 0, droppedFrames: 0, qualityRejectedFrames: 0, periodicProbeFrames: 0, fastAttempts: 0, balancedAttempts: 0, robustAttempts: 0, decodeSuccesses: 0, confirmedEvents: 0, emittedEvents: 0, suppressedRepeats: 0, staleResultsDiscarded: 0, staleEvents: 0, lostEvents: 0 };
     this.setState("idle");
   }
 
-  async dispose(): Promise<void> { await this.stop(); if (this.ownsDecoder) await this.decoder.dispose(); this.resultListeners.clear(); this.stateListeners.clear(); this.diagnosticListeners.clear(); }
+  async dispose(): Promise<void> { await this.stop(); if (this.ownsDecoder) await this.decoder.dispose(); this.resultListeners.clear(); this.observationSetListeners.clear(); this.stateListeners.clear(); this.diagnosticListeners.clear(); }
 
   getStatistics(): ScannerSessionStatistics {
     const scheduler = this.scheduler.getStatistics(); const decoder = this.decoder.getStatistics?.();
@@ -294,13 +344,16 @@ export class ScannerSession {
     const currentWorkerMemory = decoder?.wasmCurrentLinearMemoryBytes ?? this.currentWorkerMemory;
     const wasmInputAllocationBytes = decoder?.wasmInputAllocationBytes ?? 0;
     const decoderControlledMemory = Math.max(currentWorkerMemory, wasmInputAllocationBytes);
-    const temporalControlledState = this.candidates.size + this.repeats.size + Number(this.roi.active);
+    const temporalControlledState = this.candidates.size + this.repeats.size + Number(this.roi.active) + (this.trackingRuntime?.controlledSize ?? 0);
     return { ...this.counters, averageDecodeMs: this.decodeLatencies.length ? this.decodeLatencies.reduce((a, b) => a + b, 0) / this.decodeLatencies.length : 0, p95DecodeMs: p95, effectiveDecodeFps: scheduler.effectiveDecodeFps || (this.counters.admittedFrames * 1_000 / elapsed), frameDropRate: this.counters.capturedFrames ? this.counters.droppedFrames / this.counters.capturedFrames : 0, ...(this.firstDecodeAt === undefined ? {} : { timeToFirstDecodeMs: this.firstDecodeAt - this.startedAt }), ...(this.firstConfirmedAt === undefined ? {} : { timeToFirstConfirmedScanMs: this.firstConfirmedAt - this.startedAt }), currentWorkerMemory, peakControlledMemory: Math.max(this.peakControlledMemory, decoder?.wasmPeakLinearMemoryBytes ?? 0), activeDecodeCount: scheduler.active, pendingFrameCount: scheduler.pending, peakPendingFrameCount: scheduler.peakPending, workerCreatedCount: decoder?.workerCreatedCount ?? 0, workerTerminatedCount: decoder?.workerTerminatedCount ?? 0, activeTaskCount: decoder?.activeTaskCount ?? 0, peakActiveTaskCount: decoder?.peakActiveTaskCount ?? 0, workerWasmDecodeCount: decoder?.workerWasmDecodeCount ?? 0, wasmInputAllocationBytes, wasmActiveNativeResultCount: decoder?.wasmActiveNativeResultCount ?? 0, wasmPeakLinearMemoryBytes: decoder?.wasmPeakLinearMemoryBytes ?? 0, wasmReleasedNativeResultCount: decoder?.wasmReleasedNativeResultCount ?? 0, finalControlledMemory: scheduler.active + scheduler.pending + decoderControlledMemory + temporalControlledState };
   }
 
   onResult(listener: ScanResultListener): Unsubscribe { this.resultListeners.add(listener); return () => this.resultListeners.delete(listener); }
+  onObservations(listener: BarcodeObservationSetListener): Unsubscribe { this.observationSetListeners.add(listener); return () => this.observationSetListeners.delete(listener); }
   onStateChange(listener: ScannerStateListener): Unsubscribe { this.stateListeners.add(listener); return () => this.stateListeners.delete(listener); }
   onDiagnostics(listener: ScannerDiagnosticListener): Unsubscribe { this.diagnosticListeners.add(listener); return () => this.diagnosticListeners.delete(listener); }
+  getTracks(): readonly BarcodeTrack[] { return this.trackingRuntime?.getTracks() ?? []; }
+  getTrackingStatistics(): TrackingStatistics | undefined { return this.trackingRuntime?.getStatistics(); }
   getCameraCapabilities(): CameraCapabilities { return this.capabilityController?.getCapabilities() ?? { torch: false, focusMode: false }; }
   setTorch(enabled: boolean): Promise<CapabilityResult<boolean>> { return this.capabilityController?.setTorch(enabled) ?? Promise.resolve({ ok: false, error: sdkError("unsupported_browser_capability", "Torch is not available for this scanner source.") }); }
   setZoom(value: number, manual = true): Promise<CapabilityResult<number>> { return this.capabilityController?.setZoom(value, manual) ?? Promise.resolve({ ok: false, error: sdkError("unsupported_browser_capability", "Zoom is not available for this scanner source.") }); }
@@ -324,15 +377,28 @@ export class ScannerSession {
     this.emitDiagnostic({ type: "frame-quality", timestamp: now, frameId, quality });
     this.emitQualityHint(quality, frameId, now);
     const periodicProbe = this.counters.admittedFrames % this.qualityProbeInterval === 0;
-    if (!quality.usable && !periodicProbe) { this.counters.qualityRejectedFrames += 1; this.roi.miss(); this.emitLost(now, frameId); releaseFrame(frame); return { quality, success: false }; }
+    if (!quality.usable && !periodicProbe) { this.counters.qualityRejectedFrames += 1; this.roi.miss(); this.emitObservationSet({ frameId, timestamp: now, frameWidth: frame.width, frameHeight: frame.height, generation: this.generation, quality, decodeMode: this.decodeMode, observations: [] }); this.emitLost(now, frameId); releaseFrame(frame); return { quality, success: false }; }
     if (periodicProbe) this.counters.periodicProbeFrames += 1;
-    const profile = this.escalation.select(quality, this.roi.active, now);
+    const trackingSelection = this.trackingRuntime?.selectDecode(frameId, frame);
+    const roi = trackingSelection ? trackingSelection.roi : this.roi.hint(frame, now);
+    const roiPhase = trackingSelection?.phase ?? (roi ? "temporal" : "full-frame");
+    const profile = this.trackingRuntime?.profile
+      ?? this.escalation.select(quality, trackingSelection ? trackingSelection.plan.trackedROIs.length > 0 : this.roi.active, now);
     this.counters[`${profile}Attempts` as "fastAttempts" | "balancedAttempts" | "robustAttempts"] += 1;
     const generation = this.generation; const controller = new AbortController(); this.activeDecodeController = controller;
     const started = Date.now();
     let outcome: ScanOutcome;
     try {
-      outcome = await this.decoder.decode(frame, { profile, quality, roi: this.roi.hint(frame, now), signal: controller.signal, generation });
+      outcome = await this.decoder.decode(frame, {
+        profile,
+        quality,
+        mode: this.decodeMode,
+        ...(this.trackingRuntime ? { maxResults: this.trackingRuntime.maxResults } : {}),
+        roiPhase,
+        ...(roi ? { roi } : {}),
+        signal: controller.signal,
+        generation,
+      });
     } catch (error) {
       outcome = { ok: false, error: sdkError("engine_execution_failure", error instanceof Error ? error.message : String(error), undefined, error), frameId: frame.id, scenarioId: profile, attemptCount: 0, timing: { totalMs: Date.now() - started } };
     } finally {
@@ -343,12 +409,18 @@ export class ScannerSession {
     try {
       if (generation !== this.generation) { this.counters.staleResultsDiscarded += 1; return { quality, decodeMs: elapsed, success: false }; }
       if (outcome.ok) {
+        const observations = outcome.results.map((result) => {
+          const geometry = geometryFor(result, frame);
+          return { barcode: toDecodedBarcode(result), frameId, timestamp: now, ...(geometry ? { geometry } : {}) };
+        });
+        this.emitObservationSet({ frameId, timestamp: now, frameWidth: frame.width, frameHeight: frame.height, generation, quality, decodeMode: this.decodeMode, roiPhase, profile, decodeMs: elapsed, observations });
         this.emitLost(now, frameId);
         this.counters.decodeSuccesses += outcome.results.length; if (this.firstDecodeAt === undefined) this.firstDecodeAt = Date.now();
-        this.escalation.observe(true, now); this.roi.update(outcome.primary, frame, now);
+        this.escalation.observe(true, now); if (!this.trackingRuntime) this.roi.update(outcome.primary, frame, now);
         for (const result of outcome.results) this.observeResult(result, frame, quality, now, frameId, generation);
       } else {
-        this.escalation.observe(false, now); this.roi.miss(); if (!isNoResult(outcome)) this.emitDiagnostic({ type: "decode", timestamp: now, frameId, profile, decodeMs: elapsed, error: outcome.error });
+        this.emitObservationSet({ frameId, timestamp: now, frameWidth: frame.width, frameHeight: frame.height, generation, quality, decodeMode: this.decodeMode, roiPhase, profile, decodeMs: elapsed, observations: [] });
+        this.escalation.observe(false, now); if (!this.trackingRuntime) this.roi.miss(); if (!isNoResult(outcome)) this.emitDiagnostic({ type: "decode", timestamp: now, frameId, profile, decodeMs: elapsed, error: outcome.error });
         this.emitLost(now, frameId);
       }
       return { quality, decodeMs: elapsed, success: outcome.ok };
@@ -392,6 +464,13 @@ export class ScannerSession {
     return { id: `scan-event-${++this.eventSequence}`, type, barcode, frameId, timestamp, observationCount, ...(geometry ? { geometry } : {}), ...(physicalInstanceId ? { physicalInstanceId } : {}), ...(suppressionReason ? { suppressionReason } : {}) };
   }
   private canPublishGeneration(generation: number): boolean { return generation === this.generation && (this.state === "starting" || this.state === "scanning"); }
+  private emitObservationSet(set: BarcodeObservationSet): void {
+    if (!this.canPublishGeneration(set.generation)) return;
+    this.trackingRuntime?.observe(set);
+    for (const listener of this.observationSetListeners) {
+      try { listener(set); } catch (error) { this.emitDiagnostic({ type: "error", timestamp: set.timestamp, frameId: set.frameId, error: sdkError("internal_invariant_failure", error instanceof Error ? error.message : String(error), undefined, error) }); }
+    }
+  }
   private emitQualityHint(quality: FrameQuality, frameId: number, timestamp: number): void {
     const hint: ScannerHint = quality.underexposed ? { type: "increase_light", confidence: 1 - quality.brightness } : quality.overexposed || quality.glareDominated ? { type: "reduce_glare", confidence: Math.max(quality.glareRatio, quality.brightness) } : quality.blurred ? { type: "hold_steady", confidence: 1 - quality.blurScore } : { type: "searching", confidence: quality.usable ? 0.45 : 0.8 };
     this.emitDiagnostic({ type: "hint", timestamp, frameId, hint });
