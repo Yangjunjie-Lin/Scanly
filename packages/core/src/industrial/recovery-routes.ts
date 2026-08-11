@@ -38,7 +38,7 @@ export class BlurRecoveryRoute implements RecoveryRoute {
 
 export class GlareRecoveryRoute implements RecoveryRoute {
   readonly id = "glare" as const;
-  supports(context: RecoveryContext): boolean { return context.diagnosis.glare !== "none"; }
+  supports(context: RecoveryContext): boolean { return context.diagnosis.glare !== "none" && ["robust", "industrial", "dpm-experimental"].includes(context.profile); }
   estimateCost(context: RecoveryContext): number { return context.framePixels; }
   async run(frame: NormalizedFrame, context: RecoveryContext): Promise<RecoveryCandidate[]> {
     const result = glareAlternative(asRgba(frame), frame.width, frame.height);
@@ -131,7 +131,7 @@ export class DamagedRecoveryRoute implements RecoveryRoute {
 
 export class QuietZoneRecoveryRoute implements RecoveryRoute {
   readonly id = "quiet-zone" as const;
-  supports(context: RecoveryContext): boolean { return (context.diagnosis.evidence.busyBorderRatio ?? 0) > 0.2; }
+  supports(context: RecoveryContext): boolean { return (context.diagnosis.evidence.busyBorderRatio ?? 0) > 0.2 && ["industrial", "dpm-experimental"].includes(context.profile); }
   estimateCost(context: RecoveryContext): number { return context.framePixels; }
   async run(frame: NormalizedFrame, context: RecoveryContext): Promise<RecoveryCandidate[]> {
     const padding = Math.max(4, Math.min(64, Math.round(Math.min(frame.width, frame.height) * 0.12))); const result = padNeutral(asRgba(frame), frame.width, frame.height, padding);
@@ -141,7 +141,7 @@ export class QuietZoneRecoveryRoute implements RecoveryRoute {
 
 export class ScreenRecoveryRoute implements RecoveryRoute {
   readonly id = "screen" as const;
-  supports(context: RecoveryContext): boolean { return context.diagnosis.screenMoiré !== undefined && context.diagnosis.screenMoiré !== "none"; }
+  supports(context: RecoveryContext): boolean { return context.diagnosis.screenMoiré !== undefined && context.diagnosis.screenMoiré !== "none" && ["industrial", "dpm-experimental"].includes(context.profile); }
   estimateCost(context: RecoveryContext): number { return context.framePixels; }
   async run(frame: NormalizedFrame, context: RecoveryContext): Promise<RecoveryCandidate[]> {
     const source = asRgba(frame); const smoothed = localContrastNormalize(source, frame.width, frame.height);

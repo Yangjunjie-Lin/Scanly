@@ -37,7 +37,7 @@ export class BlurRecoveryRoute {
 }
 export class GlareRecoveryRoute {
     id = "glare";
-    supports(context) { return context.diagnosis.glare !== "none"; }
+    supports(context) { return context.diagnosis.glare !== "none" && ["robust", "industrial", "dpm-experimental"].includes(context.profile); }
     estimateCost(context) { return context.framePixels; }
     async run(frame, context) {
         const result = glareAlternative(asRgba(frame), frame.width, frame.height);
@@ -151,7 +151,7 @@ export class DamagedRecoveryRoute {
 }
 export class QuietZoneRecoveryRoute {
     id = "quiet-zone";
-    supports(context) { return (context.diagnosis.evidence.busyBorderRatio ?? 0) > 0.2; }
+    supports(context) { return (context.diagnosis.evidence.busyBorderRatio ?? 0) > 0.2 && ["industrial", "dpm-experimental"].includes(context.profile); }
     estimateCost(context) { return context.framePixels; }
     async run(frame, context) {
         const padding = Math.max(4, Math.min(64, Math.round(Math.min(frame.width, frame.height) * 0.12)));
@@ -161,7 +161,7 @@ export class QuietZoneRecoveryRoute {
 }
 export class ScreenRecoveryRoute {
     id = "screen";
-    supports(context) { return context.diagnosis.screenMoiré !== undefined && context.diagnosis.screenMoiré !== "none"; }
+    supports(context) { return context.diagnosis.screenMoiré !== undefined && context.diagnosis.screenMoiré !== "none" && ["industrial", "dpm-experimental"].includes(context.profile); }
     estimateCost(context) { return context.framePixels; }
     async run(frame, context) {
         const source = asRgba(frame);

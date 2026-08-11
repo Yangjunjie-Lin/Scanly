@@ -18,6 +18,7 @@ type Severity = "clean" | "low" | "medium" | "high";
 type GeneratedManifest = { bases: BaseFixture[]; difficulties: string[]; baseByDifficulty?: Record<string, string>; severities: Array<Exclude<Severity, "clean">>; seed: number };
 type BaseFixture = { id: string; file: string; format: BarcodeFormat; payload: string };
 const ABLATION_ROUTES: RecoveryRouteId[] = ["low-contrast", "illumination", "blur", "perspective", "curved", "small-module", "damaged", "quiet-zone", "dpm"];
+const DEFAULT_RECOVERY_ROUTES: RecoveryRouteId[] = ["low-contrast", "illumination", "blur", "perspective", "small-module", "damaged"];
 type CaseResult = {
   id: string; format: BarcodeFormat; payload: string; difficulty: string; severity: Severity; sourceType: "generated";
   expectedResult: "decode"; generalSuccess: boolean; recoverySuccess: boolean; observedPayloads: string[]; observedFormats: BarcodeFormat[];
@@ -60,6 +61,7 @@ const formatConfusionCount = positiveResults.filter((result) => result.formatCon
 const checksumFailureCount = positiveResults.filter((result) => result.checksumFailure).length;
 const additionalTruePositives = positiveResults.filter((result) => !result.generalSuccess && result.recoverySuccess).length;
 const routeAttribution = attribution(positiveResults, negativeResults);
+const ablation = summarizeAblation(positiveResults);
 const report = {
   schemaVersion: "beta3-industrial-development-1",
   sdkVersion: JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8")).version,
@@ -78,7 +80,8 @@ const report = {
     additionalAttempts: sum(positiveResults.map((result) => result.routeAttempts)),
   },
   routeAttribution,
-  ablation: summarizeAblation(positiveResults),
+  routeClassification: { default: DEFAULT_RECOVERY_ROUTES, evaluationOnly: ["glare", "quiet-zone", "screen"], experimental: ["curved", "dpm"] },
+  ablation,
   performance: summarizePerformance(positiveResults),
   gates: {
     falsePositivesZero: falsePositiveCount === 0,
@@ -91,6 +94,7 @@ const report = {
       && result.processedPixels >= 0
     ),
     recoveryHasPositiveMarginalContribution: negativeOnly || additionalTruePositives > 0,
+    defaultRoutesHavePositiveAblationContribution: negativeOnly || !full || DEFAULT_RECOVERY_ROUTES.every((route) => (ablation.find((entry) => entry.configuration === `-no ${route}`)?.recallDelta ?? 0) < 0),
   },
   difficultCases: {
     "14-damaged": { status: "known-limitation-measured-separately", fixtureSpecificCode: false },
@@ -191,6 +195,7 @@ async function transformDifficulty(file: string, difficulty: string, severity: E
   else if (["glare", "occlusion", "screen-artifacts"].includes(difficulty)) pipeline = pipeline.composite([{ input: overlaySvg(width, height, difficulty, level, seed), top: 0, left: 0 }]);
   const raw = await pipeline.raw().toBuffer({ resolveWithObject: true }); let data: Uint8ClampedArray = new Uint8ClampedArray(raw.data.buffer, raw.data.byteOffset, raw.data.byteLength);
   if (difficulty === "low-contrast") data = applyLocalLowContrast(data, raw.info.width, raw.info.height, [0.45, 0.29, 0.18][level - 1], [20, 36, 52][level - 1]);
+  if (difficulty === "illumination") data = applyLocalLowContrast(data, raw.info.width, raw.info.height, [0.82, 0.66, 0.5][level - 1], 0);
   if (difficulty === "perspective") data = distortPerspective(data, raw.info.width, raw.info.height, [0.52, 0.76, 1][level - 1]);
   if (difficulty === "curvature") data = warpCurvature(data, raw.info.width, raw.info.height, [0.075, 0.145, 0.18][level - 1]);
   if (difficulty === "damage") data = erodePrinting(data, raw.info.width, raw.info.height, [29, 13, 7][level - 1]);

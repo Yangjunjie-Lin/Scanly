@@ -122,8 +122,8 @@ export class BarcodeDifficultyAnalyzer {
     const screenMoiré = levelFromScore(screenScore, [0.18, 0.4, 0.66]);
 
     const routeScores: Array<[RecoveryRouteId, number]> = [
-      ["low-contrast", severity(lowContrast) + severity(underexposure) * 0.35 + severity(overexposure) * 0.2],
-      ["illumination", local.illuminationVariation * 8 + severity(underexposure) * 0.2],
+      ["low-contrast", severity(lowContrast) * 4 + severity(underexposure) * 0.35 + severity(overexposure) * 0.2],
+      ["illumination", local.illuminationVariation * 20 + severity(underexposure) * 0.2],
       ["glare", severity(glare)],
       ["blur", Math.max(severity(blur), severity(motionBlur))],
       ["perspective", severity(perspectiveDistortion)],

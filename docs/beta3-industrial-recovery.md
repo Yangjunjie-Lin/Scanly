@@ -38,7 +38,7 @@ The planner ranks only diagnosis-supported routes and does not create a transfor
 
 ## Recovery routes
 
-The registry contains deterministic modules for local contrast, illumination normalization, diagnosed blur, glare masking, perspective rectification, small-module resize, damaged printing, quiet-zone padding, screen artifacts, mild cylindrical curvature, and experimental DPM.
+The registry contains deterministic modules for local contrast, illumination normalization, diagnosed blur, glare masking, perspective rectification, small-module resize, damaged printing, quiet-zone padding, screen artifacts, mild cylindrical curvature, and experimental DPM. The measured default set is low contrast, illumination, blur, perspective, small module, and damaged printing. Glare, quiet-zone, and screen routes are explicit industrial/evaluation paths rather than ordinary-camera defaults; curved and DPM remain experimental.
 
 Low-contrast recovery applies bounded local contrast normalization, a clipped local histogram strategy, and adaptive thresholding. Illumination recovery estimates local background variation before normalization; it is not a global brightness offset. Blur recovery applies bounded unsharp or direction-aware enhancement only after blur evidence recommends it. Glare recovery masks clipped highlights and refuses glare-dominated frames.
 

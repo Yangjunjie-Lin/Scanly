@@ -6,7 +6,7 @@ describe("industrial benchmark contract", () => {
   it("records recall slices, marginal route attribution, ablation, budgets, and zero-FP gates", () => {
     const source = fs.readFileSync("scripts/benchmark-industrial.ts", "utf8");
     expect(verifyIndustrialCorpus()).toMatchObject({ generated: 42, negative: 120 });
-    for (const contract of ["byDifficulty", "bySeverity", "byFormat", "routeAttribution", "ablation", "falsePositivesZero", "maximumProcessedPixels"]) expect(source).toContain(contract);
+    for (const contract of ["byDifficulty", "bySeverity", "byFormat", "routeAttribution", "routeClassification", "ablation", "falsePositivesZero", "defaultRoutesHavePositiveAblationContribution", "maximumProcessedPixels"]) expect(source).toContain(contract);
     expect(source).toContain("neuralSuperResolution: false");
     expect(source).toContain("generativeRecovery: false");
   });
