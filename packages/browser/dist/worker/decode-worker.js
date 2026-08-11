@@ -1,8 +1,10 @@
 /// <reference lib="webworker" />
 import { createBrowserCaptureRouter } from "../runtime.js";
+import { createRecoveryProbeScenario, IndustrialRecoveryPipeline } from "@scanly/core";
 import { fromTransferableFrame } from "./transferable-buffer.js";
 import { isWorkerRequest } from "./worker-messages.js";
 const router = createBrowserCaptureRouter();
+const recoveryPipeline = new IndustrialRecoveryPipeline();
 let activeJobId = null;
 let activeGeneration = 0;
 let activeStartedAt = 0;
@@ -36,11 +38,35 @@ self.onmessage = async (event) => {
     const signal = abortController.signal;
     try {
         respond({ type: "stage", jobId: message.jobId, generation: message.generation, stage: "Routing normalized frame..." });
-        const outcome = await router.scan(fromTransferableFrame(message.frame), { signal, scenario: message.scenario });
+        const frame = fromTransferableFrame(message.frame);
+        const recovered = message.recovery
+            ? await recoveryPipeline.run(frame, (candidate, request) => router.scan({ ...candidate, ownership: "borrowed", dispose: undefined }, { signal: request.signal, scenario: request.routeId === "general" ? message.scenario : createRecoveryProbeScenario(message.scenario, request.routeId) }), {
+                profile: message.recovery.profile,
+                sourceMode: message.recovery.sourceMode,
+                ...(message.recovery.budget ? { budget: message.recovery.budget } : {}),
+                signal,
+                dpmExperimental: message.recovery.dpmExperimental,
+                excludedRoutes: message.recovery.excludedRoutes,
+            })
+            : undefined;
+        const outcome = recovered?.outcome ?? await router.scan(frame, { signal, scenario: message.scenario });
         if (activeJobId === message.jobId && activeGeneration === message.generation) {
             if (message.progress)
                 respond({ type: "progress", jobId: message.jobId, generation: message.generation, attemptCount: outcome.attemptCount });
-            respond({ type: "result", jobId: message.jobId, generation: message.generation, outcome, wasmMemory: observeWasmMemory() });
+            respond({
+                type: "result", jobId: message.jobId, generation: message.generation, outcome, wasmMemory: observeWasmMemory(),
+                ...(recovered ? { recovery: {
+                        attemptCount: recovered.diagnostics.attemptCount,
+                        processedPixels: recovered.diagnostics.processedPixels,
+                        currentTemporaryBytes: recovered.memory.currentBytes,
+                        peakTemporaryBytes: recovered.memory.peakBytes,
+                        activeBuffers: recovered.memory.activeBuffers,
+                        routeStateCount: 0,
+                        attemptedRoutes: recovered.diagnostics.attemptedRoutes,
+                        ...(recovered.diagnostics.successfulRoute ? { successfulRoute: recovered.diagnostics.successfulRoute } : {}),
+                        insufficientEvidence: recovered.diagnostics.insufficientEvidence,
+                    } } : {}),
+            });
         }
     }
     catch (error) {

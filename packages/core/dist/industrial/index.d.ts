@@ -9,4 +9,5 @@ export * from "./recovery-routes.js";
 export * from "./scan-evidence.js";
 export * from "./decode-candidate-conflict.js";
 export * from "./recovery-pipeline.js";
+export * from "./scanner-diagnostics.js";
 //# sourceMappingURL=index.d.ts.map

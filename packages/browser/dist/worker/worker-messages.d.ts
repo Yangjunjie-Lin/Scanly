@@ -1,6 +1,13 @@
-import { type ScanOutcome } from "@scanly/core";
+import { type RecoveryBudget, type RecoveryProfile, type RecoveryRouteId, type RecoverySourceMode, type ScanOutcome } from "@scanly/core";
 import { type ScenarioDefinition } from "@scanly/scenario-schema";
 import { type SerializedNormalizedFrame } from "./transferable-buffer.js";
+export interface WorkerRecoveryRequest {
+    profile: RecoveryProfile;
+    sourceMode: RecoverySourceMode;
+    budget?: RecoveryBudget;
+    dpmExperimental: boolean;
+    excludedRoutes?: RecoveryRouteId[];
+}
 export type WorkerRequest = {
     type: "scan";
     jobId: string;
@@ -8,6 +15,7 @@ export type WorkerRequest = {
     frame: SerializedNormalizedFrame;
     scenario: ScenarioDefinition;
     progress: boolean;
+    recovery?: WorkerRecoveryRequest;
 } | {
     type: "cancel";
     jobId: string;
@@ -22,6 +30,17 @@ export interface WorkerWasmMemoryObservation {
     peakInputAllocationBytes: number;
     activeNativeResultCount: number;
     releasedNativeResultCount: number;
+}
+export interface WorkerRecoveryObservation {
+    attemptCount: number;
+    processedPixels: number;
+    currentTemporaryBytes: number;
+    peakTemporaryBytes: number;
+    activeBuffers: number;
+    routeStateCount: number;
+    attemptedRoutes: RecoveryRouteId[];
+    successfulRoute?: RecoveryRouteId;
+    insufficientEvidence: boolean;
 }
 export type WorkerResponse = {
     type: "stage";
@@ -39,6 +58,7 @@ export type WorkerResponse = {
     generation: number;
     outcome: ScanOutcome;
     wasmMemory?: WorkerWasmMemoryObservation;
+    recovery?: WorkerRecoveryObservation;
 } | {
     type: "cancelled";
     jobId: string;

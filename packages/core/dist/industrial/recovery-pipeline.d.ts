@@ -1,4 +1,5 @@
 import type { NormalizedFrame } from "../contracts/frame.js";
+import type { ScenarioDefinition } from "@scanly/scenario-schema";
 import { CandidateRegionDetector } from "./candidate-region.js";
 import { DecodeCandidateResolver } from "./decode-candidate-conflict.js";
 import { BarcodeDifficultyAnalyzer } from "./difficulty-diagnosis.js";
@@ -11,6 +12,8 @@ export interface IndustrialRecoveryPipelineDependencies {
     resolver?: DecodeCandidateResolver;
     now?: () => number;
 }
+/** Decode a transformed candidate without multiplying it by the legacy generic preprocessing matrix. */
+export declare function createRecoveryProbeScenario(source: ScenarioDefinition, routeId: string): ScenarioDefinition;
 export declare class IndustrialRecoveryPipeline {
     private readonly routes;
     private readonly analyzer;

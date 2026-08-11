@@ -1,4 +1,4 @@
-import { CaptureRouter, type BarcodeFormat, type ConcurrentCallPolicy, type FormatSelection, type ScanOutcome } from "@scanly/core";
+import { CaptureRouter, type BarcodeFormat, type ConcurrentCallPolicy, type FormatSelection, type RecoveryBudget, type RecoveryProfile, type RecoveryRouteId, type ScanOutcome } from "@scanly/core";
 import { type ScenarioDefinition } from "@scanly/scenario-schema";
 import { type DecodeWorkerFactory, type WorkerScanOptions } from "./worker/worker-client.js";
 export type BrowserCaptureSessionState = "idle" | "initialized" | "running" | "stopped" | "disposed";
@@ -12,6 +12,14 @@ export interface BrowserCaptureSessionOptions {
     workerFactory?: DecodeWorkerFactory;
     router?: CaptureRouter;
     disposeRouter?: boolean;
+    /** Static industrial recovery is explicit; normal upload behavior is unchanged. */
+    recovery?: false | BrowserStaticIndustrialRecoveryOptions;
+}
+export interface BrowserStaticIndustrialRecoveryOptions {
+    profile?: RecoveryProfile;
+    budget?: RecoveryBudget;
+    dpmExperimental?: boolean;
+    excludedRoutes?: readonly RecoveryRouteId[];
 }
 export declare class BrowserCaptureSession {
     private state;
@@ -22,6 +30,8 @@ export declare class BrowserCaptureSession {
     private readonly ownsRouter;
     private controller;
     private owner;
+    private readonly recovery;
+    private readonly recoveryPipeline;
     constructor(options?: BrowserCaptureSessionOptions);
     getState(): BrowserCaptureSessionState;
     initialize(): void;
@@ -31,6 +41,8 @@ export declare class BrowserCaptureSession {
     updateConfiguration(scenario: ScenarioDefinition): void;
     updateFormats(selection: FormatSelection | readonly BarcodeFormat[]): void;
     scanFile(file: File, options?: BrowserScanFileOptions): Promise<ScanOutcome>;
+    private workerRecovery;
+    private decodeOnMain;
     dispose(): Promise<void>;
     private assertNotDisposed;
     private failure;

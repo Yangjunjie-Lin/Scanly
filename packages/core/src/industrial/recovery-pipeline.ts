@@ -1,6 +1,7 @@
 import { sdkError } from "../contracts/errors.js";
 import type { NormalizedFrame } from "../contracts/frame.js";
 import type { ScanFailure, ScanOutcome, ScanResult, ScanSuccess } from "../contracts/result.js";
+import type { ScenarioDefinition } from "@scanly/scenario-schema";
 import { CandidateRegionDetector } from "./candidate-region.js";
 import { mapRecoveryGeometry } from "./coordinate-transform.js";
 import { DecodeCandidateResolver } from "./decode-candidate-conflict.js";
@@ -10,6 +11,7 @@ import { RecoveryPlanner, recoveryBudgetFor } from "./recovery-planner.js";
 import { registerDefaultRecoveryRoutes } from "./recovery-routes.js";
 import { RecoveryRouteRegistry } from "./recovery-route-registry.js";
 import { buildScanEvidence, decodeCandidateFromResult } from "./scan-evidence.js";
+import type { ScannerRecoveryDiagnosticSnapshot } from "./scanner-diagnostics.js";
 import type { DecodeCandidate, IndustrialRecoveryOptions, IndustrialRecoveryResult, RecoveryDecodeExecutor, RecoveryDiagnostics, RecoveryRouteAttribution } from "./types.js";
 
 export interface IndustrialRecoveryPipelineDependencies {
@@ -18,6 +20,28 @@ export interface IndustrialRecoveryPipelineDependencies {
   detector?: CandidateRegionDetector;
   resolver?: DecodeCandidateResolver;
   now?: () => number;
+}
+
+/** Decode a transformed candidate without multiplying it by the legacy generic preprocessing matrix. */
+export function createRecoveryProbeScenario(source: ScenarioDefinition, routeId: string): ScenarioDefinition {
+  const engineAttempts = Math.max(1, Math.min(6, source.decoders.order.length * 2));
+  return {
+    ...source,
+    id: `recovery-${routeId}`.slice(0, 64),
+    revision: source.revision + 1,
+    input: { ...source.input, roi: { mode: "full-frame" } },
+    localization: { strategy: "full-frame", maxCandidates: 1, cropPaddings: ["tight"], scales: [1] },
+    enhancement: { operators: [], rotations: [0] },
+    multiCode: { ...source.multiCode, maxResults: Math.min(source.multiCode.maxResults, engineAttempts) },
+    budgets: {
+      ...source.budgets,
+      maxCandidates: 1,
+      maxAttempts: engineAttempts,
+      maxIntermediateAllocations: Math.min(source.budgets.maxIntermediateAllocations, 8),
+      maxExecutionMs: Math.min(source.budgets.maxExecutionMs, 2_000),
+    },
+    ablation: { localization: false, multiScale: false, enhancement: false, rotations: false, multiEngineFallback: true, splitImageFallback: false },
+  };
 }
 
 export class IndustrialRecoveryPipeline {
@@ -52,7 +76,8 @@ export class IndustrialRecoveryPipeline {
         const generalCandidates = normal.results.map((result) => decodeCandidateFromResult(result, "general", normal.timing.totalMs));
         const candidateSet = this.resolver.resolve(generalCandidates, { temporalObservations: options.temporalObservations });
         const evidence = buildScanEvidence(generalCandidates, options.temporalObservations);
-        const outcome = attachEvidence(normal, evidence, "general", frame.id);
+        const snapshot: ScannerRecoveryDiagnosticSnapshot = { difficulty: diagnosis, routesAttempted: [], routeSucceeded: "general", attemptCount: 0, processedPixels: 0, candidateConflictCount: candidateSet.conflicts.length, evidence, insufficientEvidence: false, reasons: [] };
+        const outcome = attachEvidence(normal, evidence, "general", frame.id, snapshot);
         return { outcome, diagnostics: { diagnosis, plan, routes, attemptedRoutes: [], successfulRoute: "general", attemptCount: 0, processedPixels: 0, elapsedMs: this.now() - startedAt, candidateSet, evidence, insufficientEvidence: false, reasons }, memory: memory.observation };
       }
 
@@ -91,7 +116,8 @@ export class IndustrialRecoveryPipeline {
       const confirmedKeys = new Set(candidateSet.confirmedCandidates.map((candidate) => `${candidate.format}\u0000${candidate.payload}`));
       const confirmed = decodeCandidates.filter((candidate) => confirmedKeys.has(`${candidate.format}\u0000${candidate.payload}`));
       const evidence = buildScanEvidence(confirmed, options.temporalObservations); successfulRoute = candidateSet.confirmed?.route;
-      const uniqueResults = deduplicate(confirmed.map((candidate) => attachResultEvidence(candidate.result, evidence, candidate.route, frame.id)));
+      const snapshot: ScannerRecoveryDiagnosticSnapshot = { difficulty: diagnosis, routesAttempted: routes.map((route) => route.route), ...(successfulRoute ? { routeSucceeded: successfulRoute } : {}), attemptCount: recoveryAttempts, processedPixels, candidateConflictCount: candidateSet.conflicts.length, evidence, insufficientEvidence: false, reasons: [...reasons] };
+      const uniqueResults = deduplicate(confirmed.map((candidate) => attachResultEvidence(candidate.result, evidence, candidate.route, frame.id, snapshot)));
       const outcome: ScanSuccess = { ok: true, results: uniqueResults as [ScanResult, ...ScanResult[]], primary: uniqueResults[0], frameId: frame.id, scenarioId: `industrial-${profile}`, attemptCount: (normal.attemptCount ?? 0) + recoveryAttempts, timing: { totalMs: this.now() - startedAt } };
       return { outcome, diagnostics: { diagnosis, plan, routes, attemptedRoutes: routes.map((route) => route.route), ...(successfulRoute ? { successfulRoute } : {}), attemptCount: recoveryAttempts, processedPixels, elapsedMs: this.now() - startedAt, candidateSet, evidence, insufficientEvidence: false, reasons }, memory: finalMemory(memory) };
     } finally {
@@ -104,10 +130,10 @@ function mapResult(result: ScanResult, candidate: import("./types.js").RecoveryC
   const cornerPoints = mapRecoveryGeometry(result.cornerPoints, candidate.transform);
   return { ...result, frameId, ...(cornerPoints ? { cornerPoints } : { cornerPoints: undefined }), preprocessingPath: [...result.preprocessingPath, `recovery:${candidate.routeId}`], metadata: { ...result.metadata, recoveryRoute: candidate.routeId, originalFrameGeometry: true, recoveryDiagnostics: candidate.diagnostics } };
 }
-function attachEvidence(outcome: ScanSuccess, evidence: ReturnType<typeof buildScanEvidence>, route: "general", frameId: string): ScanSuccess {
-  const results = outcome.results.map((result) => attachResultEvidence(result, evidence, route, frameId)) as [ScanResult, ...ScanResult[]]; return { ...outcome, results, primary: results[0], frameId };
+function attachEvidence(outcome: ScanSuccess, evidence: ReturnType<typeof buildScanEvidence>, route: "general", frameId: string, snapshot: ScannerRecoveryDiagnosticSnapshot): ScanSuccess {
+  const results = outcome.results.map((result) => attachResultEvidence(result, evidence, route, frameId, snapshot)) as [ScanResult, ...ScanResult[]]; return { ...outcome, results, primary: results[0], frameId };
 }
-function attachResultEvidence(result: ScanResult, evidence: ReturnType<typeof buildScanEvidence>, route: import("./types.js").RecoveryRouteId, frameId: string): ScanResult { return { ...result, frameId, metadata: { ...result.metadata, recoveryRoute: route, scanEvidence: evidence, evidenceScoreIsCalibratedProbability: false } }; }
+function attachResultEvidence(result: ScanResult, evidence: ReturnType<typeof buildScanEvidence>, route: import("./types.js").RecoveryRouteId, frameId: string, snapshot: ScannerRecoveryDiagnosticSnapshot): ScanResult { return { ...result, frameId, metadata: { ...result.metadata, recoveryRoute: route, scanEvidence: evidence, scannerDiagnostics: snapshot, evidenceScoreIsCalibratedProbability: false } }; }
 function recoveryFailure(normal: ScanFailure, frameId: string, recoveryAttempts: number, totalMs: number): ScanFailure { return { ...normal, error: sdkError("no_symbol_found", "No recovery candidate reached sufficient validated evidence."), frameId, attemptCount: normal.attemptCount + recoveryAttempts, timing: { ...normal.timing, totalMs } }; }
 function exceededTime(startedAt: number, maximumTotalMs: number | undefined, now: () => number): boolean { return maximumTotalMs !== undefined && now() - startedAt >= maximumTotalMs; }
 function deduplicate(results: ScanResult[]): ScanResult[] { const seen = new Set<string>(); return results.filter((result) => { const geometry = result.cornerPoints?.map((point) => `${Math.round(point.x)},${Math.round(point.y)}`).join(";") ?? ""; const key = `${result.format}\u0000${result.rawText}\u0000${geometry}`; if (seen.has(key)) return false; seen.add(key); return true; }); }

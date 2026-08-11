@@ -1,7 +1,7 @@
 import { sdkError, type NormalizedFrame, type ScanFailure, type ScanOutcome } from "@scanly/core";
 import type { ScenarioDefinition } from "@scanly/scenario-schema";
 import { toTransferableFrame } from "./transferable-buffer.js";
-import { isWorkerResponse, type WorkerRequest, type WorkerResponse, type WorkerWasmMemoryObservation } from "./worker-messages.js";
+import { isWorkerResponse, type WorkerRecoveryObservation, type WorkerRecoveryRequest, type WorkerRequest, type WorkerResponse, type WorkerWasmMemoryObservation } from "./worker-messages.js";
 
 export interface DecodeWorkerLike {
   onmessage: ((event: MessageEvent<WorkerResponse>) => void) | null;
@@ -10,7 +10,7 @@ export interface DecodeWorkerLike {
   terminate(): void;
 }
 export type DecodeWorkerFactory = () => DecodeWorkerLike;
-export interface WorkerScanOptions { signal?: AbortSignal; generation?: number; preserveSourceForFallback?: boolean; onStage?: (stage: string) => void; onProgress?: (progress: { attemptCount: number }) => void }
+export interface WorkerScanOptions { signal?: AbortSignal; generation?: number; preserveSourceForFallback?: boolean; onStage?: (stage: string) => void; onProgress?: (progress: { attemptCount: number }) => void; recovery?: WorkerRecoveryRequest }
 
 type PendingJob = {
   jobId: string;
@@ -106,6 +106,9 @@ export class DecodeWorkerClient {
   private workerWasmDecodeCount = 0;
   private wasmMemory?: WorkerWasmMemoryObservation;
   private unconfirmedRealmMemory?: WorkerWasmMemoryObservation;
+  private recoveryRunCount = 0;
+  private recovery?: WorkerRecoveryObservation;
+  private recoveryPeakTemporaryBytes = 0;
   constructor(private readonly workerFactory: DecodeWorkerFactory = defaultWorkerFactory) {}
 
   private ensureWorker(): { worker: DecodeWorkerLike; setupMs: number } {
@@ -138,6 +141,11 @@ export class DecodeWorkerClient {
       if (message.outcome.ok && message.outcome.results.some((result) => result.engine.id === "zxing-cpp-wasm")) {
         this.workerWasmDecodeCount += 1;
       }
+    }
+    if (message.recovery) {
+      this.recoveryRunCount += 1;
+      this.recovery = { ...message.recovery, attemptedRoutes: [...message.recovery.attemptedRoutes] };
+      this.recoveryPeakTemporaryBytes = Math.max(this.recoveryPeakTemporaryBytes, message.recovery.peakTemporaryBytes);
     }
     this.finish(job, { ...message.outcome, timing: { ...message.outcome.timing, workerSetupMs: job.setupMs, workerTransferMs: job.transferMs ?? 0 } });
   }
@@ -223,7 +231,7 @@ export class DecodeWorkerClient {
       if (options.signal?.aborted) { this.cancel(); return; }
       try {
         const state = debugState(); if (state) state.decodePosted += 1;
-        worker.postMessage({ type: "scan", jobId, generation, frame: serialized, scenario, progress: Boolean(options.onProgress) }, transfer);
+        worker.postMessage({ type: "scan", jobId, generation, frame: serialized, scenario, progress: Boolean(options.onProgress), ...(options.recovery ? { recovery: options.recovery } : {}) }, transfer);
       } catch (error) {
         this.finish(job, workerFailure(job, error instanceof Error ? error.message : String(error)));
         this.restartWorker();
@@ -261,6 +269,10 @@ export class DecodeWorkerClient {
         wasmPeakLinearMemoryBytes: memory.peakLinearMemoryBytes,
         wasmReleasedNativeResultCount: memory.releasedNativeResultCount,
       } : {}),
+      recoveryRunCount: this.recoveryRunCount,
+      recoveryTemporaryBytes: this.recovery?.currentTemporaryBytes ?? 0,
+      recoveryPeakTemporaryBytes: this.recoveryPeakTemporaryBytes,
+      recoveryRouteStateCount: this.recovery?.routeStateCount ?? 0,
     };
   }
 }

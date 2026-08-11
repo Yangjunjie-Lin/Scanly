@@ -1,9 +1,17 @@
-import { SDK_ERROR_CODES, validateFrame, type ScanOutcome, type ScanResult, type ScanTiming } from "@scanly/core";
+import { SDK_ERROR_CODES, validateBudget, validateFrame, type RecoveryBudget, type RecoveryProfile, type RecoveryRouteId, type RecoverySourceMode, type ScanOutcome, type ScanResult, type ScanTiming } from "@scanly/core";
 import { validateScenario, type ScenarioDefinition } from "@scanly/scenario-schema";
 import { fromTransferableFrame, type SerializedNormalizedFrame } from "./transferable-buffer.js";
 
+export interface WorkerRecoveryRequest {
+  profile: RecoveryProfile;
+  sourceMode: RecoverySourceMode;
+  budget?: RecoveryBudget;
+  dpmExperimental: boolean;
+  excludedRoutes?: RecoveryRouteId[];
+}
+
 export type WorkerRequest =
-  | { type: "scan"; jobId: string; generation: number; frame: SerializedNormalizedFrame; scenario: ScenarioDefinition; progress: boolean }
+  | { type: "scan"; jobId: string; generation: number; frame: SerializedNormalizedFrame; scenario: ScenarioDefinition; progress: boolean; recovery?: WorkerRecoveryRequest }
   | { type: "cancel"; jobId: string; generation: number };
 
 /** Live ZXing-C++ resources observed inside the Worker realm after a decode. */
@@ -17,10 +25,22 @@ export interface WorkerWasmMemoryObservation {
   releasedNativeResultCount: number;
 }
 
+export interface WorkerRecoveryObservation {
+  attemptCount: number;
+  processedPixels: number;
+  currentTemporaryBytes: number;
+  peakTemporaryBytes: number;
+  activeBuffers: number;
+  routeStateCount: number;
+  attemptedRoutes: RecoveryRouteId[];
+  successfulRoute?: RecoveryRouteId;
+  insufficientEvidence: boolean;
+}
+
 export type WorkerResponse =
   | { type: "stage"; jobId: string; generation: number; stage: string }
   | { type: "progress"; jobId: string; generation: number; attemptCount: number }
-  | { type: "result"; jobId: string; generation: number; outcome: ScanOutcome; wasmMemory?: WorkerWasmMemoryObservation }
+  | { type: "result"; jobId: string; generation: number; outcome: ScanOutcome; wasmMemory?: WorkerWasmMemoryObservation; recovery?: WorkerRecoveryObservation }
   | { type: "cancelled"; jobId: string; generation: number; elapsedMs: number }
   | { type: "error"; jobId: string; generation: number; message: string };
 
@@ -56,6 +76,8 @@ const BARCODE_FORMATS = new Set([
 const BARCODE_FORMAT_CLASSES = new Set(["matrix", "stacked", "linear"]);
 const SDK_ERROR_CODE_VALUES = new Set<string>(SDK_ERROR_CODES);
 const SDK_ERROR_CATEGORIES = new Set(["input", "resource", "lifecycle", "engine", "source", "configuration", "internal"]);
+const RECOVERY_PROFILES = new Set(["fast", "balanced", "robust", "industrial", "dpm-experimental"]);
+const RECOVERY_ROUTES = new Set(["general", "low-contrast", "illumination", "blur", "glare", "perspective", "curved", "small-module", "damaged", "quiet-zone", "screen", "dpm"]);
 
 function isScanTiming(value: unknown): value is ScanTiming {
   if (!isRecord(value) || !isNonNegativeNumber(value.totalMs)) return false;
@@ -177,7 +199,18 @@ export function isWorkerRequest(value: unknown): value is WorkerRequest {
   if (typeof value.progress !== "boolean" || !value.frame || typeof value.frame !== "object" || !(value.frame as { buffer?: unknown }).buffer || !((value.frame as { buffer: unknown }).buffer instanceof ArrayBuffer)) return false;
   const frame = fromTransferableFrame(value.frame as SerializedNormalizedFrame);
   if (validateFrame(frame).length) return false;
-  return validateScenario(value.scenario).ok;
+  return validateScenario(value.scenario).ok && isWorkerRecoveryRequest(value.recovery);
+}
+
+function isWorkerRecoveryRequest(value: unknown): value is WorkerRecoveryRequest | undefined {
+  if (value === undefined) return true;
+  if (!isRecord(value) || !RECOVERY_PROFILES.has(value.profile as string) || !["camera", "static"].includes(value.sourceMode as string) || typeof value.dpmExperimental !== "boolean") return false;
+  if (value.excludedRoutes !== undefined && (!Array.isArray(value.excludedRoutes) || value.excludedRoutes.length > 12 || !value.excludedRoutes.every((route) => RECOVERY_ROUTES.has(route as string)))) return false;
+  if (value.budget !== undefined) {
+    if (!isRecord(value.budget)) return false;
+    try { validateBudget(value.budget as unknown as RecoveryBudget); } catch { return false; }
+  }
+  return true;
 }
 
 export function isWorkerResponse(value: unknown): value is WorkerResponse {
@@ -189,12 +222,20 @@ export function isWorkerResponse(value: unknown): value is WorkerResponse {
     if (value.type === "cancelled") return isNonNegativeNumber(value.elapsedMs);
     if (value.type === "error") return isBoundedString(value.message, 2_048, false);
     if (value.type !== "result" || !isScanOutcome(value.outcome)) return false;
-    return value.wasmMemory === undefined || isWorkerWasmMemoryObservation(value.wasmMemory);
+    return (value.wasmMemory === undefined || isWorkerWasmMemoryObservation(value.wasmMemory))
+      && (value.recovery === undefined || isWorkerRecoveryObservation(value.recovery));
   } catch {
     // Worker messages cross an untrusted realm boundary. Validation must never
     // let malformed data escape as an exception into the session lifecycle.
     return false;
   }
+}
+
+function isWorkerRecoveryObservation(value: unknown): value is WorkerRecoveryObservation {
+  if (!isRecord(value) || typeof value.insufficientEvidence !== "boolean") return false;
+  if (!["attemptCount", "processedPixels", "currentTemporaryBytes", "peakTemporaryBytes", "activeBuffers", "routeStateCount"].every((key) => isNonNegativeInteger(value[key]))) return false;
+  if (!Array.isArray(value.attemptedRoutes) || value.attemptedRoutes.length > 12 || !value.attemptedRoutes.every((route) => RECOVERY_ROUTES.has(route as string))) return false;
+  return value.successfulRoute === undefined || RECOVERY_ROUTES.has(value.successfulRoute as string);
 }
 
 function isWorkerWasmMemoryObservation(value: unknown): value is WorkerWasmMemoryObservation {

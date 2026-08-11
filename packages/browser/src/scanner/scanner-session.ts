@@ -1,9 +1,15 @@
 import {
   CaptureRouter,
+  IndustrialRecoveryPipeline,
+  ScannerDiagnostics,
+  createRecoveryProbeScenario,
   sdkError,
   toDecodedBarcode,
   type DecodedBarcode,
   type NormalizedFrame,
+  type RecoveryBudget,
+  type RecoveryProfile,
+  type RecoveryRouteId,
   type ScanOutcome,
   type ScanResult,
 } from "@scanly/core";
@@ -53,6 +59,15 @@ export interface BrowserScannerFrameDecoderOptions {
   useWorker?: boolean;
   disposeRouter?: boolean;
   scenario?: ScenarioDefinition;
+  /** Camera defaults to diagnosis-driven recovery; DPM remains explicitly off. */
+  recovery?: false | BrowserIndustrialRecoveryOptions;
+}
+
+export interface BrowserIndustrialRecoveryOptions {
+  profile?: RecoveryProfile;
+  budget?: RecoveryBudget;
+  dpmExperimental?: boolean;
+  excludedRoutes?: readonly RecoveryRouteId[];
 }
 
 /** Default decoder composition: persistent Worker with an explicit main-thread fallback. */
@@ -62,6 +77,12 @@ export class BrowserScannerFrameDecoder implements ScannerFrameDecoder {
   private readonly worker: DecodeWorkerClient;
   private readonly useWorker: boolean;
   private readonly baseScenario?: ScenarioDefinition;
+  private readonly recovery: false | BrowserIndustrialRecoveryOptions;
+  private readonly recoveryPipeline = new IndustrialRecoveryPipeline();
+  private mainRecoveryRunCount = 0;
+  private mainRecoveryTemporaryBytes = 0;
+  private mainRecoveryPeakTemporaryBytes = 0;
+  private mainRecoveryRouteStateCount = 0;
   private disposed = false;
 
   constructor(options: BrowserScannerFrameDecoderOptions = {}) {
@@ -70,6 +91,7 @@ export class BrowserScannerFrameDecoder implements ScannerFrameDecoder {
     this.worker = new DecodeWorkerClient(options.workerFactory);
     this.useWorker = options.useWorker ?? typeof Worker !== "undefined";
     this.baseScenario = options.scenario;
+    this.recovery = options.recovery ?? {};
   }
 
   async decode(frame: NormalizedFrame, request: ScannerDecodeRequest): Promise<ScanOutcome> {
@@ -122,7 +144,7 @@ export class BrowserScannerFrameDecoder implements ScannerFrameDecoder {
     if (this.useWorker) {
       const started = Date.now();
       markDecodePath("worker");
-      const workerOutcome = await this.worker.scan(frame, scenario, { signal: request.signal, generation: request.generation, preserveSourceForFallback: true });
+      const workerOutcome = await this.worker.scan(frame, scenario, { signal: request.signal, generation: request.generation, preserveSourceForFallback: true, ...(this.workerRecovery(request) ? { recovery: this.workerRecovery(request)! } : {}) });
       if (workerOutcome.ok || request.signal.aborted || !["worker_initialization_failure", "engine_execution_failure"].includes(workerOutcome.error.code)) return workerOutcome;
       const elapsed = Math.max(Date.now() - started, workerOutcome.timing.totalMs);
       const remainingExecutionMs = Math.floor(scenario.budgets.maxExecutionMs - elapsed);
@@ -130,11 +152,36 @@ export class BrowserScannerFrameDecoder implements ScannerFrameDecoder {
       if (remainingExecutionMs <= 0 || remainingAttempts <= 0) return workerOutcome;
       markDecodePath("main-thread");
       const fallbackScenario: ScenarioDefinition = { ...scenario, multiCode: { ...scenario.multiCode, maxResults: Math.min(scenario.multiCode.maxResults, remainingAttempts) }, budgets: { ...scenario.budgets, maxAttempts: remainingAttempts, maxExecutionMs: remainingExecutionMs } };
-      const fallback = await this.router.scan(frame, { signal: request.signal, scenario: fallbackScenario });
+      const fallback = await this.decodeOnMain(frame, fallbackScenario, request);
       return { ...fallback, attemptCount: workerOutcome.attemptCount + fallback.attemptCount, timing: { ...fallback.timing, totalMs: Math.max(Date.now() - started, elapsed + fallback.timing.totalMs), ...(workerOutcome.timing.workerSetupMs === undefined ? {} : { workerSetupMs: workerOutcome.timing.workerSetupMs }), ...(workerOutcome.timing.workerTransferMs === undefined ? {} : { workerTransferMs: workerOutcome.timing.workerTransferMs }) } };
     }
     markDecodePath("main-thread");
-    return this.router.scan(frame, { signal: request.signal, scenario });
+    return this.decodeOnMain(frame, scenario, request);
+  }
+
+  private workerRecovery(request: ScannerDecodeRequest) {
+    if (this.recovery === false) return undefined;
+    return {
+      profile: this.recovery.profile ?? request.profile,
+      sourceMode: "camera" as const,
+      ...(this.recovery.budget ? { budget: this.recovery.budget } : {}),
+      dpmExperimental: this.recovery.dpmExperimental === true,
+      ...(this.recovery.excludedRoutes ? { excludedRoutes: [...this.recovery.excludedRoutes] } : {}),
+    };
+  }
+
+  private async decodeOnMain(frame: NormalizedFrame, scenario: ScenarioDefinition, request: ScannerDecodeRequest): Promise<ScanOutcome> {
+    const recovery = this.workerRecovery(request);
+    if (!recovery) return this.router.scan(frame, { signal: request.signal, scenario });
+    const result = await this.recoveryPipeline.run(frame, (candidate, recoveryRequest) => this.router.scan(
+      { ...candidate, ownership: "borrowed", dispose: undefined },
+      { signal: recoveryRequest.signal, scenario: recoveryRequest.routeId === "general" ? scenario : createRecoveryProbeScenario(scenario, recoveryRequest.routeId) },
+    ), { profile: recovery.profile, sourceMode: recovery.sourceMode, ...(recovery.budget ? { budget: recovery.budget } : {}), signal: request.signal, dpmExperimental: recovery.dpmExperimental, excludedRoutes: recovery.excludedRoutes });
+    this.mainRecoveryRunCount += 1;
+    this.mainRecoveryTemporaryBytes = result.memory.currentBytes;
+    this.mainRecoveryPeakTemporaryBytes = Math.max(this.mainRecoveryPeakTemporaryBytes, result.memory.peakBytes);
+    this.mainRecoveryRouteStateCount = 0;
+    return result.outcome;
   }
 
   cancel(): void { this.worker.cancel(); }
@@ -155,6 +202,10 @@ export class BrowserScannerFrameDecoder implements ScannerFrameDecoder {
       wasmCurrentLinearMemoryBytes: (worker.wasmCurrentLinearMemoryBytes ?? 0) + (memory?.currentLinearMemoryBytes ?? 0),
       wasmPeakLinearMemoryBytes: (worker.wasmPeakLinearMemoryBytes ?? 0) + (memory?.peakLinearMemoryBytes ?? 0),
       wasmReleasedNativeResultCount: (worker.wasmReleasedNativeResultCount ?? 0) + (memory?.releasedNativeResultCount ?? 0),
+      recoveryRunCount: (worker.recoveryRunCount ?? 0) + this.mainRecoveryRunCount,
+      recoveryTemporaryBytes: (worker.recoveryTemporaryBytes ?? 0) + this.mainRecoveryTemporaryBytes,
+      recoveryPeakTemporaryBytes: Math.max(worker.recoveryPeakTemporaryBytes ?? 0, this.mainRecoveryPeakTemporaryBytes),
+      recoveryRouteStateCount: (worker.recoveryRouteStateCount ?? 0) + this.mainRecoveryRouteStateCount,
     };
   }
 }
@@ -343,9 +394,11 @@ export class ScannerSession {
     const p95 = sorted.length ? sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * 0.95) - 1)] : 0;
     const currentWorkerMemory = decoder?.wasmCurrentLinearMemoryBytes ?? this.currentWorkerMemory;
     const wasmInputAllocationBytes = decoder?.wasmInputAllocationBytes ?? 0;
-    const decoderControlledMemory = Math.max(currentWorkerMemory, wasmInputAllocationBytes);
+    const recoveryTemporaryBytes = decoder?.recoveryTemporaryBytes ?? 0;
+    const recoveryRouteStateCount = decoder?.recoveryRouteStateCount ?? 0;
+    const decoderControlledMemory = Math.max(currentWorkerMemory, wasmInputAllocationBytes, recoveryTemporaryBytes);
     const temporalControlledState = this.candidates.size + this.repeats.size + Number(this.roi.active) + (this.trackingRuntime?.controlledSize ?? 0);
-    return { ...this.counters, averageDecodeMs: this.decodeLatencies.length ? this.decodeLatencies.reduce((a, b) => a + b, 0) / this.decodeLatencies.length : 0, p95DecodeMs: p95, effectiveDecodeFps: scheduler.effectiveDecodeFps || (this.counters.admittedFrames * 1_000 / elapsed), frameDropRate: this.counters.capturedFrames ? this.counters.droppedFrames / this.counters.capturedFrames : 0, ...(this.firstDecodeAt === undefined ? {} : { timeToFirstDecodeMs: this.firstDecodeAt - this.startedAt }), ...(this.firstConfirmedAt === undefined ? {} : { timeToFirstConfirmedScanMs: this.firstConfirmedAt - this.startedAt }), currentWorkerMemory, peakControlledMemory: Math.max(this.peakControlledMemory, decoder?.wasmPeakLinearMemoryBytes ?? 0), activeDecodeCount: scheduler.active, pendingFrameCount: scheduler.pending, peakPendingFrameCount: scheduler.peakPending, workerCreatedCount: decoder?.workerCreatedCount ?? 0, workerTerminatedCount: decoder?.workerTerminatedCount ?? 0, activeTaskCount: decoder?.activeTaskCount ?? 0, peakActiveTaskCount: decoder?.peakActiveTaskCount ?? 0, workerWasmDecodeCount: decoder?.workerWasmDecodeCount ?? 0, wasmInputAllocationBytes, wasmActiveNativeResultCount: decoder?.wasmActiveNativeResultCount ?? 0, wasmPeakLinearMemoryBytes: decoder?.wasmPeakLinearMemoryBytes ?? 0, wasmReleasedNativeResultCount: decoder?.wasmReleasedNativeResultCount ?? 0, finalControlledMemory: scheduler.active + scheduler.pending + decoderControlledMemory + temporalControlledState };
+    return { ...this.counters, averageDecodeMs: this.decodeLatencies.length ? this.decodeLatencies.reduce((a, b) => a + b, 0) / this.decodeLatencies.length : 0, p95DecodeMs: p95, effectiveDecodeFps: scheduler.effectiveDecodeFps || (this.counters.admittedFrames * 1_000 / elapsed), frameDropRate: this.counters.capturedFrames ? this.counters.droppedFrames / this.counters.capturedFrames : 0, ...(this.firstDecodeAt === undefined ? {} : { timeToFirstDecodeMs: this.firstDecodeAt - this.startedAt }), ...(this.firstConfirmedAt === undefined ? {} : { timeToFirstConfirmedScanMs: this.firstConfirmedAt - this.startedAt }), currentWorkerMemory, peakControlledMemory: Math.max(this.peakControlledMemory, decoder?.wasmPeakLinearMemoryBytes ?? 0, decoder?.recoveryPeakTemporaryBytes ?? 0), activeDecodeCount: scheduler.active, pendingFrameCount: scheduler.pending, peakPendingFrameCount: scheduler.peakPending, workerCreatedCount: decoder?.workerCreatedCount ?? 0, workerTerminatedCount: decoder?.workerTerminatedCount ?? 0, activeTaskCount: decoder?.activeTaskCount ?? 0, peakActiveTaskCount: decoder?.peakActiveTaskCount ?? 0, workerWasmDecodeCount: decoder?.workerWasmDecodeCount ?? 0, wasmInputAllocationBytes, wasmActiveNativeResultCount: decoder?.wasmActiveNativeResultCount ?? 0, wasmPeakLinearMemoryBytes: decoder?.wasmPeakLinearMemoryBytes ?? 0, wasmReleasedNativeResultCount: decoder?.wasmReleasedNativeResultCount ?? 0, recoveryRunCount: decoder?.recoveryRunCount ?? 0, recoveryTemporaryBytes, recoveryPeakTemporaryBytes: decoder?.recoveryPeakTemporaryBytes ?? 0, recoveryRouteStateCount, finalControlledMemory: scheduler.active + scheduler.pending + decoderControlledMemory + temporalControlledState + recoveryRouteStateCount };
   }
 
   onResult(listener: ScanResultListener): Unsubscribe { this.resultListeners.add(listener); return () => this.resultListeners.delete(listener); }
@@ -409,6 +462,8 @@ export class ScannerSession {
     try {
       if (generation !== this.generation) { this.counters.staleResultsDiscarded += 1; return { quality, decodeMs: elapsed, success: false }; }
       if (outcome.ok) {
+        const recoveryDiagnostic = ScannerDiagnostics.fromResult(outcome.primary);
+        if (recoveryDiagnostic) this.emitDiagnostic({ type: "recovery", timestamp: now, frameId, profile, decodeMs: elapsed, recovery: recoveryDiagnostic, detail: ScannerDiagnostics.explain(recoveryDiagnostic).join(" ") });
         const observations = outcome.results.map((result) => {
           const geometry = geometryFor(result, frame);
           return { barcode: toDecodedBarcode(result), frameId, timestamp: now, ...(geometry ? { geometry } : {}) };

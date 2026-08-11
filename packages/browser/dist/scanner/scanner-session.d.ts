@@ -1,4 +1,4 @@
-import { CaptureRouter, type NormalizedFrame, type ScanOutcome } from "@scanly/core";
+import { CaptureRouter, type NormalizedFrame, type RecoveryBudget, type RecoveryProfile, type RecoveryRouteId, type ScanOutcome } from "@scanly/core";
 import { type ScenarioDefinition } from "@scanly/scenario-schema";
 import { type DecodeWorkerFactory } from "../worker/worker-client.js";
 import { type ScannerTrackingRuntimeOptions } from "../tracking/scanner-tracking-runtime.js";
@@ -16,6 +16,14 @@ export interface BrowserScannerFrameDecoderOptions {
     useWorker?: boolean;
     disposeRouter?: boolean;
     scenario?: ScenarioDefinition;
+    /** Camera defaults to diagnosis-driven recovery; DPM remains explicitly off. */
+    recovery?: false | BrowserIndustrialRecoveryOptions;
+}
+export interface BrowserIndustrialRecoveryOptions {
+    profile?: RecoveryProfile;
+    budget?: RecoveryBudget;
+    dpmExperimental?: boolean;
+    excludedRoutes?: readonly RecoveryRouteId[];
 }
 /** Default decoder composition: persistent Worker with an explicit main-thread fallback. */
 export declare class BrowserScannerFrameDecoder implements ScannerFrameDecoder {
@@ -24,9 +32,17 @@ export declare class BrowserScannerFrameDecoder implements ScannerFrameDecoder {
     private readonly worker;
     private readonly useWorker;
     private readonly baseScenario?;
+    private readonly recovery;
+    private readonly recoveryPipeline;
+    private mainRecoveryRunCount;
+    private mainRecoveryTemporaryBytes;
+    private mainRecoveryPeakTemporaryBytes;
+    private mainRecoveryRouteStateCount;
     private disposed;
     constructor(options?: BrowserScannerFrameDecoderOptions);
     decode(frame: NormalizedFrame, request: ScannerDecodeRequest): Promise<ScanOutcome>;
+    private workerRecovery;
+    private decodeOnMain;
     cancel(): void;
     dispose(): Promise<void>;
     getStatistics(): {
@@ -35,6 +51,10 @@ export declare class BrowserScannerFrameDecoder implements ScannerFrameDecoder {
         wasmCurrentLinearMemoryBytes: number;
         wasmPeakLinearMemoryBytes: number;
         wasmReleasedNativeResultCount: number;
+        recoveryRunCount: number;
+        recoveryTemporaryBytes: number;
+        recoveryPeakTemporaryBytes: number;
+        recoveryRouteStateCount: number;
         workerCreatedCount: number;
         workerTerminatedCount: number;
         activeTaskCount: number;

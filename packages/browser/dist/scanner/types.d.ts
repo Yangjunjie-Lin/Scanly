@@ -1,4 +1,4 @@
-import type { CornerPoint, DecodedBarcode, NormalizedFrame, ScanOutcome, SdkError } from "@scanly/core";
+import type { CornerPoint, DecodedBarcode, NormalizedFrame, ScanOutcome, ScannerRecoveryDiagnosticSnapshot, SdkError } from "@scanly/core";
 export type ScannerSessionState = "idle" | "starting" | "scanning" | "paused" | "stopping" | "stopped" | "failed";
 export type DecodeProfile = "fast" | "balanced" | "robust";
 export type ScannerDecodeMode = "single" | "tracking";
@@ -118,9 +118,13 @@ export interface ScannerSessionStatistics {
     wasmPeakLinearMemoryBytes: number;
     wasmReleasedNativeResultCount: number;
     finalControlledMemory: number;
+    recoveryRunCount: number;
+    recoveryTemporaryBytes: number;
+    recoveryPeakTemporaryBytes: number;
+    recoveryRouteStateCount: number;
 }
 export interface ScannerDiagnostic {
-    type: "frame-quality" | "hint" | "event" | "decode" | "scheduler" | "error";
+    type: "frame-quality" | "hint" | "event" | "decode" | "recovery" | "scheduler" | "error";
     timestamp: number;
     frameId?: number;
     quality?: FrameQuality;
@@ -130,6 +134,7 @@ export interface ScannerDiagnostic {
     decodeMs?: number;
     error?: SdkError;
     detail?: string;
+    recovery?: ScannerRecoveryDiagnosticSnapshot;
 }
 export interface TemporalROIHint {
     x: number;
@@ -164,6 +169,10 @@ export interface ScannerDecoderStatistics {
     wasmCurrentLinearMemoryBytes?: number;
     wasmPeakLinearMemoryBytes?: number;
     wasmReleasedNativeResultCount?: number;
+    recoveryRunCount?: number;
+    recoveryTemporaryBytes?: number;
+    recoveryPeakTemporaryBytes?: number;
+    recoveryRouteStateCount?: number;
 }
 export interface ScannerFrameDecoder {
     decode(frame: NormalizedFrame, request: ScannerDecodeRequest): Promise<ScanOutcome>;
