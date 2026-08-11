@@ -66,6 +66,7 @@ export interface RecoveryContext {
     profile: RecoveryProfile;
     sourceMode: RecoverySourceMode;
     budget: RecoveryBudget;
+    framePixels: number;
     memory: RecoveryMemoryAccountant;
     candidateRegions: readonly BarcodeCandidateRegion[];
     acceptedFormats?: readonly BarcodeFormat[];
@@ -118,6 +119,7 @@ export interface DecodeCandidateConflict {
 export interface DecodeCandidateSet {
     candidates: readonly DecodeCandidate[];
     confirmed?: DecodeCandidate;
+    confirmedCandidates: readonly DecodeCandidate[];
     conflicts: readonly DecodeCandidateConflict[];
     rejectedCount: number;
 }
@@ -139,8 +141,28 @@ export interface RecoveryRouteAttribution {
     pixelsProcessed: number;
     elapsedMs: number;
     success: boolean;
-    additionalTruePositives: number;
-    additionalFalsePositives: number;
+    additionalTruePositives?: number;
+    additionalFalsePositives?: number;
+}
+export type RecoveryDecodeExecutor = (frame: NormalizedFrame, request: {
+    routeId: RecoveryRouteId;
+    signal?: AbortSignal;
+    remainingRecoveryAttempts: number;
+}) => Promise<import("../contracts/result.js").ScanOutcome>;
+export interface IndustrialRecoveryOptions {
+    profile?: RecoveryProfile;
+    sourceMode?: RecoverySourceMode;
+    budget?: RecoveryBudget;
+    signal?: AbortSignal;
+    dpmExperimental?: boolean;
+    excludedRoutes?: readonly RecoveryRouteId[];
+    temporalObservations?: number;
+    normalOutcome?: import("../contracts/result.js").ScanOutcome;
+}
+export interface IndustrialRecoveryResult {
+    outcome: import("../contracts/result.js").ScanOutcome;
+    diagnostics: RecoveryDiagnostics;
+    memory: import("./memory.js").RecoveryMemoryObservation;
 }
 export interface RecoveryDiagnostics {
     diagnosis: BarcodeDifficultyDiagnosis;

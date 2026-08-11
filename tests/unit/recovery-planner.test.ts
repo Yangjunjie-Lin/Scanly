@@ -27,6 +27,7 @@ function context(registry: RecoveryRouteRegistry, routes: RecoveryRouteId[]): Re
   return {
     diagnosis: diagnosis(routes), profile: "balanced", sourceMode: "camera",
     budget: { maximumRoutes: 2, maximumAttempts: 3, maximumPixelsProcessed: 180 },
+    framePixels: 100,
     memory: new RecoveryMemoryAccountant(1_024), candidateRegions: [], startedAt: 0, now: () => 0,
     dpmExperimentalEnabled: false,
   };

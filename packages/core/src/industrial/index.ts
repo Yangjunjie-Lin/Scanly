@@ -5,3 +5,4 @@ export * from "./difficulty-diagnosis.js";
 export * from "./candidate-region.js";
 export * from "./recovery-route-registry.js";
 export * from "./recovery-planner.js";
+export * from "./recovery-routes.js";

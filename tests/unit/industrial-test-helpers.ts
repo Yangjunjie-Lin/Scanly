@@ -1,4 +1,10 @@
-import { createRgbaFrame, type NormalizedFrame } from "@scanly/core";
+import {
+  RecoveryMemoryAccountant,
+  type BarcodeDifficultyDiagnosis,
+  type NormalizedFrame,
+  type RecoveryContext,
+} from "@scanly/core";
+import { createRgbaFrame } from "@scanly/core";
 
 export function syntheticFrame(
   width: number,
@@ -15,3 +21,29 @@ export function syntheticFrame(
   }
   return createRgbaFrame(data, width, height, { id, ownership: "owned", sourceType: "pixel-buffer" });
 }
+
+export function recoveryContext(
+  frame: NormalizedFrame,
+  diagnosis: Partial<BarcodeDifficultyDiagnosis> = {},
+  options: Partial<Pick<RecoveryContext, "profile" | "sourceMode" | "dpmExperimentalEnabled">> = {},
+): RecoveryContext {
+  const base: BarcodeDifficultyDiagnosis = {
+    blur: "none", motionBlur: "none", underexposure: "none", overexposure: "none", glare: "none", lowContrast: "none",
+    perspectiveDistortion: "none", curvature: "none", smallModule: "none", printingDamage: "none", occlusion: "none",
+    recommendedRoutes: [], evidence: {},
+  };
+  return {
+    diagnosis: { ...base, ...diagnosis, evidence: { ...base.evidence, ...diagnosis.evidence } },
+    profile: options.profile ?? "industrial", sourceMode: options.sourceMode ?? "static",
+    budget: {
+      maximumRoutes: 8, maximumAttempts: 12, maximumPixelsProcessed: frame.width * frame.height * 16,
+      maximumCandidates: 3, maximumRectifiedArea: frame.width * frame.height * 4,
+      maximumPerspectiveTransforms: 2, maximumTemporaryBytes: 64 * 1024 * 1024, maximumTotalMs: 1_000,
+    },
+    framePixels: frame.width * frame.height,
+    memory: new RecoveryMemoryAccountant(64 * 1024 * 1024), candidateRegions: [],
+    startedAt: 0, now: () => 1, dpmExperimentalEnabled: options.dpmExperimentalEnabled ?? false,
+  };
+}
+
+export function releaseCandidates(candidates: readonly { dispose(): void }[]): void { for (const candidate of candidates) candidate.dispose(); }
