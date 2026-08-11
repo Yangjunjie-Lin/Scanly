@@ -96,6 +96,8 @@ The development evidence harness defines 34 independent Ground Truth scenarios a
 
 See [Beta 2 tracking and batch scan](docs/beta2-tracking-batch.md). This remains development/integration evidence: it does not claim industrial tracking, warehouse certification, AR MatrixScan parity, or physical-device validation.
 
+See [Beta 3 industrial difficult-barcode recovery](docs/beta3-industrial-recovery.md) for recovery budgets, route boundaries, evidence/conflict semantics, coordinate transforms, Worker ownership, corpus provenance, and the DPM experimental boundary.
+
 <!-- ALPHA5_INTEGRATION_SUMMARY_START -->
 | Current Alpha.5 development evidence | Value |
 | --- | ---: |
@@ -154,6 +156,7 @@ Profile intent is explicit: `fast` is the latency-first camera pass and accepts 
 - [Public API and lifecycle](docs/sdk/public-api.md)
 - [Scenarios](docs/scenarios/configuration.md)
 - [Decoding pipeline](docs/decoding-pipeline.md)
+- [Beta 3 industrial recovery](docs/beta3-industrial-recovery.md)
 - [Benchmark methodology](docs/benchmarking/methodology.md)
 - [v1 migration](docs/migration/v1-to-v2.md)
 - [Maintenance policy](docs/maintenance.md)
@@ -180,6 +183,10 @@ npm run wasm:build
 npm run wasm:verify
 npm run test:e2e
 npm run benchmark:smoke
+npm run fixtures:verify-industrial
+npm run benchmark:industrial -- --full --gate
+npm run benchmark:industrial:negative -- --full --gate
+npm run test:industrial:soak
 npm run benchmark:compare
 npm run bundle:analyze
 ```
