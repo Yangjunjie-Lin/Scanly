@@ -30,7 +30,7 @@ export declare class BrowserCaptureSession {
     private readonly ownsRouter;
     private controller;
     private owner;
-    private readonly recovery;
+    private recovery;
     private readonly recoveryPipeline;
     constructor(options?: BrowserCaptureSessionOptions);
     getState(): BrowserCaptureSessionState;
@@ -41,6 +41,7 @@ export declare class BrowserCaptureSession {
     updateConfiguration(scenario: ScenarioDefinition): void;
     updateFormats(selection: FormatSelection | readonly BarcodeFormat[]): void;
     scanFile(file: File, options?: BrowserScanFileOptions): Promise<ScanOutcome>;
+    updateRecovery(recovery: false | BrowserStaticIndustrialRecoveryOptions): void;
     private workerRecovery;
     private decodeOnMain;
     dispose(): Promise<void>;

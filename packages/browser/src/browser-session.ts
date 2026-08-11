@@ -35,7 +35,7 @@ export class BrowserCaptureSession {
   private readonly ownsRouter: boolean;
   private controller: AbortController | null = null;
   private owner = 0;
-  private readonly recovery: false | BrowserStaticIndustrialRecoveryOptions;
+  private recovery: false | BrowserStaticIndustrialRecoveryOptions;
   private readonly recoveryPipeline = new IndustrialRecoveryPipeline();
 
   constructor(options: BrowserCaptureSessionOptions = {}) {
@@ -142,6 +142,12 @@ export class BrowserCaptureSession {
       options.signal?.removeEventListener("abort", onAbort);
       if (this.controller === controller) this.controller = null;
     }
+  }
+
+  updateRecovery(recovery: false | BrowserStaticIndustrialRecoveryOptions): void {
+    this.assertNotDisposed();
+    this.cancel();
+    this.recovery = recovery;
   }
 
   private workerRecovery() {

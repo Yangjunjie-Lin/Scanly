@@ -31,6 +31,8 @@ export declare function resizeBilinear(data: Uint8ClampedArray, width: number, h
     transform: RecoveryCoordinateTransform;
 };
 export declare function morphologicalClose(data: Uint8ClampedArray, width: number, height: number): Uint8ClampedArray;
+/** Repairs bounded light pinholes/erosion in dark printed modules. */
+export declare function morphologicalOpen(data: Uint8ClampedArray, width: number, height: number): Uint8ClampedArray;
 export declare function morphologicalGradient(data: Uint8ClampedArray, width: number, height: number): Uint8ClampedArray;
 export declare function padNeutral(data: Uint8ClampedArray, width: number, height: number, padding: number): {
     data: Uint8ClampedArray;

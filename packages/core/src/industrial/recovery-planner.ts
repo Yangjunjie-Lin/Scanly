@@ -1,11 +1,6 @@
 import type { RecoveryBudget, RecoveryContext, RecoveryPlan, RecoveryProfile, RecoveryRouteId, RecoverySourceMode } from "./types.js";
 import { RecoveryRouteRegistry } from "./recovery-route-registry.js";
 
-const ROUTE_ORDER: readonly RecoveryRouteId[] = [
-  "low-contrast", "illumination", "glare", "blur", "perspective", "small-module",
-  "damaged", "quiet-zone", "screen", "curved", "dpm", "general",
-];
-
 export function recoveryBudgetFor(profile: RecoveryProfile, sourceMode: RecoverySourceMode, framePixels: number): RecoveryBudget {
   const pixels = Math.max(1, Math.floor(framePixels));
   if (sourceMode === "camera") {
@@ -28,10 +23,18 @@ export class RecoveryPlanner {
   plan(context: RecoveryContext): RecoveryPlan {
     validateBudget(context.budget);
     const excluded = new Set(context.excludedRoutes ?? []);
-    const ranked = [...new Set(context.diagnosis.recommendedRoutes)].sort((left, right) => {
-      const leftIndex = ROUTE_ORDER.indexOf(left); const rightIndex = ROUTE_ORDER.indexOf(right);
-      return (leftIndex < 0 ? 999 : leftIndex) - (rightIndex < 0 ? 999 : rightIndex);
-    });
+    // BarcodeDifficultyAnalyzer already orders routes by descending heuristic
+    // evidence. Preserve that ranking so a high-confidence specialized route
+    // is not displaced by a fixed generic route order.
+    const ranked = [...new Set(context.diagnosis.recommendedRoutes)];
+    if (context.profile === "robust" || context.profile === "industrial" || context.profile === "dpm-experimental") {
+      const fallback: RecoveryRouteId[] = [];
+      if (context.candidateRegions.length) fallback.push("perspective");
+      if ((context.diagnosis.evidence.estimatedPixelsPerModule ?? 99) < 5 || context.candidateRegions.some((region) => region.difficultyHints.includes("small-module"))) fallback.push("small-module");
+      if ((context.diagnosis.evidence.damageScore ?? 0) > 0.1) fallback.push("damaged");
+      if ((context.diagnosis.evidence.busyBorderRatio ?? 0) > 0.2) fallback.push("quiet-zone");
+      for (const route of fallback) if (!ranked.includes(route)) ranked.push(route);
+    }
     const rejected: Array<{ routeId: RecoveryRouteId; reason: string }> = [];
     const entries: Array<{ routeId: RecoveryRouteId; estimatedCost: number; reason: string }> = [];
     let estimatedPixels = 0;

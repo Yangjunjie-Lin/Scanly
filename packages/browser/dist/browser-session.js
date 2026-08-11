@@ -127,6 +127,11 @@ export class BrowserCaptureSession {
                 this.controller = null;
         }
     }
+    updateRecovery(recovery) {
+        this.assertNotDisposed();
+        this.cancel();
+        this.recovery = recovery;
+    }
     workerRecovery() {
         if (this.recovery === false)
             return undefined;

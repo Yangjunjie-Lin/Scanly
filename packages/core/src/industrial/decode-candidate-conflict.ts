@@ -6,14 +6,18 @@ export interface DecodeCandidateResolverOptions { temporalObservations?: number;
 export class DecodeCandidateResolver {
   resolve(candidates: readonly DecodeCandidate[], options: DecodeCandidateResolverOptions = {}): DecodeCandidateSet {
     const valid = candidates.filter((candidate) => candidate.validation.decoderValidation && candidate.validation.formatStructuralValidity !== false);
-    const rejectedCount = candidates.length - valid.length;
+    let rejectedCount = candidates.length - valid.length;
     const clusters = spatialClusters(valid);
     const confirmedCandidates: DecodeCandidate[] = [];
     const conflicts: DecodeCandidateConflict[] = [];
 
     for (const cluster of clusters) {
       const groups = groupByPayload(cluster);
-      if (groups.length === 1) { confirmedCandidates.push(best(groups[0], options.temporalObservations)); continue; }
+      if (groups.length === 1) {
+        if (sufficientSingleGroupEvidence(groups[0], options.temporalObservations)) confirmedCandidates.push(best(groups[0], options.temporalObservations));
+        else rejectedCount += groups[0].length;
+        continue;
+      }
       const ranked = groups.map((group) => ({ group, candidate: best(group, options.temporalObservations), score: priority(group, options.temporalObservations) })).sort((left, right) => right.score - left.score);
       const winner = ranked[0]; const runnerUp = ranked[1];
       const winnerChecksum = winner.group.some((candidate) => candidate.validation.checksumValidated === true);
@@ -65,6 +69,11 @@ function groupByPayload(candidates: readonly DecodeCandidate[]): DecodeCandidate
   return [...groups.values()];
 }
 function candidateKey(candidate: DecodeCandidate): string { return `${candidate.format}\u0000${candidate.payload}`; }
+function sufficientSingleGroupEvidence(group: readonly DecodeCandidate[], temporalObservations = 1): boolean {
+  const primary = group[0]; const routeAgreement = new Set(group.map((candidate) => candidate.route)).size;
+  if (["qr_code", "data_matrix", "pdf417"].includes(primary.format)) return true;
+  return routeAgreement >= 2 || temporalObservations >= 2;
+}
 function best(group: readonly DecodeCandidate[], temporalObservations = 1): DecodeCandidate { return [...group].sort((left, right) => candidatePriority(right, temporalObservations) - candidatePriority(left, temporalObservations))[0]; }
 function priority(group: readonly DecodeCandidate[], temporalObservations = 1): number { return candidatePriority(best(group, temporalObservations), temporalObservations) + buildScanEvidence(group, temporalObservations).independentRouteAgreement * 12; }
 function candidatePriority(candidate: DecodeCandidate, temporalObservations = 1): number {

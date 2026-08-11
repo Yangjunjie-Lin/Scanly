@@ -22,11 +22,24 @@ export class BarcodeDifficultyAnalyzer {
         let gradientSquares = 0;
         let transitionCount = 0;
         let isolatedEdges = 0;
+        let diagonalGradient = 0;
+        let chromaSum = 0;
+        let inkCount = 0;
+        let inkLeft = columns;
+        let inkRight = 0;
+        let inkTop = rows;
+        let inkBottom = 0;
+        const rowInkLeft = new Int32Array(rows);
+        rowInkLeft.fill(columns);
+        const rowInkRight = new Int32Array(rows);
+        rowInkRight.fill(-1);
         for (let row = 0; row < rows; row += 1) {
             const y = Math.min(frame.height - 1, row * step);
             for (let column = 0; column < columns; column += 1) {
                 const x = Math.min(frame.width - 1, column * step);
-                const value = luminance(frame, x, y);
+                const color = rgb(frame, x, y);
+                const value = color.red * 0.2126 + color.green * 0.7152 + color.blue * 0.0722;
+                chromaSum += (Math.max(color.red, color.green, color.blue) - Math.min(color.red, color.green, color.blue)) / 255;
                 const index = row * columns + column;
                 values[index] = value;
                 sum += value;
@@ -35,6 +48,15 @@ export class BarcodeDifficultyAnalyzer {
                     clippedHigh += 1;
                 if (value <= 7)
                     clippedLow += 1;
+                if (value < 180) {
+                    inkCount += 1;
+                    inkLeft = Math.min(inkLeft, column);
+                    inkRight = Math.max(inkRight, column);
+                    inkTop = Math.min(inkTop, row);
+                    inkBottom = Math.max(inkBottom, row);
+                    rowInkLeft[row] = Math.min(rowInkLeft[row], column);
+                    rowInkRight[row] = Math.max(rowInkRight[row], column);
+                }
                 if (column > 0) {
                     const gradient = Math.abs(value - values[index - 1]);
                     horizontalGradient += gradient;
@@ -53,6 +75,8 @@ export class BarcodeDifficultyAnalyzer {
                     if (gradient >= 70)
                         isolatedEdges += 1;
                 }
+                if (row > 0 && column > 0)
+                    diagonalGradient += Math.abs(value - values[index - columns - 1]);
             }
         }
         const count = Math.max(1, values.length);
@@ -63,21 +87,33 @@ export class BarcodeDifficultyAnalyzer {
         const gradientEnergy = Math.sqrt(gradientSquares / adjacencyCount) / 255;
         const transitionRatio = transitionCount / adjacencyCount;
         const anisotropy = Math.abs(horizontalGradient - verticalGradient) / Math.max(1, horizontalGradient + verticalGradient);
-        const glareRatio = runtime.glareRatio ?? clippedHigh / count;
+        let specularEdges = 0;
+        for (let row = 1; row < rows - 1; row += 1)
+            for (let column = 1; column < columns - 1; column += 1) {
+                const index = row * columns + column;
+                if (values[index] >= 248 && [values[index - 1], values[index + 1], values[index - columns], values[index + columns]].some((value) => value > 30 && value < 225))
+                    specularEdges += 1;
+            }
+        const glareRatio = runtime.glareRatio ?? Math.min(clippedHigh / count, specularEdges / count * 3);
         const brightness = runtime.brightness ?? mean / 255;
-        const contrast = runtime.contrast ?? Math.min(1, standardDeviation / 96);
+        const globalContrast = Math.min(1, standardDeviation / 96);
         const edgeDensity = runtime.edgeDensity ?? Math.min(1, gradientMean / 64);
         const blurSignal = runtime.blurScore === undefined ? gradientEnergy : runtime.blurScore;
         const local = localDistribution(values, columns, rows);
-        const perspectiveScore = Math.min(1, Math.max(local.horizontalImbalance, local.verticalImbalance) * 1.5);
+        const contrast = runtime.contrast ?? Math.min(globalContrast, Math.min(1, local.localDeviation / 128));
+        const diagonalSkew = Math.abs(diagonalGradient / Math.max(1, (rows - 1) * (columns - 1)) - gradientMean) / 96;
+        const envelope = perspectiveEnvelope(rowInkLeft, rowInkRight, columns);
+        const perspectiveScore = Math.min(1, Math.max(local.horizontalImbalance, local.verticalImbalance) * 1.35 + diagonalSkew * 0.8 + envelope.centerRange * 2.5 + envelope.widthVariation * 4);
         const curvatureScore = Math.min(1, Math.abs(local.centerEdgeRatio - 1) * 0.9 + local.columnVariation * 0.4);
         const estimatedPixelsPerModule = transitionRatio <= 0.01 ? 32 : Math.max(0.5, step / transitionRatio / 20);
-        const damageScore = Math.min(1, (isolatedEdges / adjacencyCount) * 3 + local.blockVariation * 0.45);
+        const inkAreaRatio = inkCount < 4 ? 1 : ((inkRight - inkLeft + 1) * (inkBottom - inkTop + 1)) / Math.max(1, columns * rows);
+        const damageScore = Math.min(1, (isolatedEdges / adjacencyCount) * 0.7 + local.flatBlockRatio * 0.18 + local.blockVariation * 0.12);
         const occlusionScore = Math.min(1, local.flatBlockRatio * Math.min(1, edgeDensity * 2.5));
-        const screenScore = Math.min(1, Math.max(0, transitionRatio - 0.25) * 2.5 + local.periodicity * 0.6);
+        const colorFringe = chromaSum / count;
+        const screenScore = Math.min(1, colorFringe * 2.8 + Math.max(0, local.periodicity - 0.72) * Math.max(0, transitionRatio - 0.2) * 2);
         const dpmLikelihood = clamp01((1 - contrast) * 0.35 + glareRatio * 0.25 + edgeDensity * 0.25 + damageScore * 0.15);
-        const blur = levelFromHighBad(blurSignal, [0.18, 0.1, 0.055]);
-        const motionBlur = (runtime.motionEstimate ?? 0) > 0.12 || (blur !== "none" && anisotropy > 0.32)
+        const blur = levelFromHighBad(blurSignal, [0.28, 0.16, 0.08]);
+        const motionBlur = (runtime.motionEstimate ?? 0) > 0.12 || (transitionRatio > 0.025 && anisotropy > 0.38)
             ? levelFromScore(Math.max(runtime.motionEstimate ?? 0, anisotropy), [0.12, 0.28, 0.48])
             : "none";
         const underexposure = levelFromScore(1 - brightness, [0.78, 0.88, 0.95]);
@@ -85,14 +121,14 @@ export class BarcodeDifficultyAnalyzer {
         const glare = levelFromScore(glareRatio, [0.025, 0.1, 0.24]);
         const lowContrast = levelFromScore(1 - contrast, [0.68, 0.82, 0.92]);
         const perspectiveDistortion = levelFromScore(perspectiveScore, [0.16, 0.34, 0.58]);
-        const curvature = levelFromScore(curvatureScore, [0.18, 0.38, 0.62]);
-        const smallModule = levelFromScore(1 / Math.max(0.25, estimatedPixelsPerModule), [0.22, 0.38, 0.7]);
+        const curvature = levelFromScore(curvatureScore, [0.06, 0.16, 0.32]);
+        const smallModule = levelFromScore(Math.max(1 / Math.max(0.25, estimatedPixelsPerModule), inkCount >= 4 ? Math.max(0, 0.32 - inkAreaRatio) * 3 : 0), [0.22, 0.38, 0.7]);
         const printingDamage = levelFromScore(damageScore, [0.18, 0.38, 0.62]);
         const occlusion = levelFromScore(occlusionScore, [0.12, 0.3, 0.55]);
         const screenMoiré = levelFromScore(screenScore, [0.18, 0.4, 0.66]);
         const routeScores = [
             ["low-contrast", severity(lowContrast) + severity(underexposure) * 0.35 + severity(overexposure) * 0.2],
-            ["illumination", local.illuminationVariation * 3 + severity(underexposure) * 0.2],
+            ["illumination", local.illuminationVariation * 8 + severity(underexposure) * 0.2],
             ["glare", severity(glare)],
             ["blur", Math.max(severity(blur), severity(motionBlur))],
             ["perspective", severity(perspectiveDistortion)],
@@ -114,7 +150,8 @@ export class BarcodeDifficultyAnalyzer {
             evidence: {
                 brightness, contrast, glareRatio, edgeDensity, gradientEnergy,
                 transitionRatio, anisotropy, perspectiveScore, curvatureScore,
-                estimatedPixelsPerModule, damageScore, occlusionScore, screenScore,
+                estimatedPixelsPerModule, inkAreaRatio, damageScore, occlusionScore, screenScore, colorFringe, diagonalSkew,
+                perspectiveEnvelopeCenterRange: envelope.centerRange, perspectiveEnvelopeWidthVariation: envelope.widthVariation,
                 illuminationVariation: local.illuminationVariation,
                 busyBorderRatio: local.busyBorderRatio,
             },
@@ -125,6 +162,7 @@ function localDistribution(values, columns, rows) {
     const blockColumns = Math.min(8, columns);
     const blockRows = Math.min(8, rows);
     const means = [];
+    const deviations = [];
     let flatBlocks = 0;
     let borderBusy = 0;
     let borderBlocks = 0;
@@ -153,6 +191,7 @@ function localDistribution(values, columns, rows) {
             const mean = sum / Math.max(1, count);
             const deviation = Math.sqrt(Math.max(0, squares / Math.max(1, count) - mean * mean));
             means.push(mean);
+            deviations.push(deviation);
             if (deviation < 5)
                 flatBlocks += 1;
             if (bx === 0 || by === 0 || bx === blockColumns - 1 || by === blockRows - 1) {
@@ -180,19 +219,22 @@ function localDistribution(values, columns, rows) {
         centerEdgeRatio: center / Math.max(1, (left + right) / 2),
         columnVariation: standardDeviation(columnMeans) / 128,
         blockVariation: variation,
-        illuminationVariation: Math.min(1, variation),
+        localDeviation: Math.max(0, ...deviations),
+        illuminationVariation: Math.min(1, Math.max(Math.abs(left - right) / 255, Math.abs(top - bottom) / 255, Math.abs(center / Math.max(1, (left + right) / 2) - 1) * 0.25)),
         flatBlockRatio: flatBlocks / Math.max(1, means.length),
         busyBorderRatio: borderBusy / Math.max(1, borderBlocks),
         periodicity: alternating / Math.max(1, columnMeans.length - 2),
     };
 }
-function luminance(frame, x, y) {
+function rgb(frame, x, y) {
     const row = y * frame.rowStride;
-    if (frame.pixelFormat === "gray8" || frame.pixelFormat === "yuv420")
-        return frame.data[row + x] ?? 0;
+    if (frame.pixelFormat === "gray8" || frame.pixelFormat === "yuv420") {
+        const value = frame.data[row + x] ?? 0;
+        return { red: value, green: value, blue: value };
+    }
     const channels = frame.pixelFormat === "rgba8888" ? 4 : 3;
     const offset = row + x * channels;
-    return (frame.data[offset] ?? 0) * 0.2126 + (frame.data[offset + 1] ?? 0) * 0.7152 + (frame.data[offset + 2] ?? 0) * 0.0722;
+    return { red: frame.data[offset] ?? 0, green: frame.data[offset + 1] ?? 0, blue: frame.data[offset + 2] ?? 0 };
 }
 function levelFromScore(score, thresholds) {
     if (score >= thresholds[2])
@@ -220,4 +262,10 @@ function standardDeviation(values) {
     const mean = average(values);
     return Math.sqrt(values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / Math.max(1, values.length));
 }
+function perspectiveEnvelope(left, right, columns) { const centers = []; const widths = []; for (let row = 0; row < left.length; row += 1)
+    if (right[row] >= left[row]) {
+        centers.push((left[row] + right[row]) / 2);
+        widths.push(right[row] - left[row] + 1);
+    } if (centers.length < 3)
+    return { centerRange: 0, widthVariation: 0 }; return { centerRange: (Math.max(...centers) - Math.min(...centers)) / Math.max(1, columns), widthVariation: standardDeviation(widths) / Math.max(1, columns) }; }
 //# sourceMappingURL=difficulty-diagnosis.js.map

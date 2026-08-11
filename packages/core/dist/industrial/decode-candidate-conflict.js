@@ -2,14 +2,17 @@ import { buildScanEvidence, geometryEvidence } from "./scan-evidence.js";
 export class DecodeCandidateResolver {
     resolve(candidates, options = {}) {
         const valid = candidates.filter((candidate) => candidate.validation.decoderValidation && candidate.validation.formatStructuralValidity !== false);
-        const rejectedCount = candidates.length - valid.length;
+        let rejectedCount = candidates.length - valid.length;
         const clusters = spatialClusters(valid);
         const confirmedCandidates = [];
         const conflicts = [];
         for (const cluster of clusters) {
             const groups = groupByPayload(cluster);
             if (groups.length === 1) {
-                confirmedCandidates.push(best(groups[0], options.temporalObservations));
+                if (sufficientSingleGroupEvidence(groups[0], options.temporalObservations))
+                    confirmedCandidates.push(best(groups[0], options.temporalObservations));
+                else
+                    rejectedCount += groups[0].length;
                 continue;
             }
             const ranked = groups.map((group) => ({ group, candidate: best(group, options.temporalObservations), score: priority(group, options.temporalObservations) })).sort((left, right) => right.score - left.score);
@@ -74,6 +77,13 @@ function groupByPayload(candidates) {
     return [...groups.values()];
 }
 function candidateKey(candidate) { return `${candidate.format}\u0000${candidate.payload}`; }
+function sufficientSingleGroupEvidence(group, temporalObservations = 1) {
+    const primary = group[0];
+    const routeAgreement = new Set(group.map((candidate) => candidate.route)).size;
+    if (["qr_code", "data_matrix", "pdf417"].includes(primary.format))
+        return true;
+    return routeAgreement >= 2 || temporalObservations >= 2;
+}
 function best(group, temporalObservations = 1) { return [...group].sort((left, right) => candidatePriority(right, temporalObservations) - candidatePriority(left, temporalObservations))[0]; }
 function priority(group, temporalObservations = 1) { return candidatePriority(best(group, temporalObservations), temporalObservations) + buildScanEvidence(group, temporalObservations).independentRouteAgreement * 12; }
 function candidatePriority(candidate, temporalObservations = 1) {

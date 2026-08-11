@@ -234,6 +234,8 @@ export function resizeBilinear(data, width, height, factor) {
     return { data: output, width: nextWidth, height: nextHeight, transform: affineRecoveryTransform("resize", (point) => ({ x: (point.x + 0.5) / factor - 0.5, y: (point.y + 0.5) / factor - 0.5 }), (point) => ({ x: (point.x + 0.5) * factor - 0.5, y: (point.y + 0.5) * factor - 0.5 })) };
 }
 export function morphologicalClose(data, width, height) { return erode(dilate(grayscale(data), width, height), width, height); }
+/** Repairs bounded light pinholes/erosion in dark printed modules. */
+export function morphologicalOpen(data, width, height) { return dilate(erode(grayscale(data), width, height), width, height); }
 export function morphologicalGradient(data, width, height) {
     const source = grayscale(data);
     const high = dilate(source, width, height);

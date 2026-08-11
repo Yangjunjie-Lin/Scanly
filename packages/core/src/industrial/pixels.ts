@@ -171,6 +171,8 @@ export function resizeBilinear(data: Uint8ClampedArray, width: number, height: n
 }
 
 export function morphologicalClose(data: Uint8ClampedArray, width: number, height: number): Uint8ClampedArray { return erode(dilate(grayscale(data), width, height), width, height); }
+/** Repairs bounded light pinholes/erosion in dark printed modules. */
+export function morphologicalOpen(data: Uint8ClampedArray, width: number, height: number): Uint8ClampedArray { return dilate(erode(grayscale(data), width, height), width, height); }
 export function morphologicalGradient(data: Uint8ClampedArray, width: number, height: number): Uint8ClampedArray {
   const source = grayscale(data); const high = dilate(source, width, height); const low = erode(source, width, height); const output = new Uint8ClampedArray(source.length);
   for (let index = 0; index < output.length; index += 4) { const value = high[index] - low[index]; output[index] = output[index + 1] = output[index + 2] = value; output[index + 3] = 255; }

@@ -41,7 +41,8 @@ export function buildScanEvidence(candidates, temporalObservations = 1) {
 }
 export function decodeCandidateFromResult(result, route, elapsedMs) {
     const validatorIds = result.validation.validatorIds.map((id) => id.toLowerCase());
-    const checksumValidator = validatorIds.some((id) => id.includes("checksum") || id.includes("ean") || id.includes("upc"));
+    const checksumValidator = validatorIds.some((id) => id.includes("checksum") || id.includes("ean") || id.includes("upc"))
+        || ["ean_13", "ean_8", "upc_a", "upc_e"].includes(result.format);
     const correction = result.metadata?.errorCorrectionEvidence;
     return {
         payload: result.rawText,

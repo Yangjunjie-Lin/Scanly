@@ -38,7 +38,7 @@ describe("RecoveryPlanner", () => {
     const registry = new RecoveryRouteRegistry();
     registry.register(route("low-contrast", 80)); registry.register(route("perspective", 90)); registry.register(route("dpm", 10));
     const plan = new RecoveryPlanner(registry).plan(context(registry, ["perspective", "low-contrast", "dpm"]));
-    expect(plan.entries.map((entry) => entry.routeId)).toEqual(["low-contrast", "perspective"]);
+    expect(plan.entries.map((entry) => entry.routeId)).toEqual(["perspective", "low-contrast"]);
     expect(plan.rejected).toContainEqual({ routeId: "dpm", reason: "maximum-routes" });
   });
 
