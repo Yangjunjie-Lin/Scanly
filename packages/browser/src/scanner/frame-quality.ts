@@ -1,4 +1,4 @@
-import type { NormalizedFrame } from "@scanly/core";
+import { BarcodeDifficultyAnalyzer, type BarcodeDifficultyDiagnosis, type NormalizedFrame } from "@scanly/core";
 import type { FrameQuality } from "./types.js";
 
 export interface FrameQualityAnalyzerOptions {
@@ -16,8 +16,11 @@ function clamp01(value: number): number { return Math.max(0, Math.min(1, value))
 export class FrameQualityAnalyzer {
   private previous: Float32Array | null = null;
   private previousShape = "";
+  private readonly difficultyAnalyzer: BarcodeDifficultyAnalyzer;
 
-  constructor(private readonly options: FrameQualityAnalyzerOptions = {}) {}
+  constructor(private readonly options: FrameQualityAnalyzerOptions = {}) {
+    this.difficultyAnalyzer = new BarcodeDifficultyAnalyzer({ sampleTarget: options.sampleTarget });
+  }
 
   analyze(frame: NormalizedFrame): FrameQuality {
     const target = Math.max(64, Math.min(4_096, this.options.sampleTarget ?? 1_024));
@@ -85,6 +88,11 @@ export class FrameQualityAnalyzer {
   }
 
   reset(): void { this.previous = null; this.previousShape = ""; }
+
+  /** Separate Beta 3 routing evidence; this does not turn quality heuristics into Ground Truth. */
+  diagnose(frame: NormalizedFrame, quality = this.analyze(frame)): BarcodeDifficultyDiagnosis {
+    return this.difficultyAnalyzer.analyze(frame, quality);
+  }
 
   private luminance(frame: NormalizedFrame, x: number, y: number): number {
     const row = y * frame.rowStride;

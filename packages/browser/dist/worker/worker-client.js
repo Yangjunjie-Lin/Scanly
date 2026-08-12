@@ -76,6 +76,9 @@ export class DecodeWorkerClient {
     workerWasmDecodeCount = 0;
     wasmMemory;
     unconfirmedRealmMemory;
+    recoveryRunCount = 0;
+    recovery;
+    recoveryPeakTemporaryBytes = 0;
     constructor(workerFactory = defaultWorkerFactory) {
         this.workerFactory = workerFactory;
     }
@@ -129,6 +132,11 @@ export class DecodeWorkerClient {
             if (message.outcome.ok && message.outcome.results.some((result) => result.engine.id === "zxing-cpp-wasm")) {
                 this.workerWasmDecodeCount += 1;
             }
+        }
+        if (message.recovery) {
+            this.recoveryRunCount += 1;
+            this.recovery = { ...message.recovery, attemptedRoutes: [...message.recovery.attemptedRoutes] };
+            this.recoveryPeakTemporaryBytes = Math.max(this.recoveryPeakTemporaryBytes, message.recovery.peakTemporaryBytes);
         }
         this.finish(job, { ...message.outcome, timing: { ...message.outcome.timing, workerSetupMs: job.setupMs, workerTransferMs: job.transferMs ?? 0 } });
     }
@@ -225,7 +233,7 @@ export class DecodeWorkerClient {
                 const state = debugState();
                 if (state)
                     state.decodePosted += 1;
-                worker.postMessage({ type: "scan", jobId, generation, frame: serialized, scenario, progress: Boolean(options.onProgress) }, transfer);
+                worker.postMessage({ type: "scan", jobId, generation, frame: serialized, scenario, progress: Boolean(options.onProgress), ...(options.recovery ? { recovery: options.recovery } : {}) }, transfer);
             }
             catch (error) {
                 this.finish(job, workerFailure(job, error instanceof Error ? error.message : String(error)));
@@ -268,6 +276,10 @@ export class DecodeWorkerClient {
                 wasmPeakLinearMemoryBytes: memory.peakLinearMemoryBytes,
                 wasmReleasedNativeResultCount: memory.releasedNativeResultCount,
             } : {}),
+            recoveryRunCount: this.recoveryRunCount,
+            recoveryTemporaryBytes: this.recovery?.currentTemporaryBytes ?? 0,
+            recoveryPeakTemporaryBytes: this.recoveryPeakTemporaryBytes,
+            recoveryRouteStateCount: this.recovery?.routeStateCount ?? 0,
         };
     }
 }

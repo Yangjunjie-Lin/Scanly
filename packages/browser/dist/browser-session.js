@@ -1,4 +1,4 @@
-import { CaptureRouter, createRgbaFrame, normalizeFormatSelection, sdkError } from "@scanly/core";
+import { CaptureRouter, IndustrialRecoveryPipeline, createRecoveryProbeScenario, createRgbaFrame, normalizeFormatSelection, sdkError } from "@scanly/core";
 import { getBuiltinScenario, validateScenario } from "@scanly/scenario-schema";
 import { loadPixelBufferFromFile } from "./image-loader.js";
 import { createBrowserCaptureRouter } from "./runtime.js";
@@ -13,6 +13,8 @@ export class BrowserCaptureSession {
     ownsRouter;
     controller = null;
     owner = 0;
+    recovery;
+    recoveryPipeline = new IndustrialRecoveryPipeline();
     constructor(options = {}) {
         const initial = options.scenario ?? getBuiltinScenario("balanced");
         const configured = options.formats ? { ...initial, acceptedFormats: [...normalizeFormatSelection(options.formats).formats] } : initial;
@@ -24,6 +26,7 @@ export class BrowserCaptureSession {
         this.worker = new DecodeWorkerClient(options.workerFactory);
         this.router = options.router ?? createBrowserCaptureRouter({ scenario: this.scenario });
         this.ownsRouter = options.disposeRouter ?? !options.router;
+        this.recovery = options.recovery ?? false;
     }
     getState() { return this.state; }
     initialize() { this.assertNotDisposed(); if (this.state === "idle" || this.state === "stopped")
@@ -73,7 +76,7 @@ export class BrowserCaptureSession {
                 const decodeStartedAt = Date.now();
                 const scenario = this.scenario;
                 markDecodePath("worker");
-                outcome = await this.worker.scan(frame, scenario, { signal: controller.signal, preserveSourceForFallback: true, onStage: options.onStage, onProgress: options.onProgress });
+                outcome = await this.worker.scan(frame, scenario, { signal: controller.signal, preserveSourceForFallback: true, onStage: options.onStage, onProgress: options.onProgress, ...(this.workerRecovery() ? { recovery: this.workerRecovery() } : {}) });
                 if (!outcome.ok && ["worker_initialization_failure", "engine_execution_failure"].includes(outcome.error.code) && !controller.signal.aborted && owner === this.owner) {
                     const workerOutcome = outcome;
                     const workerElapsedMs = Math.max(Date.now() - decodeStartedAt, workerOutcome.timing.totalMs);
@@ -87,7 +90,7 @@ export class BrowserCaptureSession {
                             multiCode: { ...scenario.multiCode, maxResults: Math.min(scenario.multiCode.maxResults, remainingAttempts) },
                             budgets: { ...scenario.budgets, maxAttempts: remainingAttempts, maxExecutionMs: remainingExecutionMs },
                         };
-                        const fallback = await this.router.scan(createRgbaFrame(pixels.data, pixels.width, pixels.height, { id: frameId, sourceType: "upload", ownership: "owned" }), { signal: controller.signal, scenario: fallbackScenario });
+                        const fallback = await this.decodeOnMain(createRgbaFrame(pixels.data, pixels.width, pixels.height, { id: frameId, sourceType: "upload", ownership: "owned" }), fallbackScenario, controller.signal);
                         const totalMs = Math.max(Date.now() - decodeStartedAt, workerElapsedMs + fallback.timing.totalMs);
                         outcome = {
                             ...fallback,
@@ -106,7 +109,7 @@ export class BrowserCaptureSession {
             else {
                 markDecodePath("main-thread");
                 options.onStage?.("Routing normalized frame...");
-                outcome = await this.router.scan(frame, { signal: controller.signal, scenario: this.scenario });
+                outcome = await this.decodeOnMain(frame, this.scenario, controller.signal);
                 options.onProgress?.({ attemptCount: outcome.attemptCount });
             }
             if (owner !== this.owner)
@@ -123,6 +126,29 @@ export class BrowserCaptureSession {
             if (this.controller === controller)
                 this.controller = null;
         }
+    }
+    updateRecovery(recovery) {
+        this.assertNotDisposed();
+        this.cancel();
+        this.recovery = recovery;
+    }
+    workerRecovery() {
+        if (this.recovery === false)
+            return undefined;
+        const profile = this.recovery.profile ?? "industrial";
+        return {
+            profile,
+            sourceMode: "static",
+            ...(this.recovery.budget ? { budget: this.recovery.budget } : {}),
+            dpmExperimental: this.recovery.dpmExperimental === true || profile === "dpm-experimental",
+            ...(this.recovery.excludedRoutes ? { excludedRoutes: [...this.recovery.excludedRoutes] } : {}),
+        };
+    }
+    async decodeOnMain(frame, scenario, signal) {
+        const recovery = this.workerRecovery();
+        if (!recovery)
+            return this.router.scan(frame, { signal, scenario });
+        return (await this.recoveryPipeline.run(frame, (candidate, request) => this.router.scan({ ...candidate, ownership: "borrowed", dispose: undefined }, { signal: request.signal, scenario: request.routeId === "general" ? scenario : createRecoveryProbeScenario(scenario, request.routeId) }), { profile: recovery.profile, sourceMode: "static", ...(recovery.budget ? { budget: recovery.budget } : {}), signal, dpmExperimental: recovery.dpmExperimental, excludedRoutes: recovery.excludedRoutes })).outcome;
     }
     async dispose() {
         if (this.state === "disposed")

@@ -2,13 +2,25 @@
 
 ## Version policy
 
-- SDK package version: `2.0.0-beta.2` (Beta 2 development preview)
+- SDK package version: `2.0.0-beta.3` (Beta 3 development preview)
 
 `ScanResult.cornerPoints` are always expressed as pixel coordinates in the original normalized frame. ROI offsets, candidate crops, resizing, scale caps, and clockwise decode-attempt rotations are inverted before publication. Invalid or implausibly out-of-frame engine points are omitted.
 
 `ScanResult.orientation`, when present, is an engine-derived clockwise angle relative to the original normalized frame. A preprocessing attempt rotation is debug metadata only and is never exposed as symbol orientation.
 
 Static multi-code scans default to `payload-format-spatial` deduplication. Schema `2.1` also supports `payload`, `payload-format`, and `tracked-instance` policy selection. Geometry-proven separate instances with the same payload remain separate under the default; when geometry is unavailable, the documented fallback is payload plus format identity.
+
+## Beta 3 industrial recovery surface
+
+`@scanly/core` exports the public configuration and result contracts `RecoveryProfile`, `RecoveryBudget`, `RecoveryRouteId`, `BarcodeDifficultyDiagnosis`, `ScanEvidence`, and `ScannerDiagnostics`. `IndustrialRecoveryPipeline`, `RecoveryRouteRegistry`, and `RecoveryPlanner` are exported for advanced composition. Candidate-region heuristics, recovery coordinate implementations, preprocessing buffers, and temporary image ownership are not frozen as application APIs.
+
+`RecoveryProfile` supports `fast`, `balanced`, `robust`, `industrial`, and `dpm-experimental`. The default camera experience does not select `industrial`, and DPM recovery is disabled unless the application selects `dpm-experimental` or explicitly enables it. A profile selects a bounded cost envelope; it is not an accuracy or certification level.
+
+`ScanEvidence.evidenceScore` is not a calibrated probability. Decode candidates must pass decoder validation, and conflicting payload/format candidates are not silently chosen. Recovery results preserve original-frame `cornerPoints` through inverse crop, resize, homography, curvature, and padding transforms, so existing tracking and batch composition receive canonical geometry.
+
+Browser static and camera composition accepts explicit recovery options. Node exports `scanWithNodeIndustrialRecovery` as the explicit static-image entry point. The existing `CaptureRouter.scan` and default camera path remain compatible and do not automatically run the highest-cost industrial profile.
+
+See [Beta 3 industrial difficult-barcode recovery](../beta3-industrial-recovery.md) for budgets, route boundaries, Worker ownership, DPM limitations, evidence, and non-claims.
 
 ## Beta 2 tracking and batch surface
 

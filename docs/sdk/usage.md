@@ -51,6 +51,35 @@ Every successful result carries its detected `format` and `formatClass`; UPC/EAN
 
 Borrowed buffers remain caller-owned. For `owned` or `transferred` frames, supply `dispose` when the source has a release contract; the Router calls it after the frame finishes.
 
+## Explicit industrial recovery
+
+Static browser sessions can enable bounded industrial recovery after a normal miss:
+
+```ts
+import { BrowserCaptureSession } from "@scanly/browser";
+import { getBuiltinScenario } from "@scanly/scenario-schema";
+
+const scanner = new BrowserCaptureSession({
+  scenario: getBuiltinScenario("multiformat-balanced"),
+  recovery: { profile: "industrial" },
+});
+
+const outcome = await scanner.scanFile(file);
+```
+
+Node uses the same core recovery contracts explicitly:
+
+```ts
+import { createNodeCaptureRouter, loadNormalizedFrameFromPath, scanWithNodeIndustrialRecovery } from "@scanly/node";
+
+const router = createNodeCaptureRouter();
+const frame = await loadNormalizedFrameFromPath("label.png");
+const recovered = await scanWithNodeIndustrialRecovery(router, frame, { profile: "industrial" });
+await router.dispose();
+```
+
+Use `dpm-experimental` only for evaluation of Data Matrix direct-part marks. It is off by default and is not equivalent to certified DPM support. Recovery diagnostics and `evidenceScore` explain routing evidence; `evidenceScore` is not a probability. No recovery path uses neural super-resolution, generative inpainting, or payload guessing.
+
 ## React
 
 ```tsx

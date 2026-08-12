@@ -1,4 +1,4 @@
-import { CaptureRouter, EngineRegistry, type CaptureRouterOptions, type NormalizedFrame } from "@scanly/core";
+import { CaptureRouter, EngineRegistry, type CaptureRouterOptions, type IndustrialRecoveryOptions, type IndustrialRecoveryResult, type NormalizedFrame, type ScenarioDefinition } from "@scanly/core";
 import { type DecodeOutcome, type DecodePipelineOptions, type PipelineEngineExecutor, type PixelBuffer } from "@scanly/core/qr";
 import { type ZxingCppWasmEngineOptions } from "@scanly/engine-zxing-cpp-wasm";
 export declare function loadPixelBufferFromPath(filePath: string): Promise<PixelBuffer>;
@@ -13,4 +13,9 @@ export declare function createNodeEngineRegistry(options?: {
 export declare function createNodePipelineEngineExecutor(engines?: EngineRegistry): PipelineEngineExecutor;
 /** Lower-level algorithm adapter; canonical SDK benchmarks should use CaptureRouter. */
 export declare function decodePixelBufferWithNodeEngines(image: PixelBuffer, options?: DecodePipelineOptions): Promise<DecodeOutcome>;
+export interface NodeIndustrialScanOptions extends IndustrialRecoveryOptions {
+    scenario?: ScenarioDefinition;
+}
+/** Explicit Node industrial decode path; normal CaptureRouter behavior remains unchanged. */
+export declare function scanWithNodeIndustrialRecovery(router: CaptureRouter, frame: NormalizedFrame, options?: NodeIndustrialScanOptions): Promise<IndustrialRecoveryResult>;
 //# sourceMappingURL=index.d.ts.map

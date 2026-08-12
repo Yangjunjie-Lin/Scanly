@@ -1,4 +1,4 @@
-import { SDK_ERROR_CODES, validateFrame } from "@scanly/core";
+import { SDK_ERROR_CODES, validateBudget, validateFrame } from "@scanly/core";
 import { validateScenario } from "@scanly/scenario-schema";
 import { fromTransferableFrame } from "./transferable-buffer.js";
 function objectWithJobId(value) {
@@ -27,6 +27,8 @@ const BARCODE_FORMATS = new Set([
 const BARCODE_FORMAT_CLASSES = new Set(["matrix", "stacked", "linear"]);
 const SDK_ERROR_CODE_VALUES = new Set(SDK_ERROR_CODES);
 const SDK_ERROR_CATEGORIES = new Set(["input", "resource", "lifecycle", "engine", "source", "configuration", "internal"]);
+const RECOVERY_PROFILES = new Set(["fast", "balanced", "robust", "industrial", "dpm-experimental"]);
+const RECOVERY_ROUTES = new Set(["general", "low-contrast", "illumination", "blur", "glare", "perspective", "curved", "small-module", "damaged", "quiet-zone", "screen", "dpm"]);
 function isScanTiming(value) {
     if (!isRecord(value) || !isNonNegativeNumber(value.totalMs))
         return false;
@@ -170,7 +172,26 @@ export function isWorkerRequest(value) {
     const frame = fromTransferableFrame(value.frame);
     if (validateFrame(frame).length)
         return false;
-    return validateScenario(value.scenario).ok;
+    return validateScenario(value.scenario).ok && isWorkerRecoveryRequest(value.recovery);
+}
+function isWorkerRecoveryRequest(value) {
+    if (value === undefined)
+        return true;
+    if (!isRecord(value) || !RECOVERY_PROFILES.has(value.profile) || !["camera", "static"].includes(value.sourceMode) || typeof value.dpmExperimental !== "boolean")
+        return false;
+    if (value.excludedRoutes !== undefined && (!Array.isArray(value.excludedRoutes) || value.excludedRoutes.length > 12 || !value.excludedRoutes.every((route) => RECOVERY_ROUTES.has(route))))
+        return false;
+    if (value.budget !== undefined) {
+        if (!isRecord(value.budget))
+            return false;
+        try {
+            validateBudget(value.budget);
+        }
+        catch {
+            return false;
+        }
+    }
+    return true;
 }
 export function isWorkerResponse(value) {
     try {
@@ -188,13 +209,23 @@ export function isWorkerResponse(value) {
             return isBoundedString(value.message, 2_048, false);
         if (value.type !== "result" || !isScanOutcome(value.outcome))
             return false;
-        return value.wasmMemory === undefined || isWorkerWasmMemoryObservation(value.wasmMemory);
+        return (value.wasmMemory === undefined || isWorkerWasmMemoryObservation(value.wasmMemory))
+            && (value.recovery === undefined || isWorkerRecoveryObservation(value.recovery));
     }
     catch {
         // Worker messages cross an untrusted realm boundary. Validation must never
         // let malformed data escape as an exception into the session lifecycle.
         return false;
     }
+}
+function isWorkerRecoveryObservation(value) {
+    if (!isRecord(value) || typeof value.insufficientEvidence !== "boolean")
+        return false;
+    if (!["attemptCount", "processedPixels", "currentTemporaryBytes", "peakTemporaryBytes", "activeBuffers", "routeStateCount"].every((key) => isNonNegativeInteger(value[key])))
+        return false;
+    if (!Array.isArray(value.attemptedRoutes) || value.attemptedRoutes.length > 12 || !value.attemptedRoutes.every((route) => RECOVERY_ROUTES.has(route)))
+        return false;
+    return value.successfulRoute === undefined || RECOVERY_ROUTES.has(value.successfulRoute);
 }
 function isWorkerWasmMemoryObservation(value) {
     if (!value || typeof value !== "object")

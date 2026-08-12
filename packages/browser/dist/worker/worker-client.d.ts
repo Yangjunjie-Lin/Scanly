@@ -1,6 +1,6 @@
 import { type NormalizedFrame, type ScanOutcome } from "@scanly/core";
 import type { ScenarioDefinition } from "@scanly/scenario-schema";
-import { type WorkerRequest, type WorkerResponse } from "./worker-messages.js";
+import { type WorkerRecoveryRequest, type WorkerRequest, type WorkerResponse } from "./worker-messages.js";
 export interface DecodeWorkerLike {
     onmessage: ((event: MessageEvent<WorkerResponse>) => void) | null;
     onerror: ((event: ErrorEvent) => void) | null;
@@ -16,6 +16,7 @@ export interface WorkerScanOptions {
     onProgress?: (progress: {
         attemptCount: number;
     }) => void;
+    recovery?: WorkerRecoveryRequest;
 }
 type WorkerDebugState = {
     created: number;
@@ -50,6 +51,9 @@ export declare class DecodeWorkerClient {
     private workerWasmDecodeCount;
     private wasmMemory?;
     private unconfirmedRealmMemory?;
+    private recoveryRunCount;
+    private recovery?;
+    private recoveryPeakTemporaryBytes;
     constructor(workerFactory?: DecodeWorkerFactory);
     private ensureWorker;
     private handleMessage;
@@ -61,6 +65,10 @@ export declare class DecodeWorkerClient {
     cancel(): void;
     dispose(): void;
     getStatistics(): {
+        recoveryRunCount: number;
+        recoveryTemporaryBytes: number;
+        recoveryPeakTemporaryBytes: number;
+        recoveryRouteStateCount: number;
         wasmInputAllocationBytes?: number | undefined;
         wasmActiveNativeResultCount?: number | undefined;
         wasmCurrentLinearMemoryBytes?: number | undefined;

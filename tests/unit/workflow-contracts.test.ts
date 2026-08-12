@@ -50,14 +50,14 @@ describe("benchmark workflow contracts", () => {
     expect(workflow.match(/ref: \$\{\{ github\.event_name == 'pull_request' && github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/g)?.length).toBe(5);
   });
 
-  it("routes all primary SDK workflows to develop and Beta 2 without deleted Alpha branches", () => {
-    const primary = ["ci.yml", "benchmark.yml", "browser-benchmark.yml", "public-api.yml", "tracking-benchmark.yml"];
+  it("routes all primary SDK workflows to develop and Beta 3 without deleted Alpha branches", () => {
+    const primary = ["ci.yml", "benchmark.yml", "browser-benchmark.yml", "public-api.yml", "tracking-benchmark.yml", "industrial-benchmark.yml"];
     for (const file of primary) {
       const workflow = read(file);
       expect(workflow).toContain("workflow_dispatch:");
       expect(workflow).toContain("pull_request:");
       expect(workflow).toContain("- develop/sdk-v2");
-      expect(workflow).toContain("- architecture/sdk-v2-beta2-**");
+      expect(workflow).toContain("- architecture/sdk-v2-beta3-**");
       for (const deleted of [
         "architecture/sdk-v2-alpha3-industrial-validation",
         "architecture/sdk-v2-alpha4-zxing-cpp-wasm",
@@ -68,7 +68,7 @@ describe("benchmark workflow contracts", () => {
 
   it("checks out the exact pull-request head in every primary workflow job", () => {
     const exactHeadRef = "ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}";
-    for (const file of ["ci.yml", "benchmark.yml", "browser-benchmark.yml", "public-api.yml", "tracking-benchmark.yml"]) {
+    for (const file of ["ci.yml", "benchmark.yml", "browser-benchmark.yml", "public-api.yml", "tracking-benchmark.yml", "industrial-benchmark.yml"]) {
       const workflow = read(file);
       const checkoutCount = workflow.match(/uses: actions\/checkout@v4/g)?.length ?? 0;
       const exactHeadCount = workflow.split(exactHeadRef).length - 1;
@@ -224,5 +224,37 @@ describe("benchmark workflow contracts", () => {
     expect(tracking).toContain("c.requiredScenarioIds?.length!==34");
     expect(tracking).toContain("c.samePayloadScenarioIds?.length!==6");
     expect(tracking).toContain("r.scaleBaselines.length!==4");
+  });
+
+  it("runs Beta 3 industrial recovery, negative, soak, browser, and exact-head benchmark gates", () => {
+    const ci = read("ci.yml");
+    for (const job of ["Industrial Recovery Unit", "Industrial Recovery Integration", "Industrial Negative Gate", "Industrial Soak"]) {
+      expect(ci).toContain(`name: ${job}`);
+    }
+    expect(ci).toContain("npm run fixtures:verify-industrial");
+    expect(ci).toContain("npm run benchmark:industrial:negative -- --full --gate");
+    expect(ci).toContain("npm run test:industrial:soak");
+    expect(ci).toContain("o.finalControlledMemory!==0");
+    expect(ci).toContain("r.workerEvidence!=='not-applicable-core-soak'");
+
+    const industrial = read("industrial-benchmark.yml");
+    expect(industrial).toContain("name: Industrial Benchmark");
+    expect(industrial).toContain("npm run benchmark:industrial -- --full --gate");
+    expect(industrial).toContain("Verify exact-head industrial evidence");
+    expect(industrial).toContain("r.sourceCommit!==head");
+    expect(industrial).toContain("r.sourceTree!==tree");
+    expect(industrial).toContain("r.repositoryDirty");
+    expect(industrial).toContain("r.counts.positive!==47");
+    expect(industrial).toContain("r.counts.negative!==120");
+    expect(industrial).toContain("r.correctness.falsePositiveCount!==0");
+    expect(industrial).toContain("r.marginalContribution.additionalTruePositives<1");
+
+    const browser = read("browser-benchmark.yml");
+    for (const spec of ["industrial-low-contrast", "industrial-perspective", "industrial-small-module", "industrial-damaged"]) {
+      expect(fs.existsSync(path.join(process.cwd(), "tests", "browser-benchmark", `${spec}.spec.ts`))).toBe(true);
+    }
+    expect(browser).toContain("browser: chromium");
+    expect(browser).toContain("browser: firefox");
+    expect(browser).toContain("browser: webkit");
   });
 });

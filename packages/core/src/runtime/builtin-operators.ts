@@ -47,7 +47,7 @@ const MAX_MESSAGE_LENGTH = 512;
 function descriptor(id: string, accepts: string[], produces: string[], cpu: "low" | "medium" | "high" = "low"): OperatorDescriptor {
   return {
     id,
-    version: "2.0.0-beta.2",
+    version: "2.0.0-beta.3",
     accepts,
     produces,
     configurationSchemaId: "https://scanly.dev/schema/scenario/2.1",

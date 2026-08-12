@@ -1,6 +1,6 @@
 {
   "name": "@scanly/core",
-  "version": "2.0.0-beta.2",
+  "version": "2.0.0-beta.3",
   "description": "UI-independent Scanly barcode capture contracts, router, session, and QR pipeline",
   "license": "MIT",
   "type": "module",
@@ -19,6 +19,10 @@
     "./barcode": {
       "types": "./dist/barcode/index.d.ts",
       "import": "./dist/barcode/index.js"
+    },
+    "./industrial": {
+      "types": "./dist/industrial/index.d.ts",
+      "import": "./dist/industrial/index.js"
     }
   },
   "files": [
@@ -29,7 +33,7 @@
     "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
-    "@scanly/parsers": "2.0.0-beta.2",
-    "@scanly/scenario-schema": "2.0.0-beta.2"
+    "@scanly/parsers": "2.0.0-beta.3",
+    "@scanly/scenario-schema": "2.0.0-beta.3"
   }
 }

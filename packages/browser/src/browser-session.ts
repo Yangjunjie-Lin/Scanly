@@ -1,4 +1,4 @@
-import { CaptureRouter, createRgbaFrame, normalizeFormatSelection, sdkError, type BarcodeFormat, type ConcurrentCallPolicy, type FormatSelection, type ScanFailure, type ScanOutcome } from "@scanly/core";
+import { CaptureRouter, IndustrialRecoveryPipeline, createRecoveryProbeScenario, createRgbaFrame, normalizeFormatSelection, sdkError, type BarcodeFormat, type ConcurrentCallPolicy, type FormatSelection, type RecoveryBudget, type RecoveryProfile, type RecoveryRouteId, type ScanFailure, type ScanOutcome } from "@scanly/core";
 import { getBuiltinScenario, validateScenario, type ScenarioDefinition } from "@scanly/scenario-schema";
 import { loadPixelBufferFromFile } from "./image-loader.js";
 import { createBrowserCaptureRouter } from "./runtime.js";
@@ -13,6 +13,15 @@ export interface BrowserCaptureSessionOptions {
   workerFactory?: DecodeWorkerFactory;
   router?: CaptureRouter;
   disposeRouter?: boolean;
+  /** Static industrial recovery is explicit; normal upload behavior is unchanged. */
+  recovery?: false | BrowserStaticIndustrialRecoveryOptions;
+}
+
+export interface BrowserStaticIndustrialRecoveryOptions {
+  profile?: RecoveryProfile;
+  budget?: RecoveryBudget;
+  dpmExperimental?: boolean;
+  excludedRoutes?: readonly RecoveryRouteId[];
 }
 
 let browserFrameSequence = 0;
@@ -26,6 +35,8 @@ export class BrowserCaptureSession {
   private readonly ownsRouter: boolean;
   private controller: AbortController | null = null;
   private owner = 0;
+  private recovery: false | BrowserStaticIndustrialRecoveryOptions;
+  private readonly recoveryPipeline = new IndustrialRecoveryPipeline();
 
   constructor(options: BrowserCaptureSessionOptions = {}) {
     const initial = options.scenario ?? getBuiltinScenario("balanced");
@@ -37,6 +48,7 @@ export class BrowserCaptureSession {
     this.worker = new DecodeWorkerClient(options.workerFactory);
     this.router = options.router ?? createBrowserCaptureRouter({ scenario: this.scenario });
     this.ownsRouter = options.disposeRouter ?? !options.router;
+    this.recovery = options.recovery ?? false;
   }
 
   getState(): BrowserCaptureSessionState { return this.state; }
@@ -81,7 +93,7 @@ export class BrowserCaptureSession {
         const decodeStartedAt = Date.now();
         const scenario = this.scenario;
         markDecodePath("worker");
-        outcome = await this.worker.scan(frame, scenario, { signal: controller.signal, preserveSourceForFallback: true, onStage: options.onStage, onProgress: options.onProgress });
+        outcome = await this.worker.scan(frame, scenario, { signal: controller.signal, preserveSourceForFallback: true, onStage: options.onStage, onProgress: options.onProgress, ...(this.workerRecovery() ? { recovery: this.workerRecovery()! } : {}) });
         if (!outcome.ok && ["worker_initialization_failure", "engine_execution_failure"].includes(outcome.error.code) && !controller.signal.aborted && owner === this.owner) {
           const workerOutcome = outcome;
           const workerElapsedMs = Math.max(Date.now() - decodeStartedAt, workerOutcome.timing.totalMs);
@@ -95,9 +107,10 @@ export class BrowserCaptureSession {
               multiCode: { ...scenario.multiCode, maxResults: Math.min(scenario.multiCode.maxResults, remainingAttempts) },
               budgets: { ...scenario.budgets, maxAttempts: remainingAttempts, maxExecutionMs: remainingExecutionMs },
             };
-            const fallback = await this.router.scan(
+            const fallback = await this.decodeOnMain(
               createRgbaFrame(pixels.data, pixels.width, pixels.height, { id: frameId, sourceType: "upload", ownership: "owned" }),
-              { signal: controller.signal, scenario: fallbackScenario },
+              fallbackScenario,
+              controller.signal,
             );
             const totalMs = Math.max(Date.now() - decodeStartedAt, workerElapsedMs + fallback.timing.totalMs);
             outcome = {
@@ -116,7 +129,7 @@ export class BrowserCaptureSession {
       } else {
         markDecodePath("main-thread");
         options.onStage?.("Routing normalized frame...");
-        outcome = await this.router.scan(frame, { signal: controller.signal, scenario: this.scenario });
+        outcome = await this.decodeOnMain(frame, this.scenario, controller.signal);
         options.onProgress?.({ attemptCount: outcome.attemptCount });
       }
       if (owner !== this.owner) return this.failure(frameId, "cancelled", "Result belongs to a superseded browser job.");
@@ -129,6 +142,33 @@ export class BrowserCaptureSession {
       options.signal?.removeEventListener("abort", onAbort);
       if (this.controller === controller) this.controller = null;
     }
+  }
+
+  updateRecovery(recovery: false | BrowserStaticIndustrialRecoveryOptions): void {
+    this.assertNotDisposed();
+    this.cancel();
+    this.recovery = recovery;
+  }
+
+  private workerRecovery() {
+    if (this.recovery === false) return undefined;
+    const profile = this.recovery.profile ?? "industrial";
+    return {
+      profile,
+      sourceMode: "static" as const,
+      ...(this.recovery.budget ? { budget: this.recovery.budget } : {}),
+      dpmExperimental: this.recovery.dpmExperimental === true || profile === "dpm-experimental",
+      ...(this.recovery.excludedRoutes ? { excludedRoutes: [...this.recovery.excludedRoutes] } : {}),
+    };
+  }
+
+  private async decodeOnMain(frame: import("@scanly/core").NormalizedFrame, scenario: ScenarioDefinition, signal: AbortSignal): Promise<ScanOutcome> {
+    const recovery = this.workerRecovery();
+    if (!recovery) return this.router.scan(frame, { signal, scenario });
+    return (await this.recoveryPipeline.run(frame, (candidate, request) => this.router.scan(
+      { ...candidate, ownership: "borrowed", dispose: undefined },
+      { signal: request.signal, scenario: request.routeId === "general" ? scenario : createRecoveryProbeScenario(scenario, request.routeId) },
+    ), { profile: recovery.profile, sourceMode: "static", ...(recovery.budget ? { budget: recovery.budget } : {}), signal, dpmExperimental: recovery.dpmExperimental, excludedRoutes: recovery.excludedRoutes })).outcome;
   }
 
   async dispose(): Promise<void> {

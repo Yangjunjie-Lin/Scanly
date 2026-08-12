@@ -45,7 +45,8 @@ async function main() {
   const wasmBytes = fs.readFileSync(wasmPath);
   const budgets = {
     "core-javascript-gzip": 150_000,
-    "browser-javascript-gzip": 240_000,
+    // Beta 3 development cap; see docs/beta3-industrial-recovery.md.
+    "browser-javascript-gzip": 250_000,
     "zxing-cpp-loader-gzip": 25_000,
     "standard-wasm-uncompressed": 1_100_000,
     "optional-engine-total-gzip": 650_000,

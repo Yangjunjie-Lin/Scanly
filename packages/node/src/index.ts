@@ -2,9 +2,16 @@ import sharp from "sharp";
 import {
   CaptureRouter,
   EngineRegistry,
+  IndustrialRecoveryPipeline,
+  createRecoveryProbeScenario,
   createRgbaFrame,
+  getBuiltinScenario,
   type CaptureRouterOptions,
+  type IndustrialRecoveryOptions,
+  type IndustrialRecoveryResult,
   type NormalizedFrame,
+  type RecoveryProfile,
+  type ScenarioDefinition,
 } from "@scanly/core";
 import { createPixelBuffer, decodePixelBuffer, flattenAlphaOntoWhite, type DecodeOutcome, type DecodePipelineOptions, type PipelineEngineExecutor, type PixelBuffer } from "@scanly/core/qr";
 import { JsQrEngine } from "@scanly/engine-jsqr";
@@ -65,4 +72,28 @@ export async function decodePixelBufferWithNodeEngines(image: PixelBuffer, optio
   } finally {
     await engines.disposeAll();
   }
+}
+
+export interface NodeIndustrialScanOptions extends IndustrialRecoveryOptions {
+  scenario?: ScenarioDefinition;
+}
+
+/** Explicit Node industrial decode path; normal CaptureRouter behavior remains unchanged. */
+export async function scanWithNodeIndustrialRecovery(
+  router: CaptureRouter,
+  frame: NormalizedFrame,
+  options: NodeIndustrialScanOptions = {},
+): Promise<IndustrialRecoveryResult> {
+  const profile = options.profile ?? "industrial";
+  const scenario = options.scenario ?? getBuiltinScenario(normalProfile(profile));
+  const pipeline = new IndustrialRecoveryPipeline();
+  return pipeline.run(frame, (candidate, request) => router.scan(
+    { ...candidate, ownership: "borrowed", dispose: undefined },
+    { signal: request.signal, scenario: request.routeId === "general" ? scenario : createRecoveryProbeScenario(scenario, request.routeId) },
+  ), { ...options, profile, sourceMode: "static" });
+}
+
+function normalProfile(profile: RecoveryProfile): "fast" | "balanced" | "robust" {
+  if (profile === "fast" || profile === "balanced" || profile === "robust") return profile;
+  return "robust";
 }

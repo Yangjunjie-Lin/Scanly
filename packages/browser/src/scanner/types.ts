@@ -3,6 +3,7 @@ import type {
   DecodedBarcode,
   NormalizedFrame,
   ScanOutcome,
+  ScannerRecoveryDiagnosticSnapshot,
   SdkError,
 } from "@scanly/core";
 
@@ -145,10 +146,14 @@ export interface ScannerSessionStatistics {
   wasmPeakLinearMemoryBytes: number;
   wasmReleasedNativeResultCount: number;
   finalControlledMemory: number;
+  recoveryRunCount: number;
+  recoveryTemporaryBytes: number;
+  recoveryPeakTemporaryBytes: number;
+  recoveryRouteStateCount: number;
 }
 
 export interface ScannerDiagnostic {
-  type: "frame-quality" | "hint" | "event" | "decode" | "scheduler" | "error";
+  type: "frame-quality" | "hint" | "event" | "decode" | "recovery" | "scheduler" | "error";
   timestamp: number;
   frameId?: number;
   quality?: FrameQuality;
@@ -158,6 +163,7 @@ export interface ScannerDiagnostic {
   decodeMs?: number;
   error?: SdkError;
   detail?: string;
+  recovery?: ScannerRecoveryDiagnosticSnapshot;
 }
 
 export interface TemporalROIHint {
@@ -195,6 +201,10 @@ export interface ScannerDecoderStatistics {
   wasmCurrentLinearMemoryBytes?: number;
   wasmPeakLinearMemoryBytes?: number;
   wasmReleasedNativeResultCount?: number;
+  recoveryRunCount?: number;
+  recoveryTemporaryBytes?: number;
+  recoveryPeakTemporaryBytes?: number;
+  recoveryRouteStateCount?: number;
 }
 
 export interface ScannerFrameDecoder {

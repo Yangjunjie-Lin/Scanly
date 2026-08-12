@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "beta3-generated-1",
+  "sourceType": "generated",
+  "generator": "scripts/benchmark-industrial.ts deterministic Sharp/pixel transforms",
+  "seed": 20260812,
+  "bases": [
+    { "id": "qr-clear", "file": "fixtures/01-clear-url.png", "format": "qr_code", "payload": "https://scanly.example/clear" },
+    { "id": "dm-clear", "file": "fixtures/alpha5/generated/data-matrix-01.png", "format": "data_matrix", "payload": "(01)09506000134352(17)271231(10)DM01" },
+    { "id": "pdf-clear", "file": "fixtures/alpha5/generated/pdf417-01.png", "format": "pdf417", "payload": "SCANLY-PDF417-DOCUMENT-01-DATA" },
+    { "id": "code128-clear", "file": "fixtures/alpha5/generated/code-128-01.png", "format": "code_128", "payload": "(01)09506000134352(17)271231(10)C01" },
+    { "id": "ean13-clear", "file": "fixtures/alpha5/generated/ean-13-01.png", "format": "ean_13", "payload": "5901234100007" }
+  ],
+  "difficulties": [
+    "blur", "motion-blur", "underexposure", "overexposure", "low-contrast", "illumination", "glare", "perspective", "curvature", "small-module", "damage", "occlusion", "quiet-zone-loss", "screen-artifacts"
+  ],
+  "baseByDifficulty": {
+    "blur": "code128-clear",
+    "motion-blur": "dm-clear",
+    "underexposure": "qr-clear",
+    "overexposure": "ean13-clear",
+    "low-contrast": "code128-clear",
+    "illumination": "code128-clear",
+    "glare": "qr-clear",
+    "perspective": "pdf-clear",
+    "curvature": "qr-clear",
+    "small-module": "code128-clear",
+    "damage": "dm-clear",
+    "occlusion": "dm-clear",
+    "quiet-zone-loss": "ean13-clear",
+    "screen-artifacts": "dm-clear"
+  },
+  "severities": ["low", "medium", "high"],
+  "expectedResult": "decode",
+  "expandedFixtureCount": 42
+}

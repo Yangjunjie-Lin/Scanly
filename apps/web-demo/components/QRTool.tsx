@@ -16,7 +16,18 @@ import { getBuiltinScenario, type ScenarioPresetId } from "@scanly/scenario-sche
 
 type Mode = "camera" | "upload";
 type CameraExperience = "single" | "tracking-batch";
-type Preset = "balanced" | "robust" | "multiformat-balanced" | "retail-fast" | "logistics-balanced" | "document-robust";
+type Preset = "balanced" | "robust" | "multiformat-balanced" | "retail-fast" | "logistics-balanced" | "document-robust" | "industrial" | "dpm-experimental";
+
+function scenarioPreset(preset: Preset): ScenarioPresetId {
+  if (preset === "industrial" || preset === "dpm-experimental") return "multiformat-balanced";
+  return preset;
+}
+
+function recoveryPreset(preset: Preset): false | { profile: "industrial" | "dpm-experimental"; dpmExperimental?: boolean } {
+  if (preset === "industrial") return { profile: "industrial" };
+  if (preset === "dpm-experimental") return { profile: "dpm-experimental", dpmExperimental: true };
+  return false;
+}
 
 function formatLabel(format: ScanResult["format"]): string {
   return ({
@@ -118,7 +129,8 @@ export default function QRTool() {
   const parsedMetadata = primaryResult && (primaryResult.structuredPayload || primaryResult.metadata)
     ? JSON.stringify({ structuredPayload: primaryResult.structuredPayload, barcode: primaryResult.metadata }, null, 2)
     : "";
-  const activeScenario = useMemo(() => getBuiltinScenario(preset as ScenarioPresetId), [preset]);
+  const recoveryDiagnostics = process.env.NODE_ENV !== "production" ? primaryResult?.metadata?.scannerDiagnostics : undefined;
+  const activeScenario = useMemo(() => getBuiltinScenario(scenarioPreset(preset)), [preset]);
 
   async function disposeCameraRuntime(): Promise<void> {
     const batch = batchSessionRef.current;
@@ -202,7 +214,7 @@ export default function QRTool() {
       const source = new MediaStreamCameraFrameSource({ video: videoRef.current, deviceId: deviceId || undefined, stopWhenPageHidden: true });
       const session = new ScannerSession({
         source,
-        decoderOptions: { scenario: activeScenario },
+        decoderOptions: { scenario: activeScenario, ...(recoveryPreset(preset) ? { recovery: recoveryPreset(preset) } : {}) },
         confirmation: { mode: "adaptive" },
         repeatPolicy: { mode: "physical-instance", cooldownMs: 1_500 },
         quality: { sampleTarget: 1_024 },
@@ -275,7 +287,8 @@ export default function QRTool() {
 
   function selectPreset(next: Preset) {
     setPreset(next);
-    uploadSession.updateConfiguration(getBuiltinScenario(next as ScenarioPresetId));
+    uploadSession.updateConfiguration(getBuiltinScenario(scenarioPreset(next)));
+    uploadSession.updateRecovery(recoveryPreset(next));
     setResults([]);
     setLastError("");
     setErrorReason("");
@@ -505,6 +518,8 @@ export default function QRTool() {
           <option value="logistics-balanced">Logistics</option>
           <option value="document-robust">Document</option>
           <option value="multiformat-balanced">All Alpha.5</option>
+          <option value="industrial">Industrial (highest bounded cost)</option>
+          <option value="dpm-experimental">DPM Experimental</option>
         </select>
         {mode === "camera" && (
           <>
@@ -774,6 +789,12 @@ export default function QRTool() {
             <details className="small" style={{ marginTop: 10 }}>
               <summary>Parsed metadata</summary>
               <pre className="mono" data-testid="parsed-metadata" style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{parsedMetadata}</pre>
+            </details>
+          )}
+          {recoveryDiagnostics && (
+            <details className="small" style={{ marginTop: 10 }} data-testid="recovery-diagnostics">
+              <summary>Recovery diagnostics (development)</summary>
+              <pre className="mono" style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{JSON.stringify(recoveryDiagnostics, null, 2)}</pre>
             </details>
           )}
         </>

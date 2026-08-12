@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { CaptureRouter, EngineRegistry, createRgbaFrame, } from "@scanly/core";
+import { CaptureRouter, EngineRegistry, IndustrialRecoveryPipeline, createRecoveryProbeScenario, createRgbaFrame, getBuiltinScenario, } from "@scanly/core";
 import { createPixelBuffer, decodePixelBuffer, flattenAlphaOntoWhite } from "@scanly/core/qr";
 import { JsQrEngine } from "@scanly/engine-jsqr";
 import { ZxingJsEngine } from "@scanly/engine-zxing-js";
@@ -54,5 +54,17 @@ export async function decodePixelBufferWithNodeEngines(image, options = {}) {
     finally {
         await engines.disposeAll();
     }
+}
+/** Explicit Node industrial decode path; normal CaptureRouter behavior remains unchanged. */
+export async function scanWithNodeIndustrialRecovery(router, frame, options = {}) {
+    const profile = options.profile ?? "industrial";
+    const scenario = options.scenario ?? getBuiltinScenario(normalProfile(profile));
+    const pipeline = new IndustrialRecoveryPipeline();
+    return pipeline.run(frame, (candidate, request) => router.scan({ ...candidate, ownership: "borrowed", dispose: undefined }, { signal: request.signal, scenario: request.routeId === "general" ? scenario : createRecoveryProbeScenario(scenario, request.routeId) }), { ...options, profile, sourceMode: "static" });
+}
+function normalProfile(profile) {
+    if (profile === "fast" || profile === "balanced" || profile === "robust")
+        return profile;
+    return "robust";
 }
 //# sourceMappingURL=index.js.map
