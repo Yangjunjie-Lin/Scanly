@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://scanly.dev/schemas/physical-device-evidence-beta4.json",
+  "title": "Scanly Beta 4 PhysicalDeviceEvidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "sourceCommit", "sourceTree", "sdkVersion", "evidenceId", "evidenceType",
+    "session", "device", "browser", "camera", "scenarios", "networkIsolation", "fieldSources",
+    "sensitiveDataReviewed", "rightsReviewed", "repositoryDirty"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "beta4-physical-device-evidence-1" },
+    "sourceCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "sourceTree": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "sdkVersion": { "const": "2.0.0-beta.4" },
+    "evidenceId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{7,127}$" },
+    "evidenceType": { "enum": ["simulated", "desktop-camera", "physical-mobile", "remote-physical-device"] },
+    "session": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sessionId", "startedAt", "endedAt", "testerId", "hardwareAccess"],
+      "properties": {
+        "sessionId": { "type": "string", "minLength": 8 },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "endedAt": { "type": "string", "format": "date-time" },
+        "testerId": { "type": "string", "minLength": 2 },
+        "hardwareAccess": { "enum": ["simulated", "desktop-local", "physical-local", "remote-device-farm"] }
+      }
+    },
+    "device": {
+      "type": "object", "additionalProperties": false,
+      "required": ["operatingSystem"],
+      "properties": {
+        "declaredModel": { "type": "string", "minLength": 2 },
+        "manufacturer": { "type": "string", "minLength": 2 },
+        "operatingSystem": { "type": "string", "minLength": 2 },
+        "operatingSystemVersion": { "type": "string", "minLength": 1 }
+      }
+    },
+    "browser": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "version", "userAgent"],
+      "properties": {
+        "name": { "type": "string", "minLength": 2 },
+        "version": { "type": "string", "minLength": 1 },
+        "userAgent": { "type": "string", "minLength": 8 }
+      }
+    },
+    "camera": {
+      "type": "object", "additionalProperties": false,
+      "required": ["settings", "capabilities", "constraints"],
+      "properties": {
+        "label": { "type": "string" },
+        "settings": { "type": "object" },
+        "capabilities": { "type": "object" },
+        "constraints": { "type": "object" }
+      }
+    },
+    "scenarios": {
+      "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/scenario" }
+    },
+    "longRun": { "$ref": "#/$defs/longRun" },
+    "thermalObservation": {
+      "type": "object", "additionalProperties": false, "required": ["source"],
+      "properties": {
+        "source": { "enum": ["tester-observed", "OS-reported", "external-measured", "unavailable"] },
+        "throttlingSymptom": { "type": "string" },
+        "fpsDegradation": { "type": "number" },
+        "decodeLatencyDriftMs": { "type": "number" }
+      }
+    },
+    "batteryObservation": {
+      "type": "object", "additionalProperties": false, "required": ["source"],
+      "properties": {
+        "source": { "enum": ["tester-recorded", "unavailable"] },
+        "startPercent": { "type": "number", "minimum": 0, "maximum": 100 },
+        "endPercent": { "type": "number", "minimum": 0, "maximum": 100 },
+        "durationMs": { "type": "number", "minimum": 0 },
+        "screenBrightnessPolicy": { "type": "string" }
+      }
+    },
+    "networkIsolation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["tested", "scannerContinuedAfterNetworkDisabled", "barcodePixelsUploaded", "barcodePayloadUploaded"],
+      "properties": {
+        "tested": { "type": "boolean" },
+        "scannerContinuedAfterNetworkDisabled": { "oneOf": [{ "type": "boolean" }, { "const": "not-tested" }] },
+        "barcodePixelsUploaded": { "const": false },
+        "barcodePayloadUploaded": { "const": false }
+      }
+    },
+    "fieldSources": {
+      "type": "object", "minProperties": 6,
+      "additionalProperties": { "enum": ["declared-by-tester", "browser-reported", "camera-api-reported", "tester-observed", "OS-reported", "external-measured", "unavailable"] }
+    },
+    "sensitiveDataReviewed": { "const": true },
+    "rightsReviewed": { "const": true },
+    "repositoryDirty": { "const": false }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "evidenceType": { "const": "physical-mobile" } }, "required": ["evidenceType"] },
+      "then": {
+        "properties": {
+          "session": { "properties": { "hardwareAccess": { "const": "physical-local" } } },
+          "device": { "required": ["declaredModel", "manufacturer", "operatingSystem", "operatingSystemVersion"] }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "evidenceType": { "const": "remote-physical-device" } }, "required": ["evidenceType"] },
+      "then": {
+        "properties": {
+          "session": { "properties": { "hardwareAccess": { "const": "remote-device-farm" } } },
+          "device": { "required": ["declaredModel", "manufacturer", "operatingSystem", "operatingSystemVersion"] }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "evidenceType": { "const": "desktop-camera" } }, "required": ["evidenceType"] },
+      "then": { "properties": { "session": { "properties": { "hardwareAccess": { "const": "desktop-local" } } } } }
+    },
+    {
+      "if": { "properties": { "evidenceType": { "const": "simulated" } }, "required": ["evidenceType"] },
+      "then": { "properties": { "session": { "properties": { "hardwareAccess": { "const": "simulated" } } } } }
+    }
+  ],
+  "$defs": {
+    "comparison": {
+      "type": "object", "additionalProperties": false,
+      "required": ["targetId", "expectedPayload", "expectedFormat", "matched"],
+      "properties": {
+        "targetId": { "type": "string" }, "expectedPayload": { "type": "string" }, "expectedFormat": { "type": "string" },
+        "observedPayload": { "type": "string" }, "observedFormat": { "type": "string" }, "physicalInstanceId": { "type": "string" },
+        "matched": { "type": "boolean" }
+      }
+    },
+    "scenario": {
+      "type": "object", "additionalProperties": true,
+      "required": ["scenarioId", "status", "targetIds", "groundTruth", "falseConfirmedScans"],
+      "properties": {
+        "scenarioId": { "pattern": "^(P([1-9]|1[0-2])|N1)$" },
+        "status": { "enum": ["passed", "failed", "not-tested", "unavailable"] },
+        "targetIds": { "type": "array", "items": { "type": "string" } },
+        "groundTruth": { "type": "array", "items": { "$ref": "#/$defs/comparison" } },
+        "falseConfirmedScans": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "longRun": {
+      "type": "object", "additionalProperties": true,
+      "required": ["durationMs", "capturedFrames", "admittedFrames", "droppedFrames", "decodeAttempts", "results", "falseConfirmations", "workerCount", "sessionRestarts", "cameraTrackEndings", "errors", "stalePublicEvents", "finalControlledResources", "windows"],
+      "properties": {
+        "durationMs": { "type": "number", "minimum": 0 },
+        "falseConfirmations": { "const": 0 }, "stalePublicEvents": { "const": 0 }, "finalControlledResources": { "const": 0 },
+        "windows": { "type": "array", "minItems": 3 }
+      }
+    }
+  }
+}
