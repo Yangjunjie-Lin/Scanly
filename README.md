@@ -1,10 +1,10 @@
-# Scanly SDK v2 Beta 3 — industrial robustness foundation
+# Scanly SDK v2 Beta 4 — physical device and camera platform hardening
 
-Scanly is a local-first barcode capture SDK foundation with a working browser reference application. Beta 3 development adds a diagnosis-driven, bounded difficult-barcode recovery layer beneath the existing scanner, tracker, and batch runtime while preserving Beta 2 physical tracking, Beta 1 real-time behavior, and Alpha.5 multi-symbology compatibility. It is a Beta preview, not industrial certification, production stability, or an image-upload backend.
+Scanly is a local-first barcode capture SDK foundation with a working browser reference application. Beta 4 adds a dedicated Device Lab, fail-closed physical-evidence contracts, bounded camera recovery, constraint negotiation, lifecycle generation safety, and long-session reporting while preserving Beta 3 industrial recovery, Beta 2 tracking/batch, Beta 1 real-time behavior, and Alpha.5 multi-symbology compatibility. The harness is complete; physical mobile validation is pending. This is not production certification.
 
 ![Next.js 15](https://img.shields.io/badge/Next.js-15-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
-![SDK](https://img.shields.io/badge/SDK-2.0.0--beta.3-blue)
+![SDK](https://img.shields.io/badge/SDK-2.0.0--beta.4-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Live demo:** [https://qr-decoder-theta.vercel.app](https://qr-decoder-theta.vercel.app)
@@ -32,10 +32,19 @@ Alpha.5 explicitly supports QR Code Model 2, Data Matrix ECC 200, PDF417, Code 1
 ## Branch and release status
 
 - `main` is the unchanged v1.3 Stable line.
-- `develop/sdk-v2` contains the merged Beta 2 tracking and batch baseline.
-- `architecture/sdk-v2-beta3-industrial-robustness-foundation` is the active Beta 3 development branch; it was created from the Beta 2 merge and does not modify `main`.
+- `develop/sdk-v2` contains the merged Beta 3 industrial robustness foundation.
+- `architecture/sdk-v2-beta4-device-platform-hardening` is the active Beta 4 development branch; it was created from the Beta 3 merge commit and does not modify `main`.
 - Alpha.5 is an internal integration snapshot, not production-certified evidence. No Alpha.5 tag, GitHub Release, npm publication, Stable claim, or `Latest` release is authorized.
 - Beta 1 remains development evidence. No Beta tag, GitHub Release, npm publication, Stable claim, or `Latest` release is authorized.
+- Beta 4 status is `DEVICE_HARNESS_GO` / `PHYSICAL_DEVICE_VALIDATION_PENDING`. No real iOS, Android, desktop-camera, remote-device-farm, or 30-minute physical soak session is currently stored in this repository.
+
+### Beta 4 physical-device hardening foundation
+
+The separate [Device Lab source](apps/web-demo/app/device-lab/page.tsx) composes `MediaStreamCameraFrameSource` and `ScannerSession`; it displays only browser/camera reported settings, capabilities, constraints, viewport, orientation, device pixel ratio, lifecycle events, resource observations, and controlled-memory statistics. Unsupported values are `unsupported` or `unavailable`—never guessed. Exports are review-required drafts, not admissible evidence.
+
+The fixed [physical test protocol](device-lab/manifest.json), [Ground Truth](device-lab/test-targets/ground-truth.json), deterministic printable/screen targets, [evidence schema](device-evidence/schema.json), and `npm run device:evidence:verify` keep simulated, desktop-camera, physical-mobile, and remote-physical-device evidence distinct. CI validates these contracts but never claims access to a phone. See the [Beta 4 validation protocol](docs/beta4-device-validation.md) and [platform compatibility matrix](docs/platform-compatibility.md).
+
+Camera acquisition now negotiates preferred constraints through bounded fallbacks, maps platform failures to typed camera errors, and invalidates scanner generations for camera switch, orientation, resolution, background/foreground, and recovery transitions. `CameraRecoveryController` bounds track-ended and temporary source recovery; it cannot restart indefinitely. These are automated contracts, not physical-device results.
 
 ## Internal fixture benchmark
 
@@ -230,7 +239,7 @@ See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 
 ## Project status
 
-**SDK v2 Beta 3 development preview.** Scanly is extending the bounded Beta 2 runtime with diagnosis-driven difficult-barcode recovery. Industrial certification and production readiness are not claimed: physical-device evidence is pending, DPM and curved recovery are experimental, performance measurements are development baselines, and the Beta API may change.
+**SDK v2 Beta 4 development preview.** `DEVICE_HARNESS_GO`; `PHYSICAL_DEVICE_VALIDATION_PENDING`. The Device Lab and fail-closed evidence foundation are available, but no physical mobile matrix or 30-minute physical soak has been submitted. Industrial certification, all-iPhone/all-Android coverage, commercial parity, Stable, and production readiness are not claimed.
 
 ## License
 

@@ -2,6 +2,15 @@
 
 All notable changes follow semantic versioning.
 
+## Unreleased — SDK v2 Beta 4 development
+
+- Entered `2.0.0-beta.4` development on `architecture/sdk-v2-beta4-device-platform-hardening` from Beta 3 merge commit `333c4a9a202c3871d10cb0455354390932e8ee5b` on `develop/sdk-v2`.
+- Added a dedicated `/device-lab` physical-camera harness, fixed Ground Truth targets, printable/screen target generation, privacy-aware draft export, and browser/camera diagnostics without promoting drafts to evidence.
+- Added fail-closed device evidence schema/verification, per-device benchmark summaries, physical/simulated evidence separation, sensitive-data review fields, and a dedicated Device Evidence Validation workflow.
+- Added bounded camera constraint negotiation, typed camera error taxonomy, track-ended recovery, visibility/orientation/resolution generation invalidation, capability diagnostics, and camera lifecycle contract tests.
+- Current truthful status is `DEVICE_HARNESS_GO` / `PHYSICAL_DEVICE_VALIDATION_PENDING`: no iOS Safari, Android Chrome, desktop webcam, remote physical device, or 30-minute physical camera session is committed.
+- No tag, GitHub Release, npm publication, Stable/Latest claim, Native SDK work, or new symbology is authorized.
+
 ## Unreleased — SDK v2 Beta 3 development
 
 - Entered `2.0.0-beta.3` development on `architecture/sdk-v2-beta3-industrial-robustness-foundation` from the Beta 2 merge commit on `develop/sdk-v2`.
