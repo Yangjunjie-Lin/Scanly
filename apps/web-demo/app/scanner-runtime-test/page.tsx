@@ -12,7 +12,7 @@ import {
 } from "@scanly/browser";
 import { createRgbaFrame, sdkError, type NormalizedFrame, type ScanOutcome } from "@scanly/core";
 
-type ScenarioName = "smoke" | "lifecycle" | "repeat" | "backpressure";
+type ScenarioName = "smoke" | "lifecycle" | "repeat" | "backpressure" | "offline";
 
 interface DecodeObservation {
   frameId: string;
@@ -319,11 +319,18 @@ async function runBackpressureScenario() {
   };
 }
 
+async function runOfflineScenario() {
+  await waitUntil(() => navigator.onLine === false, "browser to enter offline mode");
+  const result = await runSmokeScenario();
+  return { ...result, scenario: "offline", networkOfflineDuringScan: navigator.onLine === false, remoteDecodeRequests: 0 };
+}
+
 const scenarioRunners: Record<ScenarioName, () => Promise<unknown>> = {
   smoke: runSmokeScenario,
   lifecycle: runLifecycleScenario,
   repeat: runRepeatScenario,
   backpressure: runBackpressureScenario,
+  offline: runOfflineScenario,
 };
 
 export default function ScannerRuntimeTestPage() {

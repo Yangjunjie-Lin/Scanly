@@ -50,14 +50,14 @@ describe("benchmark workflow contracts", () => {
     expect(workflow.match(/ref: \$\{\{ github\.event_name == 'pull_request' && github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/g)?.length).toBe(5);
   });
 
-  it("routes all primary SDK workflows to develop and Beta 3 without deleted Alpha branches", () => {
-    const primary = ["ci.yml", "benchmark.yml", "browser-benchmark.yml", "public-api.yml", "tracking-benchmark.yml", "industrial-benchmark.yml"];
+  it("routes all primary SDK workflows to develop and Beta 4 without deleted Alpha branches", () => {
+    const primary = ["ci.yml", "benchmark.yml", "browser-benchmark.yml", "public-api.yml", "tracking-benchmark.yml", "industrial-benchmark.yml", "device-evidence-validation.yml"];
     for (const file of primary) {
       const workflow = read(file);
       expect(workflow).toContain("workflow_dispatch:");
       expect(workflow).toContain("pull_request:");
       expect(workflow).toContain("- develop/sdk-v2");
-      expect(workflow).toContain("- architecture/sdk-v2-beta3-**");
+      expect(workflow).toContain("- architecture/sdk-v2-beta4-**");
       for (const deleted of [
         "architecture/sdk-v2-alpha3-industrial-validation",
         "architecture/sdk-v2-alpha4-zxing-cpp-wasm",
@@ -68,7 +68,7 @@ describe("benchmark workflow contracts", () => {
 
   it("checks out the exact pull-request head in every primary workflow job", () => {
     const exactHeadRef = "ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}";
-    for (const file of ["ci.yml", "benchmark.yml", "browser-benchmark.yml", "public-api.yml", "tracking-benchmark.yml", "industrial-benchmark.yml"]) {
+    for (const file of ["ci.yml", "benchmark.yml", "browser-benchmark.yml", "public-api.yml", "tracking-benchmark.yml", "industrial-benchmark.yml", "device-evidence-validation.yml"]) {
       const workflow = read(file);
       const checkoutCount = workflow.match(/uses: actions\/checkout@v4/g)?.length ?? 0;
       const exactHeadCount = workflow.split(exactHeadRef).length - 1;
@@ -256,5 +256,20 @@ describe("benchmark workflow contracts", () => {
     expect(browser).toContain("browser: chromium");
     expect(browser).toContain("browser: firefox");
     expect(browser).toContain("browser: webkit");
+  });
+
+  it("separates Beta 4 device evidence validation from simulated browser CI", () => {
+    const workflow = read("device-evidence-validation.yml");
+    expect(workflow).toContain("name: Device Evidence Validation");
+    expect(workflow).toContain("npm run device:targets:verify");
+    expect(workflow).toContain("npm run device:evidence:verify");
+    expect(workflow).toContain("npm run benchmark:device");
+    expect(workflow).toContain("camera-platform.test.ts");
+    expect(workflow).toContain("fetch-depth: 0");
+    expect(workflow).not.toContain("physical-mobile: passed");
+    expect(fs.readFileSync(path.join(process.cwd(), "device-evidence", "status.json"), "utf8")).toContain("PHYSICAL_DEVICE_VALIDATION_PENDING");
+    const network = fs.readFileSync(path.join(process.cwd(), "tests", "browser-benchmark", "device-lab-network.spec.ts"), "utf8");
+    expect(network).toContain("context.setOffline(true)");
+    expect(network).toContain("same-origin resources");
   });
 });
