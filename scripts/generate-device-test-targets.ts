@@ -24,6 +24,61 @@ interface Target {
 }
 interface GroundTruth { schemaVersion: string; targets: Target[] }
 
+const glyphs: Record<string, string[]> = {
+  " ": ["00000", "00000", "00000", "00000", "00000", "00000", "00000"],
+  "-": ["00000", "00000", "00000", "11111", "00000", "00000", "00000"],
+  "_": ["00000", "00000", "00000", "00000", "00000", "00000", "11111"],
+  ".": ["00000", "00000", "00000", "00000", "00000", "01100", "01100"],
+  "/": ["00001", "00010", "00100", "01000", "10000", "00000", "00000"],
+  ":": ["00000", "01100", "01100", "00000", "01100", "01100", "00000"],
+  "?": ["01110", "10001", "00001", "00010", "00100", "00000", "00100"],
+  "0": ["01110", "10001", "10011", "10101", "11001", "10001", "01110"],
+  "1": ["00100", "01100", "00100", "00100", "00100", "00100", "01110"],
+  "2": ["01110", "10001", "00001", "00010", "00100", "01000", "11111"],
+  "3": ["11110", "00001", "00001", "01110", "00001", "00001", "11110"],
+  "4": ["00010", "00110", "01010", "10010", "11111", "00010", "00010"],
+  "5": ["11111", "10000", "10000", "11110", "00001", "00001", "11110"],
+  "6": ["01110", "10000", "10000", "11110", "10001", "10001", "01110"],
+  "7": ["11111", "00001", "00010", "00100", "01000", "01000", "01000"],
+  "8": ["01110", "10001", "10001", "01110", "10001", "10001", "01110"],
+  "9": ["01110", "10001", "10001", "01111", "00001", "00001", "01110"],
+  A: ["01110", "10001", "10001", "11111", "10001", "10001", "10001"],
+  B: ["11110", "10001", "10001", "11110", "10001", "10001", "11110"],
+  C: ["01111", "10000", "10000", "10000", "10000", "10000", "01111"],
+  D: ["11110", "10001", "10001", "10001", "10001", "10001", "11110"],
+  E: ["11111", "10000", "10000", "11110", "10000", "10000", "11111"],
+  F: ["11111", "10000", "10000", "11110", "10000", "10000", "10000"],
+  G: ["01111", "10000", "10000", "10111", "10001", "10001", "01111"],
+  H: ["10001", "10001", "10001", "11111", "10001", "10001", "10001"],
+  I: ["01110", "00100", "00100", "00100", "00100", "00100", "01110"],
+  J: ["00001", "00001", "00001", "00001", "10001", "10001", "01110"],
+  K: ["10001", "10010", "10100", "11000", "10100", "10010", "10001"],
+  L: ["10000", "10000", "10000", "10000", "10000", "10000", "11111"],
+  M: ["10001", "11011", "10101", "10101", "10001", "10001", "10001"],
+  N: ["10001", "11001", "10101", "10011", "10001", "10001", "10001"],
+  O: ["01110", "10001", "10001", "10001", "10001", "10001", "01110"],
+  P: ["11110", "10001", "10001", "11110", "10000", "10000", "10000"],
+  Q: ["01110", "10001", "10001", "10001", "10101", "10010", "01101"],
+  R: ["11110", "10001", "10001", "11110", "10100", "10010", "10001"],
+  S: ["01111", "10000", "10000", "01110", "00001", "00001", "11110"],
+  T: ["11111", "00100", "00100", "00100", "00100", "00100", "00100"],
+  U: ["10001", "10001", "10001", "10001", "10001", "10001", "01110"],
+  V: ["10001", "10001", "10001", "10001", "10001", "01010", "00100"],
+  W: ["10001", "10001", "10001", "10101", "10101", "10101", "01010"],
+  X: ["10001", "10001", "01010", "00100", "01010", "10001", "10001"],
+  Y: ["10001", "10001", "01010", "00100", "00100", "00100", "00100"],
+  Z: ["11111", "00001", "00010", "00100", "01000", "10000", "11111"],
+};
+
+function bitmapText(text: string, x: number, y: number, scale: number): string {
+  return [...text.toUpperCase()].flatMap((character, characterIndex) => {
+    const glyph = glyphs[character] ?? glyphs["?"];
+    return glyph.flatMap((row, rowIndex) => [...row].map((bit, columnIndex) => bit === "1"
+      ? `<rect x="${x + characterIndex * 6 * scale + columnIndex * scale}" y="${y + rowIndex * scale}" width="${scale}" height="${scale}"/>`
+      : ""));
+  }).join("");
+}
+
 const native: Record<Format, "QRCode" | "DataMatrix" | "PDF417" | "Code128" | "EAN13"> = {
   qr_code: "QRCode", data_matrix: "DataMatrix", pdf417: "PDF417", code_128: "Code128", ean_13: "EAN13",
 };
@@ -57,13 +112,15 @@ async function expectedFiles(): Promise<Map<string, Buffer>> {
   const pageWidth = 1_240; const pageHeight = 1_754;
   for (const [pageIndex, pageTargets] of [truth.targets.slice(0, 10), truth.targets.slice(10)].entries()) {
     const cells = await Promise.all(pageTargets.map(async (target) => {
-      const bytes = await symbol(target); const fit = await sharp(bytes).resize({ width: 520, height: 260, fit: "inside" }).png().toBuffer();
+      const bytes = await symbol(target); const fit = await sharp(bytes).resize({ width: 520, height: 220, fit: "inside" }).png().toBuffer();
       return { target, fit };
     }));
     const composites = cells.map(({ target, fit }, index) => {
       const column = index % 2; const row = Math.floor(index / 2); const left = 50 + column * 610; const top = 70 + row * 330;
-      const label = Buffer.from(`<svg width="560" height="310"><style>text{font-family:Arial,sans-serif;fill:#111}.id{font-size:22px;font-weight:bold}.payload{font-size:13px}</style><text x="0" y="24" class="id">${target.targetId} · ${target.format}</text><text x="0" y="48" class="payload">${target.payload.replaceAll("&", "&amp;")}</text></svg>`);
-      return [{ input: label, left, top }, { input: fit, left: left + 5, top: top + 58 }] as const;
+      // Host fonts rasterize differently on Windows and Linux. The embedded
+      // bitmap glyphs keep printable labels readable and byte-deterministic.
+      const label = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="560" height="76"><g fill="#111">${bitmapText(`ID ${target.targetId}`, 0, 0, 3)}${bitmapText(`FORMAT ${target.format}`, 0, 26, 2)}${bitmapText(`PAYLOAD ${target.payload}`, 0, 48, 2)}</g></svg>`);
+      return [{ input: label, left, top }, { input: fit, left: left + 5, top: top + 82 }] as const;
     }).flat();
     const printable = await sharp({ create: { width: pageWidth, height: pageHeight, channels: 3, background: "#ffffff" } }).composite(composites).png({ compressionLevel: 9 }).toBuffer();
     const suffix = pageIndex === 0 ? "" : `-page-${pageIndex + 1}`;
