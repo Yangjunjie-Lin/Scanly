@@ -70,6 +70,7 @@ describe("benchmark gate mode selector", () => {
     expect(selectWorkflowEvidenceMode({ eventName: "push", refName: "architecture/sdk-v2-beta1-realtime-scanner-foundation" })).toBe("integration");
     expect(selectWorkflowEvidenceMode({ eventName: "push", refName: "architecture/sdk-v2-beta2-barcode-tracking-foundation" })).toBe("integration");
     expect(selectWorkflowEvidenceMode({ eventName: "push", refName: "architecture/sdk-v2-beta3-industrial-robustness-foundation" })).toBe("integration");
+    expect(selectWorkflowEvidenceMode({ eventName: "push", refName: "architecture/sdk-v2-beta4-device-platform-hardening" })).toBe("integration");
     expect(selectWorkflowEvidenceMode({ eventName: "pull_request", baseRef: "develop/sdk-v2" })).toBe("integration");
     expect(selectWorkflowEvidenceMode({ eventName: "workflow_dispatch", refName: "develop/sdk-v2", manualGateMode: "integration" })).toBe("integration");
   });
@@ -169,6 +170,11 @@ describe("benchmark gate mode selector", () => {
   it("rejects an Alpha.4 active baseline for Beta 3 source", () => {
     const { registry, root, current } = validRegistry("v2-alpha4-r4", "2.0.0-alpha.4");
     expect(select(registry, root, { ...current, sdkVersion: "2.0.0-beta.3" })).toMatchObject({ mode: "baseline-candidate", reason: expect.stringContaining("release track") });
+  });
+
+  it("does not reuse Beta 3 active evidence as a Beta 4 baseline", () => {
+    const { registry, root, current } = validRegistry("v2-beta3-r1");
+    expect(select(registry, root, { ...current, sdkVersion: "2.0.0-beta.4" })).toMatchObject({ mode: "baseline-candidate", reason: expect.stringContaining("release track") });
   });
 
   it("falls back for a mismatched legacy dataset", () => {

@@ -1,7 +1,7 @@
 {
   "name": "scanly",
   "private": true,
-  "version": "2.0.0-beta.3",
+  "version": "2.0.0-beta.4",
   "workspaces": [
     "apps/*",
     "packages/*",
@@ -51,6 +51,10 @@
     "benchmark:tracking": "tsx scripts/benchmark-tracking.ts",
     "benchmark:industrial": "tsx scripts/benchmark-industrial.ts",
     "benchmark:industrial:negative": "tsx scripts/benchmark-industrial.ts --negative-only",
+    "device:targets:generate": "tsx scripts/generate-device-test-targets.ts",
+    "device:targets:verify": "tsx scripts/generate-device-test-targets.ts --verify",
+    "device:evidence:verify": "tsx scripts/verify-device-evidence.ts",
+    "benchmark:device": "tsx scripts/benchmark-device-evidence.ts",
     "benchmark:symbologies": "tsx scripts/benchmark-symbologies.ts",
     "benchmark:compare": "tsx scripts/compare-engines.ts",
     "benchmark:browser": "playwright test -c playwright.benchmark.config.ts",
@@ -99,6 +103,8 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitest/coverage-v8": "^3.2.4",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
     "esbuild": "^0.28.1",
     "eslint": "^8.57.0",
     "eslint-config-next": "15.5.22",
