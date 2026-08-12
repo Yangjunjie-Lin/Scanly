@@ -334,7 +334,7 @@ export default function QRTool() {
       setTorchEnabled((value) => !value);
     } catch (error) {
       setLastError(error instanceof Error ? error.message : String(error));
-      setErrorReason("unsupported_browser_capability");
+      setErrorReason("camera_capability_unsupported");
     }
   }
 
@@ -345,7 +345,7 @@ export default function QRTool() {
       setCameraCapabilities((current) => ({ ...current, currentZoom: value }));
     } catch (error) {
       setLastError(error instanceof Error ? error.message : String(error));
-      setErrorReason("unsupported_browser_capability");
+      setErrorReason("camera_capability_unsupported");
     }
   }
 

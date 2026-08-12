@@ -2,6 +2,7 @@ import {
   CaptureRouter,
   IndustrialRecoveryPipeline,
   ScannerDiagnostics,
+  SdkException,
   createRecoveryProbeScenario,
   sdkError,
   toDecodedBarcode,
@@ -22,6 +23,7 @@ import {
 } from "../tracking/scanner-tracking-runtime.js";
 import type { BarcodeTrack, TrackingStatistics } from "../tracking/types.js";
 import { CameraCapabilityController } from "./camera-capabilities.js";
+import { CameraRecoveryController, cameraError, type CameraRecoveryPolicy, type DeviceDiagnostics } from "./camera-platform.js";
 import { BoundedDecodeEscalation } from "./decode-escalation.js";
 import { FrameQualityAnalyzer, type FrameQualityAnalyzerOptions } from "./frame-quality.js";
 import { FrameScheduler, type FrameProcessFeedback, type FrameSchedulerOptions } from "./frame-scheduler.js";
@@ -223,6 +225,7 @@ export interface ScannerSessionOptions {
   roi?: TemporalROIOptions;
   capabilityController?: CameraCapabilityController;
   autoZoom?: AutoZoomOptions;
+  cameraRecovery?: CameraRecoveryPolicy;
   /** Explicitly enables the bounded multi-code tracking decode path. */
   decodeMode?: ScannerDecodeMode;
   /** Tracker/ROI composition used only when decodeMode is "tracking". */
@@ -263,6 +266,7 @@ export class ScannerSession {
   private readonly trackingRuntime?: ScannerTrackingRuntime;
   private capabilityController?: CameraCapabilityController;
   private readonly autoZoom?: AutoZoomOptions;
+  private readonly cameraRecovery: CameraRecoveryController;
   private readonly qualityProbeInterval: number;
   private readonly resultListeners = new Set<ScanResultListener>();
   private readonly observationSetListeners = new Set<BarcodeObservationSetListener>();
@@ -271,6 +275,8 @@ export class ScannerSession {
   private generation = 0;
   private lifecycleGeneration = 0;
   private stopPromise: Promise<void> | null = null;
+  private recoveryPromise: Promise<void> | null = null;
+  private backgroundPaused = false;
   private activeDecodeController: AbortController | null = null;
   private frameSequence = 0;
   private eventSequence = 0;
@@ -284,6 +290,7 @@ export class ScannerSession {
     capturedFrames: 0, admittedFrames: 0, droppedFrames: 0, qualityRejectedFrames: 0, periodicProbeFrames: 0,
     fastAttempts: 0, balancedAttempts: 0, robustAttempts: 0, decodeSuccesses: 0, confirmedEvents: 0,
     emittedEvents: 0, suppressedRepeats: 0, staleResultsDiscarded: 0, staleEvents: 0, lostEvents: 0,
+    cameraTrackEndings: 0, cameraGenerationInvalidations: 0,
   };
 
   constructor(options: ScannerSessionOptions) {
@@ -300,6 +307,7 @@ export class ScannerSession {
       ? new ScannerTrackingRuntime(options.tracking)
       : undefined;
     this.autoZoom = options.autoZoom ?? { enabled: true };
+    this.cameraRecovery = new CameraRecoveryController(options.cameraRecovery);
     const trackSource = options.source as CameraFrameSource & { currentTrack?: () => MediaStreamTrack | undefined };
     this.capabilityController = options.capabilityController ?? (typeof trackSource.currentTrack === "function" ? new CameraCapabilityController(() => trackSource.currentTrack?.(), this.autoZoom) : undefined);
     this.qualityProbeInterval = Math.max(1, Math.floor(options.qualityProbeInterval ?? 10));
@@ -327,13 +335,15 @@ export class ScannerSession {
         (frame) => this.acceptFrame(frame, lifecycleGeneration),
         (error) => this.handleSourceError(error, lifecycleGeneration),
         () => this.handleSourceEnded(lifecycleGeneration),
+        (event) => this.handleCameraLifecycle(event, lifecycleGeneration),
       );
       if (lifecycleGeneration === this.lifecycleGeneration && this.getState() === "starting") this.setState("scanning");
     } catch (error) {
       if (lifecycleGeneration !== this.lifecycleGeneration || this.getState() !== "starting") return;
       this.setState("failed");
-      this.emitDiagnostic({ type: "error", timestamp: Date.now(), error: sdkError("camera_unavailable", error instanceof Error ? error.message : String(error)) });
-      throw error;
+      const typed = cameraError(error);
+      this.emitDiagnostic({ type: "error", timestamp: Date.now(), error: typed });
+      throw new SdkException(typed);
     }
   }
 
@@ -362,6 +372,7 @@ export class ScannerSession {
     if (this.state === "stopping") { await this.stopPromise; return; }
     this.lifecycleGeneration += 1;
     this.generation += 1; this.activeDecodeController?.abort(); this.decoder.cancel();
+    this.recoveryPromise = null; this.backgroundPaused = false;
     const stopping = Promise.resolve().then(async () => {
       try {
         await this.source.stop();
@@ -379,9 +390,9 @@ export class ScannerSession {
 
   reset(): void {
     if (this.state === "scanning" || this.state === "starting" || this.state === "paused") throw new Error("Stop the scanner session before reset().");
-    this.lifecycleGeneration += 1; this.generation += 1; this.candidates.reset(); this.repeats.reset(); this.roi.reset(); this.trackingRuntime?.reset(); this.escalation.reset(); this.quality.reset(); this.scheduler.reset();
+    this.lifecycleGeneration += 1; this.generation += 1; this.candidates.reset(); this.repeats.reset(); this.roi.reset(); this.trackingRuntime?.reset(); this.escalation.reset(); this.quality.reset(); this.scheduler.reset(); this.cameraRecovery.reset(); this.backgroundPaused = false;
     this.decodeLatencies = []; this.firstDecodeAt = undefined; this.firstConfirmedAt = undefined; this.startedAt = 0; this.peakControlledMemory = 0; this.currentWorkerMemory = 0;
-    this.counters = { capturedFrames: 0, admittedFrames: 0, droppedFrames: 0, qualityRejectedFrames: 0, periodicProbeFrames: 0, fastAttempts: 0, balancedAttempts: 0, robustAttempts: 0, decodeSuccesses: 0, confirmedEvents: 0, emittedEvents: 0, suppressedRepeats: 0, staleResultsDiscarded: 0, staleEvents: 0, lostEvents: 0 };
+    this.counters = { capturedFrames: 0, admittedFrames: 0, droppedFrames: 0, qualityRejectedFrames: 0, periodicProbeFrames: 0, fastAttempts: 0, balancedAttempts: 0, robustAttempts: 0, decodeSuccesses: 0, confirmedEvents: 0, emittedEvents: 0, suppressedRepeats: 0, staleResultsDiscarded: 0, staleEvents: 0, lostEvents: 0, cameraTrackEndings: 0, cameraGenerationInvalidations: 0 };
     this.setState("idle");
   }
 
@@ -391,6 +402,7 @@ export class ScannerSession {
     const scheduler = this.scheduler.getStatistics(); const decoder = this.decoder.getStatistics?.();
     const now = Date.now(); const elapsed = Math.max(1, now - (this.startedAt || now));
     const sorted = [...this.decodeLatencies].sort((a, b) => a - b);
+    const p50 = sorted.length ? sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * 0.5) - 1)] : 0;
     const p95 = sorted.length ? sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * 0.95) - 1)] : 0;
     const currentWorkerMemory = decoder?.wasmCurrentLinearMemoryBytes ?? this.currentWorkerMemory;
     const wasmInputAllocationBytes = decoder?.wasmInputAllocationBytes ?? 0;
@@ -398,7 +410,36 @@ export class ScannerSession {
     const recoveryRouteStateCount = decoder?.recoveryRouteStateCount ?? 0;
     const decoderControlledMemory = Math.max(currentWorkerMemory, wasmInputAllocationBytes, recoveryTemporaryBytes);
     const temporalControlledState = this.candidates.size + this.repeats.size + Number(this.roi.active) + (this.trackingRuntime?.controlledSize ?? 0);
-    return { ...this.counters, averageDecodeMs: this.decodeLatencies.length ? this.decodeLatencies.reduce((a, b) => a + b, 0) / this.decodeLatencies.length : 0, p95DecodeMs: p95, effectiveDecodeFps: scheduler.effectiveDecodeFps || (this.counters.admittedFrames * 1_000 / elapsed), frameDropRate: this.counters.capturedFrames ? this.counters.droppedFrames / this.counters.capturedFrames : 0, ...(this.firstDecodeAt === undefined ? {} : { timeToFirstDecodeMs: this.firstDecodeAt - this.startedAt }), ...(this.firstConfirmedAt === undefined ? {} : { timeToFirstConfirmedScanMs: this.firstConfirmedAt - this.startedAt }), currentWorkerMemory, peakControlledMemory: Math.max(this.peakControlledMemory, decoder?.wasmPeakLinearMemoryBytes ?? 0, decoder?.recoveryPeakTemporaryBytes ?? 0), activeDecodeCount: scheduler.active, pendingFrameCount: scheduler.pending, peakPendingFrameCount: scheduler.peakPending, workerCreatedCount: decoder?.workerCreatedCount ?? 0, workerTerminatedCount: decoder?.workerTerminatedCount ?? 0, activeTaskCount: decoder?.activeTaskCount ?? 0, peakActiveTaskCount: decoder?.peakActiveTaskCount ?? 0, workerWasmDecodeCount: decoder?.workerWasmDecodeCount ?? 0, wasmInputAllocationBytes, wasmActiveNativeResultCount: decoder?.wasmActiveNativeResultCount ?? 0, wasmPeakLinearMemoryBytes: decoder?.wasmPeakLinearMemoryBytes ?? 0, wasmReleasedNativeResultCount: decoder?.wasmReleasedNativeResultCount ?? 0, recoveryRunCount: decoder?.recoveryRunCount ?? 0, recoveryTemporaryBytes, recoveryPeakTemporaryBytes: decoder?.recoveryPeakTemporaryBytes ?? 0, recoveryRouteStateCount, finalControlledMemory: scheduler.active + scheduler.pending + decoderControlledMemory + temporalControlledState + recoveryRouteStateCount };
+    return {
+      ...this.counters,
+      cameraRecovery: this.cameraRecovery.getStatistics(),
+      averageDecodeMs: this.decodeLatencies.length ? this.decodeLatencies.reduce((a, b) => a + b, 0) / this.decodeLatencies.length : 0,
+      p50DecodeMs: p50,
+      p95DecodeMs: p95,
+      effectiveDecodeFps: scheduler.effectiveDecodeFps || (this.counters.admittedFrames * 1_000 / elapsed),
+      frameDropRate: this.counters.capturedFrames ? this.counters.droppedFrames / this.counters.capturedFrames : 0,
+      ...(this.firstDecodeAt === undefined ? {} : { timeToFirstDecodeMs: this.firstDecodeAt - this.startedAt }),
+      ...(this.firstConfirmedAt === undefined ? {} : { timeToFirstConfirmedScanMs: this.firstConfirmedAt - this.startedAt }),
+      currentWorkerMemory,
+      peakControlledMemory: Math.max(this.peakControlledMemory, decoder?.wasmPeakLinearMemoryBytes ?? 0, decoder?.recoveryPeakTemporaryBytes ?? 0),
+      activeDecodeCount: scheduler.active,
+      pendingFrameCount: scheduler.pending,
+      peakPendingFrameCount: scheduler.peakPending,
+      workerCreatedCount: decoder?.workerCreatedCount ?? 0,
+      workerTerminatedCount: decoder?.workerTerminatedCount ?? 0,
+      activeTaskCount: decoder?.activeTaskCount ?? 0,
+      peakActiveTaskCount: decoder?.peakActiveTaskCount ?? 0,
+      workerWasmDecodeCount: decoder?.workerWasmDecodeCount ?? 0,
+      wasmInputAllocationBytes,
+      wasmActiveNativeResultCount: decoder?.wasmActiveNativeResultCount ?? 0,
+      wasmPeakLinearMemoryBytes: decoder?.wasmPeakLinearMemoryBytes ?? 0,
+      wasmReleasedNativeResultCount: decoder?.wasmReleasedNativeResultCount ?? 0,
+      recoveryRunCount: decoder?.recoveryRunCount ?? 0,
+      recoveryTemporaryBytes,
+      recoveryPeakTemporaryBytes: decoder?.recoveryPeakTemporaryBytes ?? 0,
+      recoveryRouteStateCount,
+      finalControlledMemory: scheduler.active + scheduler.pending + decoderControlledMemory + temporalControlledState + recoveryRouteStateCount,
+    };
   }
 
   onResult(listener: ScanResultListener): Unsubscribe { this.resultListeners.add(listener); return () => this.resultListeners.delete(listener); }
@@ -407,10 +448,11 @@ export class ScannerSession {
   onDiagnostics(listener: ScannerDiagnosticListener): Unsubscribe { this.diagnosticListeners.add(listener); return () => this.diagnosticListeners.delete(listener); }
   getTracks(): readonly BarcodeTrack[] { return this.trackingRuntime?.getTracks() ?? []; }
   getTrackingStatistics(): TrackingStatistics | undefined { return this.trackingRuntime?.getStatistics(); }
+  getDeviceDiagnostics(): DeviceDiagnostics | undefined { return this.source.getDeviceDiagnostics?.(); }
   getCameraCapabilities(): CameraCapabilities { return this.capabilityController?.getCapabilities() ?? { torch: false, focusMode: false }; }
-  setTorch(enabled: boolean): Promise<CapabilityResult<boolean>> { return this.capabilityController?.setTorch(enabled) ?? Promise.resolve({ ok: false, error: sdkError("unsupported_browser_capability", "Torch is not available for this scanner source.") }); }
-  setZoom(value: number, manual = true): Promise<CapabilityResult<number>> { return this.capabilityController?.setZoom(value, manual) ?? Promise.resolve({ ok: false, error: sdkError("unsupported_browser_capability", "Zoom is not available for this scanner source.") }); }
-  requestFocus(): Promise<CapabilityResult<boolean>> { return this.capabilityController?.requestFocus() ?? Promise.resolve({ ok: false, error: sdkError("unsupported_browser_capability", "Focus is not available for this scanner source.") }); }
+  setTorch(enabled: boolean): Promise<CapabilityResult<boolean>> { return this.capabilityController?.setTorch(enabled) ?? Promise.resolve({ ok: false, error: sdkError("camera_capability_unsupported", "Torch is not available for this scanner source.") }); }
+  setZoom(value: number, manual = true): Promise<CapabilityResult<number>> { return this.capabilityController?.setZoom(value, manual) ?? Promise.resolve({ ok: false, error: sdkError("camera_capability_unsupported", "Zoom is not available for this scanner source.") }); }
+  requestFocus(): Promise<CapabilityResult<boolean>> { return this.capabilityController?.requestFocus() ?? Promise.resolve({ ok: false, error: sdkError("camera_capability_unsupported", "Focus is not available for this scanner source.") }); }
 
   private async acceptFrame(frame: NormalizedFrame, lifecycleGeneration: number): Promise<void> {
     if (lifecycleGeneration !== this.lifecycleGeneration) {
@@ -533,14 +575,87 @@ export class ScannerSession {
   private handleSourceEnded(lifecycleGeneration: number): void {
     queueMicrotask(() => {
       if (lifecycleGeneration !== this.lifecycleGeneration || !["starting", "scanning", "paused"].includes(this.state)) return;
-      void this.stop();
+      if (this.state === "starting" || !this.source.restart) { void this.stop(); return; }
+      this.counters.cameraTrackEndings += 1;
+      this.emitDiagnostic({ type: "error", timestamp: Date.now(), error: sdkError("camera_track_ended", "The active camera track ended.") });
+      void this.recoverCamera("track-ended", lifecycleGeneration);
     });
   }
   private handleSourceError(error: unknown, lifecycleGeneration: number): void {
     if (lifecycleGeneration !== this.lifecycleGeneration || this.state === "stopping" || this.state === "stopped") return;
-    this.lifecycleGeneration += 1; this.generation += 1;
+    const typed = cameraError(error);
+    this.emitDiagnostic({ type: "error", timestamp: Date.now(), error: typed });
+    if (["camera_busy", "camera_constraint_failed", "camera_track_ended", "source_disconnected"].includes(typed.code)) {
+      void this.recoverCamera(typed.code, lifecycleGeneration);
+      return;
+    }
+    this.failCamera(typed, lifecycleGeneration);
+  }
+  private handleCameraLifecycle(event: import("./camera-platform.js").CameraLifecycleEvent, lifecycleGeneration: number): void {
+    if (lifecycleGeneration !== this.lifecycleGeneration || ["stopping", "stopped", "failed"].includes(this.state)) return;
+    this.emitDiagnostic({ type: "camera", timestamp: event.timestamp, cameraLifecycle: event, deviceDiagnostics: this.source.getDeviceDiagnostics?.(), detail: event.detail });
+    if (event.reason === "background-suspended") {
+      this.emitDiagnostic({ type: "error", timestamp: event.timestamp, error: sdkError("browser_background_suspended", "Browser visibility changed to hidden; camera publication is suspended until foreground recovery.") });
+      if (this.state === "scanning" || this.state === "starting") {
+        this.invalidateCameraGeneration(event.reason);
+        this.source.pause?.(); this.scheduler.pause(); this.backgroundPaused = true; this.setState("paused");
+      }
+      return;
+    }
+    if (event.reason === "foreground-resumed") {
+      if (!this.backgroundPaused) return;
+      this.invalidateCameraGeneration(event.reason);
+      this.backgroundPaused = false;
+      const track = this.source.currentTrack?.();
+      if (!track || track.readyState === "ended") { void this.recoverCamera("foreground-track-not-live", lifecycleGeneration); return; }
+      this.source.resume?.(); this.scheduler.resume(); this.setState("scanning");
+      return;
+    }
+    this.invalidateCameraGeneration(event.reason);
+  }
+  private invalidateCameraGeneration(reason: string): void {
+    this.generation += 1; this.counters.cameraGenerationInvalidations += 1;
+    this.activeDecodeController?.abort(); this.decoder.cancel();
+    this.candidates.reset(); this.repeats.reset(); this.roi.reset(); this.trackingRuntime?.reset(); this.escalation.reset(); this.quality.reset();
+    this.emitDiagnostic({ type: "camera", timestamp: Date.now(), detail: `scanner generation invalidated: ${reason}` });
+  }
+  private async recoverCamera(reason: string, lifecycleGeneration: number): Promise<void> {
+    if (this.recoveryPromise) return this.recoveryPromise;
+    const recovery = (async () => {
+      const decision = this.cameraRecovery.next(reason);
+      this.invalidateCameraGeneration(`recovery:${reason}`);
+      this.source.pause?.(); this.scheduler.pause();
+      this.emitDiagnostic({ type: "camera", timestamp: Date.now(), detail: decision.retry ? `camera recovery ${decision.attempt} scheduled after ${decision.delayMs}ms` : "camera recovery budget exhausted" });
+      if (!decision.retry || !this.source.restart) {
+        this.cameraRecovery.markFailed();
+        this.failCamera(sdkError("camera_recovery_failed", "Camera recovery budget was exhausted or the source cannot restart.", { reason, attempts: decision.attempt }), lifecycleGeneration);
+        return;
+      }
+      await this.cameraRecovery.wait(decision);
+      if (lifecycleGeneration !== this.lifecycleGeneration || ["stopping", "stopped"].includes(this.state)) return;
+      try {
+        await this.source.restart();
+        if (lifecycleGeneration !== this.lifecycleGeneration || ["stopping", "stopped"].includes(this.state)) return;
+        this.cameraRecovery.markRestarted(); this.backgroundPaused = false; this.scheduler.resume(); this.setState("scanning");
+        this.emitDiagnostic({ type: "camera", timestamp: Date.now(), deviceDiagnostics: this.source.getDeviceDiagnostics?.(), detail: `camera recovery ${decision.attempt} completed` });
+      } catch (error) {
+        this.cameraRecovery.markFailed();
+        const typed = cameraError(error);
+        this.emitDiagnostic({ type: "error", timestamp: Date.now(), error: typed });
+        if (typed.retryable) {
+          this.recoveryPromise = null;
+          await this.recoverCamera(reason, lifecycleGeneration);
+        } else this.failCamera(typed, lifecycleGeneration);
+      }
+    })();
+    this.recoveryPromise = recovery;
+    try { await recovery; } finally { if (this.recoveryPromise === recovery) this.recoveryPromise = null; }
+  }
+  private failCamera(error: import("@scanly/core").SdkError, lifecycleGeneration: number): void {
+    if (lifecycleGeneration !== this.lifecycleGeneration) return;
+    this.lifecycleGeneration += 1; this.generation += 1; this.backgroundPaused = false;
     this.setState("failed"); this.activeDecodeController?.abort(); this.decoder.cancel(); void this.scheduler.stop(); void this.source.stop();
-    this.emitDiagnostic({ type: "error", timestamp: Date.now(), error: sdkError("source_disconnected", error instanceof Error ? error.message : String(error), undefined, error) });
+    this.emitDiagnostic({ type: "error", timestamp: Date.now(), error });
   }
   private setState(state: ScannerSessionState): void { if (this.state === state) return; this.state = state; for (const listener of this.stateListeners) { try { listener(state); } catch { /* listener failures do not own session state */ } } }
   private emitDiagnostic(diagnostic: ScannerDiagnostic): void { for (const listener of this.diagnosticListeners) { try { listener(diagnostic); } catch { /* diagnostics are observational */ } } }

@@ -58,11 +58,11 @@ describe("CameraCapabilityController contract", () => {
 
     const torch = await controller.setTorch(true);
     expect(torch.ok).toBe(false);
-    if (!torch.ok) expect(torch.error.code).toBe("unsupported_browser_capability");
+    if (!torch.ok) expect(torch.error.code).toBe("camera_capability_unsupported");
 
     const zoom = await controller.setZoom(2);
     expect(zoom.ok).toBe(false);
-    if (!zoom.ok) expect(zoom.error.code).toBe("unsupported_browser_capability");
+    if (!zoom.ok) expect(zoom.error.code).toBe("camera_capability_unsupported");
     expect(applyConstraints).not.toHaveBeenCalled();
   });
 
@@ -101,7 +101,7 @@ describe("CameraCapabilityController contract", () => {
     expect(controller.getCapabilities().focusMode).toBe(false);
     const result = await controller.requestFocus();
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.code).toBe("unsupported_browser_capability");
+    if (!result.ok) expect(result.error.code).toBe("camera_capability_unsupported");
     expect(applyConstraints).not.toHaveBeenCalled();
   });
 

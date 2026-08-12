@@ -1,4 +1,5 @@
 import { createRgbaFrame } from "@scanly/core";
+import { diagnosticsForTrack, negotiateCameraStream, } from "./camera-platform.js";
 /** CI camera simulator source. It awaits consumer backpressure and never touches mediaDevices. */
 export class DeterministicFrameSequenceSource {
     frames;
@@ -85,6 +86,10 @@ export class MediaStreamCameraFrameSource {
     onEnded = null;
     endedHandler = null;
     visibilityHandler = null;
+    orientationHandler = null;
+    onLifecycle = null;
+    diagnostics;
+    lastFrameSize;
     constructor(options) {
         this.options = options;
     }
@@ -93,24 +98,20 @@ export class MediaStreamCameraFrameSource {
             return [];
         return (await navigator.mediaDevices.enumerateDevices()).filter((device) => device.kind === "videoinput");
     }
-    async start(onFrame, onError, onEnded) {
+    async start(onFrame, onError, onEnded, onLifecycle) {
         await this.stop();
         if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia)
             throw new Error("Camera capture is not supported by this browser.");
         this.onFrame = onFrame;
         this.onError = onError;
         this.onEnded = onEnded;
+        this.onLifecycle = onLifecycle ?? null;
         this.stopped = false;
         this.paused = false;
         try {
-            this.stream = await navigator.mediaDevices.getUserMedia({
-                video: this.options.deviceId ? { deviceId: { exact: this.options.deviceId } } : {
-                    facingMode: { ideal: this.options.facingMode ?? "environment" },
-                    ...(this.options.preferredWidth ? { width: { ideal: this.options.preferredWidth } } : {}),
-                    ...(this.options.preferredHeight ? { height: { ideal: this.options.preferredHeight } } : {}),
-                },
-                audio: false,
-            });
+            const negotiated = await negotiateCameraStream(this.constraintPolicy());
+            this.stream = negotiated.stream;
+            this.diagnostics = negotiated.diagnostics;
             if (this.stopped) {
                 for (const track of this.stream.getTracks())
                     track.stop();
@@ -120,13 +121,33 @@ export class MediaStreamCameraFrameSource {
             await this.options.video.play();
             this.canvas = document.createElement("canvas");
             const track = this.currentTrack();
-            this.endedHandler = () => { this.onEnded?.(); void this.stop(); };
+            this.endedHandler = () => {
+                const retained = { onFrame: this.onFrame, onError: this.onError, onEnded: this.onEnded, onLifecycle: this.onLifecycle };
+                void this.stop();
+                // Track-ended cleanup is immediate, while ScannerSession may use the
+                // retained callbacks for a bounded restart on the next microtask.
+                this.onFrame = retained.onFrame;
+                this.onError = retained.onError;
+                this.onEnded = retained.onEnded;
+                this.onLifecycle = retained.onLifecycle;
+                retained.onEnded?.();
+            };
             track?.addEventListener?.("ended", this.endedHandler);
-            if (this.options.stopWhenPageHidden !== false && typeof document !== "undefined") {
-                this.visibilityHandler = () => { if (document.visibilityState === "hidden")
-                    void this.stop(); };
+            if (typeof document !== "undefined") {
+                this.visibilityHandler = () => {
+                    this.onLifecycle?.({
+                        reason: document.visibilityState === "hidden" ? "background-suspended" : "foreground-resumed",
+                        timestamp: Date.now(),
+                        detail: `visibilityState=${document.visibilityState}`,
+                    });
+                };
                 document.addEventListener("visibilitychange", this.visibilityHandler);
             }
+            if (typeof window !== "undefined") {
+                this.orientationHandler = () => this.onLifecycle?.({ reason: "orientation-change", timestamp: Date.now() });
+                window.addEventListener("orientationchange", this.orientationHandler);
+            }
+            this.onLifecycle?.({ reason: "constraints-renegotiated", timestamp: Date.now(), detail: `attempts=${this.diagnostics.attempts.length}` });
             this.schedule();
         }
         catch (error) {
@@ -137,6 +158,15 @@ export class MediaStreamCameraFrameSource {
     pause() { this.paused = true; }
     resume() { if (this.stopped)
         return; this.paused = false; this.schedule(); }
+    async restart() {
+        const onFrame = this.onFrame;
+        const onError = this.onError;
+        const onEnded = this.onEnded;
+        const onLifecycle = this.onLifecycle;
+        if (!onFrame || !onError || !onEnded)
+            throw new Error("Camera source has no active callbacks to restart.");
+        await this.start(onFrame, onError, onEnded, onLifecycle ?? undefined);
+    }
     async stop() {
         if (this.timer)
             clearTimeout(this.timer);
@@ -157,6 +187,9 @@ export class MediaStreamCameraFrameSource {
         if (this.visibilityHandler && typeof document !== "undefined")
             document.removeEventListener("visibilitychange", this.visibilityHandler);
         this.visibilityHandler = null;
+        if (this.orientationHandler && typeof window !== "undefined")
+            window.removeEventListener("orientationchange", this.orientationHandler);
+        this.orientationHandler = null;
         if (this.canvas) {
             this.canvas.width = 0;
             this.canvas.height = 0;
@@ -165,8 +198,24 @@ export class MediaStreamCameraFrameSource {
         this.onFrame = null;
         this.onError = null;
         this.onEnded = null;
+        this.onLifecycle = null;
+        this.lastFrameSize = undefined;
     }
     currentTrack() { return this.stream?.getVideoTracks()[0]; }
+    getDeviceDiagnostics() {
+        return this.diagnostics ?? diagnosticsForTrack(this.constraintPolicy(), this.currentTrack());
+    }
+    constraintPolicy() {
+        return {
+            ...(this.options.deviceId ? { deviceId: this.options.deviceId } : {}),
+            facingMode: this.options.facingMode ?? "environment",
+            ...(this.options.preferredWidth ? { preferredWidth: this.options.preferredWidth } : {}),
+            ...(this.options.preferredHeight ? { preferredHeight: this.options.preferredHeight } : {}),
+            ...(this.options.preferredFrameRate ? { preferredFrameRate: this.options.preferredFrameRate } : {}),
+            exactDevice: this.options.exactDevice ?? true,
+            maximumAttempts: this.options.maximumConstraintAttempts ?? 3,
+        };
+    }
     schedule() {
         if (this.stopped || this.paused || this.callbackId !== null || this.timer)
             return;
@@ -185,6 +234,10 @@ export class MediaStreamCameraFrameSource {
         if (!canvas || video.videoWidth < 1 || video.videoHeight < 1)
             return;
         try {
+            if (this.lastFrameSize && (this.lastFrameSize.width !== video.videoWidth || this.lastFrameSize.height !== video.videoHeight)) {
+                this.onLifecycle?.({ reason: "resolution-change", timestamp: Date.now(), detail: `${this.lastFrameSize.width}x${this.lastFrameSize.height}->${video.videoWidth}x${video.videoHeight}` });
+            }
+            this.lastFrameSize = { width: video.videoWidth, height: video.videoHeight };
             const maxSide = Math.max(320, Math.min(2_048, this.options.sampleMaxSide ?? 960));
             const scale = Math.min(1, maxSide / Math.max(video.videoWidth, video.videoHeight));
             canvas.width = Math.max(1, Math.round(video.videoWidth * scale));

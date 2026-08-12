@@ -26,7 +26,7 @@ export type DecoderName = string;
 export type ScaleLabel = "original" | "downscaled" | "upscaled" | "full";
 export type CropPadding = "tight" | "medium" | "expanded";
 export type RotationDegrees = 0 | 90 | 180 | 270;
-export type DecodeErrorReason = "invalid_file" | "invalid_image" | "invalid_configuration" | "unsupported_image" | "no_qr_found" | "timeout" | "cancelled" | "worker_error" | "worker_initialization_failure" | "empty_image" | "image_too_large" | "camera_permission_denied" | "no_camera" | "unsupported_format" | "engine_initialization_failure" | "engine_execution_failure";
+export type DecodeErrorReason = "invalid_file" | "invalid_image" | "invalid_configuration" | "unsupported_image" | "no_qr_found" | "timeout" | "cancelled" | "worker_error" | "worker_initialization_failure" | "empty_image" | "image_too_large" | "camera_permission_denied" | "camera_not_found" | "camera_busy" | "camera_constraint_failed" | "camera_track_ended" | "camera_capability_unsupported" | "camera_recovery_failed" | "browser_background_suspended" | "no_camera" | "unsupported_format" | "engine_initialization_failure" | "engine_execution_failure";
 export interface DecodeAttempt {
     candidateIndex: number;
     candidateScore: number;

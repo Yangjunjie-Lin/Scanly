@@ -1,5 +1,6 @@
 import { type NormalizedFrame } from "@scanly/core";
 import type { CameraFrameSource } from "./types.js";
+import { type CameraLifecycleEvent, type DeviceDiagnostics } from "./camera-platform.js";
 export type DeterministicFrameFactory = () => Iterable<NormalizedFrame> | AsyncIterable<NormalizedFrame>;
 export interface DeterministicFrameSequenceSourceOptions {
     respectBackpressure?: boolean;
@@ -27,6 +28,9 @@ export interface MediaStreamCameraFrameSourceOptions {
     facingMode?: "user" | "environment";
     preferredWidth?: number;
     preferredHeight?: number;
+    preferredFrameRate?: number;
+    exactDevice?: boolean;
+    maximumConstraintAttempts?: number;
     sampleMaxSide?: number;
     fallbackCadenceMs?: number;
     stopWhenPageHidden?: boolean;
@@ -46,13 +50,20 @@ export declare class MediaStreamCameraFrameSource implements CameraFrameSource {
     private onEnded;
     private endedHandler;
     private visibilityHandler;
+    private orientationHandler;
+    private onLifecycle;
+    private diagnostics;
+    private lastFrameSize;
     constructor(options: MediaStreamCameraFrameSourceOptions);
     static listDevices(): Promise<MediaDeviceInfo[]>;
-    start(onFrame: (frame: NormalizedFrame) => Promise<void> | void, onError: (error: unknown) => void, onEnded: () => void): Promise<void>;
+    start(onFrame: (frame: NormalizedFrame) => Promise<void> | void, onError: (error: unknown) => void, onEnded: () => void, onLifecycle?: (event: CameraLifecycleEvent) => void): Promise<void>;
     pause(): void;
     resume(): void;
+    restart(): Promise<void>;
     stop(): Promise<void>;
     currentTrack(): MediaStreamTrack | undefined;
+    getDeviceDiagnostics(): DeviceDiagnostics;
+    private constraintPolicy;
     private schedule;
     private capture;
 }

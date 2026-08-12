@@ -6,5 +6,6 @@ export * from "./temporal-confirmation.js";
 export * from "./repeat-suppressor.js";
 export * from "./temporal-roi.js";
 export * from "./camera-capabilities.js";
+export * from "./camera-platform.js";
 export * from "./frame-source.js";
 export * from "./scanner-session.js";

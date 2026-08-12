@@ -1,4 +1,5 @@
 import { sdkError } from "@scanly/core";
+import { cameraError } from "./camera-platform.js";
 const controllerStates = new WeakMap();
 function resolveTrack(owner, provider, onSourceChanged) {
     const track = provider();
@@ -77,7 +78,7 @@ export class CameraCapabilityController {
             return { ok: true, value: enabled };
         }
         catch (error) {
-            return { ok: false, error: sdkError("source_disconnected", "Unable to update camera torch.", undefined, error) };
+            return { ok: false, error: cameraError(error, "Unable to update camera torch.") };
         }
     }
     async setZoom(value, manual = true) {
@@ -105,7 +106,7 @@ export class CameraCapabilityController {
             return { ok: true, value };
         }
         catch (error) {
-            return { ok: false, error: sdkError("source_disconnected", "Unable to update camera zoom.", undefined, error) };
+            return { ok: false, error: cameraError(error, "Unable to update camera zoom.") };
         }
     }
     async requestFocus() {
@@ -122,7 +123,7 @@ export class CameraCapabilityController {
             return { ok: true, value: true };
         }
         catch (error) {
-            return { ok: false, error: sdkError("source_disconnected", "Unable to request camera focus.", undefined, error) };
+            return { ok: false, error: cameraError(error, "Unable to request camera focus.") };
         }
     }
     async considerAutoZoom(geometry, frame, now = Date.now()) {
@@ -173,7 +174,7 @@ export class CameraCapabilityController {
         this.manualZoomOverride = false;
     }
     unsupported(message) {
-        return { ok: false, error: sdkError("unsupported_browser_capability", message) };
+        return { ok: false, error: sdkError("camera_capability_unsupported", message) };
     }
 }
 //# sourceMappingURL=camera-capabilities.js.map

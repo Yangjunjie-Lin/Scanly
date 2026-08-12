@@ -1,4 +1,5 @@
 import { sdkError } from "@scanly/core";
+import { cameraError } from "./camera-platform.js";
 import type { AutoZoomOptions, BarcodeGeometry, CameraCapabilities, CapabilityResult } from "./types.js";
 
 type ExtendedCapabilities = MediaTrackCapabilities & {
@@ -98,7 +99,7 @@ export class CameraCapabilityController {
       await track.applyConstraints({ advanced: [{ torch: enabled } as MediaTrackConstraintSet] });
       return { ok: true, value: enabled };
     } catch (error) {
-      return { ok: false, error: sdkError("source_disconnected", "Unable to update camera torch.", undefined, error) };
+      return { ok: false, error: cameraError(error, "Unable to update camera torch.") };
     }
   }
 
@@ -125,7 +126,7 @@ export class CameraCapabilityController {
       }
       return { ok: true, value };
     } catch (error) {
-      return { ok: false, error: sdkError("source_disconnected", "Unable to update camera zoom.", undefined, error) };
+      return { ok: false, error: cameraError(error, "Unable to update camera zoom.") };
     }
   }
 
@@ -142,7 +143,7 @@ export class CameraCapabilityController {
       await track.applyConstraints({ advanced: [{ focusMode: "continuous" } as MediaTrackConstraintSet] });
       return { ok: true, value: true };
     } catch (error) {
-      return { ok: false, error: sdkError("source_disconnected", "Unable to request camera focus.", undefined, error) };
+      return { ok: false, error: cameraError(error, "Unable to request camera focus.") };
     }
   }
 
@@ -198,6 +199,6 @@ export class CameraCapabilityController {
   }
 
   private unsupported<T>(message: string): CapabilityResult<T> {
-    return { ok: false, error: sdkError("unsupported_browser_capability", message) };
+    return { ok: false, error: sdkError("camera_capability_unsupported", message) };
   }
 }
