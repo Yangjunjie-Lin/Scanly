@@ -360,10 +360,22 @@ export class ScannerSession {
   async switchSource(source: CameraFrameSource, capabilityController?: CameraCapabilityController): Promise<void> {
     const restart = this.state === "scanning" || this.state === "paused" || this.state === "starting";
     await this.stop();
+    // stop() drains the active scheduler task. A decoder may complete after
+    // generation invalidation and increment stale counters while that drain is
+    // in progress, so take the cumulative snapshot only after it has settled.
+    const switchInvalidations = this.counters.cameraGenerationInvalidations + 1;
+    const staleResultsDiscarded = this.counters.staleResultsDiscarded;
+    const staleEvents = this.counters.staleEvents;
     this.source = source;
     const trackSource = source as CameraFrameSource & { currentTrack?: () => MediaStreamTrack | undefined };
     this.capabilityController = capabilityController ?? (typeof trackSource.currentTrack === "function" ? new CameraCapabilityController(() => trackSource.currentTrack?.(), this.autoZoom) : undefined);
     this.reset();
+    // reset() intentionally starts fresh run-level metrics. Preserve the
+    // cumulative switch/stale counts so every source generation change and
+    // rejected late result remains auditable across rear/front/rear switches.
+    this.counters.cameraGenerationInvalidations = switchInvalidations;
+    this.counters.staleResultsDiscarded = staleResultsDiscarded;
+    this.counters.staleEvents = staleEvents;
     if (restart) await this.start();
   }
 
@@ -530,6 +542,23 @@ export class ScannerSession {
     const detected = this.event("detected", barcode, frameId, now, 1, geometry); this.emitDiagnostic({ type: "event", timestamp: now, frameId, event: detected });
     const observation = this.candidates.observe(barcode, geometry, quality, now);
     if (!observation.confirmed) return;
+    // Capability control follows confirmed camera observations, even when the
+    // public repeat policy suppresses a duplicate event. That makes auto-zoom
+    // cooldown behavior observable without publishing duplicate scan results.
+    if (this.capabilityController && this.autoZoom && geometry) {
+      const beforeZoom = this.capabilityController.getCapabilities().zoom?.current;
+      const autoZoomGeneration = this.generation;
+      void this.capabilityController.considerAutoZoom(geometry, frame, now).then((result) => {
+        if (!result || autoZoomGeneration !== this.generation || !this.canPublishGeneration(autoZoomGeneration)) return;
+        const afterZoom = this.capabilityController?.getCapabilities().zoom?.current;
+        this.emitDiagnostic({
+          type: "camera",
+          timestamp: Date.now(),
+          frameId,
+          detail: `auto-zoom-result:${JSON.stringify({ result, triggeredAt: now, ...(beforeZoom === undefined ? {} : { beforeZoom }), ...(afterZoom === undefined ? {} : { afterZoom }) })}`,
+        });
+      }).catch((error) => this.emitDiagnostic({ type: "error", timestamp: Date.now(), frameId, error: cameraError(error, "Auto-zoom observation failed.") }));
+    }
     if (observation.newlyConfirmed) {
       this.counters.confirmedEvents += 1; if (this.firstConfirmedAt === undefined) this.firstConfirmedAt = Date.now();
       const confirmed = this.event("confirmed", barcode, frameId, now, observation.candidate.observationCount, geometry);
@@ -547,7 +576,6 @@ export class ScannerSession {
     this.counters.emittedEvents += 1;
     for (const listener of this.resultListeners) { try { listener(emitted); } catch (error) { this.emitDiagnostic({ type: "error", timestamp: now, frameId, error: sdkError("internal_invariant_failure", error instanceof Error ? error.message : String(error), undefined, error) }); } }
     this.emitDiagnostic({ type: "event", timestamp: now, frameId, event: emitted });
-    if (this.capabilityController && this.autoZoom) void this.capabilityController.considerAutoZoom(geometry ?? { cornerPoints: [], boundingBox: { x: 0, y: 0, width: frame.width, height: frame.height } }, frame, now);
   }
 
   private emitLost(now: number, frameId: number): void {

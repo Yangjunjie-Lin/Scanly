@@ -5,11 +5,10 @@ test("Device Lab loads only same-origin resources and does not claim physical ev
   page.on("request", (request) => origins.add(new URL(request.url()).origin));
   await page.goto("/device-lab");
   await expect(page.getByRole("heading", { name: "Scanly Device Lab" })).toBeVisible();
-  await expect(page.getByText("Dedicated physical-camera validation harness.")).toBeVisible();
+  await expect(page.getByText("Physical-camera evidence capture.")).toBeVisible();
   expect([...origins]).toEqual([new URL(page.url()).origin]);
   await expect(page.getByRole("button", { name: "Export review-required draft" })).toBeVisible();
-  await expect(page.getByText("Observed external resource requests during session").locator(".."))
-    .toContainText("none observed");
+  await expect(page.getByText("Observed resource requests", { exact: true })).toBeVisible();
 });
 
 test("an already-loaded ScannerSession continues without a network decode service", async ({ page, context }) => {

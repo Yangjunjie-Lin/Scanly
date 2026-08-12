@@ -8,7 +8,9 @@ function gitIdentity() {
   };
   const commit = process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || process.env.SCANLY_SOURCE_COMMIT || read(["rev-parse", "HEAD"]);
   const tree = process.env.SCANLY_SOURCE_TREE || (/^[0-9a-f]{40}$/.test(commit) ? read(["show", "-s", "--format=%T", commit]) : "unavailable");
-  return { commit, tree };
+  const status = read(["status", "--porcelain=v1", "--untracked-files=all"]);
+  const dirty = status === "unavailable" ? "unavailable" : status !== "";
+  return { commit, tree, dirty };
 }
 
 const source = gitIdentity();
@@ -17,6 +19,7 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_SCANLY_SOURCE_COMMIT: source.commit,
     NEXT_PUBLIC_SCANLY_SOURCE_TREE: source.tree,
+    NEXT_PUBLIC_SCANLY_REPOSITORY_DIRTY: String(source.dirty),
   },
   transpilePackages: ["@scanly/core", "@scanly/browser", "@scanly/parsers", "@scanly/scenario-schema", "@scanly/engine-jsqr", "@scanly/engine-zxing-js"],
   async headers() {

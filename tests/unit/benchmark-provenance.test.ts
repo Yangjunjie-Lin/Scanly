@@ -4,6 +4,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { afterEach, describe, expect, it } from "vitest";
 import { assertCleanRepository, collectSourceIdentity, computeDatasetHash, sha256Text, verifyEvidenceCommitPolicy, verifyEvidenceOnlyPaths, verifyEvidenceWorkingTreePolicy } from "../../scripts/benchmark-provenance.js";
+import { deviceEvidenceOnlyAfterSource } from "../../scripts/device-evidence-source-policy.js";
 import { loadBaselineRegistry, resolveActiveBaseline, validateBaselineForActivation, writeImmutableBaseline } from "../../scripts/baseline-registry.js";
 
 const roots: string[] = [];
@@ -144,5 +145,72 @@ describe("source/evidence commit policy", () => {
     repo.write("README.md", "changed outside\n<!-- BENCHMARK_SUMMARY_START -->\nold\n<!-- BENCHMARK_SUMMARY_END -->\nafter\n");
     execFileSync("git", ["add", "."], { cwd: repo.root }); execFileSync("git", ["commit", "-m", "bad readme"], { cwd: repo.root });
     expect(verifyEvidenceCommitPolicy(repo.root, source, tree).join(" ")).toContain("README changes outside");
+  });
+});
+
+describe("physical device source/evidence policy", () => {
+  it("allows a clean source followed only by physical evidence and status documentation", () => {
+    const repo = repository();
+    const source = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repo.root, encoding: "utf8" }).trim();
+    repo.write("device-evidence/sessions/beta4-physical.json", "{}");
+    repo.write("device-evidence/status.json", "{}");
+    repo.write("docs/platform-compatibility.md", "physical evidence status");
+    execFileSync("git", ["add", "."], { cwd: repo.root });
+    execFileSync("git", ["commit", "-m", "device evidence"], { cwd: repo.root });
+    expect(deviceEvidenceOnlyAfterSource(repo.root, source)).toBe(true);
+  });
+
+  it("rejects any runtime or verifier change after the tested source", () => {
+    const repo = repository();
+    const source = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repo.root, encoding: "utf8" }).trim();
+    repo.write("source.ts", "export const value = 2;");
+    execFileSync("git", ["add", "."], { cwd: repo.root });
+    execFileSync("git", ["commit", "-m", "runtime change"], { cwd: repo.root });
+    expect(deviceEvidenceOnlyAfterSource(repo.root, source)).toBe(false);
+  });
+
+  it("rejects a tree object presented as a source commit", () => {
+    const repo = repository();
+    const tree = execFileSync("git", ["rev-parse", "HEAD^{tree}"], { cwd: repo.root, encoding: "utf8" }).trim();
+    expect(deviceEvidenceOnlyAfterSource(repo.root, tree)).toBe(false);
+  });
+
+  it.each(["device-evidence/schema.json", "device-evidence/README.md", "device-evidence/sessions/README.md", "docs/beta4-device-validation.md"])('rejects contract or instruction change %s after the tested source', (file) => {
+    const repo = repository();
+    const source = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repo.root, encoding: "utf8" }).trim();
+    repo.write(file, "changed contract");
+    execFileSync("git", ["add", "."], { cwd: repo.root });
+    execFileSync("git", ["commit", "-m", "contract change"], { cwd: repo.root });
+    expect(deviceEvidenceOnlyAfterSource(repo.root, source)).toBe(false);
+  });
+
+  it("rejects a post-source manifest that could redefine tested protocol identity", () => {
+    const repo = repository();
+    const source = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repo.root, encoding: "utf8" }).trim();
+    repo.write("device-evidence/manifests/session.json", "{}");
+    execFileSync("git", ["add", "."], { cwd: repo.root });
+    execFileSync("git", ["commit", "-m", "manifest"], { cwd: repo.root });
+    expect(deviceEvidenceOnlyAfterSource(repo.root, source)).toBe(false);
+  });
+
+  it("rejects runtime changes in the current working tree when requested", () => {
+    const repo = repository();
+    const source = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repo.root, encoding: "utf8" }).trim();
+    repo.write("source.ts", "export const value = 2;");
+    expect(deviceEvidenceOnlyAfterSource(repo.root, source, "HEAD", true)).toBe(false);
+    execFileSync("git", ["add", "source.ts"], { cwd: repo.root });
+    expect(deviceEvidenceOnlyAfterSource(repo.root, source, "HEAD", true)).toBe(false);
+    repo.write("untracked-runtime.ts", "export {};");
+    expect(deviceEvidenceOnlyAfterSource(repo.root, source, "HEAD", true)).toBe(false);
+  });
+
+  it("does not hide a runtime change by renaming it into an evidence-only path", () => {
+    const repo = repository();
+    const source = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repo.root, encoding: "utf8" }).trim();
+    fs.mkdirSync(path.join(repo.root, "device-evidence", "sessions"), { recursive: true });
+    fs.renameSync(path.join(repo.root, "source.ts"), path.join(repo.root, "device-evidence", "sessions", "runtime.json"));
+    execFileSync("git", ["add", "-A"], { cwd: repo.root });
+    execFileSync("git", ["commit", "-m", "rename runtime"], { cwd: repo.root });
+    expect(deviceEvidenceOnlyAfterSource(repo.root, source)).toBe(false);
   });
 });
