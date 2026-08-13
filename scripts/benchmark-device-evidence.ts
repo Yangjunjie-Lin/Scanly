@@ -195,7 +195,8 @@ const currentExactSourceLongSessionCount = currentExactSourceSessions.filter(qua
 
 const report = {
   schemaVersion: "beta4-device-benchmark-1",
-  matrixStatus: "FULL_DEVICE_MATRIX_PENDING",
+  matrixStatus: "DEVICE_MATRIX_PARTIAL",
+  fullDeviceMatrixStatus: "FULL_DEVICE_MATRIX_PENDING",
   physicalValidationStatus: minimumGatePassed
     ? "PHYSICAL_DEVICE_VALIDATION_STARTED_AND_MINIMUM_GATE_PASSED"
     : "PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC",

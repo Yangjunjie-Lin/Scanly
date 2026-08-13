@@ -541,5 +541,6 @@ const expectedGaps = [
 ];
 assert(exactArray(status.requiredGaps, expectedGaps), `status.json requiredGaps must exactly match verifier-derived pending work: ${JSON.stringify(expectedGaps)}.`);
 assert(status.matrixStatus === "DEVICE_MATRIX_PARTIAL", "Beta 4 foundation evidence must not claim the full Device Matrix is complete.");
+assert(status.fullDeviceMatrixStatus === "FULL_DEVICE_MATRIX_PENDING", "Issue #13 full Device Matrix must remain pending.");
 
 console.log(`Device evidence verification passed: ${sessionFiles.length} historical sessions (${JSON.stringify(counts)}); admissible exact-source cohorts: ${currentExactSourceDeviceKeys.size} physical mobile devices, ${expectedIos} iOS Safari, ${expectedAndroid} Android Chrome, ${expectedPhysicalScenarios} physical scenarios, ${expectedLongRuns} qualifying physical long sessions; status=${expectedValidationStatus}.`);

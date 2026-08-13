@@ -36,6 +36,7 @@ function emptyStatus(): Json {
   return {
     ...read("device-evidence/status.json"),
     matrixStatus: "DEVICE_MATRIX_PARTIAL",
+    fullDeviceMatrixStatus: "FULL_DEVICE_MATRIX_PENDING",
     physicalValidationStatus: "PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC",
     physicalMobileSessionCount: 0,
     remotePhysicalDeviceSessionCount: 0,
@@ -77,6 +78,7 @@ function statusForPhysicalFixture(): Json {
   return {
     ...read("device-evidence/status.json"),
     matrixStatus: "DEVICE_MATRIX_PARTIAL",
+    fullDeviceMatrixStatus: "FULL_DEVICE_MATRIX_PENDING",
     physicalValidationStatus: "PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC",
     physicalMobileSessionCount: 1,
     remotePhysicalDeviceSessionCount: 0,

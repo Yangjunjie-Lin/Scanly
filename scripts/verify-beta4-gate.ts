@@ -50,6 +50,7 @@ if (mode === "integration") {
     "Integration requires an honest deferred or verifier-proven physical validation state.",
   );
   requireValue(status.matrixStatus === "DEVICE_MATRIX_PARTIAL", "Integration must retain FULL_DEVICE_MATRIX_PENDING.");
+  requireValue(status.fullDeviceMatrixStatus === "FULL_DEVICE_MATRIX_PENDING", "Integration must retain FULL_DEVICE_MATRIX_PENDING.");
   const physicalStatus = String(status.physicalValidationStatus);
   console.log(
     "BETA4_DEVICE_INTEGRATION_GO / DEVICE_HARNESS_GO / "
@@ -61,6 +62,7 @@ if (mode === "integration") {
 const releaseRequirements: Array<[boolean, string]> = [
   [status.physicalValidationStatus === "PHYSICAL_DEVICE_VALIDATION_STARTED_AND_MINIMUM_GATE_PASSED", "exact-source physical validation minimum"],
   [status.matrixStatus === "FULL_DEVICE_MATRIX_COMPLETE", "full physical device matrix"],
+  [status.fullDeviceMatrixStatus === "FULL_DEVICE_MATRIX_COMPLETE", "full physical device matrix project state"],
   [Array.isArray(status.requiredGaps) && status.requiredGaps.length === 0, "zero remaining physical evidence gaps"],
   [counts.physicalMobileDeviceCount >= 5, "two iOS and three Android physical device classes"],
   [counts.iosSafariSessionCount >= 2, "two real iOS Safari sessions"],
