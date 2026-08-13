@@ -1,10 +1,10 @@
-# Scanly SDK v2 Beta 4 — physical device and camera platform hardening
+# Scanly SDK v2 Beta 5 — native mobile foundation
 
-Scanly is a local-first barcode capture SDK foundation with a working browser reference application. Beta 4 adds a dedicated Device Lab, fail-closed physical-evidence contracts, bounded camera recovery, constraint negotiation, lifecycle generation safety, and long-session reporting while preserving Beta 3 industrial recovery, Beta 2 tracking/batch, Beta 1 real-time behavior, and Alpha.5 multi-symbology compatibility. The harness and automated integration are complete; physical mobile validation is intentionally deferred to the final RC campaign. This is not production certification.
+Scanly is a local-first barcode capture SDK foundation with Web/Node runtimes and a Beta 5 native mobile foundation. Beta 5 adds a shared ZXing-C++ Native Decode Core, a Swift Package, an Android AAR/JNI bridge, direct native camera-frame paths, deterministic cross-platform fixtures, and memory/artifact gates while preserving the merged Beta 4 Device Lab and all earlier regressions. Physical Web and Native mobile validation is intentionally deferred to the final RC campaign. This is not production certification.
 
 ![Next.js 15](https://img.shields.io/badge/Next.js-15-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
-![SDK](https://img.shields.io/badge/SDK-2.0.0--beta.4-blue)
+![SDK](https://img.shields.io/badge/SDK-2.0.0--beta.5-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Live demo:** [https://qr-decoder-theta.vercel.app](https://qr-decoder-theta.vercel.app)
@@ -26,17 +26,21 @@ Scanly is a local-first barcode capture SDK foundation with a working browser re
 - Local-only privacy: no image upload API, storage, account, analytics, or tracking
 - Optional ZXing-C++ WebAssembly engine with a pinned local asset, SHA-256 verification, lazy/deduplicated initialization, typed failures, bounded native results, and explicit disposal
 - Browser/Worker/Node engine composition ordered as jsQR → ZXing-C++ WASM → ZXing-JS, with Fast protecting first-frame cold-start latency and Balanced/Robust using an early native fallback
+- Shared Native Decode Core with a stable C ABI, explicit ownership, typed errors, original-image geometry, raw bytes, diagnostics, and multiple results
+- Swift `ScanlySDK` package with NV12 Y-plane/BGRA `CVPixelBuffer` decode and an `AVCaptureVideoDataOutput` latest-frame session
+- Kotlin `io.scanly.sdk` AAR with direct CameraX `YUV_420_888` Y-plane/JNI decode and `STRATEGY_KEEP_ONLY_LATEST`
 
 Alpha.5 explicitly supports QR Code Model 2, Data Matrix ECC 200, PDF417, Code 128, EAN-13, EAN-8, UPC-A, and UPC-E. QR-only remains the default for existing consumers. The pinned ZXing-C++ WASM adapter receives a format mask for every request; jsQR and ZXing-JS remain QR-only engines. See [symbologies](docs/symbologies.md) for support boundaries.
 
 ## Branch and release status
 
 - `main` is the unchanged v1.3 Stable line.
-- `develop/sdk-v2` contains the merged Beta 3 industrial robustness foundation.
-- `architecture/sdk-v2-beta4-device-platform-hardening` is the active Beta 4 development branch; it was created from the Beta 3 merge commit and does not modify `main`.
+- `develop/sdk-v2` contains the merged Beta 4 device-platform hardening foundation at merge commit `5eb8dae92dd6ab137dc2777de82e7dab07389a6f`.
+- `architecture/sdk-v2-beta5-native-mobile-foundation` is the active Beta 5 branch created from that merge; it does not modify `main`.
 - Alpha.5 is an internal integration snapshot, not production-certified evidence. No Alpha.5 tag, GitHub Release, npm publication, Stable claim, or `Latest` release is authorized.
 - Beta 1 remains development evidence. No Beta tag, GitHub Release, npm publication, Stable claim, or `Latest` release is authorized.
 - Beta 4 status is `BETA4_INTEGRATION_GO` / `DEVICE_HARNESS_GO` / `AUTOMATED_VALIDATION_GO` / `PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC` / `FULL_DEVICE_MATRIX_PENDING` / `BETA4_RELEASE_NO_GO`. No real iOS, Android, desktop-camera, remote-device-farm, or 30-minute physical soak session is currently stored in this repository.
+- Beta 5 automated status is reported by the exact-head Native Core, iOS SDK, Android SDK, Native Fixture Parity, Native Memory, and Native Artifact Validation checks. `NATIVE_PHYSICAL_IOS_PENDING` and `NATIVE_PHYSICAL_ANDROID_PENDING` remain explicit until RC.
 
 ### Beta 4 physical-device hardening foundation
 
@@ -49,6 +53,14 @@ Camera acquisition now negotiates preferred constraints through bounded fallback
 Beta 4 uses separate integration and release gates. `npm run beta4:gate:integration` accepts honestly deferred physical evidence only after the fail-closed evidence contracts pass; CI, Browser, Tracking, Industrial, Public API, and Device Evidence checks remain independent required checks on the exact PR Head. `npm run beta4:gate:release` still requires real iOS Safari and Android Chrome evidence, a qualifying physical camera soak, the full device matrix, and exact-source admission. Missing any release-required evidence is `BETA4_RELEASE_NO_GO`.
 
 Physical iOS Safari, Android Chrome, real-camera lifecycle, physical tracking/batch, and long-running camera evidence have intentionally been deferred to the final RC validation campaign. This is a scheduling decision, not a PASS result; the committed physical evidence counts remain zero and Issue #13 remains open.
+
+### Beta 5 native mobile foundation
+
+`native/core` exposes an opaque C ABI over the same pinned ZXing-C++ revision used by the WASM engine. `native/ios` wraps it with Swift and direct NV12/BGRA `CVPixelBuffer` input; `native/android` wraps it with Kotlin/JNI and direct CameraX Y-plane input. Swift/Kotlin never depend on C++ templates, and neither camera path converts frames through UIImage/Bitmap/JPEG.
+
+The shared [native fixture manifest](fixtures/native/manifest.json) contains nine deterministic Y8 inputs covering all eight public formats plus a two-symbol QR Code + Code 128 fixture. Payload, format, result-count, multi-result, and original-coordinate geometry contracts are checked across Native Core, Swift, Kotlin, and existing Web/Node ZXing-C++ paths. See [Native architecture](docs/native/architecture.md), [memory model](docs/native/memory-model.md), and [compatibility](docs/native/compatibility.md).
+
+Beta 5 produces SPM/AAR/npm outputs only as CI artifacts. It does not publish CocoaPods, Maven Central, App Store, Google Play, npm latest, a GitHub Stable release, React Native, or Flutter packages.
 
 ## Internal fixture benchmark
 
@@ -163,6 +175,10 @@ Profile intent is explicit: `fast` is the latency-first camera pass and accepts 
 | `packages/benchmark` | benchmark schema, fixture evaluation, gates |
 | `engines/jsqr`, `engines/zxing-js` | JavaScript engine-plugin contract adapters |
 | `engines/zxing-cpp-wasm` | optional ZXing-C++ WASM loader, native boundary, pinned asset, integrity metadata, and lifecycle |
+| `native/core` | shared ZXing-C++ decode core and stable C ABI |
+| `native/ios` | Swift Package, CVPixelBuffer decoder, AVCapture adapter, and native session |
+| `native/android` | Kotlin/JNI AAR, CameraX adapter, and native session |
+| `benchmark/native` | development-only native P50/P95 baseline |
 
 - [Architecture](docs/architecture.md)
 - [SDK usage](docs/sdk/usage.md)
@@ -170,6 +186,9 @@ Profile intent is explicit: `fast` is the latency-first camera pass and accepts 
 - [Scenarios](docs/scenarios/configuration.md)
 - [Decoding pipeline](docs/decoding-pipeline.md)
 - [Beta 3 industrial recovery](docs/beta3-industrial-recovery.md)
+- [Native iOS getting started](docs/native/ios-getting-started.md)
+- [Native Android getting started](docs/native/android-getting-started.md)
+- [Native architecture and ownership](docs/native/architecture.md)
 - [Benchmark methodology](docs/benchmarking/methodology.md)
 - [v1 migration](docs/migration/v1-to-v2.md)
 - [Maintenance policy](docs/maintenance.md)
@@ -235,7 +254,7 @@ See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 - Strong 3D perspective warp may exceed the heuristic pipeline.
 - Camera support depends on HTTPS, permissions, browser, and device hardware.
 - File and pixel limits reject unusually large images before full RGBA allocation.
-- Micro QR, rMQR, Aztec, Micro PDF417, DotCode, MaxiCode, GS1 DataBar/Composite, postal codes, and deferred 1D formats are not implemented. Native mobile bindings, Python, and .NET bindings are also outside Alpha.5.
+- Micro QR, rMQR, Aztec, Micro PDF417, DotCode, MaxiCode, GS1 DataBar/Composite, postal codes, and deferred 1D formats are not implemented. Python and .NET bindings are outside Beta 5; React Native and Flutter remain plans, not released wrappers.
 - The Alpha.5 asset is standard WASM. Safe SIMD detection exists, but no SIMD artifact or acceleration claim is shipped until a reproducible SIMD build is measured.
 - WASM cancellation is cooperative during synchronous native execution: late delivery is suppressed, but native code is not preempted.
 - Desktop browser automation is not real iOS/Android device validation; torch, zoom, orientation, and long-running camera behavior still need a physical device lab.
@@ -243,7 +262,7 @@ See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 
 ## Project status
 
-**SDK v2 Beta 4 development preview.** `BETA4_INTEGRATION_GO`; `DEVICE_HARNESS_GO`; `AUTOMATED_VALIDATION_GO`; `PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC`; `FULL_DEVICE_MATRIX_PENDING`; `BETA4_RELEASE_NO_GO`. The Device Lab and fail-closed evidence foundation are available, but no physical mobile matrix or 30-minute physical soak has been submitted. Industrial certification, all-iPhone/all-Android coverage, commercial parity, Stable, and production readiness are not claimed.
+**SDK v2 Beta 5 native mobile development preview.** Beta 4 remains `BETA4_INTEGRATION_GO`; `DEVICE_HARNESS_GO`; `AUTOMATED_VALIDATION_GO`; `PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC`; `FULL_DEVICE_MATRIX_PENDING`; `BETA4_RELEASE_NO_GO`. Beta 5 Native integration becomes GO only when all six exact-head Native checks and existing regressions pass. Physical Web iOS, Web Android, Native iOS, and Native Android are all `DEFERRED_TO_RC`; none is PASS. Stable, Latest, production readiness, and physical certification are not claimed.
 
 ## License
 

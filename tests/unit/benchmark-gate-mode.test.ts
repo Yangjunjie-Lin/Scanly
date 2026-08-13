@@ -177,6 +177,11 @@ describe("benchmark gate mode selector", () => {
     expect(select(registry, root, { ...current, sdkVersion: "2.0.0-beta.4" })).toMatchObject({ mode: "baseline-candidate", reason: expect.stringContaining("release track") });
   });
 
+  it("does not reuse Beta 4 active evidence as a Beta 5 baseline", () => {
+    const { registry, root, current } = validRegistry("v2-beta4-r1", "2.0.0-beta.4");
+    expect(select(registry, root, { ...current, sdkVersion: "2.0.0-beta.5" })).toMatchObject({ mode: "baseline-candidate", reason: expect.stringContaining("release track") });
+  });
+
   it("falls back for a mismatched legacy dataset", () => {
     const { registry, root, current } = validRegistry("v2-beta3-r1");
     expect(select(registry, root, { ...current, legacyDatasetHash: "1".repeat(64) }).mode).toBe("baseline-candidate");

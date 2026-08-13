@@ -167,7 +167,7 @@ interface PhysicalCameraEvidenceBase {
   schemaVersion: "beta4-physical-device-evidence-1";
   sourceCommit: string;
   sourceTree: string;
-  sdkVersion: "2.0.0-beta.4";
+  sdkVersion: "2.0.0-beta.5";
   evidenceId: string;
   evidenceType: EvidenceType;
   deployment?: { url: string; deploymentId: string; gitCommit: string };

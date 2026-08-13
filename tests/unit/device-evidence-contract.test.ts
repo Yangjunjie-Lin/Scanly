@@ -219,7 +219,7 @@ function validPhysicalFixture(): Json {
     schemaVersion: "beta4-physical-device-evidence-1",
     sourceCommit,
     sourceTree,
-    sdkVersion: "2.0.0-beta.4",
+    sdkVersion: "2.0.0-beta.5",
     evidenceId: "beta4-contract-physical-fixture",
     evidenceType: "physical-mobile",
     session: {
@@ -381,6 +381,11 @@ function qualifyingSoak(durationMs = 30 * 60_000): Json {
 }
 
 describe.sequential("Beta 4 device evidence contracts", () => {
+  it("rejects Beta 4 evidence as non-exact-source for the Beta 5 repository version", () => {
+    const evidence = validPhysicalFixture();
+    evidence.sdkVersion = "2.0.0-beta.4";
+    expectVerifierFailure(evidence);
+  }, 30_000);
   it("keeps Ground Truth fixed before scan and covers every physical protocol target", () => {
     const truth = read("device-lab/test-targets/ground-truth.json");
     const protocol = read("device-lab/manifest.json");

@@ -8,7 +8,7 @@ on:
   push:
     branches:
       - develop/sdk-v2
-      - architecture/sdk-v2-beta4-**
+      - architecture/sdk-v2-beta5-**
 
 jobs:
   public-api:
@@ -26,5 +26,6 @@ jobs:
       - run: npm run build:packages
       - run: npm run api:snapshot
       - run: npm run api:diff
+      - run: npm run native:api
       - run: npm run packages:smoke
       - run: npm run packages:tarball

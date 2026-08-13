@@ -1,0 +1,235 @@
+name: Native Mobile
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - develop/sdk-v2
+  push:
+    branches:
+      - develop/sdk-v2
+      - architecture/sdk-v2-beta5-**
+
+permissions:
+  contents: read
+
+env:
+  ZXING_CPP_COMMIT: 6c2961d2a9ea4bc4e4ae8f37b1497299f04dd861
+
+jobs:
+  native-core:
+    name: Native Core
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Verify generated fixtures and Native contracts
+        run: |
+          npm run fixtures:native:generate
+          git diff --exit-code -- fixtures/native
+          npm run native:contracts
+          npm run native:api
+      - name: Check out pinned ZXing-C++ source
+        run: |
+          git init .native-deps/zxing-cpp
+          git -C .native-deps/zxing-cpp remote add origin https://github.com/zxing-cpp/zxing-cpp.git
+          git -C .native-deps/zxing-cpp fetch --depth=1 origin "$ZXING_CPP_COMMIT"
+          git -C .native-deps/zxing-cpp checkout --detach FETCH_HEAD
+          test "$(git -C .native-deps/zxing-cpp rev-parse HEAD)" = "$ZXING_CPP_COMMIT"
+      - name: Build shared Native Core and pinned decoder
+        run: |
+          cmake -S native/core -B .native-build/core -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DSCANLY_CORE_LIBRARY_TYPE=SHARED \
+            -DSCANLY_ENABLE_ZXING_CPP=ON -DSCANLY_BUILD_BENCHMARK=ON \
+            -DSCANLY_ZXING_SOURCE_DIR="$PWD/.native-deps/zxing-cpp"
+          cmake --build .native-build/core --parallel 4
+      - name: Run C ABI, malformed input, fixture, and multi-result tests
+        run: ctest --test-dir .native-build/core --output-on-failure -R '^scanly_'
+      - name: Verify exported symbol boundary
+        run: |
+          test -f .native-build/core/libscanly_core.so
+          nm -D --defined-only .native-build/core/libscanly_core.so | tee .native-build/native-core-symbols.txt
+          ! grep -E '_ZN.*ZXing|ZXing::' .native-build/native-core-symbols.txt
+          grep -q ' scanly_context_create$' .native-build/native-core-symbols.txt
+          grep -q ' scanly_result_set_destroy$' .native-build/native-core-symbols.txt
+      - name: Record development benchmark
+        run: .native-build/core/scanly_native_benchmark .native-build/native-benchmark.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-core-evidence
+          path: |
+            .native-build/native-benchmark.json
+            .native-build/native-core-symbols.txt
+
+  ios-sdk:
+    name: iOS SDK
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - name: Resolve pinned Swift package
+        working-directory: native/ios
+        run: swift package resolve
+      - name: Build and test Swift SDK with shared fixtures
+        working-directory: native/ios
+        run: |
+          swift build -c release
+          swift test -c release --parallel
+      - name: Compile generic iOS Simulator SDK
+        working-directory: native/ios
+        run: xcodebuild -scheme ScanlySDK -destination 'generic/platform=iOS Simulator' -configuration Release SKIP_INSTALL=NO BUILD_LIBRARY_FOR_DISTRIBUTION=YES build
+      - name: Compile generic iOS device SDK without signing
+        working-directory: native/ios
+        run: xcodebuild -scheme ScanlySDK -destination 'generic/platform=iOS' -configuration Release CODE_SIGNING_ALLOWED=NO SKIP_INSTALL=NO BUILD_LIBRARY_FOR_DISTRIBUTION=YES build
+      - name: Validate Swift module, headers, symbols, and size
+        run: |
+          SWIFT_BIN="$(cd native/ios && swift build -c release --show-bin-path)"
+          node scripts/verify-native-artifacts.mjs --swift-directory="$SWIFT_BIN"
+          find native/ios/.build \( -name 'ScanlySDK.swiftmodule' -o -name 'ScanlySDK.swiftdoc' -o -name 'libScanlySDK*' \) -print | tee native/ios/ios-artifacts.txt
+          test -s native/ios/ios-artifacts.txt
+          du -sk native/ios/.build | tee native/ios/ios-build-size.txt
+          printf '%s\n' 'NATIVE_PHYSICAL_IOS_PENDING / DEFERRED_TO_RC' > native/ios/physical-status.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-native-evidence
+          path: |
+            native/ios/ios-artifacts.txt
+            native/ios/ios-build-size.txt
+            native/ios/physical-status.txt
+
+  android-sdk:
+    name: Android SDK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/wrapper-validation@v4
+      - name: Install Android SDK/NDK toolchain
+        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0' 'ndk;27.2.12479018' 'cmake;3.22.1'
+      - name: Assemble AAR, unit tests, and lint
+        working-directory: native/android
+        run: ./gradlew --no-daemon --stacktrace :scanly-sdk:assembleRelease :scanly-sdk:testReleaseUnitTest :scanly-sdk:lintRelease
+      - name: Run x86_64 emulator shared-fixture smoke
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_2
+          disable-animations: true
+          working-directory: native/android
+          script: ./gradlew --no-daemon --stacktrace :scanly-sdk:connectedDebugAndroidTest
+      - name: Expand and validate AAR
+        run: |
+          mkdir -p .native-build/aar
+          unzip -q native/android/scanly-sdk/build/outputs/aar/scanly-sdk-release.aar -d .native-build/aar
+          node scripts/verify-native-artifacts.mjs --aar-directory=.native-build/aar
+          jar tf .native-build/aar/classes.jar | tee .native-build/android-classes.txt
+          grep -q 'io/scanly/sdk/ScanlyDecoder.class' .native-build/android-classes.txt
+          grep -q 'io/scanly/sdk/ScanlyScannerSession.class' .native-build/android-classes.txt
+          grep -q 'io/scanly/sdk/ScanlyResult.class' .native-build/android-classes.txt
+          readelf --dyn-syms .native-build/aar/jni/arm64-v8a/libscanly_jni.so | tee .native-build/android-symbols.txt
+          ! grep -E '_ZN.*ZXing|ZXing::' .native-build/android-symbols.txt
+          printf '%s\n' 'NATIVE_PHYSICAL_ANDROID_PENDING / DEFERRED_TO_RC' > .native-build/android-physical-status.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-aar
+          path: native/android/scanly-sdk/build/outputs/aar/scanly-sdk-release.aar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-native-evidence
+          path: |
+            .native-build/android-symbols.txt
+            .native-build/android-classes.txt
+            .native-build/android-physical-status.txt
+            native/android/scanly-sdk/build/reports/lint-results-release.html
+
+  native-memory:
+    name: Native Memory
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - name: Build ASan/UBSan 10,000-lifecycle tests
+        env:
+          CC: clang
+          CXX: clang++
+        run: |
+          cmake -S native/core -B .native-build/sanitized -G Ninja \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo -DSCANLY_ENABLE_ZXING_CPP=OFF \
+            -DCMAKE_C_FLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' \
+            -DCMAKE_CXX_FLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' \
+            -DCMAKE_EXE_LINKER_FLAGS='-fsanitize=address,undefined'
+          cmake --build .native-build/sanitized --parallel 4
+      - name: Run memory, ownership, malformed, and C ABI tests
+        env:
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        run: ctest --test-dir .native-build/sanitized --output-on-failure -R '^scanly_'
+
+  native-fixture-parity:
+    name: Native Fixture Parity
+    needs: [native-core, ios-sdk, android-sdk]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run native:contracts
+      - name: Web/Node shared-engine regression parity
+        run: npx vitest run tests/integration/zxing-cpp-multisymbology.test.ts tests/integration/multicode-real.test.ts
+      - name: Record parity boundary
+        run: |
+          mkdir -p .native-build
+          printf '%s\n' 'payload=PASS' 'format=PASS' 'multi-result=PASS' 'geometry-contract=PASS' 'physical=DEFERRED_TO_RC' > .native-build/native-parity.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-parity-evidence
+          path: .native-build/native-parity.txt
+
+  native-artifacts:
+    name: Native Artifact Validation
+    needs: [native-core, ios-sdk, android-sdk, native-memory, native-fixture-parity]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: '*native*evidence'
+          path: evidence
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-aar
+          path: artifacts
+      - name: Verify aggregated artifacts and truthful boundary
+        run: |
+          test -s artifacts/scanly-sdk-release.aar
+          test -n "$(find evidence -name native-benchmark.json -print -quit)"
+          test -n "$(find evidence -name ios-artifacts.txt -print -quit)"
+          test -n "$(find evidence -name android-symbols.txt -print -quit)"
+          test -n "$(find evidence -name native-parity.txt -print -quit)"
+          grep -R 'NATIVE_PHYSICAL_IOS_PENDING / DEFERRED_TO_RC' evidence
+          grep -R 'NATIVE_PHYSICAL_ANDROID_PENDING / DEFERRED_TO_RC' evidence
