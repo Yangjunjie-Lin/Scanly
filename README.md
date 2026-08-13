@@ -1,6 +1,6 @@
 # Scanly SDK v2 Beta 4 — physical device and camera platform hardening
 
-Scanly is a local-first barcode capture SDK foundation with a working browser reference application. Beta 4 adds a dedicated Device Lab, fail-closed physical-evidence contracts, bounded camera recovery, constraint negotiation, lifecycle generation safety, and long-session reporting while preserving Beta 3 industrial recovery, Beta 2 tracking/batch, Beta 1 real-time behavior, and Alpha.5 multi-symbology compatibility. The harness is complete; physical mobile validation is pending. This is not production certification.
+Scanly is a local-first barcode capture SDK foundation with a working browser reference application. Beta 4 adds a dedicated Device Lab, fail-closed physical-evidence contracts, bounded camera recovery, constraint negotiation, lifecycle generation safety, and long-session reporting while preserving Beta 3 industrial recovery, Beta 2 tracking/batch, Beta 1 real-time behavior, and Alpha.5 multi-symbology compatibility. The harness and automated integration are complete; physical mobile validation is intentionally deferred to the final RC campaign. This is not production certification.
 
 ![Next.js 15](https://img.shields.io/badge/Next.js-15-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
@@ -36,7 +36,7 @@ Alpha.5 explicitly supports QR Code Model 2, Data Matrix ECC 200, PDF417, Code 1
 - `architecture/sdk-v2-beta4-device-platform-hardening` is the active Beta 4 development branch; it was created from the Beta 3 merge commit and does not modify `main`.
 - Alpha.5 is an internal integration snapshot, not production-certified evidence. No Alpha.5 tag, GitHub Release, npm publication, Stable claim, or `Latest` release is authorized.
 - Beta 1 remains development evidence. No Beta tag, GitHub Release, npm publication, Stable claim, or `Latest` release is authorized.
-- Beta 4 status is `DEVICE_HARNESS_GO` / `PHYSICAL_DEVICE_VALIDATION_PENDING`. No real iOS, Android, desktop-camera, remote-device-farm, or 30-minute physical soak session is currently stored in this repository.
+- Beta 4 status is `BETA4_INTEGRATION_GO` / `DEVICE_HARNESS_GO` / `AUTOMATED_VALIDATION_GO` / `PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC` / `FULL_DEVICE_MATRIX_PENDING` / `BETA4_RELEASE_NO_GO`. No real iOS, Android, desktop-camera, remote-device-farm, or 30-minute physical soak session is currently stored in this repository.
 
 ### Beta 4 physical-device hardening foundation
 
@@ -45,6 +45,10 @@ The separate [Device Lab source](apps/web-demo/app/device-lab/page.tsx) composes
 The fixed [physical test protocol](device-lab/manifest.json), [Ground Truth](device-lab/test-targets/ground-truth.json), deterministic printable/screen targets, [evidence schema](device-evidence/schema.json), and `npm run device:evidence:verify` keep simulated, desktop-camera, physical-mobile, and remote-physical-device evidence distinct. CI validates these contracts but never claims access to a phone. See the [Beta 4 validation protocol](docs/beta4-device-validation.md) and [platform compatibility matrix](docs/platform-compatibility.md).
 
 Camera acquisition now negotiates preferred constraints through bounded fallbacks, maps platform failures to typed camera errors, and invalidates scanner generations for camera switch, orientation, resolution, background/foreground, and recovery transitions. `CameraRecoveryController` bounds track-ended and temporary source recovery; it cannot restart indefinitely. These are automated contracts, not physical-device results.
+
+Beta 4 uses separate integration and release gates. `npm run beta4:gate:integration` accepts honestly deferred physical evidence only after the fail-closed evidence contracts pass; CI, Browser, Tracking, Industrial, Public API, and Device Evidence checks remain independent required checks on the exact PR Head. `npm run beta4:gate:release` still requires real iOS Safari and Android Chrome evidence, a qualifying physical camera soak, the full device matrix, and exact-source admission. Missing any release-required evidence is `BETA4_RELEASE_NO_GO`.
+
+Physical iOS Safari, Android Chrome, real-camera lifecycle, physical tracking/batch, and long-running camera evidence have intentionally been deferred to the final RC validation campaign. This is a scheduling decision, not a PASS result; the committed physical evidence counts remain zero and Issue #13 remains open.
 
 ## Internal fixture benchmark
 
@@ -239,7 +243,7 @@ See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 
 ## Project status
 
-**SDK v2 Beta 4 development preview.** `DEVICE_HARNESS_GO`; `PHYSICAL_DEVICE_VALIDATION_PENDING`. The Device Lab and fail-closed evidence foundation are available, but no physical mobile matrix or 30-minute physical soak has been submitted. Industrial certification, all-iPhone/all-Android coverage, commercial parity, Stable, and production readiness are not claimed.
+**SDK v2 Beta 4 development preview.** `BETA4_INTEGRATION_GO`; `DEVICE_HARNESS_GO`; `AUTOMATED_VALIDATION_GO`; `PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC`; `FULL_DEVICE_MATRIX_PENDING`; `BETA4_RELEASE_NO_GO`. The Device Lab and fail-closed evidence foundation are available, but no physical mobile matrix or 30-minute physical soak has been submitted. Industrial certification, all-iPhone/all-Android coverage, commercial parity, Stable, and production readiness are not claimed.
 
 ## License
 

@@ -527,7 +527,7 @@ for (const [key, expected] of [
 const minimumGatePassed = exactSourceCohorts.some((entry) => Object.values(entry).every(Boolean));
 const expectedValidationStatus = minimumGatePassed
   ? "PHYSICAL_DEVICE_VALIDATION_STARTED_AND_MINIMUM_GATE_PASSED"
-  : "PHYSICAL_DEVICE_VALIDATION_PENDING";
+  : "PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC";
 assert(status.physicalValidationStatus === expectedValidationStatus, `status.json physicalValidationStatus must be ${expectedValidationStatus}.`);
 assert(Array.isArray(status.requiredGaps) && status.requiredGaps.length > 0, "A partial Device Matrix requires documented gaps.");
 const present = (key: keyof ReturnType<typeof cohortState>) => exactSourceCohorts.some((entry) => entry[key]);

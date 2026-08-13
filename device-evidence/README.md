@@ -2,8 +2,9 @@
 
 This directory stores privacy-reviewed metadata from manual camera runs. The
 current repository state remains `DEVICE_MATRIX_PARTIAL` /
-`PHYSICAL_DEVICE_VALIDATION_PENDING` until admissible physical evidence is
-actually committed. CI validates claims; it does not create physical evidence.
+`PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC` until admissible physical evidence
+is actually committed during the final RC campaign. CI validates claims; it
+does not create physical evidence or convert deferral into PASS.
 
 ## Truth boundary
 
@@ -93,6 +94,6 @@ Only then may the status advance to
 `PHYSICAL_DEVICE_VALIDATION_STARTED_AND_MINIMUM_GATE_PASSED`. That status does
 not mean the full Device Matrix is complete. Until the remaining Issue #13
 device classes are covered, the matrix remains partial and the issue remains
-open. With no qualifying hardware evidence, the honest result is
-`BLOCKED_EXTERNAL_PHYSICAL_HARDWARE` and
-`PHYSICAL_DEVICE_VALIDATION_PENDING`.
+open. With no qualifying hardware evidence under the current project schedule,
+the honest result is `PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC` /
+`FULL_DEVICE_MATRIX_PENDING` / `BETA4_RELEASE_NO_GO`.

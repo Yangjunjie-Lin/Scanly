@@ -30,6 +30,8 @@ jobs:
         run: npm run device:targets:verify
       - name: Verify fail-closed evidence and source identity
         run: npm run device:evidence:verify
+      - name: Evaluate Beta 4 integration gate without weakening release evidence
+        run: npm run beta4:gate:integration
       - name: Run camera platform contracts
         run: npx vitest run tests/unit/camera-platform.test.ts tests/unit/frame-source.test.ts tests/unit/scanner-lifecycle.test.ts tests/unit/camera-capabilities.test.ts tests/unit/device-evidence-contract.test.ts
       - name: Build per-device report without cross-device averages

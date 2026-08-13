@@ -47,4 +47,4 @@ with admissible exact-source cohort counts derived by the verifier and run
 failure must not be converted into PASS or hidden by deleting scenario results.
 
 There is no reviewed physical-device result in this directory while status is
-`PHYSICAL_DEVICE_VALIDATION_PENDING` and its physical counts are zero.
+`PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC` and its physical counts are zero.

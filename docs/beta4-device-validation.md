@@ -2,15 +2,34 @@
 
 ## Current gate
 
-`DEVICE_HARNESS_GO` / `PHYSICAL_DEVICE_VALIDATION_PENDING`.
+`BETA4_INTEGRATION_GO` / `DEVICE_HARNESS_GO` /
+`AUTOMATED_VALIDATION_GO` / `PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC` /
+`FULL_DEVICE_MATRIX_PENDING` / `BETA4_RELEASE_NO_GO`.
 
 The repository contains the Device Lab, deterministic targets, independent
 Ground Truth, fail-closed schema/verifier, camera lifecycle contracts, and a
 dedicated CI workflow. It currently contains zero reviewed physical-device
 sessions. Scanly therefore does not claim that physical validation has started
-or that a 30-minute physical-camera soak has completed. If no qualifying iOS or
-Android hardware is available, report `BLOCKED_EXTERNAL_PHYSICAL_HARDWARE` and
-leave this status unchanged; never synthesize a replacement session.
+or that a 30-minute physical-camera soak has completed. Physical iOS Safari,
+Android Chrome, real-camera lifecycle, physical tracking/batch, and long-running
+camera evidence have intentionally been deferred to the final RC validation
+campaign. This is `DEFERRED_TO_RC`, never `PASS`; never synthesize a replacement
+session or change any zero count to permit integration.
+
+## Integration and release gates
+
+The `integration` gate permits physical evidence to remain deferred only when
+the Device Harness, CI, Browser, Tracking, Industrial, Public API, and evidence
+contract checks all pass on the exact source. The local
+`npm run beta4:gate:integration` command proves only the fail-closed Device
+Evidence component; the independent GitHub checks collectively establish the
+project-level `AUTOMATED_VALIDATION_GO` state.
+
+The `release` gate is intentionally stricter. `npm run beta4:gate:release`
+requires admitted exact-source real iOS Safari, real Android Chrome, a
+qualifying physical camera soak, and the full Issue #13 device matrix. RC must
+also activate explicit evidence-to-matrix-row contracts before release can be
+GO. Any missing physical requirement produces `BETA4_RELEASE_NO_GO`.
 
 ## Evidence boundary
 
@@ -208,8 +227,12 @@ The Beta 4 Foundation minimum is reached only when admitted evidence contains:
   with zero stale public events and all final controlled resources at zero.
 
 Only then may `physicalValidationStatus` become
-`PHYSICAL_DEVICE_VALIDATION_STARTED_AND_MINIMUM_GATE_PASSED` and the Foundation
-decision become `BETA4_FOUNDATION_GO`. This is not full matrix completion. The
+`PHYSICAL_DEVICE_VALIDATION_STARTED_AND_MINIMUM_GATE_PASSED`. This is not full
+matrix completion. The
 two-iPhone-generation, Android lower/mid/flagship, and desktop-webcam matrix in
 Issue #13 remains open until genuinely covered; report
 `FULL_DEVICE_MATRIX_PENDING` while any of those classes remain untested.
+
+Until that final RC campaign, the repository status remains
+`PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC`; integration completion must never
+be interpreted as physical-device or release completion.
