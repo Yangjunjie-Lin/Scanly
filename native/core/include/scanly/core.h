@@ -25,68 +25,81 @@
 extern "C" {
 #endif
 
-#define SCANLY_CORE_ABI_VERSION UINT32_C(1)
-#define SCANLY_CORE_MAX_RESULTS UINT32_C(64)
+enum {
+    SCANLY_CORE_ABI_VERSION = 1,
+    SCANLY_CORE_MAX_RESULTS = 64
+};
 
 typedef struct scanly_context_t scanly_context_t;
 typedef struct scanly_result_set_t scanly_result_set_t;
 typedef struct scanly_cancel_token_t scanly_cancel_token_t;
 
 typedef uint32_t scanly_status_t;
-#define SCANLY_STATUS_OK UINT32_C(0)
-#define SCANLY_STATUS_INVALID_INPUT UINT32_C(1)
-#define SCANLY_STATUS_UNSUPPORTED_FORMAT UINT32_C(2)
-#define SCANLY_STATUS_DECODE_FAILED UINT32_C(3)
-#define SCANLY_STATUS_ENGINE_INITIALIZATION_FAILED UINT32_C(4)
-#define SCANLY_STATUS_ENGINE_EXECUTION_FAILED UINT32_C(5)
-#define SCANLY_STATUS_CANCELLED UINT32_C(6)
-#define SCANLY_STATUS_OUT_OF_MEMORY UINT32_C(7)
-#define SCANLY_STATUS_INTERNAL_ERROR UINT32_C(8)
+enum {
+    SCANLY_STATUS_OK = 0,
+    SCANLY_STATUS_INVALID_INPUT = 1,
+    SCANLY_STATUS_UNSUPPORTED_FORMAT = 2,
+    SCANLY_STATUS_DECODE_FAILED = 3,
+    SCANLY_STATUS_ENGINE_INITIALIZATION_FAILED = 4,
+    SCANLY_STATUS_ENGINE_EXECUTION_FAILED = 5,
+    SCANLY_STATUS_CANCELLED = 6,
+    SCANLY_STATUS_OUT_OF_MEMORY = 7,
+    SCANLY_STATUS_INTERNAL_ERROR = 8
+};
 
 typedef uint32_t scanly_backend_t;
 /* Deterministic contract backend. It is not a barcode decoder. */
-#define SCANLY_BACKEND_FIXTURE UINT32_C(1)
+enum {
+    SCANLY_BACKEND_FIXTURE = 1,
 /* Requires an externally supplied ZXing-C++ installation at build time. */
-#define SCANLY_BACKEND_ZXING_CPP UINT32_C(2)
+    SCANLY_BACKEND_ZXING_CPP = 2
+};
 
 typedef uint32_t scanly_pixel_format_t;
-#define SCANLY_PIXEL_Y UINT32_C(1)
-#define SCANLY_PIXEL_RGBA UINT32_C(2)
-#define SCANLY_PIXEL_BGRA UINT32_C(3)
+enum {
+    SCANLY_PIXEL_Y = 1,
+    SCANLY_PIXEL_RGBA = 2,
+    SCANLY_PIXEL_BGRA = 3
+};
 
 /* Public Scanly format vocabulary. Values are stable bit flags. */
-#define SCANLY_FORMAT_QR_CODE (UINT32_C(1) << 0)
-#define SCANLY_FORMAT_DATA_MATRIX (UINT32_C(1) << 1)
-#define SCANLY_FORMAT_PDF417 (UINT32_C(1) << 2)
-#define SCANLY_FORMAT_CODE_128 (UINT32_C(1) << 3)
-#define SCANLY_FORMAT_EAN_13 (UINT32_C(1) << 4)
-#define SCANLY_FORMAT_EAN_8 (UINT32_C(1) << 5)
-#define SCANLY_FORMAT_UPC_A (UINT32_C(1) << 6)
-#define SCANLY_FORMAT_UPC_E (UINT32_C(1) << 7)
-#define SCANLY_FORMAT_MASK_ALL (SCANLY_FORMAT_QR_CODE | SCANLY_FORMAT_DATA_MATRIX | \
-                                SCANLY_FORMAT_PDF417 | SCANLY_FORMAT_CODE_128 | \
-                                SCANLY_FORMAT_EAN_13 | SCANLY_FORMAT_EAN_8 | \
-                                SCANLY_FORMAT_UPC_A | SCANLY_FORMAT_UPC_E)
+enum {
+    SCANLY_FORMAT_QR_CODE = 1 << 0,
+    SCANLY_FORMAT_DATA_MATRIX = 1 << 1,
+    SCANLY_FORMAT_PDF417 = 1 << 2,
+    SCANLY_FORMAT_CODE_128 = 1 << 3,
+    SCANLY_FORMAT_EAN_13 = 1 << 4,
+    SCANLY_FORMAT_EAN_8 = 1 << 5,
+    SCANLY_FORMAT_UPC_A = 1 << 6,
+    SCANLY_FORMAT_UPC_E = 1 << 7,
+    SCANLY_FORMAT_MASK_ALL = 0xff
+};
 
 typedef uint32_t scanly_format_class_t;
-#define SCANLY_FORMAT_CLASS_UNKNOWN UINT32_C(0)
-#define SCANLY_FORMAT_CLASS_MATRIX UINT32_C(1)
-#define SCANLY_FORMAT_CLASS_STACKED UINT32_C(2)
-#define SCANLY_FORMAT_CLASS_LINEAR UINT32_C(3)
+enum {
+    SCANLY_FORMAT_CLASS_UNKNOWN = 0,
+    SCANLY_FORMAT_CLASS_MATRIX = 1,
+    SCANLY_FORMAT_CLASS_STACKED = 2,
+    SCANLY_FORMAT_CLASS_LINEAR = 3
+};
 
 typedef uint32_t scanly_checksum_status_t;
-#define SCANLY_CHECKSUM_UNKNOWN UINT32_C(0)
-#define SCANLY_CHECKSUM_NOT_APPLICABLE UINT32_C(1)
-#define SCANLY_CHECKSUM_VALID UINT32_C(2)
-#define SCANLY_CHECKSUM_INVALID UINT32_C(3)
+enum {
+    SCANLY_CHECKSUM_UNKNOWN = 0,
+    SCANLY_CHECKSUM_NOT_APPLICABLE = 1,
+    SCANLY_CHECKSUM_VALID = 2,
+    SCANLY_CHECKSUM_INVALID = 3
+};
 
 typedef uint32_t scanly_engine_status_t;
-#define SCANLY_ENGINE_SUCCESS UINT32_C(0)
-#define SCANLY_ENGINE_NOT_FOUND UINT32_C(1)
-#define SCANLY_ENGINE_UNSUPPORTED UINT32_C(2)
-#define SCANLY_ENGINE_CANCELLED UINT32_C(3)
-#define SCANLY_ENGINE_INITIALIZATION_FAILURE UINT32_C(4)
-#define SCANLY_ENGINE_EXECUTION_FAILURE UINT32_C(5)
+enum {
+    SCANLY_ENGINE_SUCCESS = 0,
+    SCANLY_ENGINE_NOT_FOUND = 1,
+    SCANLY_ENGINE_UNSUPPORTED = 2,
+    SCANLY_ENGINE_CANCELLED = 3,
+    SCANLY_ENGINE_INITIALIZATION_FAILURE = 4,
+    SCANLY_ENGINE_EXECUTION_FAILURE = 5
+};
 
 typedef struct scanly_context_options_t {
     uint32_t struct_size;
@@ -130,10 +143,12 @@ typedef struct scanly_bbox_t {
 } scanly_bbox_t;
 
 /* Result flags are additive and may be extended in later ABI versions. */
-#define SCANLY_RESULT_FLAG_HAS_ORIENTATION UINT32_C(1) << 0
-#define SCANLY_RESULT_FLAG_GS1 UINT32_C(1) << 1
-#define SCANLY_RESULT_FLAG_VALIDATED UINT32_C(1) << 2
-#define SCANLY_RESULT_FLAG_GEOMETRY_ESTIMATED UINT32_C(1) << 3
+enum {
+    SCANLY_RESULT_FLAG_HAS_ORIENTATION = 1 << 0,
+    SCANLY_RESULT_FLAG_GS1 = 1 << 1,
+    SCANLY_RESULT_FLAG_VALIDATED = 1 << 2,
+    SCANLY_RESULT_FLAG_GEOMETRY_ESTIMATED = 1 << 3
+};
 
 typedef struct scanly_result_view_t {
     uint32_t struct_size;
