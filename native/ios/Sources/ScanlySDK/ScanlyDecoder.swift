@@ -1,6 +1,6 @@
 import CoreVideo
 import Foundation
-import CScanlyCore
+@_implementationOnly import CScanlyCore
 
 public final class ScanlyDecoder: @unchecked Sendable {
     private let lock = NSLock()
