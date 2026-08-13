@@ -1,4 +1,5 @@
 import type { CornerPoint, DecodedBarcode, NormalizedFrame, ScanOutcome, ScannerRecoveryDiagnosticSnapshot, SdkError } from "@scanly/core";
+import type { CameraLifecycleEvent, CameraRecoveryStatistics, DeviceDiagnostics } from "./camera-platform.js";
 export type ScannerSessionState = "idle" | "starting" | "scanning" | "paused" | "stopping" | "stopped" | "failed";
 export type DecodeProfile = "fast" | "balanced" | "robust";
 export type ScannerDecodeMode = "single" | "tracking";
@@ -98,6 +99,7 @@ export interface ScannerSessionStatistics {
     staleEvents: number;
     lostEvents: number;
     averageDecodeMs: number;
+    p50DecodeMs: number;
     p95DecodeMs: number;
     effectiveDecodeFps: number;
     frameDropRate: number;
@@ -122,9 +124,12 @@ export interface ScannerSessionStatistics {
     recoveryTemporaryBytes: number;
     recoveryPeakTemporaryBytes: number;
     recoveryRouteStateCount: number;
+    cameraRecovery: CameraRecoveryStatistics;
+    cameraTrackEndings: number;
+    cameraGenerationInvalidations: number;
 }
 export interface ScannerDiagnostic {
-    type: "frame-quality" | "hint" | "event" | "decode" | "recovery" | "scheduler" | "error";
+    type: "frame-quality" | "hint" | "event" | "decode" | "recovery" | "scheduler" | "camera" | "error";
     timestamp: number;
     frameId?: number;
     quality?: FrameQuality;
@@ -135,6 +140,8 @@ export interface ScannerDiagnostic {
     error?: SdkError;
     detail?: string;
     recovery?: ScannerRecoveryDiagnosticSnapshot;
+    cameraLifecycle?: CameraLifecycleEvent;
+    deviceDiagnostics?: DeviceDiagnostics;
 }
 export interface TemporalROIHint {
     x: number;
@@ -181,10 +188,13 @@ export interface ScannerFrameDecoder {
     getStatistics?(): ScannerDecoderStatistics;
 }
 export interface CameraFrameSource {
-    start(onFrame: (frame: NormalizedFrame) => Promise<void> | void, onError: (error: unknown) => void, onEnded: () => void): Promise<void>;
+    start(onFrame: (frame: NormalizedFrame) => Promise<void> | void, onError: (error: unknown) => void, onEnded: () => void, onLifecycle?: (event: CameraLifecycleEvent) => void): Promise<void>;
     pause?(): void;
     resume?(): void;
     stop(): Promise<void> | void;
+    restart?(): Promise<void>;
+    currentTrack?(): MediaStreamTrack | undefined;
+    getDeviceDiagnostics?(): DeviceDiagnostics;
 }
 export type ScanResultListener = (event: ScanEvent) => void;
 export type BarcodeObservationSetListener = (set: BarcodeObservationSet) => void;

@@ -4,6 +4,7 @@ import { type DecodeWorkerFactory } from "../worker/worker-client.js";
 import { type ScannerTrackingRuntimeOptions } from "../tracking/scanner-tracking-runtime.js";
 import type { BarcodeTrack, TrackingStatistics } from "../tracking/types.js";
 import { CameraCapabilityController } from "./camera-capabilities.js";
+import { type CameraRecoveryPolicy, type DeviceDiagnostics } from "./camera-platform.js";
 import { BoundedDecodeEscalation } from "./decode-escalation.js";
 import { type FrameQualityAnalyzerOptions } from "./frame-quality.js";
 import { type FrameSchedulerOptions } from "./frame-scheduler.js";
@@ -76,6 +77,7 @@ export interface ScannerSessionOptions {
     roi?: TemporalROIOptions;
     capabilityController?: CameraCapabilityController;
     autoZoom?: AutoZoomOptions;
+    cameraRecovery?: CameraRecoveryPolicy;
     /** Explicitly enables the bounded multi-code tracking decode path. */
     decodeMode?: ScannerDecodeMode;
     /** Tracker/ROI composition used only when decodeMode is "tracking". */
@@ -96,6 +98,7 @@ export declare class ScannerSession {
     private readonly trackingRuntime?;
     private capabilityController?;
     private readonly autoZoom?;
+    private readonly cameraRecovery;
     private readonly qualityProbeInterval;
     private readonly resultListeners;
     private readonly observationSetListeners;
@@ -104,6 +107,8 @@ export declare class ScannerSession {
     private generation;
     private lifecycleGeneration;
     private stopPromise;
+    private recoveryPromise;
+    private backgroundPaused;
     private activeDecodeController;
     private frameSequence;
     private eventSequence;
@@ -130,6 +135,7 @@ export declare class ScannerSession {
     onDiagnostics(listener: ScannerDiagnosticListener): Unsubscribe;
     getTracks(): readonly BarcodeTrack[];
     getTrackingStatistics(): TrackingStatistics | undefined;
+    getDeviceDiagnostics(): DeviceDiagnostics | undefined;
     getCameraCapabilities(): CameraCapabilities;
     setTorch(enabled: boolean): Promise<CapabilityResult<boolean>>;
     setZoom(value: number, manual?: boolean): Promise<CapabilityResult<number>>;
@@ -144,6 +150,10 @@ export declare class ScannerSession {
     private emitQualityHint;
     private handleSourceEnded;
     private handleSourceError;
+    private handleCameraLifecycle;
+    private invalidateCameraGeneration;
+    private recoverCamera;
+    private failCamera;
     private setState;
     private emitDiagnostic;
 }

@@ -1,7 +1,9 @@
 export const SDK_ERROR_CODES = [
     "no_symbol_found", "unsupported_format", "invalid_image", "resource_limit_exceeded", "timeout",
     "cancelled", "worker_initialization_failure", "engine_initialization_failure", "engine_execution_failure",
-    "camera_permission_denied", "camera_unavailable", "source_disconnected", "unsupported_browser_capability",
+    "camera_permission_denied", "camera_not_found", "camera_busy", "camera_constraint_failed",
+    "camera_track_ended", "camera_capability_unsupported", "camera_recovery_failed",
+    "browser_background_suspended", "camera_unavailable", "source_disconnected", "unsupported_browser_capability",
     "malformed_scenario", "invalid_configuration", "internal_invariant_failure", "session_not_running",
     "session_disposed", "concurrent_call_rejected",
 ];
@@ -20,7 +22,10 @@ export function sdkError(code, message, details, cause) {
                 code.includes("camera") || code === "source_disconnected" || code === "unsupported_browser_capability" ? "source" :
                     code.includes("scenario") || code === "invalid_configuration" ? "configuration" :
                         code === "internal_invariant_failure" ? "internal" : "lifecycle";
-    const retryable = !["unsupported_format", "malformed_scenario", "invalid_configuration", "session_disposed"].includes(code);
+    const retryable = ![
+        "unsupported_format", "malformed_scenario", "invalid_configuration", "session_disposed",
+        "camera_permission_denied", "camera_not_found", "camera_capability_unsupported", "unsupported_browser_capability",
+    ].includes(code);
     return { code, category, message, retryable, details, ...(cause === undefined ? {} : { cause }) };
 }
 //# sourceMappingURL=errors.js.map

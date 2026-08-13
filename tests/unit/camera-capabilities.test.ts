@@ -5,7 +5,7 @@ interface FakeTrackOptions {
   torch?: boolean;
   zoom?: { min: number; max: number; step?: number };
   currentZoom?: number;
-  focusMode?: string[];
+  focusMode?: string[] | boolean;
   deviceId?: string;
   width?: number;
   height?: number;
@@ -58,11 +58,11 @@ describe("CameraCapabilityController contract", () => {
 
     const torch = await controller.setTorch(true);
     expect(torch.ok).toBe(false);
-    if (!torch.ok) expect(torch.error.code).toBe("unsupported_browser_capability");
+    if (!torch.ok) expect(torch.error.code).toBe("camera_capability_unsupported");
 
     const zoom = await controller.setZoom(2);
     expect(zoom.ok).toBe(false);
-    if (!zoom.ok) expect(zoom.error.code).toBe("unsupported_browser_capability");
+    if (!zoom.ok) expect(zoom.error.code).toBe("camera_capability_unsupported");
     expect(applyConstraints).not.toHaveBeenCalled();
   });
 
@@ -101,8 +101,18 @@ describe("CameraCapabilityController contract", () => {
     expect(controller.getCapabilities().focusMode).toBe(false);
     const result = await controller.requestFocus();
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.code).toBe("unsupported_browser_capability");
+    if (!result.ok) expect(result.error.code).toBe("camera_capability_unsupported");
     expect(applyConstraints).not.toHaveBeenCalled();
+  });
+
+  it("accepts an explicit boolean focus capability without treating arbitrary truthy values as support", async () => {
+    const supported = fakeTrack({ focusMode: true });
+    const supportedController = new CameraCapabilityController(() => supported.track);
+    expect(supportedController.getCapabilities().focusMode).toBe(true);
+    expect(await supportedController.requestFocus()).toEqual({ ok: true, value: true });
+
+    const missing = fakeTrack();
+    expect(new CameraCapabilityController(() => missing.track).getCapabilities().focusMode).toBe(false);
   });
 
   it("honors a manual zoom override until it is explicitly cleared", async () => {
@@ -222,5 +232,15 @@ describe("CameraCapabilityController contract", () => {
     expect(await controller.considerAutoZoom(tinyGeometry, { width: 100, height: 100 }, 1)).toEqual({ ok: true, value: 2.5 });
     expect(appliedZooms(first.applied)).toEqual([2]);
     expect(appliedZooms(second.applied)).toEqual([2.5]);
+  });
+
+  it("lets an explicit non-manual zoom reset clear a prior manual override", async () => {
+    const { track, applied } = fakeTrack({ zoom: { min: 1, max: 4 }, currentZoom: 1 });
+    const controller = new CameraCapabilityController(() => track, { enabled: true, cooldownMs: 0, maximumZoomDelta: 0.5 });
+    expect(await controller.setZoom(2, true)).toEqual({ ok: true, value: 2 });
+    expect(await controller.considerAutoZoom(tinyGeometry, { width: 100, height: 100 }, 0)).toBeUndefined();
+    expect(await controller.setZoom(1, false)).toEqual({ ok: true, value: 1 });
+    expect(await controller.considerAutoZoom(tinyGeometry, { width: 100, height: 100 }, 1)).toEqual({ ok: true, value: 1.5 });
+    expect(appliedZooms(applied)).toEqual([2, 1, 1.5]);
   });
 });

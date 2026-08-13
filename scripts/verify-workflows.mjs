@@ -22,7 +22,7 @@ for (const file of workflowFiles) {
   }
 }
 
-const primary = ["ci.yml", "benchmark.yml", "browser-benchmark.yml", "public-api.yml", "tracking-benchmark.yml", "industrial-benchmark.yml"];
+const primary = ["ci.yml", "benchmark.yml", "browser-benchmark.yml", "public-api.yml", "tracking-benchmark.yml", "industrial-benchmark.yml", "device-evidence-validation.yml"];
 const deletedAlphaBranches = [
   "architecture/sdk-v2-alpha3-industrial-validation",
   "architecture/sdk-v2-alpha4-zxing-cpp-wasm",
@@ -38,8 +38,8 @@ for (const file of primary) {
   const pullBranches = triggers.pull_request?.branches ?? [];
   const pushBranches = triggers.push?.branches ?? [];
   if (!pullBranches.includes("develop/sdk-v2")) throw new Error(`${file}: pull requests must target develop/sdk-v2.`);
-  if (!pushBranches.includes("develop/sdk-v2") || !pushBranches.includes("architecture/sdk-v2-beta3-**")) {
-    throw new Error(`${file}: push routing must include develop/sdk-v2 and architecture/sdk-v2-beta3-**.`);
+  if (!pushBranches.includes("develop/sdk-v2") || !pushBranches.includes("architecture/sdk-v2-beta4-**")) {
+    throw new Error(`${file}: push routing must include develop/sdk-v2 and architecture/sdk-v2-beta4-**.`);
   }
   for (const deleted of deletedAlphaBranches) {
     if (pushBranches.includes(deleted)) throw new Error(`${file}: deleted Alpha branch remains a push target: ${deleted}.`);

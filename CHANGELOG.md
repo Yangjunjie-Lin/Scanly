@@ -2,6 +2,17 @@
 
 All notable changes follow semantic versioning.
 
+## Unreleased — SDK v2 Beta 4 development
+
+- Entered `2.0.0-beta.4` development on `architecture/sdk-v2-beta4-device-platform-hardening` from Beta 3 merge commit `333c4a9a202c3871d10cb0455354390932e8ee5b` on `develop/sdk-v2`.
+- Added a dedicated `/device-lab` physical-camera harness, fixed Ground Truth targets, printable/screen target generation, privacy-aware draft export, and browser/camera diagnostics without promoting drafts to evidence.
+- Added fail-closed device evidence schema/verification, per-device benchmark summaries, physical/simulated evidence separation, sensitive-data review fields, and a dedicated Device Evidence Validation workflow.
+- Added bounded camera constraint negotiation, typed camera error taxonomy, track-ended recovery, visibility/orientation/resolution generation invalidation, capability diagnostics, and camera lifecycle contract tests.
+- Split the Beta 4 gate into `integration` and `release`: integration may proceed with honest physical evidence deferral after every automated contract passes, while release remains fail-closed on real iOS, real Android, physical soak, full matrix, and exact-source evidence.
+- Current truthful status is `BETA4_INTEGRATION_GO` / `DEVICE_HARNESS_GO` / `AUTOMATED_VALIDATION_GO` / `PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC` / `FULL_DEVICE_MATRIX_PENDING` / `BETA4_RELEASE_NO_GO`: no iOS Safari, Android Chrome, desktop webcam, remote physical device, or 30-minute physical camera session is committed.
+- Physical iOS Safari, Android Chrome, real-camera lifecycle, physical tracking/batch, and long-running camera evidence have intentionally been deferred to the final RC validation campaign. This deferral does not change any evidence count into a PASS.
+- No tag, GitHub Release, npm publication, Stable/Latest claim, Native SDK work, or new symbology is authorized.
+
 ## Unreleased — SDK v2 Beta 3 development
 
 - Entered `2.0.0-beta.3` development on `architecture/sdk-v2-beta3-industrial-robustness-foundation` from the Beta 2 merge commit on `develop/sdk-v2`.

@@ -2,7 +2,15 @@
 
 ## Version policy
 
-- SDK package version: `2.0.0-beta.3` (Beta 3 development preview)
+- SDK package version: `2.0.0-beta.4` (Beta 4 development preview)
+
+## Beta 4 camera platform surface
+
+`@scanly/browser` exports `CameraConstraintPolicy`, `DeviceDiagnostics`, `CameraRecoveryPolicy`, and `CameraRecoveryController`. Constraint negotiation requests ideal facing mode, resolution, and frame rate, then removes optional preferences through a bounded fallback sequence. An explicit device ID remains exact unless the caller deliberately chooses ideal matching.
+
+`ScannerSession.getDeviceDiagnostics()` returns camera API reports without filling missing fields. Camera lifecycle events invalidate generations so results from an old camera, orientation, resolution, or background interval cannot become new public state. Recovery is bounded; exhausted recovery produces `camera_recovery_failed`.
+
+The typed source taxonomy includes `camera_permission_denied`, `camera_not_found`, `camera_busy`, `camera_constraint_failed`, `camera_track_ended`, `camera_capability_unsupported`, `camera_recovery_failed`, and `browser_background_suspended`. Device evidence writing is development tooling and is not part of the SDK public API.
 
 `ScanResult.cornerPoints` are always expressed as pixel coordinates in the original normalized frame. ROI offsets, candidate crops, resizing, scale caps, and clockwise decode-attempt rotations are inverted before publication. Invalid or implausibly out-of-frame engine points are omitted.
 

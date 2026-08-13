@@ -1,4 +1,5 @@
 import { sdkError } from "@scanly/core";
+import { cameraError } from "./camera-platform.js";
 const controllerStates = new WeakMap();
 function resolveTrack(owner, provider, onSourceChanged) {
     const track = provider();
@@ -24,6 +25,8 @@ function capabilitiesFor(track) {
     const settings = track?.getSettings?.();
     const min = capabilities?.zoom?.min;
     const max = capabilities?.zoom?.max;
+    const rawFocusMode = capabilities?.focusMode;
+    const continuousFocus = rawFocusMode === true || (Array.isArray(rawFocusMode) && rawFocusMode.includes("continuous"));
     return {
         torch: Boolean(capabilities?.torch),
         ...(min !== undefined && max !== undefined
@@ -39,7 +42,7 @@ function capabilitiesFor(track) {
         // The public boolean means requestFocus() can make the exact request it
         // promises. Other modes (for example "manual") do not imply that the
         // continuous-focus constraint is supported.
-        focusMode: capabilities?.focusMode?.includes("continuous") ?? false,
+        focusMode: continuousFocus,
         ...(settings?.width === undefined ? {} : { width: settings.width }),
         ...(settings?.height === undefined ? {} : { height: settings.height }),
         ...(settings?.deviceId === undefined ? {} : { deviceId: settings.deviceId }),
@@ -77,7 +80,7 @@ export class CameraCapabilityController {
             return { ok: true, value: enabled };
         }
         catch (error) {
-            return { ok: false, error: sdkError("source_disconnected", "Unable to update camera torch.", undefined, error) };
+            return { ok: false, error: cameraError(error, "Unable to update camera torch.") };
         }
     }
     async setZoom(value, manual = true) {
@@ -99,13 +102,12 @@ export class CameraCapabilityController {
             // carry an old track's zoom state or manual override into the new source.
             if (stateFor(this).activeTrack === track) {
                 stateFor(this).lastAppliedZoom = value;
-                if (manual)
-                    this.manualZoomOverride = true;
+                this.manualZoomOverride = manual;
             }
             return { ok: true, value };
         }
         catch (error) {
-            return { ok: false, error: sdkError("source_disconnected", "Unable to update camera zoom.", undefined, error) };
+            return { ok: false, error: cameraError(error, "Unable to update camera zoom.") };
         }
     }
     async requestFocus() {
@@ -122,7 +124,7 @@ export class CameraCapabilityController {
             return { ok: true, value: true };
         }
         catch (error) {
-            return { ok: false, error: sdkError("source_disconnected", "Unable to request camera focus.", undefined, error) };
+            return { ok: false, error: cameraError(error, "Unable to request camera focus.") };
         }
     }
     async considerAutoZoom(geometry, frame, now = Date.now()) {
@@ -173,7 +175,7 @@ export class CameraCapabilityController {
         this.manualZoomOverride = false;
     }
     unsupported(message) {
-        return { ok: false, error: sdkError("unsupported_browser_capability", message) };
+        return { ok: false, error: sdkError("camera_capability_unsupported", message) };
     }
 }
 //# sourceMappingURL=camera-capabilities.js.map

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { sdkError, type NormalizedFrame, type ScanOutcome, type ScanResult } from "@scanly/core";
-import { BoundedDecodeEscalation, DeterministicFrameSequenceSource, FrameQualityAnalyzer, FrameScheduler, RepeatSuppressor, ScannerSession, TemporalCandidateStore, TemporalROI, type ScannerFrameDecoder } from "@scanly/browser";
+import { BoundedDecodeEscalation, CameraCapabilityController, DeterministicFrameSequenceSource, FrameQualityAnalyzer, FrameScheduler, RepeatSuppressor, ScannerSession, TemporalCandidateStore, TemporalROI, type ScannerDiagnostic, type ScannerFrameDecoder } from "@scanly/browser";
 
 function frame(index: number, timestampMs = index * 40): NormalizedFrame {
   const data = new Uint8ClampedArray(32 * 32 * 4);
@@ -114,6 +114,51 @@ describe("ScannerSession", () => {
     session.onObservations((set) => sets.push({ frameId: set.frameId, payloads: set.observations.map((observation) => observation.barcode.text) }));
     await session.start(); await source.finished(); await new Promise<void>((resolve) => setTimeout(resolve, 0));
     expect(sets).toEqual([{ frameId: 1, payloads: ["MULTI-A", "MULTI-B"] }]);
+    await session.dispose();
+  });
+
+  it("emits auto-zoom completion diagnostics only from confirmed real geometry", async () => {
+    let currentZoom = 1;
+    const track = {
+      getCapabilities: () => ({ zoom: { min: 1, max: 4, step: 0.5 } }),
+      getSettings: () => ({ zoom: currentZoom }),
+      applyConstraints: vi.fn(async (constraints: MediaTrackConstraints) => {
+        currentZoom = Number((constraints.advanced?.[0] as MediaTrackConstraintSet & { zoom?: number }).zoom);
+      }),
+    } as unknown as MediaStreamTrack;
+    const source = new DeterministicFrameSequenceSource(function* () { yield frame(1); });
+    const capabilityController = new CameraCapabilityController(() => track, { enabled: true, cooldownMs: 1_500, maximumZoomDelta: 0.5, minimumBarcodeAreaRatio: 0.5 });
+    const session = new ScannerSession({ source, decoder: new FakeDecoder(), capabilityController, autoZoom: { enabled: true, cooldownMs: 1_500, maximumZoomDelta: 0.5, minimumBarcodeAreaRatio: 0.5 }, confirmation: { mode: "immediate" }, quality: { blurThreshold: 0, contrastThreshold: 0 } });
+    const diagnostics: ScannerDiagnostic[] = [];
+    session.onDiagnostics((diagnostic) => diagnostics.push(diagnostic));
+    await session.start(); await source.finished(); await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    const autoZoomDiagnostics = diagnostics.filter((diagnostic) => diagnostic.type === "camera" && diagnostic.detail?.startsWith("auto-zoom-result:"));
+    expect(autoZoomDiagnostics).toHaveLength(1);
+    expect(autoZoomDiagnostics[0]).toEqual(
+      expect.objectContaining({
+        frameId: 1,
+        detail: expect.stringContaining('"result":{"ok":true,"value":1.5}'),
+      }),
+    );
+    await session.dispose();
+  });
+
+  it("retains browser-reported unchanged zoom in diagnostics when applyConstraints is a no-op", async () => {
+    const track = {
+      getCapabilities: () => ({ zoom: { min: 1, max: 4, step: 0.5 } }),
+      getSettings: () => ({ zoom: 1 }),
+      applyConstraints: vi.fn(async () => undefined),
+    } as unknown as MediaStreamTrack;
+    const source = new DeterministicFrameSequenceSource(function* () { yield frame(1); });
+    const capabilityController = new CameraCapabilityController(() => track, { enabled: true, cooldownMs: 1_500, maximumZoomDelta: 0.5, minimumBarcodeAreaRatio: 0.5 });
+    const session = new ScannerSession({ source, decoder: new FakeDecoder(), capabilityController, autoZoom: { enabled: true, cooldownMs: 1_500, maximumZoomDelta: 0.5, minimumBarcodeAreaRatio: 0.5 }, confirmation: { mode: "immediate" }, quality: { blurThreshold: 0, contrastThreshold: 0 } });
+    const diagnostics: ScannerDiagnostic[] = [];
+    session.onDiagnostics((diagnostic) => diagnostics.push(diagnostic));
+    await session.start(); await source.finished(); await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    const detail = diagnostics.find((diagnostic) => diagnostic.type === "camera" && diagnostic.detail?.startsWith("auto-zoom-result:"))?.detail;
+    expect(detail).toContain('"result":{"ok":true,"value":1.5}');
+    expect(detail).toContain('"beforeZoom":1');
+    expect(detail).toContain('"afterZoom":1');
     await session.dispose();
   });
 

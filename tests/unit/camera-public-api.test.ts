@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   DeterministicFrameSequenceSource,
+  CameraRecoveryController,
   FrameQualityAnalyzer,
   FrameScheduler,
   MediaStreamCameraFrameSource,
   ScannerSession,
   type CameraCapabilities,
+  type CameraConstraintPolicy,
+  type CameraRecoveryPolicy,
+  type DeviceDiagnostics,
   type CameraFrameSource,
   type CapabilityResult,
   type RepeatPolicy,
@@ -28,6 +32,9 @@ type RequiredBrowserScannerTypes = {
   hint: ScannerHint;
   capabilities: CameraCapabilities;
   capabilityResult: CapabilityResult<boolean>;
+  constraintPolicy: CameraConstraintPolicy;
+  recoveryPolicy: CameraRecoveryPolicy;
+  deviceDiagnostics: DeviceDiagnostics;
 };
 
 describe("@scanly/browser real-time public API", () => {
@@ -38,6 +45,7 @@ describe("@scanly/browser real-time public API", () => {
       DeterministicFrameSequenceSource,
       FrameScheduler,
       FrameQualityAnalyzer,
+      CameraRecoveryController,
     ].every((value) => typeof value === "function")).toBe(true);
   });
 

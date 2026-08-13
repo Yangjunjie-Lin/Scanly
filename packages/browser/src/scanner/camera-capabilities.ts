@@ -1,10 +1,11 @@
 import { sdkError } from "@scanly/core";
+import { cameraError } from "./camera-platform.js";
 import type { AutoZoomOptions, BarcodeGeometry, CameraCapabilities, CapabilityResult } from "./types.js";
 
 type ExtendedCapabilities = MediaTrackCapabilities & {
   torch?: boolean;
   zoom?: { min?: number; max?: number; step?: number };
-  focusMode?: string[];
+  focusMode?: string[] | boolean;
 };
 
 type ExtendedSettings = MediaTrackSettings & { zoom?: number };
@@ -44,6 +45,8 @@ function capabilitiesFor(track: MediaStreamTrack | undefined): CameraCapabilitie
   const settings = track?.getSettings?.() as ExtendedSettings | undefined;
   const min = capabilities?.zoom?.min;
   const max = capabilities?.zoom?.max;
+  const rawFocusMode = capabilities?.focusMode;
+  const continuousFocus = rawFocusMode === true || (Array.isArray(rawFocusMode) && rawFocusMode.includes("continuous"));
   return {
     torch: Boolean(capabilities?.torch),
     ...(min !== undefined && max !== undefined
@@ -59,7 +62,7 @@ function capabilitiesFor(track: MediaStreamTrack | undefined): CameraCapabilitie
     // The public boolean means requestFocus() can make the exact request it
     // promises. Other modes (for example "manual") do not imply that the
     // continuous-focus constraint is supported.
-    focusMode: capabilities?.focusMode?.includes("continuous") ?? false,
+    focusMode: continuousFocus,
     ...(settings?.width === undefined ? {} : { width: settings.width }),
     ...(settings?.height === undefined ? {} : { height: settings.height }),
     ...(settings?.deviceId === undefined ? {} : { deviceId: settings.deviceId }),
@@ -98,7 +101,7 @@ export class CameraCapabilityController {
       await track.applyConstraints({ advanced: [{ torch: enabled } as MediaTrackConstraintSet] });
       return { ok: true, value: enabled };
     } catch (error) {
-      return { ok: false, error: sdkError("source_disconnected", "Unable to update camera torch.", undefined, error) };
+      return { ok: false, error: cameraError(error, "Unable to update camera torch.") };
     }
   }
 
@@ -121,11 +124,11 @@ export class CameraCapabilityController {
       // carry an old track's zoom state or manual override into the new source.
       if (stateFor(this).activeTrack === track) {
         stateFor(this).lastAppliedZoom = value;
-        if (manual) this.manualZoomOverride = true;
+        this.manualZoomOverride = manual;
       }
       return { ok: true, value };
     } catch (error) {
-      return { ok: false, error: sdkError("source_disconnected", "Unable to update camera zoom.", undefined, error) };
+      return { ok: false, error: cameraError(error, "Unable to update camera zoom.") };
     }
   }
 
@@ -142,7 +145,7 @@ export class CameraCapabilityController {
       await track.applyConstraints({ advanced: [{ focusMode: "continuous" } as MediaTrackConstraintSet] });
       return { ok: true, value: true };
     } catch (error) {
-      return { ok: false, error: sdkError("source_disconnected", "Unable to request camera focus.", undefined, error) };
+      return { ok: false, error: cameraError(error, "Unable to request camera focus.") };
     }
   }
 
@@ -198,6 +201,6 @@ export class CameraCapabilityController {
   }
 
   private unsupported<T>(message: string): CapabilityResult<T> {
-    return { ok: false, error: sdkError("unsupported_browser_capability", message) };
+    return { ok: false, error: sdkError("camera_capability_unsupported", message) };
   }
 }
