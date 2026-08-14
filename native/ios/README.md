@@ -2,7 +2,8 @@
 
 See [iOS getting started](../../docs/native/ios-getting-started.md), [Native
 architecture](../../docs/native/architecture.md), and [memory
-ownership](../../docs/native/memory-model.md). Beta 5 is a CI artifact only.
+ownership](../../docs/native/memory-model.md). RC1 is a CI candidate artifact
+only (`2.0.0-rc.1`); physical validation is deferred.
 
 Swift Package Manager foundation for iOS 13+. `ScanlyDecoder` owns a serialized
 Native Core context and accepts NV12 Y-plane or BGRA `CVPixelBuffer` storage

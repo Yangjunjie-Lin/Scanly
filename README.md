@@ -1,10 +1,10 @@
-# Scanly SDK v2 Beta 5 — native mobile foundation
+# Scanly SDK v2.0.0-rc.1 — software candidate
 
-Scanly is a local-first barcode capture SDK foundation with Web/Node runtimes and a Beta 5 native mobile foundation. Beta 5 adds a shared ZXing-C++ Native Decode Core, a Swift Package, an Android AAR/JNI bridge, direct native camera-frame paths, deterministic cross-platform fixtures, and memory/artifact gates while preserving the merged Beta 4 Device Lab and all earlier regressions. Physical Web and Native mobile validation is intentionally deferred to the final RC campaign. This is not production certification.
+Scanly is a local-first barcode capture SDK foundation with Web/Node runtimes and a native mobile foundation. The RC1 software candidate freezes the feature-complete source, public APIs, native ABIs, dependency policy, security gates, reproducible artifacts, SBOM, and provenance. Physical Web and Native mobile validation is intentionally deferred to the final RC campaign. This is not a stable release or production certification.
 
 ![Next.js 15](https://img.shields.io/badge/Next.js-15-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
-![SDK](https://img.shields.io/badge/SDK-2.0.0--beta.5-blue)
+![SDK](https://img.shields.io/badge/SDK-2.0.0--rc.1-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Live demo:** [https://qr-decoder-theta.vercel.app](https://qr-decoder-theta.vercel.app)
@@ -35,12 +35,12 @@ Alpha.5 explicitly supports QR Code Model 2, Data Matrix ECC 200, PDF417, Code 1
 ## Branch and release status
 
 - `main` is the unchanged v1.3 Stable line.
-- `develop/sdk-v2` contains the merged Beta 4 device-platform hardening foundation at merge commit `5eb8dae92dd6ab137dc2777de82e7dab07389a6f`.
-- `architecture/sdk-v2-beta5-native-mobile-foundation` is the active Beta 5 branch created from that merge; it does not modify `main`.
+- `develop/sdk-v2` contains the merged Beta 5 native mobile foundation at merge commit `c80856da361a865c3a339cfbd617e2e30c1f49f1`.
+- `release/sdk-v2-rc1-software-freeze` is the RC1 software-freeze branch; `main` remains unchanged.
 - Alpha.5 is an internal integration snapshot, not production-certified evidence. No Alpha.5 tag, GitHub Release, npm publication, Stable claim, or `Latest` release is authorized.
 - Beta 1 remains development evidence. No Beta tag, GitHub Release, npm publication, Stable claim, or `Latest` release is authorized.
 - Beta 4 status is `BETA4_INTEGRATION_GO` / `DEVICE_HARNESS_GO` / `AUTOMATED_VALIDATION_GO` / `PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC` / `FULL_DEVICE_MATRIX_PENDING` / `BETA4_RELEASE_NO_GO`. No real iOS, Android, desktop-camera, remote-device-farm, or 30-minute physical soak session is currently stored in this repository.
-- Beta 5 automated status is reported by the exact-head Native Core, iOS SDK, Android SDK, Native Fixture Parity, Native Memory, and Native Artifact Validation checks. `NATIVE_PHYSICAL_IOS_PENDING` and `NATIVE_PHYSICAL_ANDROID_PENDING` remain explicit until RC.
+- RC1 automated status is reported by exact-source scanner, tracking, industrial, browser, native, API/ABI, security, artifact, and reproducibility workflows. `NATIVE_PHYSICAL_IOS_PENDING` and `NATIVE_PHYSICAL_ANDROID_PENDING` remain explicit until the final RC campaign.
 
 ### Beta 4 physical-device hardening foundation
 
@@ -60,7 +60,7 @@ Physical iOS Safari, Android Chrome, real-camera lifecycle, physical tracking/ba
 
 The shared [native fixture manifest](fixtures/native/manifest.json) contains nine deterministic Y8 inputs covering all eight public formats plus a two-symbol QR Code + Code 128 fixture. Payload, format, result-count, multi-result, and original-coordinate geometry contracts are checked across Native Core, Swift, Kotlin, and existing Web/Node ZXing-C++ paths. See [Native architecture](docs/native/architecture.md), [memory model](docs/native/memory-model.md), and [compatibility](docs/native/compatibility.md).
 
-Beta 5 produces SPM/AAR/npm outputs only as CI artifacts. It does not publish CocoaPods, Maven Central, App Store, Google Play, npm latest, a GitHub Stable release, React Native, or Flutter packages.
+RC1 produces SPM/AAR/npm outputs only as CI artifacts. It does not publish CocoaPods, Maven Central, App Store, Google Play, npm latest, a GitHub Stable release, React Native, or Flutter packages.
 
 ## Internal fixture benchmark
 
@@ -262,7 +262,7 @@ See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 
 ## Project status
 
-**SDK v2 Beta 5 native mobile development preview.** Beta 4 remains `BETA4_INTEGRATION_GO`; `DEVICE_HARNESS_GO`; `AUTOMATED_VALIDATION_GO`; `PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC`; `FULL_DEVICE_MATRIX_PENDING`; `BETA4_RELEASE_NO_GO`. Beta 5 Native integration becomes GO only when all six exact-head Native checks and existing regressions pass. Physical Web iOS, Web Android, Native iOS, and Native Android are all `DEFERRED_TO_RC`; none is PASS. Stable, Latest, production readiness, and physical certification are not claimed.
+**SDK v2.0.0-rc.1 software candidate.** Automated gates must be green before `RC1_SOFTWARE_CANDIDATE_GO` is declared. Physical Web iOS, Web Android, Native iOS, and Native Android are all `DEFERRED_TO_FINAL_RC_VALIDATION`; none is PASS. Stable, Latest, production readiness, and physical certification are not claimed. See [the RC1 freeze policy](docs/rc1-software-freeze.md) and [release notes](docs/releases/v2.0.0-rc.1.md).
 
 ## License
 

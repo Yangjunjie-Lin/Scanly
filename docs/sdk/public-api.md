@@ -2,7 +2,7 @@
 
 ## Version policy
 
-- SDK package version: `2.0.0-beta.5` (Beta 5 native mobile foundation preview)
+- SDK package version: `2.0.0-rc.1` (RC1 software candidate; physical validation pending)
 
 ## Beta 4 camera platform surface
 

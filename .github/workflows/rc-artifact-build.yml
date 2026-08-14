@@ -1,0 +1,59 @@
+name: RC Artifact Build
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [develop/sdk-v2, release/sdk-v2-rc1-software-freeze]
+  push:
+    branches: [release/sdk-v2-rc1-software-freeze]
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+jobs:
+  npm:
+    name: npm RC artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build:packages
+      - name: Pack public packages
+        shell: bash
+        run: |
+          mkdir -p release/rc1/artifacts/npm
+          for package in packages/core packages/browser packages/node packages/react packages/scenario-schema packages/parsers packages/benchmark engines/jsqr engines/zxing-js engines/zxing-cpp-wasm; do
+            npm pack --workspace="$package" --pack-destination release/rc1/artifacts/npm
+          done
+      - name: Generate artifact manifest
+        run: npm run rc:artifacts
+      - uses: actions/upload-artifact@v4
+        with: { name: rc1-npm-artifacts, path: release/rc1/artifacts/npm }
+      - uses: actions/upload-artifact@v4
+        with: { name: rc1-artifact-manifest, path: release/rc1/artifact-manifest.json }
+      - uses: actions/attest-build-provenance@v2
+        with: { subject-path: release/rc1/artifacts/npm/*.tgz }
+
+  native-boundary:
+    name: Native candidate boundary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Record native candidate requirements
+        shell: bash
+        run: |
+          mkdir -p release/rc1/artifacts/native
+          cp native/core/include/scanly/core.h release/rc1/artifacts/native/scanly-core.h
+          cp THIRD_PARTY_NOTICES release/rc1/artifacts/native/THIRD_PARTY_NOTICES
+          printf '%s\n' 'iOS=swift-package-source' 'Android=aar-arm64-v8a,x86_64' 'ABI=1' > release/rc1/artifacts/native/native-candidate-boundary.txt
+      - uses: actions/upload-artifact@v4
+        with: { name: rc1-native-boundary, path: release/rc1/artifacts/native }

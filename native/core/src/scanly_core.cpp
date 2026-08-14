@@ -610,7 +610,7 @@ extern "C" {
 
 const char *scanly_core_version(void)
 {
-    return "2.0.0-beta.5-native-core.1";
+    return "2.0.0-rc.1-native-core.1";
 }
 
 const char *scanly_status_message(scanly_status_t status)

@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "io.scanly"
-version = "2.0.0-beta.5"
+version = "2.0.0-rc.1"
 
 android {
     namespace = "io.scanly.sdk"

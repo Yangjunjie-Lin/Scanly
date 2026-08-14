@@ -35,8 +35,8 @@ for (const [specifier, expectedExport] of expectedExports) {
 }
 
 const core = await import("@scanly/core");
-if (core.SDK_VERSION !== "2.0.0-beta.5") {
-  throw new Error(`Installed @scanly/core version is ${core.SDK_VERSION}, expected 2.0.0-beta.5.`);
+if (core.SDK_VERSION !== "2.0.0-rc.1") {
+  throw new Error(`Installed @scanly/core version is ${core.SDK_VERSION}, expected 2.0.0-rc.1.`);
 }
 for (const format of alpha5Formats) {
   if (!core.PUBLIC_BARCODE_FORMATS.includes(format)) {

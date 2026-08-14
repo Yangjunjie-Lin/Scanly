@@ -64,12 +64,26 @@ int main()
     assert(scanly_decode_y_plane(context, bytes.data(), bytes.size(), 1, 1, 1, 1, &options, &results) == SCANLY_STATUS_INVALID_INPUT);
     assert(results == nullptr);
 
+    options.max_results = 1;
+    assert(scanly_decode_y_plane(context, bytes.data(), bytes.size(), 2, 2, std::numeric_limits<size_t>::max(), 1, &options, &results) == SCANLY_STATUS_INVALID_INPUT);
+    assert(results == nullptr);
+
     image.rotation_degrees = 0;
     image.width = std::numeric_limits<uint32_t>::max();
     image.height = std::numeric_limits<uint32_t>::max();
     image.row_stride = std::numeric_limits<size_t>::max();
     assert(scanly_decode(context, &image, &options, &results) == SCANLY_STATUS_INVALID_INPUT);
     assert(results == nullptr);
+
+    for (int iteration = 0; iteration < 256; ++iteration) {
+        scanly_context_t *cycle_context = nullptr;
+        scanly_context_options_t cycle_options{};
+        cycle_options.struct_size = sizeof(cycle_options);
+        cycle_options.abi_version = SCANLY_ABI_VERSION;
+        cycle_options.backend = SCANLY_BACKEND_FIXTURE;
+        assert(scanly_context_create(&cycle_options, &cycle_context) == SCANLY_STATUS_OK);
+        scanly_context_destroy(cycle_context);
+    }
 
     scanly_context_destroy(context);
     std::cout << "scanly_native_malformed_test: PASS\n";

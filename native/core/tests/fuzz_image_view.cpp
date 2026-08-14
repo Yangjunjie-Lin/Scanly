@@ -2,6 +2,8 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <iostream>
+#include <iterator>
 #include <vector>
 
 /* This entry point is compatible with libFuzzer when linked with -fsanitize=fuzzer. */
@@ -35,6 +37,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 #ifdef SCANLY_FUZZ_STANDALONE
 int main()
 {
+    std::vector<uint8_t> input((std::istreambuf_iterator<char>(std::cin)), std::istreambuf_iterator<char>());
+    LLVMFuzzerTestOneInput(input.data(), input.size());
     return 0;
 }
 #endif
