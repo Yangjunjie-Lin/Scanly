@@ -7,6 +7,23 @@
     "evidenceCommit": "5e4f7e3d4c56da1f7aca4f0962b380c95de2e21c",
     "manifestSha256": "8705177f8fb930cd4b01e49210c11662364a19617058a957bbfe915b2f8ef9fe"
   },
+  "validation": {
+    "headCommit": "c4652404d03d4311e0a70bbddc851304f7d3dff3",
+    "headTree": "d3b4f44277cc7f6d5b15fa0716edc199a6403489",
+    "runs": {
+      "ci": "31831141542",
+      "fullBenchmark": "31831141548",
+      "trackingBenchmark": "31831141545",
+      "industrialBenchmark": "31831141474",
+      "browserBenchmark": "31831141534",
+      "nativeMobile": "31831141456",
+      "publicApi": "31831141467",
+      "deviceEvidence": "31831141529",
+      "rcSecurity": "31831141461",
+      "rcArtifactBuild": "31831141457",
+      "rcReproducibility": "31831141550"
+    }
+  },
   "packages": [
     "@scanly/core",
     "@scanly/browser",
@@ -19,55 +36,69 @@
     "@scanly/engine-zxing-js",
     "@scanly/engine-zxing-cpp-wasm"
   ],
-  "symbology": { "status": "PENDING_EXACT_SOURCE_CI" },
-  "realtime": { "status": "PENDING_EXACT_SOURCE_CI" },
-  "tracking": { "status": "PENDING_EXACT_SOURCE_CI" },
-  "batch": { "status": "PENDING_EXACT_SOURCE_CI" },
-  "industrial": { "status": "PENDING_EXACT_SOURCE_CI" },
+  "symbology": { "status": "PASS" },
+  "realtime": { "status": "PASS" },
+  "tracking": { "status": "PASS" },
+  "batch": { "status": "PASS" },
+  "industrial": { "status": "PASS" },
   "browser": {
-    "chromium": "PENDING_EXACT_SOURCE_CI",
-    "firefox": "PENDING_EXACT_SOURCE_CI",
-    "webkit": "PENDING_EXACT_SOURCE_CI"
+    "chromium": "PASS",
+    "firefox": "PASS",
+    "webkit": "PASS"
   },
   "native": {
-    "core": "PASS_LOCAL",
-    "abi": "PASS_LOCAL",
-    "ios": "PENDING_CI",
-    "android": "PENDING_CI",
-    "nativeFixtureParity": "PENDING_EXACT_SOURCE_CI",
-    "nativeMemory": "PASS_LOCAL_SANITIZER_NOT_RUN"
+    "core": "PASS",
+    "abi": "PASS",
+    "ios": "PASS",
+    "android": "PASS",
+    "nativeFixtureParity": "PASS",
+    "nativeMemory": "PASS",
+    "artifactValidation": "PASS"
   },
   "security": {
     "audit": "PASS",
-    "sanitizer": "PASS_LOCAL",
-    "boundedFuzz": "PASS_LOCAL_SEED_SMOKE",
+    "sanitizer": "PASS",
+    "boundedFuzz": "PASS",
     "sbom": "PASS",
     "licenses": "PASS",
-    "secretScan": "PASS_STATIC"
+    "secretScan": "PASS"
   },
   "artifacts": {
     "manifest": "release/rc1/artifact-manifest.json",
-    "npm": "PASS_LOCAL",
-    "nativeCoreHeaders": "PASS_LOCAL",
-    "ios": "PENDING_CI",
-    "androidAar": "PENDING_CI",
+    "npm": "PASS",
+    "nativeCoreHeaders": {
+      "status": "PASS",
+      "sha256": "82dee124d9b88e8ee2c9ea6727a83a3a9e08fb6b70ca753c404928d70624d07a"
+    },
+    "ios": {
+      "status": "PASS_SOURCE_PACKAGE",
+      "sha256": "a8076d09a6b66e8d843e0ba2cf0399483b2ef90d47c07f925f0ce9dd553c06d8"
+    },
+    "androidAar": {
+      "status": "PASS",
+      "sha256": "d2bd3392a0811e2e5cb4fe561c1df8ca80f0f8571d50cba61f160e142f9950b5"
+    },
     "reproducibility": "PASS_NORMALIZED_NPM_CONTENTS",
-    "provenance": "PENDING_GITHUB_ATTESTATION",
+    "provenance": "PASS_GITHUB_ATTESTATION",
     "signing": "SIGNING_NOT_YET_PRODUCTION"
   },
+  "deployment": {
+    "status": "PASS",
+    "deploymentId": "5911782676",
+    "url": "https://qr-decoder-74kzl6oe4-yangjunjie-lins-projects.vercel.app",
+    "headCommit": "c4652404d03d4311e0a70bbddc851304f7d3dff3",
+    "productSourceCommit": "1b74cf40f764b0b531cfcca5f7d8fbe9cd2f2eae"
+  },
   "device": {
-    "webIos": "DEFERRED_TO_FINAL_RC_VALIDATION",
-    "webAndroid": "DEFERRED_TO_FINAL_RC_VALIDATION",
-    "nativeIos": "DEFERRED_TO_FINAL_RC_VALIDATION",
-    "nativeAndroid": "DEFERRED_TO_FINAL_RC_VALIDATION",
+    "schemaValidation": "PASS",
+    "webIos": "DEFERRED_TO_FINAL_RC",
+    "webAndroid": "DEFERRED_TO_FINAL_RC",
+    "nativeIos": "DEFERRED_TO_FINAL_RC",
+    "nativeAndroid": "DEFERRED_TO_FINAL_RC",
     "issue": 13
   },
   "overall": {
-    "status": "RC1_SOFTWARE_CANDIDATE_NO_GO",
-    "blockers": [
-      "RC-BLOCKER-RELEASE: exact-source GitHub RC regression workflows have not completed for this source commit",
-      "RC-BLOCKER-RELEASE: iOS and Android candidate artifacts require their native CI runners",
-      "RC-BLOCKER-CORRECTNESS: full device-evidence unit collection has 10 local fixture-cleanup failures and must be green in exact-source CI"
-    ]
+    "status": "RC1_SOFTWARE_CANDIDATE_GO",
+    "blockers": []
   }
 }
