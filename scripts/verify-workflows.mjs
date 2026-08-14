@@ -22,7 +22,7 @@ for (const file of workflowFiles) {
   }
 }
 
-const primary = ["ci.yml", "benchmark.yml", "browser-benchmark.yml", "public-api.yml", "tracking-benchmark.yml", "industrial-benchmark.yml", "device-evidence-validation.yml"];
+const primary = ["ci.yml", "benchmark.yml", "browser-benchmark.yml", "public-api.yml", "tracking-benchmark.yml", "industrial-benchmark.yml", "device-evidence-validation.yml", "native-mobile.yml"];
 const deletedAlphaBranches = [
   "architecture/sdk-v2-alpha3-industrial-validation",
   "architecture/sdk-v2-alpha4-zxing-cpp-wasm",
@@ -38,12 +38,18 @@ for (const file of primary) {
   const pullBranches = triggers.pull_request?.branches ?? [];
   const pushBranches = triggers.push?.branches ?? [];
   if (!pullBranches.includes("develop/sdk-v2")) throw new Error(`${file}: pull requests must target develop/sdk-v2.`);
-  if (!pushBranches.includes("develop/sdk-v2") || !pushBranches.includes("architecture/sdk-v2-beta4-**")) {
-    throw new Error(`${file}: push routing must include develop/sdk-v2 and architecture/sdk-v2-beta4-**.`);
+  if (!pushBranches.includes("develop/sdk-v2") || !pushBranches.includes("architecture/sdk-v2-beta5-**")) {
+    throw new Error(`${file}: push routing must include develop/sdk-v2 and architecture/sdk-v2-beta5-**.`);
   }
   for (const deleted of deletedAlphaBranches) {
     if (pushBranches.includes(deleted)) throw new Error(`${file}: deleted Alpha branch remains a push target: ${deleted}.`);
   }
+}
+
+const nativeWorkflow = parsedWorkflows.get("native-mobile.yml");
+const nativeJobNames = Object.values(nativeWorkflow?.jobs ?? {}).map((job) => job?.name);
+for (const required of ["Native Core", "iOS SDK", "Android SDK", "Native Fixture Parity", "Native Memory", "Native Artifact Validation"]) {
+  if (!nativeJobNames.includes(required)) throw new Error(`native-mobile.yml: missing required job '${required}'.`);
 }
 
 const fullBenchmark = parsedWorkflows.get("benchmark.yml");

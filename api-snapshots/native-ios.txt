@@ -1,0 +1,17 @@
+ScanlySDK 2.0.0-beta.5 public Swift API
+class ScanlyDecoder
+  init() throws
+  dispose()
+  decode(_: CVPixelBuffer, options: ScanlyOptions) throws -> [ScanlyResult]
+  decodeYPlane(_: UnsafeRawBufferPointer, width: Int, height: Int, rowStride: Int, pixelStride: Int, options: ScanlyOptions) throws -> [ScanlyResult]
+  decodeBGRA(_: UnsafeRawBufferPointer, width: Int, height: Int, rowStride: Int, options: ScanlyOptions) throws -> [ScanlyResult]
+class ScanlyScannerSession
+  init(decoder:options:repeatInterval:callbackQueue:); start(); pause(); resume(); stop(); dispose(); submit(_: CVPixelBuffer)
+class ScanlyCameraAdapter
+  bind(device: AVCaptureDevice) throws; start(); pause(); resume(); stop(); dispose()
+enum ScanlyBarcodeFormat: qrCode,dataMatrix,pdf417,code128,ean13,ean8,upcA,upcE
+enum ScanlyError: invalidInput,unsupportedFormat,decodeFailed,engineInitializationFailed,engineExecutionFailed,cancelled,outOfMemory,internalError
+enum ScanlyScannerState: idle,running,paused,stopped,disposed
+enum ScanlyChecksumStatus: unknown,notApplicable,valid,invalid
+struct ScanlyOptions: formats,maxResults,balanced
+struct ScanlyResult: payload,rawBytes,format,boundingBox,cornerPoints,orientationDegrees,checksumStatus,isValidated,structuredMetadataJSON,engine,diagnosticsJSON

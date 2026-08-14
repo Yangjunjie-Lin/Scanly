@@ -2,6 +2,15 @@
 
 All notable changes follow semantic versioning.
 
+## Unreleased — SDK v2 Beta 5 development
+
+- Entered `2.0.0-beta.5` development on `architecture/sdk-v2-beta5-native-mobile-foundation` from Beta 4 merge commit `5eb8dae92dd6ab137dc2777de82e7dab07389a6f` on `develop/sdk-v2`.
+- Began the shared Native Decode Core, Swift Package, Android AAR/JNI, cross-platform parity, memory/safety, and native artifact validation foundation.
+- Added a stable opaque C ABI with explicit context/result/cancel ownership, typed status codes, eight-format filtering, multi-result/raw/geometry/checksum/diagnostic views, hidden C++ symbols, malformed-input coverage, and a 10,000-lifecycle sanitizer gate.
+- Added direct iOS NV12/BGRA `CVPixelBuffer` and Android CameraX `YUV_420_888` Y-plane paths, latest-frame sessions, lifecycle generation invalidation, repeat suppression, SPM/AAR packaging, arm64-v8a/x86_64 validation, and nine shared parity fixtures covering all eight formats plus multi-code.
+- Added separate Native Core, iOS SDK, Android SDK, Native Fixture Parity, Native Memory, and Native Artifact Validation CI jobs plus Swift/Kotlin API snapshots and development-only P50/P95 benchmarks.
+- Physical Web iOS/Android and Native iOS/Android validation remain `DEFERRED_TO_RC`; this scheduling state is never represented as PASS.
+
 ## Unreleased — SDK v2 Beta 4 development
 
 - Entered `2.0.0-beta.4` development on `architecture/sdk-v2-beta4-device-platform-hardening` from Beta 3 merge commit `333c4a9a202c3871d10cb0455354390932e8ee5b` on `develop/sdk-v2`.

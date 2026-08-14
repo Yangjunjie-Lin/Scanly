@@ -1,6 +1,6 @@
 # SDK v2 architecture
 
-> Alpha.5 uses the optional ZXing-C++ WASM plugin as its bounded multi-format engine. Core remains dependency-inverted and contains no DOM, Node, concrete decoder, or WASM loader dependency. Browser and Node composition roots register `jsqr`, `zxing-cpp-wasm`, and `zxing-js`; the persistent Worker owns the same Browser registry. See [ZXing-C++ WebAssembly engine](wasm-engine.md).
+> Beta 5 keeps the optional ZXing-C++ WASM plugin as the bounded Web/Node multi-format engine and adds the same pinned ZXing-C++ source behind `native/core`'s stable C ABI for Swift and Kotlin. TypeScript Core remains dependency-inverted and contains no DOM, Node, concrete decoder, or WASM loader dependency. See [ZXing-C++ WebAssembly engine](wasm-engine.md) and [Native architecture](native/architecture.md).
 
 `@scanly/scenario-schema` owns the closed public format union and scenario presets. `packages/core/src/barcode` owns format classes, explicit selection validation, generic results, and retail validation. Existing `packages/core/src/qr` imports remain compatibility facades around the established pipeline. `ScenarioCompiler` validates engine/format coverage before execution, and the native adapter maps Scanly format strings to a bounded ZXing mask and detected values back to Scanly strings.
 
@@ -38,6 +38,9 @@ scenario-schema       parsers
 
 browser -> core + engines       node -> core + engines + sharp
 react -> browser                apps/web-demo -> browser
+
+native/ios -> native/core C ABI -> pinned ZXing-C++
+native/android -> JNI -> native/core C ABI -> pinned ZXing-C++
 ```
 
 `@scanly/core` has no `jsqr`, ZXing, `sharp`, React, or Next.js dependency. `sharp` is isolated in `@scanly/node`. Concrete engine versions and capabilities come from registered engine instances; Router contains no decoder version map.
@@ -67,6 +70,6 @@ No image, analytics event, or decoded payload is uploaded by the SDK. Host actio
 
 ## Compatibility and limits
 
-The shipped engines implement QR Code Model 2 through jsQR, ZXing JavaScript, and ZXing-C++ WASM. The bounded ZXing-C++ adapter additionally implements Data Matrix ECC 200, standard PDF417, Code 128, EAN-13, EAN-8, UPC-A, and UPC-E. Micro QR, rMQR, Aztec, Micro PDF417, DotCode, MaxiCode, GS1 DataBar, deferred linear formats, and native mobile/desktop bindings are not installed. Compilation rejects unregistered engines and formats outside the closed public union.
+The shipped engines implement QR Code Model 2 through jsQR, ZXing JavaScript, and ZXing-C++ WASM. The bounded ZXing-C++ WASM and Native Core adapters additionally implement Data Matrix ECC 200, standard PDF417, Code 128, EAN-13, EAN-8, UPC-A, and UPC-E. Micro QR, rMQR, Aztec, Micro PDF417, DotCode, MaxiCode, GS1 DataBar, and deferred linear formats are not installed. Compilation rejects unregistered engines and formats outside the closed public union.
 
 Camera capture defaults to the fast scenario, samples at a maximum 960-pixel side before RGBA readback, prefers `requestVideoFrameCallback`, and keeps one active frame. The camera foundation is browser-tested with mocked media primitives, but physical devices, torch/zoom variants, thermal behavior, and long mobile sessions have not been certified. No industrial-readiness or commercial-SDK parity claim is made.

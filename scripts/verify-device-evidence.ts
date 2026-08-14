@@ -105,7 +105,7 @@ const packageJson = read("package.json");
 const ajv = new Ajv({ allErrors: true, strict: false }); addFormats(ajv);
 const validate = ajv.compile(schema);
 
-assert(packageJson.version === "2.0.0-beta.4", "Repository SDK version is not Beta 4.");
+assert(packageJson.version === "2.0.0-beta.5", "Repository SDK version is not Beta 5.");
 assert(manifest.schemaVersion === "beta4-device-manifest-1" && manifest.status === "DEVICE_MATRIX_PARTIAL", "Device manifest identity/status failed.");
 assert(manifest.groundTruthPolicy === "decoder-independent-fixed-before-scan", "Device manifest Ground Truth policy failed.");
 assert(exactArray((manifest.scenarios as Json[]).map((entry) => entry.id), SCENARIO_IDS), "Device protocol must contain exact P1-P12+N1 order.");
