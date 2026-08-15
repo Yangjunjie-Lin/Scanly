@@ -3,9 +3,9 @@ name: RC Reproducibility
 on:
   workflow_dispatch:
   pull_request:
-    branches: [develop/sdk-v2, release/sdk-v2-rc1-software-freeze]
+    branches: [develop/sdk-v2, release/sdk-v2-rc2-final-validation]
   push:
-    branches: [release/sdk-v2-rc1-software-freeze]
+    branches: [release/sdk-v2-rc2-final-validation]
 
 permissions:
   contents: read
@@ -27,4 +27,4 @@ jobs:
       - run: npm run build:packages
       - run: npm run rc:repro
       - uses: actions/upload-artifact@v4
-        with: { name: rc1-reproducibility, path: release/rc1/reproducibility.json }
+        with: { name: rc2-reproducibility, path: release/rc2/reproducibility.json }

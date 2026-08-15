@@ -26,7 +26,7 @@ const pkg = JSON.parse(read("package.json")) as {
   engines?: { node?: string; npm?: string };
 };
 if (pkg.license !== "MIT") fail("package.json license must be MIT");
-if (pkg.name !== "scanly" || pkg.version !== "2.0.0-rc.1") fail("package metadata must identify the Scanly SDK v2 RC1 software candidate");
+if (pkg.name !== "scanly" || pkg.version !== "2.0.0-rc.2") fail("package metadata must identify the Scanly SDK v2 RC2 software candidate");
 if (pkg.engines?.node !== ">=20.16 <25" || pkg.engines?.npm !== ">=10") {
   fail("package engines must pin the verified Node/npm maintenance range");
 }
@@ -164,7 +164,7 @@ for (const profile of ["fast", "balanced", "robust"] as const) {
 }
 }
 
-if (!readme.includes("SDK-2.0.0--rc.1")) fail("README SDK badge does not match 2.0.0-rc.1.");
+if (!readme.includes("SDK-2.0.0--rc.2")) fail("README SDK badge does not match 2.0.0-rc.2.");
 const apiSnapshot = JSON.parse(read("api-snapshots/public-api.json")) as { packages?: Array<{ packageName?: string }> };
 const snapshotNames = new Set(apiSnapshot.packages?.map((entry) => entry.packageName));
 for (const packageName of ["@scanly/core", "@scanly/browser", "@scanly/node", "@scanly/react", "@scanly/scenario-schema", "@scanly/parsers", "@scanly/benchmark", "@scanly/engine-jsqr", "@scanly/engine-zxing-js"]) {

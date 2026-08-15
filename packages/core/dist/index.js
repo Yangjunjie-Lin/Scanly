@@ -1,4 +1,4 @@
-export const SDK_VERSION = "2.0.0-rc.1";
+export const SDK_VERSION = "2.0.0-rc.2";
 export * from "./contracts/frame.js";
 export * from "./contracts/errors.js";
 export * from "./contracts/result.js";

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const root = path.resolve(import.meta.dirname, "..");
-const expected = "2.0.0-rc.1";
+const expected = "2.0.0-rc.2";
 const workspaceRoots = ["apps", "packages", "engines"];
 const manifests = ["package.json"];
 
@@ -33,12 +33,12 @@ if (lock.includes("2.0.0-beta.4")) throw new Error("package-lock.json retains a 
 for (const relative of ["native/android/scanly-sdk/build.gradle.kts", "native/ios/Package.swift", "README.md", "CHANGELOG.md"]) {
   const content = fs.readFileSync(path.join(root, relative), "utf8");
   if (relative.endsWith("build.gradle.kts") && !content.includes(`version = \"${expected}\"`)) throw new Error(`${relative}: native Maven version is stale.`);
-  if (relative === "README.md" && !content.includes("SDK-2.0.0--rc.1")) throw new Error("README RC badge is stale.");
-  if (relative === "CHANGELOG.md" && !content.includes(expected)) throw new Error("CHANGELOG is missing the RC1 version.");
+  if (relative === "README.md" && !content.includes("SDK-2.0.0--rc.2")) throw new Error("README RC badge is stale.");
+  if (relative === "CHANGELOG.md" && !content.includes(expected)) throw new Error("CHANGELOG is missing the RC2 version.");
 }
-for (const relative of ["release/rc1/dependency-freeze.json", "release/rc1/license-inventory.json", "release/rc1/rc1-candidate-manifest.template.json"]) {
+for (const relative of ["release/rc2/dependency-freeze.json", "release/rc2/license-inventory.json", "release/rc2/rc2-candidate-manifest.template.json"]) {
   const metadata = JSON.parse(fs.readFileSync(path.join(root, relative), "utf8"));
-  if (metadata.version !== expected && metadata.identity?.version !== expected) throw new Error(`${relative}: RC1 version metadata is stale.`);
+  if (metadata.version !== expected && metadata.identity?.version !== expected) throw new Error(`${relative}: RC2 version metadata is stale.`);
 }
 
 console.log(`Version consistency passed for ${manifests.length} manifests at ${expected}.`);

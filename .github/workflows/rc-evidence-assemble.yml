@@ -3,14 +3,14 @@ name: RC Evidence Assemble
 on:
   workflow_dispatch:
   push:
-    branches: [release/sdk-v2-rc1-software-freeze]
+    branches: [release/sdk-v2-rc2-final-validation]
 
 permissions:
   contents: read
 
 jobs:
   assemble:
-    name: RC1 candidate manifest
+    name: RC2 candidate manifest
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,11 +30,11 @@ jobs:
       - name: Assemble exact source identity
         shell: bash
         run: |
-          mkdir -p release/rc1
-          SOURCE_SHA="$(git rev-parse HEAD)" SOURCE_TREE="$(git rev-parse HEAD^{tree})" node scripts/generate-rc1-artifact-manifest.mjs
-          cp release/rc1/rc1-candidate-manifest.template.json release/rc1/rc1-candidate-manifest.json
+          mkdir -p release/rc2
+          SOURCE_SHA="$(git rev-parse HEAD)" SOURCE_TREE="$(git rev-parse HEAD^{tree})" node scripts/generate-rc2-artifact-manifest.mjs
+          cp release/rc2/rc2-candidate-manifest.template.json release/rc2/rc2-candidate-manifest.json
           node - <<'NODE'
-          const fs=require('fs'); const p='release/rc1/rc1-candidate-manifest.json'; const j=JSON.parse(fs.readFileSync(p)); const {execFileSync}=require('child_process'); j.identity.sourceCommit=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(); j.identity.sourceTree=execFileSync('git',['rev-parse','HEAD^{tree}'],{encoding:'utf8'}).trim(); fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');
+          const fs=require('fs'); const p='release/rc2/rc2-candidate-manifest.json'; const j=JSON.parse(fs.readFileSync(p)); const {execFileSync}=require('child_process'); j.identity.sourceCommit=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(); j.identity.sourceTree=execFileSync('git',['rev-parse','HEAD^{tree}'],{encoding:'utf8'}).trim(); fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');
           NODE
       - uses: actions/upload-artifact@v4
-        with: { name: rc1-candidate-evidence, path: release/rc1 }
+        with: { name: rc2-candidate-evidence, path: release/rc2 }
