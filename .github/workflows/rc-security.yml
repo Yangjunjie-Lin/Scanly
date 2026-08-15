@@ -1,0 +1,75 @@
+name: RC Security
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [develop/sdk-v2, release/sdk-v2-rc1-software-freeze]
+  push:
+    branches: [release/sdk-v2-rc1-software-freeze]
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    name: RC Security
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm audit --audit-level=high
+      - name: API and ABI freeze gates
+        run: |
+          npm run build:packages
+          npm run api:snapshot
+          npm run api:diff
+          npm run native:api
+          npm run native:abi
+      - name: License inventory and SBOM
+        run: |
+          npm run rc:licenses
+          npm run rc:sbom
+      - name: Secret scan
+        shell: bash
+        run: |
+          ! git grep -n -I -E '-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----|(^|[^A-Z])(AWS_SECRET_ACCESS_KEY|GITHUB_TOKEN|VERCEL_TOKEN|OPENAI_API_KEY)[[:space:]]*=' -- . ':!release/rc1'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rc1-security-evidence
+          path: |
+            release/rc1/sbom.cdx.json
+            release/rc1/license-inventory.json
+
+  native-fuzz-smoke:
+    name: Native sanitizer and bounded fuzz smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build ASan/UBSan test and fuzz targets
+        run: |
+          cmake -S native/core -B .native-build/rc-security -G Ninja \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DSCANLY_ENABLE_ZXING_CPP=OFF \
+            -DSCANLY_BUILD_FUZZ=ON \
+            -DCMAKE_C_FLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' \
+            -DCMAKE_CXX_FLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' \
+            -DCMAKE_EXE_LINKER_FLAGS='-fsanitize=address,undefined'
+          cmake --build .native-build/rc-security --parallel 4
+      - name: Run resource exhaustion and sanitizer contracts
+        env:
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        run: |
+          ctest --test-dir .native-build/rc-security --output-on-failure -R '^scanly_'
+          for seed in /dev/null /etc/hosts; do .native-build/rc-security/scanly_native_fuzz < "$seed"; done
+          python3 - <<'PY' | .native-build/rc-security/scanly_native_fuzz
+          import sys
+          sys.stdout.buffer.write(bytes([255]) * 4096)
+          PY

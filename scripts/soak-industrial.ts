@@ -30,7 +30,7 @@ async function main(): Promise<void> {
     iterations, successes, peakTemporaryBytes, peakBuffers, maximumAttempts, maximumProcessedPixels,
     finalTemporaryBuffers: 0, finalRouteState: 0, finalNativeResultCount: 0, finalPendingScannerFrames: 0, finalControlledMemory: 0,
   };
-  const report = { schemaVersion: "beta3-industrial-soak-1", kind: "industrial-recovery-core-soak", sdkVersion: "2.0.0-beta.5", sourceCommit, sourceTree, repositoryDirty, workerEvidence: "not-applicable-core-soak", observed, failureReasons: failures.slice(0, 100), pass: failures.length === 0 };
+  const report = { schemaVersion: "beta3-industrial-soak-1", kind: "industrial-recovery-core-soak", sdkVersion: "2.0.0-rc.1", sourceCommit, sourceTree, repositoryDirty, workerEvidence: "not-applicable-core-soak", observed, failureReasons: failures.slice(0, 100), pass: failures.length === 0 };
   const absolute = path.join(process.cwd(), output); fs.mkdirSync(path.dirname(absolute), { recursive: true }); fs.writeFileSync(absolute, `${JSON.stringify(report, null, 2)}\n`);
   process.stdout.write(`${JSON.stringify({ output, pass: report.pass, observed }, null, 2)}\n`);
   if (!report.pass) process.exitCode = 1;

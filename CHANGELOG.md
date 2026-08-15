@@ -2,6 +2,16 @@
 
 All notable changes follow semantic versioning.
 
+## 2.0.0-rc.1 — Software candidate
+
+- Frozen the feature-complete SDK v2 source after the Beta 5 native mobile
+  foundation merge (`c80856da361a865c3a339cfbd617e2e30c1f49f1`).
+- Added JavaScript/TypeScript, C ABI, Swift, and Kotlin API snapshot gates.
+- Added dependency freeze policy, supported runtime matrix, security/SBOM/
+  license requirements, reproducibility and artifact-manifest workflows.
+- Physical Web and Native mobile validation remains deferred to the final RC
+  campaign; this candidate is not a stable or production release.
+
 ## Unreleased — SDK v2 Beta 5 development
 
 - Entered `2.0.0-beta.5` development on `architecture/sdk-v2-beta5-native-mobile-foundation` from Beta 4 merge commit `5eb8dae92dd6ab137dc2777de82e7dab07389a6f` on `develop/sdk-v2`.

@@ -125,6 +125,12 @@ jobs:
       - name: Assemble AAR, unit tests, and lint
         working-directory: native/android
         run: ./gradlew --no-daemon --stacktrace :scanly-sdk:assembleRelease :scanly-sdk:testReleaseUnitTest :scanly-sdk:lintRelease
+      - name: Enable KVM acceleration for the Android emulator
+        run: |
+          test -e /dev/kvm
+          sudo chmod 0666 /dev/kvm
+          test -r /dev/kvm
+          test -w /dev/kvm
       - name: Run x86_64 emulator shared-fixture smoke
         uses: reactivecircus/android-emulator-runner@v2
         with:
