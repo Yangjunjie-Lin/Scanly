@@ -18,7 +18,6 @@ const mode = option("--mode", "integrity");
 const manifestArgument = option("--manifest", "release/rc2/rc2-candidate-manifest.v2.json");
 const sidecarArgument = option("--sidecar", `${manifestArgument}.sha256`);
 const requireCandidateTag = has("--require-candidate-tag") || mode === "stable";
-const skipCanonicalRecompute = has("--skip-canonical-recompute");
 const knownLegacyManifestPaths = new Set([
   path.resolve(root, "release/rc1/rc1-candidate-manifest.json"),
   path.resolve(root, "release/rc2/rc2-candidate-manifest.json"),
@@ -27,7 +26,6 @@ const knownLegacyManifestPaths = new Set([
 const fail = (message) => { throw new Error(message); };
 const assert = (condition, message) => { if (!condition) fail(message); };
 assert(mode === "integrity" || mode === "stable", `Unsupported mode '${mode}'.`);
-assert(!skipCanonicalRecompute || (process.env.SCANLY_TEST_ALLOW_SKIP_CANONICAL === "1" && process.env.GITHUB_ACTIONS !== "true"), "Skipping canonical artifact recomputation is restricted to local verifier tests.");
 const sha256 = (bytes) => crypto.createHash("sha256").update(bytes).digest("hex");
 const isSha256 = (value) => typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
 const isCommit = (value) => typeof value === "string" && /^[0-9a-f]{40}$/.test(value);
@@ -188,7 +186,7 @@ for (const entry of artifactManifest.artifacts) {
   assert(verified.bytes.length > 0, `Artifact '${entry.artifact}' is empty.`);
   if (entry.platform === "npm") {
     assert(isSha256(entry.canonicalContentSha256), `Artifact '${entry.artifact}' is missing its canonical npm content digest.`);
-    if (!skipCanonicalRecompute) assert(canonicalNpmTarballSha256(verified.absolute) === entry.canonicalContentSha256, `Artifact '${entry.artifact}' canonical npm content digest mismatch.`);
+    assert(canonicalNpmTarballSha256(verified.absolute) === entry.canonicalContentSha256, `Artifact '${entry.artifact}' canonical npm content digest mismatch.`);
   } else {
     assert(entry.canonicalContentSha256 === undefined, `Non-npm artifact '${entry.artifact}' must not claim npm canonicalization.`);
   }

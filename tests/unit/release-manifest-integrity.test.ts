@@ -11,7 +11,6 @@ const manifest = path.join(root, "release", "rc2", "rc2-candidate-manifest.v2.js
 const sidecar = `${manifest}.sha256`;
 const expectedCandidateTag = JSON.parse(fs.readFileSync(manifest, "utf8")).identity.candidateTag as string;
 const temporaryDirectories: string[] = [];
-const verifierTestEnvironment = { ...process.env, SCANLY_TEST_ALLOW_SKIP_CANONICAL: "1" };
 
 const temporaryCandidate = () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "scanly-release-manifest-"));
@@ -40,6 +39,7 @@ describe("RC2 detached Release Manifest integrity", () => {
     expect(output).toContain(expectedCandidateTag);
     expect(output.match(/LEGACY_MANIFEST_HASH_UNVERIFIED/g)).toHaveLength(2);
     expect(output).not.toContain("PASS_RAW_SHA256");
+    expect(fs.readFileSync(verifier, "utf8")).not.toContain("skip-canonical-recompute");
 
     const manifestValue = JSON.parse(fs.readFileSync(manifest, "utf8"));
     expect(manifestValue.schemaVersion).toBe("rc2-final-candidate-manifest-2");
@@ -58,7 +58,7 @@ describe("RC2 detached Release Manifest integrity", () => {
   it("fails closed when one raw Manifest byte changes", () => {
     const candidate = temporaryCandidate();
     fs.appendFileSync(candidate.candidateManifest, "\n", "utf8");
-    const result = spawnSync(process.execPath, [verifier, "--manifest", candidate.candidateManifest, "--sidecar", candidate.candidateSidecar, "--skip-canonical-recompute"], { cwd: root, encoding: "utf8", env: verifierTestEnvironment });
+    const result = spawnSync(process.execPath, [verifier, "--manifest", candidate.candidateManifest, "--sidecar", candidate.candidateSidecar], { cwd: root, encoding: "utf8" });
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("Manifest raw SHA-256 mismatch");
   });
@@ -67,7 +67,7 @@ describe("RC2 detached Release Manifest integrity", () => {
     const candidate = temporaryCandidate();
     const original = fs.readFileSync(candidate.candidateSidecar, "utf8");
     fs.writeFileSync(candidate.candidateSidecar, `${original[0] === "0" ? "1" : "0"}${original.slice(1)}`, "utf8");
-    const result = spawnSync(process.execPath, [verifier, "--manifest", candidate.candidateManifest, "--sidecar", candidate.candidateSidecar, "--skip-canonical-recompute"], { cwd: root, encoding: "utf8", env: verifierTestEnvironment });
+    const result = spawnSync(process.execPath, [verifier, "--manifest", candidate.candidateManifest, "--sidecar", candidate.candidateSidecar], { cwd: root, encoding: "utf8" });
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("Manifest raw SHA-256 mismatch");
   });
@@ -87,7 +87,7 @@ describe("RC2 detached Release Manifest integrity", () => {
     value.schemaVersion = "unknown-release-schema";
     fs.writeFileSync(candidate.candidateManifest, `${JSON.stringify(value, null, 2)}\n`, "utf8");
     resignTemporaryCandidate(candidate.candidateManifest, candidate.candidateSidecar);
-    const result = spawnSync(process.execPath, [verifier, "--manifest", candidate.candidateManifest, "--sidecar", candidate.candidateSidecar, "--skip-canonical-recompute"], { cwd: root, encoding: "utf8", env: verifierTestEnvironment });
+    const result = spawnSync(process.execPath, [verifier, "--manifest", candidate.candidateManifest, "--sidecar", candidate.candidateSidecar], { cwd: root, encoding: "utf8" });
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("Unsupported Manifest schema");
   });
@@ -98,7 +98,7 @@ describe("RC2 detached Release Manifest integrity", () => {
     value.sbom.sourceCommit = "0000000000000000000000000000000000000000";
     fs.writeFileSync(candidate.candidateManifest, `${JSON.stringify(value, null, 2)}\n`, "utf8");
     resignTemporaryCandidate(candidate.candidateManifest, candidate.candidateSidecar);
-    const result = spawnSync(process.execPath, [verifier, "--manifest", candidate.candidateManifest, "--sidecar", candidate.candidateSidecar, "--skip-canonical-recompute"], { cwd: root, encoding: "utf8", env: verifierTestEnvironment });
+    const result = spawnSync(process.execPath, [verifier, "--manifest", candidate.candidateManifest, "--sidecar", candidate.candidateSidecar], { cwd: root, encoding: "utf8" });
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("Manifest SBOM Product Source identity mismatch");
   });
@@ -109,13 +109,13 @@ describe("RC2 detached Release Manifest integrity", () => {
     value.artifacts.required = [value.artifacts.required[0], value.artifacts.required[0], value.artifacts.required[0]];
     fs.writeFileSync(candidate.candidateManifest, `${JSON.stringify(value, null, 2)}\n`, "utf8");
     resignTemporaryCandidate(candidate.candidateManifest, candidate.candidateSidecar);
-    const result = spawnSync(process.execPath, [verifier, "--manifest", candidate.candidateManifest, "--sidecar", candidate.candidateSidecar, "--skip-canonical-recompute"], { cwd: root, encoding: "utf8", env: verifierTestEnvironment });
+    const result = spawnSync(process.execPath, [verifier, "--manifest", candidate.candidateManifest, "--sidecar", candidate.candidateSidecar], { cwd: root, encoding: "utf8" });
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("Duplicate required artifact id");
   });
 
   it("keeps Stable qualification fail-closed while Physical and Signing remain NO-GO", () => {
-    const result = spawnSync(process.execPath, [verifier, "--mode=stable", "--skip-canonical-recompute"], { cwd: root, encoding: "utf8", env: verifierTestEnvironment });
+    const result = spawnSync(process.execPath, [verifier, "--mode=stable"], { cwd: root, encoding: "utf8" });
     expect(result.status).not.toBe(0);
     expect(
       result.stderr.includes(`Required candidate tag '${expectedCandidateTag}' is not present`) ||
