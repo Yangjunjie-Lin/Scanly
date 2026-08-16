@@ -3,9 +3,9 @@ name: RC Security
 on:
   workflow_dispatch:
   pull_request:
-    branches: [develop/sdk-v2, release/sdk-v2-rc1-software-freeze]
+    branches: [develop/sdk-v2, release/sdk-v2-rc2-final-validation]
   push:
-    branches: [release/sdk-v2-rc1-software-freeze]
+    branches: [release/sdk-v2-rc2-final-validation]
 
 permissions:
   contents: read
@@ -14,6 +14,8 @@ jobs:
   security:
     name: RC Security
     runs-on: ubuntu-latest
+    env:
+      RC2_SOURCE_COMMIT: 20bd2d465c87b0d10e2504637a035b0f66c13e63
     steps:
       - uses: actions/checkout@v4
         with:
@@ -35,23 +37,26 @@ jobs:
       - name: License inventory and SBOM
         run: |
           npm run rc:licenses
-          npm run rc:sbom
+          npm run rc:sbom -- --verify
       - name: Secret scan
         shell: bash
         run: |
-          ! git grep -n -I -E '-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----|(^|[^A-Z])(AWS_SECRET_ACCESS_KEY|GITHUB_TOKEN|VERCEL_TOKEN|OPENAI_API_KEY)[[:space:]]*=' -- . ':!release/rc1'
+          ! git grep -n -I -E '-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----|(^|[^A-Z])(AWS_SECRET_ACCESS_KEY|GITHUB_TOKEN|VERCEL_TOKEN|OPENAI_API_KEY)[[:space:]]*=' -- . ':!release/rc2'
       - uses: actions/upload-artifact@v4
         with:
-          name: rc1-security-evidence
+          name: rc2-security-evidence
           path: |
-            release/rc1/sbom.cdx.json
-            release/rc1/license-inventory.json
+            release/rc2/sbom.cdx.json
+            release/rc2/license-inventory.json
 
   native-fuzz-smoke:
     name: Native sanitizer and bounded fuzz smoke
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       - name: Build ASan/UBSan test and fuzz targets
         run: |
           cmake -S native/core -B .native-build/rc-security -G Ninja \

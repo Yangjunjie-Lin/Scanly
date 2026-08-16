@@ -18,8 +18,8 @@ const structHashes = Object.fromEntries([...header.matchAll(/typedef\s+struct\s+
   .map((match) => [match[1], hash(match[2].replace(/\/\*[\s\S]*?\*\//g, "").replace(/\s+/g, " ").trim())]));
 
 const snapshot = {
-  schemaVersion: "rc1-native-abi-snapshot-1",
-  sdkVersion: "2.0.0-rc.1",
+  schemaVersion: "rc2-native-abi-snapshot-1",
+  sdkVersion: "2.0.0-rc.2",
   abiVersion,
   exportedSymbols,
   enumValues,

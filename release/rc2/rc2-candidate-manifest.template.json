@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "rc2-final-candidate-manifest-1",
+  "identity": {
+    "version": "2.0.0-rc.2",
+    "sourceCommit": "FILLED_AFTER_SOURCE_FREEZE",
+    "sourceTree": "FILLED_AFTER_SOURCE_FREEZE",
+    "evidenceCommit": "FILLED_AFTER_EVIDENCE_COMMIT",
+    "manifestSha256": "FILLED_AFTER_EVIDENCE_COMMIT"
+  },
+  "featureFreeze": true,
+  "apiAbi": { "status": "PASS", "breakingChanges": false },
+  "softwareRegression": { "status": "REQUIRED", "multiSymbology": "REQUIRED", "realtime": "REQUIRED", "workerWasm": "REQUIRED", "tracking": "REQUIRED", "batch": "REQUIRED", "industrial": "REQUIRED", "browsers": "REQUIRED", "native": "REQUIRED", "publicApi": "REQUIRED" },
+  "security": { "status": "REQUIRED", "npmAudit": "REQUIRED", "asan": "REQUIRED", "ubsan": "REQUIRED", "boundedFuzz": "REQUIRED", "secretScan": "REQUIRED" },
+  "artifacts": { "status": "REQUIRED", "manifest": "release/rc2/artifact-manifest.json", "sbom": "release/rc2/sbom.cdx.json", "licenses": "release/rc2/license-inventory.json", "iosArtifactSha256": "FILLED_AFTER_REBUILD", "androidAarSha256": "FILLED_AFTER_REBUILD", "nativeCoreSha256": "FILLED_AFTER_REBUILD" },
+  "reproducibility": { "status": "REQUIRED", "report": "release/rc2/reproducibility.json" },
+  "provenance": { "status": "REQUIRED", "deploymentGitShaMustEqualSource": true },
+  "signing": { "status": "RC2_SIGNING_NO_GO", "blocker": "BLOCKED_EXTERNAL_RELEASE_CREDENTIALS" },
+  "physical": { "status": "NOT_TESTED", "matrix": "release/rc2/physical-validation-matrix.json", "issue": 13, "web": "NOT_TESTED", "nativeIos": "NOT_TESTED", "nativeAndroid": "NOT_TESTED", "longSoak": "NOT_TESTED", "falsePositiveGate": "NOT_TESTED" },
+  "compatibility": { "status": "REQUIRED", "postV2Issues": [15, 16, 17, 18, 19, 20, 21, 22] },
+  "overall": { "software": "RC2_SOFTWARE_GO", "physical": "RC2_PHYSICAL_NO_GO", "stable": "V2_STABLE_RELEASE_NO_GO", "blockers": ["BLOCKED_EXTERNAL_PHYSICAL_HARDWARE", "BLOCKED_EXTERNAL_RELEASE_CREDENTIALS"] }
+}

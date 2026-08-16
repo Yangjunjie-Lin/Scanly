@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "rc2-final-candidate-manifest-1",
+  "identity": {
+    "version": "2.0.0-rc.2",
+    "sourceCommit": "20bd2d465c87b0d10e2504637a035b0f66c13e63",
+    "sourceTree": "ba395228c37cfa2634d39b2200151d81fab67efa",
+    "evidenceCommit": "de8088230f5db1bae561a5acc5ec637cbb28a977",
+    "manifestSha256": "9be110ab513f304e22382f860619ff9f1456d6659908b17c3e6bbd7bb8137ba7"
+  },
+  "featureFreeze": true,
+  "apiAbi": { "status": "PASS", "breakingChanges": false },
+  "softwareRegression": { "status": "REQUIRED", "multiSymbology": "REQUIRED", "realtime": "REQUIRED", "workerWasm": "REQUIRED", "tracking": "REQUIRED", "batch": "REQUIRED", "industrial": "REQUIRED", "browsers": "REQUIRED", "native": "REQUIRED", "publicApi": "REQUIRED" },
+  "security": { "status": "REQUIRED", "npmAudit": "REQUIRED", "asan": "REQUIRED", "ubsan": "REQUIRED", "boundedFuzz": "REQUIRED", "secretScan": "REQUIRED" },
+  "artifacts": { "status": "PASS_RC2_CI_REBUILD", "manifest": "release/rc2/artifact-manifest.json", "sbom": "release/rc2/sbom.cdx.json", "licenses": "release/rc2/license-inventory.json", "iosArtifactSha256": "a043efa623b9cbcd90cd3e4bf89aab20fe6deb9848e09ca0c88573084768717e", "androidAarSha256": "d2bd3392a0811e2e5cb4fe561c1df8ca80f0f8571d50cba61f160e142f9950b5", "nativeCoreSha256": "82dee124d9b88e8ee2c9ea6727a83a3a9e08fb6b70ca753c404928d70624d07a", "androidBuildStatus": "PASS_RC2_CI_REBUILD" },
+  "reproducibility": { "status": "REQUIRED", "report": "release/rc2/reproducibility.json" },
+  "provenance": { "status": "PASS_EXACT_SOURCE_DEPLOYMENT", "deploymentGitShaMustEqualSource": true, "deployment": { "id": "dpl_4HLYL2TtuMNFEg9kDdBcNppRRDSo", "url": "https://qr-decoder-6w0qc17i2-yangjunjie-lins-projects.vercel.app", "gitCommitSha": "20bd2d465c87b0d10e2504637a035b0f66c13e63", "readyState": "READY" } },
+  "signing": { "status": "RC2_SIGNING_NO_GO", "blocker": "BLOCKED_EXTERNAL_RELEASE_CREDENTIALS" },
+  "physical": { "status": "NOT_TESTED", "matrix": "release/rc2/physical-validation-matrix.json", "issue": 13, "web": "NOT_TESTED", "nativeIos": "NOT_TESTED", "nativeAndroid": "NOT_TESTED", "longSoak": "NOT_TESTED", "falsePositiveGate": "NOT_TESTED" },
+  "compatibility": { "status": "REQUIRED", "postV2Issues": [15, 16, 17, 18, 19, 20, 21, 22] },
+  "overall": { "software": "RC2_SOFTWARE_GO", "physical": "RC2_PHYSICAL_NO_GO", "stable": "V2_STABLE_RELEASE_NO_GO", "blockers": ["BLOCKED_EXTERNAL_PHYSICAL_HARDWARE", "BLOCKED_EXTERNAL_RELEASE_CREDENTIALS"] }
+}

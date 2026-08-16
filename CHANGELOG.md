@@ -2,10 +2,12 @@
 
 All notable changes follow semantic versioning.
 
-## 2.0.0-rc.1 — Software candidate
+## 2.0.0-rc.2 — Final validation candidate
 
-- Frozen the feature-complete SDK v2 source after the Beta 5 native mobile
-  foundation merge (`c80856da361a865c3a339cfbd617e2e30c1f49f1`).
+- Continued the feature freeze from the RC1 merge
+  (`fd619c4e1c98642dba96b266e5b17fc05b469abd`).
+- Added the RC2 exact-source Web + Native physical-validation manifest and
+  fail-closed device matrix. No physical-device evidence is fabricated.
 - Added JavaScript/TypeScript, C ABI, Swift, and Kotlin API snapshot gates.
 - Added dependency freeze policy, supported runtime matrix, security/SBOM/
   license requirements, reproducibility and artifact-manifest workflows.

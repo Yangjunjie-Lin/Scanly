@@ -3,9 +3,9 @@ name: RC Reproducibility
 on:
   workflow_dispatch:
   pull_request:
-    branches: [develop/sdk-v2, release/sdk-v2-rc1-software-freeze]
+    branches: [develop/sdk-v2, release/sdk-v2-rc2-final-validation]
   push:
-    branches: [release/sdk-v2-rc1-software-freeze]
+    branches: [release/sdk-v2-rc2-final-validation]
 
 permissions:
   contents: read
@@ -25,6 +25,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build:packages
-      - run: npm run rc:repro
+      - run: npm run rc:repro -- --output=${{ runner.temp }}/rc2-reproducibility.json
       - uses: actions/upload-artifact@v4
-        with: { name: rc1-reproducibility, path: release/rc1/reproducibility.json }
+        with: { name: rc2-reproducibility, path: "${{ runner.temp }}/rc2-reproducibility.json" }
