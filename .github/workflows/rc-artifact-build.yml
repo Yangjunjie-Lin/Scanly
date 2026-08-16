@@ -33,8 +33,6 @@ jobs:
     env:
       RC2_SOURCE_COMMIT: 20bd2d465c87b0d10e2504637a035b0f66c13e63
       RC2_SOURCE_TREE: ba395228c37cfa2634d39b2200151d81fab67efa
-      RC2_ARTIFACT_ROOT: ${{ runner.temp }}/rc2-artifacts
-      RC2_ARTIFACT_MANIFEST_OUTPUT: ${{ runner.temp }}/rc2-artifact-rebuild-manifest.json
     steps:
       - uses: actions/checkout@v4
         with:
@@ -48,14 +46,21 @@ jobs:
       - run: npm run build:packages
       - name: Pack public packages
         shell: bash
+        env:
+          RC2_ARTIFACT_ROOT: ${{ runner.temp }}/rc2-artifacts
         run: |
           mkdir -p "$RC2_ARTIFACT_ROOT/npm"
           for package in packages/core packages/browser packages/node packages/react packages/scenario-schema packages/parsers packages/benchmark engines/jsqr engines/zxing-js engines/zxing-cpp-wasm; do
             npm pack --workspace="$package" --pack-destination "$RC2_ARTIFACT_ROOT/npm"
           done
       - name: Record isolated CI rebuild identities without rewriting frozen evidence
+        env:
+          RC2_ARTIFACT_ROOT: ${{ runner.temp }}/rc2-artifacts
+          RC2_ARTIFACT_MANIFEST_OUTPUT: ${{ runner.temp }}/rc2-artifact-rebuild-manifest.json
         run: npm run rc:artifacts
       - name: Verify cross-platform canonical package-content equivalence
+        env:
+          RC2_ARTIFACT_ROOT: ${{ runner.temp }}/rc2-artifacts
         run: npm run rc:artifacts:verify-canonical -- --artifact-root="$RC2_ARTIFACT_ROOT"
       - uses: actions/upload-artifact@v4
         with: { name: rc2-npm-artifacts, path: "${{ runner.temp }}/rc2-artifacts/npm" }

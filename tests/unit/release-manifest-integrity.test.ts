@@ -9,6 +9,7 @@ const root = process.cwd();
 const verifier = path.join(root, "scripts", "verify-release-manifest.mjs");
 const manifest = path.join(root, "release", "rc2", "rc2-candidate-manifest.v2.json");
 const sidecar = `${manifest}.sha256`;
+const expectedCandidateTag = JSON.parse(fs.readFileSync(manifest, "utf8")).identity.candidateTag as string;
 const temporaryDirectories: string[] = [];
 const verifierTestEnvironment = { ...process.env, SCANLY_TEST_ALLOW_SKIP_CANONICAL: "1" };
 
@@ -35,7 +36,8 @@ describe("RC2 detached Release Manifest integrity", () => {
   it("verifies raw bytes and classifies both historical manifests without upgrading their claims", () => {
     const output = execFileSync(process.execPath, [verifier], { cwd: root, encoding: "utf8" });
     expect(output).toContain("RC2_MANIFEST_INTEGRITY_GO");
-    expect(output).toMatch(/CANDIDATE_TAG_(?:NOT_PRESENT|BOUND) v2-rc2-r2/);
+    expect(output).toMatch(/CANDIDATE_TAG_(?:NOT_PRESENT|BOUND)/);
+    expect(output).toContain(expectedCandidateTag);
     expect(output.match(/LEGACY_MANIFEST_HASH_UNVERIFIED/g)).toHaveLength(2);
     expect(output).not.toContain("PASS_RAW_SHA256");
 
@@ -115,7 +117,10 @@ describe("RC2 detached Release Manifest integrity", () => {
   it("keeps Stable qualification fail-closed while Physical and Signing remain NO-GO", () => {
     const result = spawnSync(process.execPath, [verifier, "--mode=stable", "--skip-canonical-recompute"], { cwd: root, encoding: "utf8", env: verifierTestEnvironment });
     expect(result.status).not.toBe(0);
-    expect(result.stderr).toMatch(/Required candidate tag 'v2-rc2-r2' is not present|Stable release gate requires every Physical Matrix row to PASS/);
+    expect(
+      result.stderr.includes(`Required candidate tag '${expectedCandidateTag}' is not present`) ||
+      result.stderr.includes("Stable release gate requires every Physical Matrix row to PASS"),
+    ).toBe(true);
   });
 
   it("wires the verifier into RC assembly, artifact build, and the future Stable gate", () => {

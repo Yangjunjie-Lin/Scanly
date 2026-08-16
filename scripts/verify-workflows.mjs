@@ -80,6 +80,27 @@ const artifactBuildWorkflow = fs.readFileSync(path.join(workflowDirectory, "rc-a
 if (!artifactBuildWorkflow.includes("rc:artifacts:verify-canonical") || !artifactBuildWorkflow.includes("RC2_ARTIFACT_ROOT: ${{ runner.temp }}/rc2-artifacts")) {
   throw new Error("rc-artifact-build.yml: isolated rebuild lacks canonical package-content equivalence verification.");
 }
+const artifactBuildDocument = parsedWorkflows.get("rc-artifact-build.yml");
+const artifactNpmJob = artifactBuildDocument?.jobs?.npm;
+if (Object.values(artifactNpmJob?.env ?? {}).some((value) => String(value).includes("runner.temp"))) {
+  throw new Error("rc-artifact-build.yml: runner context cannot be referenced from job-level env before runner allocation.");
+}
+const artifactSteps = artifactNpmJob?.steps ?? [];
+const requiredTemporaryStepEnvironment = new Map([
+  ["Pack public packages", { RC2_ARTIFACT_ROOT: "${{ runner.temp }}/rc2-artifacts" }],
+  ["Record isolated CI rebuild identities without rewriting frozen evidence", {
+    RC2_ARTIFACT_ROOT: "${{ runner.temp }}/rc2-artifacts",
+    RC2_ARTIFACT_MANIFEST_OUTPUT: "${{ runner.temp }}/rc2-artifact-rebuild-manifest.json",
+  }],
+  ["Verify cross-platform canonical package-content equivalence", { RC2_ARTIFACT_ROOT: "${{ runner.temp }}/rc2-artifacts" }],
+]);
+for (const [stepName, expectedEnvironment] of requiredTemporaryStepEnvironment) {
+  const step = artifactSteps.find((candidate) => candidate?.name === stepName);
+  if (!step) throw new Error(`rc-artifact-build.yml: missing '${stepName}' step.`);
+  for (const [name, value] of Object.entries(expectedEnvironment)) {
+    if (step.env?.[name] !== value) throw new Error(`rc-artifact-build.yml: '${stepName}' must define step-level ${name}.`);
+  }
+}
 const stableReleaseWorkflow = fs.readFileSync(path.join(workflowDirectory, "stable-release-gate.yml"), "utf8");
 if (!stableReleaseWorkflow.includes("--mode=stable") || !stableReleaseWorkflow.includes("device:evidence:verify")) {
   throw new Error("stable-release-gate.yml: stable Manifest and Physical Evidence gates are incomplete.");

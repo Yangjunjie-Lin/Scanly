@@ -21,6 +21,12 @@ The verifier recomputes:
 - the immutable tag objects and targets for RC1 r1 and RC2 r1;
 - fail-closed Physical, Signing, blocker, and Stable state consistency.
 
+## Candidate audit trail
+
+`v2-rc2-r2` is an immutable historical Candidate. It targets Evidence Head `5d125e141b3133ff887fbc6c79132186e567163a` and introduced the schema-v2 detached Manifest with raw digest `dedc5dc09ae8a344ce023978751a68793998b60208b3e8ae7ad23bc58784cb9f`. GitHub rejected both RC Artifact Build push runs (`31950465373` and `31950466051`) before creating any job because the workflow referenced the runner-only `runner.temp` context from job-level `env`. No Product Source or frozen artifact was implicated. The tag is retained without movement or rewriting.
+
+The corrective Candidate is `v2-rc2-r3`. Temporary artifact paths are now declared only at step scope, where the runner context is available, and the workflow verifier rejects any recurrence of job-level `runner.temp` use.
+
 ## Cross-platform npm rebuild equivalence
 
 Raw npm tarballs remain identified only by their exact SHA-256; different raw hashes are never called identical. CI rebuild comparison uses `scanly-npm-package-canonical-1`: gzip/tar metadata is excluded, archive headers and paths are validated, entries are sorted by UTF-8 path, strict UTF-8 non-binary content has CRLF or CR normalized to LF, and path/content records are length-framed before SHA-256. This permits a Windows-frozen package and an Ubuntu rebuild to prove package-content equivalence without claiming raw-byte equality.
