@@ -26,7 +26,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Verify detached RC2 Manifest before evidence assembly
-        run: npm run rc:manifest:verify -- --require-candidate-tag
+        run: npm run rc:manifest:verify -- --require-candidate-tag --require-exact-candidate-head
       - run: npm run build:packages
       - run: npm run native:api
       - run: npm run native:abi
@@ -35,6 +35,6 @@ jobs:
       - name: Rebuild reproducibility evidence in an isolated output
         run: npm run rc:repro -- --output=${{ runner.temp }}/rc2-reproducibility.json
       - name: Re-verify detached RC2 Manifest after reproducibility assembly
-        run: npm run rc:manifest:verify -- --require-candidate-tag
+        run: npm run rc:manifest:verify -- --require-candidate-tag --require-exact-candidate-head
       - uses: actions/upload-artifact@v4
         with: { name: rc2-candidate-evidence, path: release/rc2 }

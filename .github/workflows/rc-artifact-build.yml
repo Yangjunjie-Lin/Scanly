@@ -5,7 +5,7 @@ on:
   pull_request:
     branches: [develop/sdk-v2, release/sdk-v2-rc2-final-validation]
   push:
-    branches: [release/sdk-v2-rc2-final-validation]
+    branches: [develop/sdk-v2, release/sdk-v2-rc2-final-validation]
 
 permissions:
   contents: read
@@ -25,6 +25,12 @@ jobs:
         with: { node-version: 20, cache: npm }
       - run: npm ci
       - run: npm run rc:manifest:verify -- --require-candidate-tag
+      - name: Require exact Candidate tag on the RC Candidate ref
+        if: >-
+          github.ref_name == 'release/sdk-v2-rc2-final-validation' ||
+          github.head_ref == 'release/sdk-v2-rc2-final-validation' ||
+          github.base_ref == 'release/sdk-v2-rc2-final-validation'
+        run: npm run rc:manifest:verify -- --require-candidate-tag --require-exact-candidate-head
 
   npm:
     name: npm RC artifacts

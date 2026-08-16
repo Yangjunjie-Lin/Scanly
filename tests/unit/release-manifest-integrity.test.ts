@@ -26,6 +26,14 @@ const resignTemporaryCandidate = (candidateManifest: string, candidateSidecar: s
   const digest = crypto.createHash("sha256").update(bytes).digest("hex");
   fs.writeFileSync(candidateSidecar, `${digest}  ${path.basename(candidateManifest)}\n`, "utf8");
 };
+const clonedRepository = () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "scanly-release-manifest-repository-"));
+  temporaryDirectories.push(directory);
+  const repository = path.join(directory, "repository");
+  execFileSync("git", ["clone", "--quiet", "--shared", root, repository], { cwd: root });
+  fs.copyFileSync(verifier, path.join(repository, "scripts", "verify-release-manifest.mjs"));
+  return repository;
+};
 
 afterEach(() => {
   for (const directory of temporaryDirectories.splice(0)) fs.rmSync(directory, { recursive: true, force: true });
@@ -35,7 +43,7 @@ describe("RC2 detached Release Manifest integrity", () => {
   it("verifies raw bytes and classifies both historical manifests without upgrading their claims", () => {
     const output = execFileSync(process.execPath, [verifier], { cwd: root, encoding: "utf8" });
     expect(output).toContain("RC2_MANIFEST_INTEGRITY_GO");
-    expect(output).toMatch(/CANDIDATE_TAG_(?:NOT_PRESENT|BOUND)/);
+    expect(output).toMatch(/CANDIDATE_TAG_(?:NOT_PRESENT|BOUND|INTEGRATED)/);
     expect(output).toContain(expectedCandidateTag);
     expect(output.match(/LEGACY_MANIFEST_HASH_UNVERIFIED/g)).toHaveLength(2);
     expect(output).not.toContain("PASS_RAW_SHA256");
@@ -80,6 +88,50 @@ describe("RC2 detached Release Manifest integrity", () => {
       expect(output).not.toContain("PASS_RAW_SHA256");
     }
   });
+
+  it("distinguishes an exact Candidate head from a Candidate integrated into a descendant", () => {
+    const head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+    const target = execFileSync("git", ["rev-list", "-n", "1", expectedCandidateTag], { cwd: root, encoding: "utf8" }).trim();
+    const ancestry = spawnSync("git", ["merge-base", "--is-ancestor", target, head], { cwd: root });
+    expect(ancestry.status).toBe(0);
+
+    const integrated = execFileSync(process.execPath, [verifier, "--require-candidate-tag"], { cwd: root, encoding: "utf8" });
+    expect(integrated).toContain(target === head ? "CANDIDATE_TAG_BOUND" : "CANDIDATE_TAG_INTEGRATED");
+
+    const exact = spawnSync(process.execPath, [verifier, "--require-exact-candidate-head"], { cwd: root, encoding: "utf8" });
+    if (target === head) {
+      expect(exact.status).toBe(0);
+      expect(exact.stdout).toContain("CANDIDATE_TAG_BOUND");
+    } else {
+      expect(exact.status).not.toBe(0);
+      expect(exact.stderr).toContain("Candidate tag does not target the exact Evidence Head.");
+    }
+  }, 90_000);
+
+  it("rejects descendant rewriting of Candidate-bound release evidence", () => {
+    const repository = clonedRepository();
+    const repositoryManifest = path.join(repository, "release", "rc2", "rc2-candidate-manifest.v2.json");
+    const repositorySidecar = `${repositoryManifest}.sha256`;
+    const value = JSON.parse(fs.readFileSync(repositoryManifest, "utf8"));
+    value.postTagMutation = true;
+    fs.writeFileSync(repositoryManifest, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+    resignTemporaryCandidate(repositoryManifest, repositorySidecar);
+    execFileSync("git", ["add", "release/rc2/rc2-candidate-manifest.v2.json", "release/rc2/rc2-candidate-manifest.v2.json.sha256"], { cwd: repository });
+    execFileSync("git", ["-c", "user.name=Scanly Test", "-c", "user.email=scanly-test@example.invalid", "commit", "--quiet", "--no-verify", "-m", "test: mutate candidate evidence"], { cwd: repository });
+
+    const result = spawnSync(process.execPath, [path.join(repository, "scripts", "verify-release-manifest.mjs"), "--require-candidate-tag"], { cwd: repository, encoding: "utf8" });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("Candidate-bound release/rc2 evidence changed after the immutable Candidate tag.");
+  }, 90_000);
+
+  it("rejects movement of an immutable Candidate tag object and target", () => {
+    const repository = clonedRepository();
+    execFileSync("git", ["-c", "user.name=Scanly Test", "-c", "user.email=scanly-test@example.invalid", "tag", "--force", "--annotate", "v2-rc2-r4", "--message", "moved test tag", "HEAD"], { cwd: repository });
+
+    const result = spawnSync(process.execPath, [path.join(repository, "scripts", "verify-release-manifest.mjs"), "--require-candidate-tag"], { cwd: repository, encoding: "utf8" });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toMatch(/Immutable Candidate tag 'v2-rc2-r4' (?:object changed|target moved)/);
+  }, 90_000);
 
   it("rejects unknown schemas outside the two anchored legacy paths", () => {
     const candidate = temporaryCandidate();
@@ -132,13 +184,19 @@ describe("RC2 detached Release Manifest integrity", () => {
 
     for (const workflow of [integrity, evidence, artifacts, stable]) expect(workflow).toContain("rc:manifest:verify");
     expect(integrity).toContain("--require-candidate-tag");
+    expect(integrity).toContain("--require-exact-candidate-head");
+    expect(integrity).toContain("branches: [develop/sdk-v2, release/sdk-v2-rc2-final-validation]");
     expect(evidence).not.toContain("rc2-candidate-manifest.template.json");
+    expect(evidence.match(/--require-exact-candidate-head/g)).toHaveLength(2);
     expect(evidence).toContain("npm run rc:sbom -- --verify");
     expect(evidence).toContain("npm run rc:repro -- --output=${{ runner.temp }}/rc2-reproducibility.json");
     expect(artifacts).toContain("RC2_ARTIFACT_ROOT: ${{ runner.temp }}/rc2-artifacts");
     expect(artifacts).toContain("Record isolated CI rebuild identities without rewriting frozen evidence");
     expect(artifacts).toContain("rc:artifacts:verify-canonical");
+    expect(artifacts).toContain("--require-exact-candidate-head");
+    expect(artifacts).toContain("branches: [develop/sdk-v2, release/sdk-v2-rc2-final-validation]");
     expect(stable).toContain("--mode=stable");
+    expect(stable).not.toContain("--require-exact-candidate-head");
     expect(stable).toContain("device:evidence:verify");
   });
 });

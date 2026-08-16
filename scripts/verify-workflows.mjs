@@ -66,8 +66,17 @@ for (const file of ["rc-manifest-integrity.yml", "rc-evidence-assemble.yml", "rc
 }
 
 const manifestIntegrityWorkflow = fs.readFileSync(path.join(workflowDirectory, "rc-manifest-integrity.yml"), "utf8");
+for (const file of ["rc-manifest-integrity.yml", "rc-artifact-build.yml"]) {
+  const pushBranches = parsedWorkflows.get(file)?.on?.push?.branches ?? [];
+  if (!pushBranches.includes("develop/sdk-v2") || !pushBranches.includes("release/sdk-v2-rc2-final-validation")) {
+    throw new Error(`${file}: post-merge develop and exact Candidate push gates are both required.`);
+  }
+}
 for (const legacy of ["release/rc1/rc1-candidate-manifest.json", "release/rc2/rc2-candidate-manifest.json"]) {
   if (!manifestIntegrityWorkflow.includes(legacy)) throw new Error(`rc-manifest-integrity.yml: missing explicit legacy classification for ${legacy}.`);
+}
+if (!manifestIntegrityWorkflow.includes("--require-exact-candidate-head") || !manifestIntegrityWorkflow.includes("github.ref_name == 'release/sdk-v2-rc2-final-validation'")) {
+  throw new Error("rc-manifest-integrity.yml: RC Candidate refs must enforce exact Candidate tag binding.");
 }
 const evidenceAssemblyWorkflow = fs.readFileSync(path.join(workflowDirectory, "rc-evidence-assemble.yml"), "utf8");
 if (evidenceAssemblyWorkflow.includes("rc2-candidate-manifest.template.json") || evidenceAssemblyWorkflow.includes("cp release/rc2/rc2-candidate-manifest")) {
@@ -76,9 +85,15 @@ if (evidenceAssemblyWorkflow.includes("rc2-candidate-manifest.template.json") ||
 for (const command of ["npm run rc:sbom -- --verify", "npm run rc:repro -- --output=${{ runner.temp }}/rc2-reproducibility.json"]) {
   if (!evidenceAssemblyWorkflow.includes(command)) throw new Error(`rc-evidence-assemble.yml: missing non-mutating frozen evidence check '${command}'.`);
 }
+if ((evidenceAssemblyWorkflow.match(/--require-exact-candidate-head/g) ?? []).length !== 2) {
+  throw new Error("rc-evidence-assemble.yml: both frozen Candidate verification passes must enforce exact tag binding.");
+}
 const artifactBuildWorkflow = fs.readFileSync(path.join(workflowDirectory, "rc-artifact-build.yml"), "utf8");
 if (!artifactBuildWorkflow.includes("rc:artifacts:verify-canonical") || !artifactBuildWorkflow.includes("RC2_ARTIFACT_ROOT: ${{ runner.temp }}/rc2-artifacts")) {
   throw new Error("rc-artifact-build.yml: isolated rebuild lacks canonical package-content equivalence verification.");
+}
+if (!artifactBuildWorkflow.includes("--require-exact-candidate-head") || !artifactBuildWorkflow.includes("github.ref_name == 'release/sdk-v2-rc2-final-validation'")) {
+  throw new Error("rc-artifact-build.yml: RC Candidate refs must enforce exact Candidate tag binding.");
 }
 const artifactBuildDocument = parsedWorkflows.get("rc-artifact-build.yml");
 const artifactNpmJob = artifactBuildDocument?.jobs?.npm;
@@ -102,7 +117,7 @@ for (const [stepName, expectedEnvironment] of requiredTemporaryStepEnvironment) 
   }
 }
 const stableReleaseWorkflow = fs.readFileSync(path.join(workflowDirectory, "stable-release-gate.yml"), "utf8");
-if (!stableReleaseWorkflow.includes("--mode=stable") || !stableReleaseWorkflow.includes("device:evidence:verify")) {
+if (!stableReleaseWorkflow.includes("--mode=stable") || !stableReleaseWorkflow.includes("device:evidence:verify") || stableReleaseWorkflow.includes("--require-exact-candidate-head")) {
   throw new Error("stable-release-gate.yml: stable Manifest and Physical Evidence gates are incomplete.");
 }
 
