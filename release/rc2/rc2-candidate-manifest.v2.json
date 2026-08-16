@@ -1,0 +1,125 @@
+{
+  "schemaVersion": "rc2-final-candidate-manifest-2",
+  "manifestDigest": {
+    "digestAlgorithm": "SHA-256",
+    "digestScope": "RAW_FILE_BYTES",
+    "encoding": "UTF-8",
+    "lineEnding": "LF",
+    "bom": false,
+    "digestStorage": "DETACHED_SIDECAR",
+    "sidecar": "release/rc2/rc2-candidate-manifest.v2.json.sha256"
+  },
+  "identity": {
+    "version": "2.0.0-rc.2",
+    "productSourceCommit": "20bd2d465c87b0d10e2504637a035b0f66c13e63",
+    "sourceTree": "ba395228c37cfa2634d39b2200151d81fab67efa",
+    "qualificationBaseCommit": "55088d8d1a1a120585d5cef08dedbe16f7cd587b",
+    "candidateTag": "v2-rc2-r2",
+    "candidateBinding": "GIT_ANNOTATED_TAG_TARGET"
+  },
+  "software": {
+    "status": "RC2_SOFTWARE_GO",
+    "featureFreeze": true,
+    "productSourceUnchanged": true,
+    "apiAbiFreeze": "GO"
+  },
+  "artifacts": {
+    "status": "PASS_RC2_CI_REBUILD",
+    "manifest": {
+      "path": "release/rc2/artifact-manifest.v2.json",
+      "sha256": "88111c98ab15fb263b0cce965ede73504cb653c45edf22f3f0c5a1793d12cc59",
+      "size": 4958
+    },
+    "required": [
+      {
+        "id": "ios-source-package",
+        "path": "release/rc2/artifacts/ios/Package.swift",
+        "sha256": "a043efa623b9cbcd90cd3e4bf89aab20fe6deb9848e09ca0c88573084768717e",
+        "size": 1175
+      },
+      {
+        "id": "android-aar",
+        "path": "release/rc2/artifacts/android/scanly-sdk-release.aar",
+        "sha256": "d2bd3392a0811e2e5cb4fe561c1df8ca80f0f8571d50cba61f160e142f9950b5",
+        "size": 1221160
+      },
+      {
+        "id": "native-core-header",
+        "path": "release/rc2/artifacts/native/scanly-core.h",
+        "sha256": "82dee124d9b88e8ee2c9ea6727a83a3a9e08fb6b70ca753c404928d70624d07a",
+        "size": 8005
+      }
+    ]
+  },
+  "sbom": {
+    "path": "release/rc2/sbom.cdx.json",
+    "sha256": "a68a10597bb26a7f1a2d6891a3d34947964e411a961b790ee8d5e2aa9c9804be",
+    "size": 6255,
+    "sourceCommit": "20bd2d465c87b0d10e2504637a035b0f66c13e63"
+  },
+  "licenses": {
+    "path": "release/rc2/license-inventory.json",
+    "sha256": "2da99e39f860151f802241d53ee4acc6434fe8d33d1c9c517b5340af5b3454c9",
+    "size": 3347
+  },
+  "reproducibility": {
+    "path": "release/rc2/reproducibility.json",
+    "sha256": "225f0d43408a6fe049aa7886796e321aef248a395a839448085eb7ad57ed81f0",
+    "size": 33321
+  },
+  "provenance": {
+    "status": "PASS_EXACT_SOURCE_DEPLOYMENT",
+    "deployment": {
+      "id": "dpl_4HLYL2TtuMNFEg9kDdBcNppRRDSo",
+      "url": "https://qr-decoder-6w0qc17i2-yangjunjie-lins-projects.vercel.app",
+      "gitCommitSha": "20bd2d465c87b0d10e2504637a035b0f66c13e63",
+      "readyState": "READY"
+    }
+  },
+  "physicalEvidence": {
+    "status": "RC2_PHYSICAL_NO_GO",
+    "blocker": "BLOCKED_EXTERNAL_PHYSICAL_HARDWARE",
+    "matrix": {
+      "path": "release/rc2/physical-validation-matrix.json",
+      "sha256": "49b6e5e744fad360f046addb1277194eef26d990932c317c08b26f73f134a946",
+      "size": 3544
+    },
+    "evidenceDirectory": "release/rc2/physical-evidence"
+  },
+  "signing": {
+    "status": "RC2_SIGNING_NO_GO",
+    "blocker": "BLOCKED_EXTERNAL_RELEASE_CREDENTIALS",
+    "policy": {
+      "path": "release/rc2/signing-policy.json",
+      "sha256": "47f57e2dc4948ed68ab8e0f7fadeccb08e57c6445c1f9f2535e2752728d20d22",
+      "size": 450
+    }
+  },
+  "legacyManifests": [
+    {
+      "path": "release/rc1/rc1-candidate-manifest.json",
+      "anchorTag": "v2-rc1-r1",
+      "expectedTagObject": "c1d3a97edef30bc315e943846fa51f52aec2329f",
+      "expectedTagTarget": "68f7346674830f6f2588cc2e4c9254e10b74b25e",
+      "classification": "LEGACY_MANIFEST_HASH_UNVERIFIED"
+    },
+    {
+      "path": "release/rc2/rc2-candidate-manifest.json",
+      "anchorTag": "v2-rc2-r1",
+      "expectedTagObject": "a5d3e9afe28d2490fa203a34218a786740e3d125",
+      "expectedTagTarget": "55088d8d1a1a120585d5cef08dedbe16f7cd587b",
+      "classification": "LEGACY_MANIFEST_HASH_UNVERIFIED"
+    }
+  ],
+  "overall": {
+    "software": "RC2_SOFTWARE_GO",
+    "manifestIntegrity": "RC2_MANIFEST_INTEGRITY_GO",
+    "physical": "RC2_PHYSICAL_NO_GO",
+    "signing": "RC2_SIGNING_NO_GO",
+    "stable": "V2_STABLE_RELEASE_NO_GO",
+    "blockers": [
+      "BLOCKED_EXTERNAL_PHYSICAL_HARDWARE",
+      "BLOCKED_EXTERNAL_RELEASE_CREDENTIALS"
+    ]
+  }
+}

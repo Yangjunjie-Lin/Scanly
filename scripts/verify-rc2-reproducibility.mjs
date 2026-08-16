@@ -5,6 +5,10 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 
 const root = path.resolve(import.meta.dirname, "..");
+const verifyOnly = process.argv.includes("--verify");
+const outputIndex = process.argv.indexOf("--output");
+const outputArgument = process.argv.find((value) => value.startsWith("--output="))?.slice("--output=".length)
+  ?? (outputIndex >= 0 ? process.argv[outputIndex + 1] : undefined);
 const packages = ["packages/core", "packages/browser", "packages/node", "packages/react"];
 const normalize = (value) => value.replaceAll("\\", "/").replace(/\r\n/g, "\n");
 const hash = (value) => crypto.createHash("sha256").update(value).digest("hex");
@@ -24,8 +28,16 @@ const first = snapshot();
 const second = snapshot();
 const pass = JSON.stringify(first) === JSON.stringify(second);
 const report = { schemaVersion: "rc2-reproducibility-1", version: "2.0.0-rc.2", pass, buildA: first, buildB: second, normalizedComparison: pass ? "MATCH" : "MISMATCH" };
-const output = path.join(root, "release/rc2/reproducibility.json");
+const output = outputArgument ? path.resolve(root, outputArgument) : path.join(root, "release/rc2/reproducibility.json");
+const serialized = `${JSON.stringify(report, null, 2)}\n`;
+if (verifyOnly) {
+  if (!fs.existsSync(output) || !fs.readFileSync(output).equals(Buffer.from(serialized, "utf8"))) {
+    throw new Error("Frozen RC2 reproducibility report does not match the current normalized package snapshots.");
+  }
+  console.log(`Verified frozen ${path.relative(root, output)} without rewriting historical evidence.`);
+  process.exit(0);
+}
 fs.mkdirSync(path.dirname(output), { recursive: true });
-fs.writeFileSync(output, `${JSON.stringify(report, null, 2)}\n`);
+fs.writeFileSync(output, serialized);
 if (!pass) throw new Error("RC2 normalized package contents differ between clean-build snapshots.");
 console.log(`RC2 reproducibility passed (${os.platform()} runner).`);

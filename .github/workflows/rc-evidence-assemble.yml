@@ -12,29 +12,29 @@ jobs:
   assemble:
     name: RC2 candidate manifest
     runs-on: ubuntu-latest
+    env:
+      RC2_SOURCE_COMMIT: 20bd2d465c87b0d10e2504637a035b0f66c13e63
+      RC2_SOURCE_TREE: ba395228c37cfa2634d39b2200151d81fab67efa
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.sha }}
       - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: npm
       - run: npm ci
+      - name: Verify detached RC2 Manifest before evidence assembly
+        run: npm run rc:manifest:verify -- --require-candidate-tag
       - run: npm run build:packages
       - run: npm run native:api
       - run: npm run native:abi
       - run: npm run rc:licenses
-      - run: npm run rc:sbom
-      - run: npm run rc:repro
-      - name: Assemble exact source identity
-        shell: bash
-        run: |
-          mkdir -p release/rc2
-          SOURCE_SHA="$(git rev-parse HEAD)" SOURCE_TREE="$(git rev-parse HEAD^{tree})" node scripts/generate-rc2-artifact-manifest.mjs
-          cp release/rc2/rc2-candidate-manifest.template.json release/rc2/rc2-candidate-manifest.json
-          node - <<'NODE'
-          const fs=require('fs'); const p='release/rc2/rc2-candidate-manifest.json'; const j=JSON.parse(fs.readFileSync(p)); const {execFileSync}=require('child_process'); j.identity.sourceCommit=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(); j.identity.sourceTree=execFileSync('git',['rev-parse','HEAD^{tree}'],{encoding:'utf8'}).trim(); fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');
-          NODE
+      - run: npm run rc:sbom -- --verify
+      - name: Rebuild reproducibility evidence in an isolated output
+        run: npm run rc:repro -- --output=${{ runner.temp }}/rc2-reproducibility.json
+      - name: Re-verify detached RC2 Manifest after reproducibility assembly
+        run: npm run rc:manifest:verify -- --require-candidate-tag
       - uses: actions/upload-artifact@v4
         with: { name: rc2-candidate-evidence, path: release/rc2 }

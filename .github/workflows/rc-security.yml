@@ -14,6 +14,8 @@ jobs:
   security:
     name: RC Security
     runs-on: ubuntu-latest
+    env:
+      RC2_SOURCE_COMMIT: 20bd2d465c87b0d10e2504637a035b0f66c13e63
     steps:
       - uses: actions/checkout@v4
         with:
@@ -35,7 +37,7 @@ jobs:
       - name: License inventory and SBOM
         run: |
           npm run rc:licenses
-          npm run rc:sbom
+          npm run rc:sbom -- --verify
       - name: Secret scan
         shell: bash
         run: |
@@ -52,6 +54,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       - name: Build ASan/UBSan test and fuzz targets
         run: |
           cmake -S native/core -B .native-build/rc-security -G Ninja \

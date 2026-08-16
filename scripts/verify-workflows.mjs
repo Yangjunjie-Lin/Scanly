@@ -58,4 +58,31 @@ if (gateInput?.default !== "integration" || !gateInput?.options?.includes("relea
   throw new Error("benchmark.yml: manual gate_mode must default to integration and retain explicit release mode.");
 }
 
+for (const file of ["rc-manifest-integrity.yml", "rc-evidence-assemble.yml", "rc-artifact-build.yml", "stable-release-gate.yml"]) {
+  if (!parsedWorkflows.has(file)) throw new Error(`Missing release-integrity workflow '${file}'.`);
+  const source = fs.readFileSync(path.join(workflowDirectory, file), "utf8");
+  if (!source.includes("rc:manifest:verify")) throw new Error(`${file}: missing detached Manifest verifier gate.`);
+  if (!source.includes("fetch-depth: 0")) throw new Error(`${file}: release integrity requires full Git history and tags.`);
+}
+
+const manifestIntegrityWorkflow = fs.readFileSync(path.join(workflowDirectory, "rc-manifest-integrity.yml"), "utf8");
+for (const legacy of ["release/rc1/rc1-candidate-manifest.json", "release/rc2/rc2-candidate-manifest.json"]) {
+  if (!manifestIntegrityWorkflow.includes(legacy)) throw new Error(`rc-manifest-integrity.yml: missing explicit legacy classification for ${legacy}.`);
+}
+const evidenceAssemblyWorkflow = fs.readFileSync(path.join(workflowDirectory, "rc-evidence-assemble.yml"), "utf8");
+if (evidenceAssemblyWorkflow.includes("rc2-candidate-manifest.template.json") || evidenceAssemblyWorkflow.includes("cp release/rc2/rc2-candidate-manifest")) {
+  throw new Error("rc-evidence-assemble.yml: historical Manifest rewrite remains present.");
+}
+for (const command of ["npm run rc:sbom -- --verify", "npm run rc:repro -- --output=${{ runner.temp }}/rc2-reproducibility.json"]) {
+  if (!evidenceAssemblyWorkflow.includes(command)) throw new Error(`rc-evidence-assemble.yml: missing non-mutating frozen evidence check '${command}'.`);
+}
+const artifactBuildWorkflow = fs.readFileSync(path.join(workflowDirectory, "rc-artifact-build.yml"), "utf8");
+if (!artifactBuildWorkflow.includes("rc:artifacts:verify-canonical") || !artifactBuildWorkflow.includes("RC2_ARTIFACT_ROOT: ${{ runner.temp }}/rc2-artifacts")) {
+  throw new Error("rc-artifact-build.yml: isolated rebuild lacks canonical package-content equivalence verification.");
+}
+const stableReleaseWorkflow = fs.readFileSync(path.join(workflowDirectory, "stable-release-gate.yml"), "utf8");
+if (!stableReleaseWorkflow.includes("--mode=stable") || !stableReleaseWorkflow.includes("device:evidence:verify")) {
+  throw new Error("stable-release-gate.yml: stable Manifest and Physical Evidence gates are incomplete.");
+}
+
 console.log(`Verified YAML syntax for ${workflowFiles.length} GitHub Actions workflows.`);
