@@ -6,6 +6,8 @@ import { TextDecoder } from "node:util";
 import { canonicalNpmTarballSha256, NPM_CANONICALIZATION_POLICY } from "./release-artifact-canonicalization.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
+const canonicalManifestPath = path.resolve(root, "release/rc2/rc2-candidate-manifest.v2.json");
+const canonicalSidecarPath = `${canonicalManifestPath}.sha256`;
 const args = process.argv.slice(2);
 const option = (name, fallback) => {
   const equals = args.find((value) => value.startsWith(`${name}=`));
@@ -17,15 +19,22 @@ const has = (name) => args.includes(name);
 const mode = option("--mode", "integrity");
 const manifestArgument = option("--manifest", "release/rc2/rc2-candidate-manifest.v2.json");
 const sidecarArgument = option("--sidecar", `${manifestArgument}.sha256`);
-const requireCandidateTag = has("--require-candidate-tag") || mode === "stable";
+const requireExactCandidateHead = has("--require-exact-candidate-head");
+const requireCandidateTag = has("--require-candidate-tag") || requireExactCandidateHead || mode === "stable";
 const knownLegacyManifestPaths = new Set([
   path.resolve(root, "release/rc1/rc1-candidate-manifest.json"),
   path.resolve(root, "release/rc2/rc2-candidate-manifest.json"),
+]);
+const immutableCandidateTagLocks = new Map([
+  ["v2-rc2-r2", { tagObject: "1ff2c77b53ef864d09bdae89ced0d67fd5bea2c2", target: "5d125e141b3133ff887fbc6c79132186e567163a" }],
+  ["v2-rc2-r3", { tagObject: "dfa7835b7393e1ac9857368f958a922e32d7928d", target: "7077ddfa65fda8be81e6be86f5e7619815f5df99" }],
+  ["v2-rc2-r4", { tagObject: "66143a81576faf3b54bbe35b934315d38f17659d", target: "5574ef54c4c7870df28748cfebae4ff2d3994de5" }],
 ]);
 
 const fail = (message) => { throw new Error(message); };
 const assert = (condition, message) => { if (!condition) fail(message); };
 assert(mode === "integrity" || mode === "stable", `Unsupported mode '${mode}'.`);
+assert(!(mode === "stable" && requireExactCandidateHead), "Stable mode cannot require an exact Candidate Evidence Head; it verifies Candidate ancestry instead.");
 const sha256 = (bytes) => crypto.createHash("sha256").update(bytes).digest("hex");
 const isSha256 = (value) => typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
 const isCommit = (value) => typeof value === "string" && /^[0-9a-f]{40}$/.test(value);
@@ -131,6 +140,13 @@ assert(gitSucceeds("merge-base", "--is-ancestor", identity.qualificationBaseComm
 assert(identity.candidateBinding === "GIT_ANNOTATED_TAG_TARGET", "Candidate binding policy must use an annotated Git tag target.");
 const candidateNumber = /^v2-rc2-r([1-9][0-9]*)$/.exec(identity.candidateTag ?? "");
 assert(candidateNumber && Number(candidateNumber[1]) >= 2, "Candidate tag must be v2-rc2-r2 or later.");
+for (const [tag, expected] of immutableCandidateTagLocks) {
+  const ref = `refs/tags/${tag}`;
+  assert(gitSucceeds("show-ref", "--verify", "--quiet", ref), `Immutable Candidate tag '${tag}' is missing.`);
+  assert(git("cat-file", "-t", ref) === "tag", `Immutable Candidate tag '${tag}' is no longer annotated.`);
+  assert(git("rev-parse", ref) === expected.tagObject, `Immutable Candidate tag '${tag}' object changed.`);
+  assert(git("rev-parse", `${ref}^{}`) === expected.target, `Immutable Candidate tag '${tag}' target moved.`);
+}
 for (const productPath of ["apps", "engines", "native", "packages"]) {
   assert(gitSucceeds("diff", "--quiet", identity.productSourceCommit, "HEAD", "--", productPath), `Product Source boundary changed under ${productPath}.`);
   assert(gitSucceeds("diff", "--quiet", "HEAD", "--", productPath) && git("status", "--porcelain", "--", productPath) === "", `Working tree contains Product Source changes under ${productPath}.`);
@@ -153,14 +169,28 @@ assert(historicalReleaseChanges.every((entry) => entry.startsWith("A\t")), `Hist
 let candidateBinding = "CANDIDATE_TAG_NOT_PRESENT";
 const candidateRef = `refs/tags/${identity.candidateTag}`;
 if (gitSucceeds("show-ref", "--verify", "--quiet", candidateRef)) {
-  assert(git("cat-file", "-t", candidateRef) === "tag", "Candidate tag must be annotated.");
-  const candidateTarget = git("rev-parse", `${candidateRef}^{}`);
-  if (mode === "stable") {
-    assert(gitSucceeds("merge-base", "--is-ancestor", candidateTarget, "HEAD"), "Qualified Candidate tag is not an ancestor of the Stable Release Head.");
+  const canonicalCandidateInput = manifestPath === canonicalManifestPath && sidecarPath === canonicalSidecarPath;
+  if (!canonicalCandidateInput) {
+    assert(!requireCandidateTag, "Candidate tag binding requires the canonical RC2 Manifest and detached sidecar paths.");
+    candidateBinding = "CANDIDATE_TAG_NOT_APPLICABLE";
   } else {
-    assert(candidateTarget === git("rev-parse", "HEAD"), "Candidate tag does not target the exact Evidence Head.");
+    assert(git("cat-file", "-t", candidateRef) === "tag", "Candidate tag must be annotated.");
+    const candidateTarget = git("rev-parse", `${candidateRef}^{}`);
+    const evidenceHead = git("rev-parse", "HEAD");
+    if (mode === "stable") {
+      assert(gitSucceeds("merge-base", "--is-ancestor", candidateTarget, "HEAD"), "Qualified Candidate tag is not an ancestor of the Stable Release Head.");
+    } else if (requireExactCandidateHead) {
+      assert(candidateTarget === evidenceHead, "Candidate tag does not target the exact Evidence Head.");
+    } else {
+      assert(gitSucceeds("merge-base", "--is-ancestor", candidateTarget, "HEAD"), "Candidate tag is neither the exact Evidence Head nor an ancestor integrated into it.");
+    }
+    assert(gitSucceeds("diff", "--quiet", "HEAD", "--", "release/rc2") && git("status", "--porcelain", "--", "release/rc2") === "", "Candidate-bound release/rc2 evidence has uncommitted or untracked changes.");
+    if (candidateTarget !== evidenceHead) {
+      assert(immutableCandidateTagLocks.has(identity.candidateTag), `Integrated Candidate tag '${identity.candidateTag}' has no immutable object/target lock.`);
+      assert(gitSucceeds("diff", "--quiet", candidateTarget, "HEAD", "--", "release/rc2"), "Candidate-bound release/rc2 evidence changed after the immutable Candidate tag.");
+    }
+    candidateBinding = candidateTarget === evidenceHead ? "CANDIDATE_TAG_BOUND" : "CANDIDATE_TAG_INTEGRATED";
   }
-  candidateBinding = "CANDIDATE_TAG_BOUND";
 } else {
   assert(!requireCandidateTag, `Required candidate tag '${identity.candidateTag}' is not present.`);
 }

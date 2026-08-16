@@ -10,7 +10,7 @@ Run the independent verifier with:
 npm run rc:manifest:verify
 ```
 
-Before a Candidate tag exists this verifies the complete content graph and reports `CANDIDATE_TAG_NOT_PRESENT`. After the annotated Candidate tag is created, release CI uses `--require-candidate-tag` and requires its peeled target to equal the exact Evidence Head. The Manifest records the pre-existing qualification base rather than attempting to embed the commit that contains itself.
+Before a Candidate tag exists this verifies the complete content graph and reports `CANDIDATE_TAG_NOT_PRESENT`. Candidate refs additionally use `--require-exact-candidate-head`, which requires the annotated tag's peeled target to equal the exact Evidence Head. A later develop or Stable integration uses `--require-candidate-tag`: the immutable Candidate target must be an ancestor, its tag object and target must match the audit lock, and the complete `release/rc2` evidence tree must remain unchanged. The Manifest records the pre-existing qualification base rather than attempting to embed the commit that contains itself.
 
 The verifier recomputes:
 
@@ -18,7 +18,7 @@ The verifier recomputes:
 - Product Source commit/tree and the evidence-only source boundary;
 - every frozen artifact raw SHA-256 and size;
 - the SBOM, license, reproducibility, Physical Matrix, Signing Policy, and deployment identities;
-- the immutable tag objects and targets for RC1 r1 and RC2 r1;
+- the immutable tag objects and targets for RC1 r1 and RC2 r1-r4;
 - fail-closed Physical, Signing, blocker, and Stable state consistency.
 
 ## Candidate audit trail
@@ -27,7 +27,7 @@ The verifier recomputes:
 
 `v2-rc2-r3` is also retained as an immutable historical Candidate. It targets Evidence Head `7077ddfa65fda8be81e6be86f5e7619815f5df99`, uses raw Manifest digest `12aa04ed8004a1dceda183b8af72f257986e722d3999abcfd93a66e1677f6ab5`, and repaired the Artifact Build workflow validation. Its exact-head CI run `31950939431` then exposed a test-only environment-contract error: six Manifest negative tests requested a local canonical-recompute bypass that the verifier correctly refused under GitHub Actions. The failure did not implicate Product Source; 580 other unit tests passed.
 
-The corrective Candidate is `v2-rc2-r4`. The canonical artifact recomputation bypass has been removed entirely from both the verifier and its tests, so negative tests exercise the same recomputation path as release CI.
+The corrective Candidate is `v2-rc2-r4`. It targets Evidence Head `5574ef54c4c7870df28748cfebae4ff2d3994de5` with immutable annotated tag object `66143a81576faf3b54bbe35b934315d38f17659d`. The canonical artifact recomputation bypass has been removed entirely from both the verifier and its tests, so negative tests exercise the same recomputation path as release CI.
 
 ## Cross-platform npm rebuild equivalence
 
