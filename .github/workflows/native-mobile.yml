@@ -2,6 +2,11 @@ name: Native Mobile
 
 on:
   workflow_dispatch:
+    inputs:
+      source_commit:
+        description: Exact source commit to build (used for Stable artifact provenance)
+        required: false
+        type: string
   pull_request:
     branches:
       - develop/sdk-v2
@@ -24,7 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.source_commit || github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v7
         with:
           node-version: 20
@@ -75,7 +80,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.source_commit || github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       - name: Resolve pinned Swift package
         working-directory: native/ios
         run: swift package resolve
@@ -97,7 +102,7 @@ jobs:
           find native/ios/.build \( -name 'ScanlySDK.swiftmodule' -o -name 'ScanlySDK.swiftdoc' -o -name 'libScanlySDK*' \) -print | tee native/ios/ios-artifacts.txt
           test -s native/ios/ios-artifacts.txt
           du -sk native/ios/.build | tee native/ios/ios-build-size.txt
-          printf '%s\n' 'NATIVE_PHYSICAL_IOS_PENDING / DEFERRED_TO_RC' > native/ios/physical-status.txt
+          printf '%s\n' 'NATIVE_PHYSICAL_IOS_PENDING / POST_RELEASE_VALIDATION_PENDING' > native/ios/physical-status.txt
       - uses: actions/upload-artifact@v4
         with:
           name: ios-native-evidence
@@ -113,7 +118,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.source_commit || github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -152,7 +157,7 @@ jobs:
           grep -q 'io/scanly/sdk/ScanlyResult.class' .native-build/android-classes.txt
           readelf --dyn-syms .native-build/aar/jni/arm64-v8a/libscanly_jni.so | tee .native-build/android-symbols.txt
           ! grep -E '_ZN.*ZXing|ZXing::' .native-build/android-symbols.txt
-          printf '%s\n' 'NATIVE_PHYSICAL_ANDROID_PENDING / DEFERRED_TO_RC' > .native-build/android-physical-status.txt
+          printf '%s\n' 'NATIVE_PHYSICAL_ANDROID_PENDING / POST_RELEASE_VALIDATION_PENDING' > .native-build/android-physical-status.txt
       - uses: actions/upload-artifact@v4
         with:
           name: android-aar
@@ -173,7 +178,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.source_commit || github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       - name: Build ASan/UBSan 10,000-lifecycle tests
         env:
           CC: clang
@@ -198,7 +203,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.source_commit || github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v7
         with:
           node-version: 20
@@ -210,7 +215,7 @@ jobs:
       - name: Record parity boundary
         run: |
           mkdir -p .native-build
-          printf '%s\n' 'payload=PASS' 'format=PASS' 'multi-result=PASS' 'geometry-contract=PASS' 'physical=DEFERRED_TO_RC' > .native-build/native-parity.txt
+          printf '%s\n' 'payload=PASS' 'format=PASS' 'multi-result=PASS' 'geometry-contract=PASS' 'physical=POST_RELEASE_VALIDATION_PENDING' > .native-build/native-parity.txt
       - uses: actions/upload-artifact@v4
         with:
           name: native-parity-evidence
@@ -237,5 +242,5 @@ jobs:
           test -n "$(find evidence -name ios-artifacts.txt -print -quit)"
           test -n "$(find evidence -name android-symbols.txt -print -quit)"
           test -n "$(find evidence -name native-parity.txt -print -quit)"
-          grep -R 'NATIVE_PHYSICAL_IOS_PENDING / DEFERRED_TO_RC' evidence
-          grep -R 'NATIVE_PHYSICAL_ANDROID_PENDING / DEFERRED_TO_RC' evidence
+          grep -R 'NATIVE_PHYSICAL_IOS_PENDING / POST_RELEASE_VALIDATION_PENDING' evidence
+          grep -R 'NATIVE_PHYSICAL_ANDROID_PENDING / POST_RELEASE_VALIDATION_PENDING' evidence
