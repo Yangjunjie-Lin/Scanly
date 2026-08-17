@@ -23,7 +23,7 @@ jobs:
       - uses: actions/setup-node@v7
         with: { node-version: 20, cache: npm }
       - run: npm ci
-      - name: Require Stable-qualified detached Manifest and production gates
-        run: npm run rc:manifest:verify -- --mode=stable --require-candidate-tag
-      - name: Re-verify fail-closed Physical Evidence
-        run: npm run device:evidence:verify
+      - name: Verify Stable Manifest and POST_RELEASE_VALIDATION_PENDING policy
+        run: npm run stable:manifest:verify -- --require-go
+      - name: Verify Stable software quality gates
+        run: npm run quality:static

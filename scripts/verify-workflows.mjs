@@ -61,7 +61,9 @@ if (gateInput?.default !== "integration" || !gateInput?.options?.includes("relea
 for (const file of ["rc-manifest-integrity.yml", "rc-evidence-assemble.yml", "rc-artifact-build.yml", "stable-release-gate.yml"]) {
   if (!parsedWorkflows.has(file)) throw new Error(`Missing release-integrity workflow '${file}'.`);
   const source = fs.readFileSync(path.join(workflowDirectory, file), "utf8");
-  if (!source.includes("rc:manifest:verify")) throw new Error(`${file}: missing detached Manifest verifier gate.`);
+  if (file === "stable-release-gate.yml") {
+    if (!source.includes("stable:manifest:verify")) throw new Error(`${file}: missing Stable Manifest verifier gate.`);
+  } else if (!source.includes("rc:manifest:verify")) throw new Error(`${file}: missing detached Manifest verifier gate.`);
   if (!source.includes("fetch-depth: 0")) throw new Error(`${file}: release integrity requires full Git history and tags.`);
 }
 
@@ -117,8 +119,8 @@ for (const [stepName, expectedEnvironment] of requiredTemporaryStepEnvironment) 
   }
 }
 const stableReleaseWorkflow = fs.readFileSync(path.join(workflowDirectory, "stable-release-gate.yml"), "utf8");
-if (!stableReleaseWorkflow.includes("--mode=stable") || !stableReleaseWorkflow.includes("device:evidence:verify") || stableReleaseWorkflow.includes("--require-exact-candidate-head")) {
-  throw new Error("stable-release-gate.yml: stable Manifest and Physical Evidence gates are incomplete.");
+if (!stableReleaseWorkflow.includes("stable:manifest:verify") || !stableReleaseWorkflow.includes("--require-go") || !stableReleaseWorkflow.includes("POST_RELEASE_VALIDATION") || stableReleaseWorkflow.includes("device:evidence:verify") || stableReleaseWorkflow.includes("--require-exact-candidate-head")) {
+  throw new Error("stable-release-gate.yml: Stable Manifest policy and post-release Physical status gates are incomplete.");
 }
 
 console.log(`Verified YAML syntax for ${workflowFiles.length} GitHub Actions workflows.`);

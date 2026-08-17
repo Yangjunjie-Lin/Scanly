@@ -38,7 +38,8 @@ for (const relative of ["native/android/scanly-sdk/build.gradle.kts", "native/io
 }
 for (const relative of ["release/stable/v2.0.0-manifest.json", "release/stable/artifact-manifest.json", "release/stable/sbom.cdx.json", "release/stable/license-inventory.json"]) {
   const metadata = JSON.parse(fs.readFileSync(path.join(root, relative), "utf8"));
-  if (metadata.version !== expected && metadata.identity?.version !== expected) throw new Error(`${relative}: Stable version metadata is stale.`);
+  const metadataVersion = metadata.metadata?.component?.version ?? metadata.version ?? metadata.identity?.version;
+  if (metadataVersion !== expected) throw new Error(`${relative}: Stable version metadata is stale.`);
 }
 
 console.log(`Version consistency passed for ${manifests.length} manifests at ${expected}.`);

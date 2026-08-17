@@ -94,6 +94,8 @@
     "rc:artifacts:verify-canonical": "node scripts/verify-rc2-artifact-equivalence.mjs",
     "rc:manifest:digest": "node scripts/generate-release-manifest-digest.mjs",
     "rc:manifest:verify": "node scripts/verify-release-manifest.mjs",
+    "stable:manifest:verify": "node scripts/verify-stable-manifest.mjs",
+    "stable:manifest:generate": "node scripts/generate-stable-release-manifest.mjs",
     "quality:static": "npm run workflows:verify && npm run version:verify && tsx scripts/verify-quality-gates.ts --static",
     "quality:evidence:source": "tsx scripts/verify-benchmark-evidence.ts --mode=source-development",
     "quality:evidence:historical": "tsx scripts/verify-benchmark-evidence.ts --mode=historical-baseline-validation",
