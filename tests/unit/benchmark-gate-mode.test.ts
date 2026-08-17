@@ -73,6 +73,7 @@ describe("benchmark gate mode selector", () => {
     expect(selectWorkflowEvidenceMode({ eventName: "push", refName: "architecture/sdk-v2-beta4-device-platform-hardening" })).toBe("integration");
     expect(selectWorkflowEvidenceMode({ eventName: "pull_request", baseRef: "develop/sdk-v2" })).toBe("integration");
     expect(selectWorkflowEvidenceMode({ eventName: "workflow_dispatch", refName: "develop/sdk-v2", manualGateMode: "integration" })).toBe("integration");
+    expect(selectWorkflowEvidenceMode({ eventName: "workflow_dispatch", refName: "release/sdk-v2-v2.0.0", manualGateMode: "integration" })).toBe("integration");
   });
 
   it("enters release policy only through an explicit manual input or release candidate ref", () => {
