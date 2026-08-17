@@ -13,8 +13,8 @@
   "security": "GO",
   "sbom": "GO",
   "licenses": "GO",
-  "artifacts": "NO_GO",
-  "reproducibility": "NO_GO",
+  "artifacts": "GO",
+  "reproducibility": "GO",
   "signing": "NO_GO",
   "publicationCredentials": "NO_GO",
   "publication": "NO_GO",
@@ -26,15 +26,18 @@
   },
   "stable": "V2_STABLE_RELEASE_NO_GO",
   "blockers": [
-    "BLOCKED_ANDROID_BUILD_TOOLCHAIN",
-    "BLOCKED_EXTERNAL_RELEASE_CREDENTIALS",
-    "BLOCKED_REPRODUCIBILITY_FINALIZATION"
+    "BLOCKED_EXTERNAL_RELEASE_CREDENTIALS"
   ],
   "files": {
     "artifactManifest": {
       "path": "release/stable/artifact-manifest.json",
-      "sha256": "676b7ced8a8ab143ae2b3ddf7f2143345db312c0520ea81038ab93f20b2b7f2e",
-      "size": 8910
+      "sha256": "de0cda5778004cbfa0a971809ba6c291f2ab6b38403bf7bf2e8c553ad83bdb85",
+      "size": 9503
+    },
+    "androidBuildEvidence": {
+      "path": "release/stable/android-build-evidence.json",
+      "sha256": "12ffdf638d1730855ac4fd664e9ae2abd1fd2b896806204cda242462bc77ebd7",
+      "size": 2959
     },
     "sbom": {
       "path": "release/stable/sbom.cdx.json",
@@ -48,13 +51,18 @@
     },
     "reproducibility": {
       "path": "release/stable/reproducibility.json",
-      "sha256": "6e8fd20b62ed52a481b56933a7d989ea06b61415e2fbd4e61763a43cb05ab941",
-      "size": 3516
+      "sha256": "958f2b19b9e56c03f34ffa3ccc26e3d65068bbd9b42a9bb6f7d51090aa2cac09",
+      "size": 5376
     },
     "signing": {
       "path": "release/stable/signing-manifest.json",
-      "sha256": "f069796a952413ebcd5c1db341c57c4254fd30382e00493eac422c4675b18335",
-      "size": 881
+      "sha256": "5c91ffce5ca5845b4e7ee8f9a595e455482c9d8f9a28274fc1c301d0d8387c3c",
+      "size": 998
+    },
+    "publicationCredentials": {
+      "path": "release/stable/publication-credentials.json",
+      "sha256": "08c6edb7552150d4f1dcdb896cdd030497f073092b192d3e4f9877d8f88ee157",
+      "size": 1497
     },
     "releasePolicy": {
       "path": "release/stable/release-policy.json",

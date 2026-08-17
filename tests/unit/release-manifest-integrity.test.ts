@@ -174,7 +174,7 @@ describe("RC2 detached Release Manifest integrity", () => {
 
     const result = spawnSync(process.execPath, [stableVerifier, "--require-go"], { cwd: root, encoding: "utf8" });
     expect(result.status).not.toBe(0);
-    expect(result.stderr).toContain("Stable promotion blocked: artifacts=NO_GO");
+    expect(result.stderr).toContain("Stable promotion blocked: signing=NO_GO");
   });
 
   it("wires the verifier into RC assembly, artifact build, and the future Stable gate", () => {

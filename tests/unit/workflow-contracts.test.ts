@@ -71,10 +71,16 @@ describe("benchmark workflow contracts", () => {
     for (const file of ["ci.yml", "benchmark.yml", "browser-benchmark.yml", "public-api.yml", "tracking-benchmark.yml", "industrial-benchmark.yml", "device-evidence-validation.yml", "native-mobile.yml"]) {
       const workflow = read(file);
       const checkoutCount = workflow.match(/uses: actions\/checkout@v4/g)?.length ?? 0;
-      const exactHeadCount = workflow.split(exactHeadRef).length - 1;
+      const expectedRef = file === "native-mobile.yml"
+        ? "ref: ${{ github.event_name == 'workflow_dispatch' && inputs.source_commit || github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}"
+        : exactHeadRef;
+      const exactHeadCount = workflow.split(expectedRef).length - 1;
       expect(checkoutCount).toBeGreaterThan(0);
       expect(exactHeadCount).toBe(checkoutCount);
     }
+    const nativeWorkflow = read("native-mobile.yml");
+    expect(nativeWorkflow).toContain("source_commit:");
+    expect(nativeWorkflow).toContain("Exact source commit to build");
   });
 
   it("keeps ordinary development in integration mode and manual release explicit", () => {

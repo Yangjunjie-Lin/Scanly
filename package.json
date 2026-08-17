@@ -96,6 +96,8 @@
     "rc:manifest:verify": "node scripts/verify-release-manifest.mjs",
     "stable:manifest:verify": "node scripts/verify-stable-manifest.mjs",
     "stable:manifest:generate": "node scripts/generate-stable-release-manifest.mjs",
+    "stable:android:record": "node scripts/record-stable-android-artifact.mjs",
+    "stable:reproducibility:confirm": "node scripts/confirm-stable-metadata-reproducibility.mjs",
     "quality:static": "npm run workflows:verify && npm run version:verify && tsx scripts/verify-quality-gates.ts --static",
     "quality:evidence:source": "tsx scripts/verify-benchmark-evidence.ts --mode=source-development",
     "quality:evidence:historical": "tsx scripts/verify-benchmark-evidence.ts --mode=historical-baseline-validation",

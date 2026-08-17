@@ -2,10 +2,17 @@ import crypto from "node:crypto";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { canonicalNpmTarballSha256, NPM_CANONICALIZATION_POLICY } from "./release-artifact-canonicalization.mjs";
+import {
+  canonicalNpmTarballSha256,
+  canonicalZipSha256,
+  NPM_CANONICALIZATION_POLICY,
+  ZIP_CANONICALIZATION_POLICY,
+} from "./release-artifact-canonicalization.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
-const stableRoot = path.join(root, "release", "stable");
+const stableRoot = process.env.STABLE_OUTPUT_ROOT
+  ? path.resolve(root, process.env.STABLE_OUTPUT_ROOT)
+  : path.join(root, "release", "stable");
 const artifactsRoot = path.join(stableRoot, "artifacts");
 const sourceCommit = process.env.STABLE_SOURCE_COMMIT
   ?? execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
@@ -28,8 +35,14 @@ const stableDeployment = {
 const sha256 = (value) => crypto.createHash("sha256").update(value).digest("hex");
 const json = (value) => `${JSON.stringify(value, null, 2)}\n`;
 const writeJson = (relative, value) => fs.writeFileSync(path.join(stableRoot, relative), json(value));
+const resolveRelative = (relative) => {
+  const stablePrefix = "release/stable/";
+  return relative.replaceAll("\\", "/").startsWith(stablePrefix)
+    ? path.join(stableRoot, relative.replaceAll("\\", "/").slice(stablePrefix.length))
+    : path.join(root, relative);
+};
 const fileIdentity = (relative) => {
-  const absolute = path.join(root, relative);
+  const absolute = resolveRelative(relative);
   const bytes = fs.readFileSync(absolute);
   return { path: relative.replaceAll("\\", "/"), sha256: sha256(bytes), size: bytes.length };
 };
@@ -66,9 +79,67 @@ const shippedNpm = packageArtifacts.map((identity) => ({
   sourceTree,
   workflow: "stable-artifact-build/npm-pack",
   toolchain: `node ${process.version}; npm >=10`,
-  canonicalContentSha256: canonicalNpmTarballSha256(path.join(root, identity.path)),
+  canonicalContentSha256: canonicalNpmTarballSha256(resolveRelative(identity.path)),
   status: "PASS",
 }));
+const androidArtifactRelative = "release/stable/artifacts/android/scanly-sdk-2.0.0.aar";
+const androidArtifactAbsolute = path.join(artifactsRoot, "android", "scanly-sdk-2.0.0.aar");
+const androidEvidenceAbsolute = path.join(stableRoot, "android-build-evidence.json");
+const androidArtifactPresent = fs.existsSync(androidArtifactAbsolute);
+const androidEvidencePresent = fs.existsSync(androidEvidenceAbsolute);
+if (androidArtifactPresent !== androidEvidencePresent) throw new Error("Stable Android AAR and build evidence must be present together.");
+let androidEvidence;
+let androidArtifact;
+if (androidArtifactPresent) {
+  androidEvidence = JSON.parse(fs.readFileSync(androidEvidenceAbsolute, "utf8"));
+  const identity = fileIdentity(androidArtifactRelative);
+  const canonicalContentSha256 = canonicalZipSha256(androidArtifactAbsolute);
+  if (androidEvidence.schemaVersion !== "scanly-stable-android-build-evidence-1"
+    || androidEvidence.version !== "2.0.0"
+    || androidEvidence.sourceCommit !== sourceCommit
+    || androidEvidence.sourceTree !== sourceTree
+    || androidEvidence.requestedCheckoutCommit !== sourceCommit
+    || androidEvidence.status !== "GO"
+    || androidEvidence.normalizedBuildAEqualsBuildB !== true
+    || androidEvidence.selectedArtifact?.sha256 !== identity.sha256
+    || androidEvidence.selectedArtifact?.size !== identity.size
+    || androidEvidence.selectedArtifact?.canonicalContentSha256 !== canonicalContentSha256) {
+    throw new Error("Stable Android AAR evidence is incomplete or does not match the selected artifact.");
+  }
+  androidArtifact = {
+    id: "android-aar",
+    platform: "android",
+    version: "2.0.0",
+    ...identity,
+    sourceCommit,
+    sourceTree,
+    workflow: "Native Mobile / stable-artifact-build/android-gradle",
+    workflowRuns: [androidEvidence.cleanBuildA.runId, androidEvidence.cleanBuildB.runId],
+    toolchain: "Gradle 8.13; Android SDK 36; NDK 27.2.12479018; CMake 3.22.1",
+    canonicalContentSha256,
+    canonicalization: ZIP_CANONICALIZATION_POLICY,
+    requiredAbis: ["arm64-v8a", "x86_64"],
+    unsupportedAbis: ["armeabi-v7a"],
+    status: "PASS",
+  };
+} else {
+  androidArtifact = {
+    id: "android-aar",
+    platform: "android",
+    version: "2.0.0",
+    path: androidArtifactRelative,
+    sha256: null,
+    size: null,
+    sourceCommit,
+    sourceTree,
+    workflow: "Native Mobile / stable-artifact-build/android-gradle",
+    toolchain: "Gradle 8.13; Android SDK required",
+    status: "BLOCKED_ANDROID_BUILD_TOOLCHAIN",
+    blocker: "ANDROID_HOME_OR_ANDROID_SDK_NOT_CONFIGURED",
+    requiredAbis: ["arm64-v8a", "x86_64"],
+    unsupportedAbis: ["armeabi-v7a"],
+  };
+}
 const sourceArtifacts = [
   {
     id: "ios-swift-package-source",
@@ -92,22 +163,7 @@ const sourceArtifacts = [
     toolchain: "C++20 public header",
     status: "PASS",
   },
-  {
-    id: "android-aar",
-    platform: "android",
-    version: "2.0.0",
-    path: "release/stable/artifacts/android/scanly-sdk-2.0.0.aar",
-    sha256: null,
-    size: null,
-    sourceCommit,
-    sourceTree,
-    workflow: "stable-artifact-build/android-gradle",
-    toolchain: "Gradle 8.13; Android SDK required",
-    status: "BLOCKED_ANDROID_BUILD_TOOLCHAIN",
-    blocker: "ANDROID_HOME_OR_ANDROID_SDK_NOT_CONFIGURED",
-    requiredAbis: ["arm64-v8a", "x86_64"],
-    unsupportedAbis: ["armeabi-v7a"],
-  },
+  androidArtifact,
 ];
 const artifactManifest = {
   schemaVersion: "scanly-stable-artifact-manifest-1",
@@ -226,19 +282,43 @@ const signing = {
     gitTagSigning: { status: "BLOCKED", blocker: "PRODUCTION_GPG_OR_SSH_SIGNING_IDENTITY_NOT_CONFIGURED" },
     githubReleaseSigning: { status: "BLOCKED", blocker: "SIGNED_TAG_AND_RELEASE_PROVENANCE_NOT_AVAILABLE" },
     npmPublication: { status: "BLOCKED", blocker: "NPM_AUTHENTICATION_NOT_CONFIGURED" },
-    androidArtifactSigning: { status: "BLOCKED", blocker: "ANDROID_AAR_NOT_BUILT" },
+    androidArtifactSigning: androidArtifactPresent
+      ? { status: "BLOCKED", blocker: "SIGNED_GITHUB_RELEASE_PROVENANCE_NOT_AVAILABLE", artifactSha256: androidArtifact.sha256 }
+      : { status: "BLOCKED", blocker: "ANDROID_AAR_NOT_BUILT" },
     iosSpmRelease: { status: "BLOCKED", blocker: "SIGNED_V2_0_0_TAG_NOT_AVAILABLE" },
   },
   status: "STABLE_SIGNING_NO_GO",
 };
 writeJson("signing-manifest.json", signing);
 
+const publicationCredentials = {
+  schemaVersion: "scanly-stable-publication-credentials-1",
+  version: "2.0.0",
+  secretMaterialCommitted: false,
+  channels: {
+    githubApi: { required: true, status: "AVAILABLE", evidence: "Authenticated gh session; secret value not recorded" },
+    productionTagSigningIdentity: { required: true, status: "BLOCKED", blocker: "PRODUCTION_GPG_OR_SSH_SIGNING_IDENTITY_NOT_CONFIGURED" },
+    npmRegistry: { required: true, status: "BLOCKED", blocker: "NPM_AUTHENTICATION_NOT_CONFIGURED" },
+    npmProvenance: { required: true, status: "BLOCKED", blocker: "NPM_TRUSTED_PUBLICATION_OR_AUTOMATION_TOKEN_NOT_CONFIGURED" },
+    androidAarGitHubRelease: { required: true, status: androidArtifactPresent ? "AVAILABLE" : "BLOCKED", ...(androidArtifactPresent ? {} : { blocker: "ANDROID_AAR_NOT_BUILT" }) },
+    mavenCentral: { required: false, status: "NOT_REQUIRED_FOR_THIS_RELEASE", distribution: "ANDROID_AAR_GITHUB_RELEASE_ONLY" },
+    iosSpm: { required: true, status: "AVAILABLE_AFTER_SIGNED_TAG", blocker: "SIGNED_V2_0_0_TAG_NOT_AVAILABLE" },
+    cocoapods: { required: false, status: "NOT_REQUIRED_FOR_THIS_RELEASE", distribution: "COCOAPODS_NOT_PUBLISHED" },
+    appleDistribution: { required: false, status: "NOT_REQUIRED_FOR_THIS_RELEASE" },
+  },
+  requiredCredentialsStatus: "NO_GO",
+  blocker: "BLOCKED_EXTERNAL_RELEASE_CREDENTIALS",
+};
+writeJson("publication-credentials.json", publicationCredentials);
+
+const metadataReproducibilityGo = androidEvidence?.metadataCleanBuilds?.status === "GO"
+  && androidEvidence.metadataCleanBuilds.cleanBuildAEqualsBuildB === true;
 writeJson("reproducibility.json", {
   schemaVersion: "scanly-stable-reproducibility-1",
   version: "2.0.0",
   sourceCommit,
   sourceTree,
-  status: "REPRODUCIBILITY_NO_GO",
+  status: androidArtifactPresent && metadataReproducibilityGo ? "REPRODUCIBILITY_GO" : "REPRODUCIBILITY_NO_GO",
   checks: {
     npmTarballs: {
       status: "GO",
@@ -248,16 +328,29 @@ writeJson("reproducibility.json", {
       stableArtifactsCanonicalEquivalent: true,
       canonicalization: NPM_CANONICALIZATION_POLICY,
     },
-    androidAarNormalizedContents: "BLOCKED_ANDROID_BUILD_TOOLCHAIN",
+    androidAarNormalizedContents: androidArtifactPresent ? {
+      status: "GO",
+      cleanBuildA: androidEvidence.cleanBuildA,
+      cleanBuildB: androidEvidence.cleanBuildB,
+      rawBuildAEqualsBuildB: androidEvidence.rawBuildAEqualsBuildB,
+      normalizedBuildAEqualsBuildB: androidEvidence.normalizedBuildAEqualsBuildB,
+      canonicalization: androidEvidence.canonicalization,
+      selectedArtifactCanonicalEquivalent: true,
+    } : "BLOCKED_ANDROID_BUILD_TOOLCHAIN",
     iosSourcePackage: { status: "GO", normalizedSha256: fileIdentity("release/stable/artifacts/ios/Package.swift").sha256 },
     nativeCoreArtifacts: { status: "GO", sha256: fileIdentity("release/stable/artifacts/native/scanly-core.h").sha256 },
-    sbom: "PENDING_CLEAN_BUILD_B",
-    manifest: "PENDING_CLEAN_BUILD_B",
+    sbom: metadataReproducibilityGo ? { status: "GO", cleanBuildAEqualsBuildB: true } : "PENDING_CLEAN_BUILD_B",
+    manifest: metadataReproducibilityGo ? {
+      status: "GO",
+      cleanBuildAEqualsBuildB: true,
+      comparedFiles: androidEvidence.metadataCleanBuilds.comparedFiles,
+    } : "PENDING_CLEAN_BUILD_B",
   },
-  blocker: "STABLE_ARTIFACT_SET_INCOMPLETE",
+  ...(androidArtifactPresent && metadataReproducibilityGo ? {} : { blocker: androidArtifactPresent ? "STABLE_METADATA_REPRODUCIBILITY_PENDING" : "STABLE_ARTIFACT_SET_INCOMPLETE" }),
 });
 
-const artifactsGo = sourceArtifacts.every((artifact) => !artifact.status.startsWith("BLOCKED"));
+const artifactsGo = sourceArtifacts.every((artifact) => artifact.status === "PASS" || artifact.status === "PASS_SOURCE_PACKAGE");
+const reproducibilityGo = androidArtifactPresent && metadataReproducibilityGo;
 const licensesGo = unknownLicenses.length === 0;
 const manifest = {
   schemaVersion: "scanly-stable-manifest-1",
@@ -270,7 +363,7 @@ const manifest = {
   sbom: "GO",
   licenses: licensesGo ? "GO" : "NO_GO",
   artifacts: artifactsGo ? "GO" : "NO_GO",
-  reproducibility: "NO_GO",
+  reproducibility: reproducibilityGo ? "GO" : "NO_GO",
   signing: "NO_GO",
   publicationCredentials: "NO_GO",
   publication: "NO_GO",
@@ -280,14 +373,16 @@ const manifest = {
   blockers: [
     ...(!artifactsGo ? ["BLOCKED_ANDROID_BUILD_TOOLCHAIN"] : []),
     "BLOCKED_EXTERNAL_RELEASE_CREDENTIALS",
-    "BLOCKED_REPRODUCIBILITY_FINALIZATION",
+    ...(!reproducibilityGo ? ["BLOCKED_REPRODUCIBILITY_FINALIZATION"] : []),
   ],
   files: {
     artifactManifest: fileIdentity("release/stable/artifact-manifest.json"),
+    ...(androidEvidencePresent ? { androidBuildEvidence: fileIdentity("release/stable/android-build-evidence.json") } : {}),
     sbom: fileIdentity("release/stable/sbom.cdx.json"),
     licenses: fileIdentity("release/stable/license-inventory.json"),
     reproducibility: fileIdentity("release/stable/reproducibility.json"),
     signing: fileIdentity("release/stable/signing-manifest.json"),
+    publicationCredentials: fileIdentity("release/stable/publication-credentials.json"),
     releasePolicy: fileIdentity("release/stable/release-policy.json"),
     physicalValidation: fileIdentity("release/stable/physical-validation-status.json"),
     deployment: fileIdentity("release/stable/deployment.json"),
@@ -295,7 +390,12 @@ const manifest = {
 };
 writeJson("v2.0.0-manifest.json", manifest);
 
-const checksumPaths = [...packageArtifacts.map((entry) => entry.path), "release/stable/artifacts/ios/Package.swift", "release/stable/artifacts/native/scanly-core.h"];
+const checksumPaths = [
+  ...packageArtifacts.map((entry) => entry.path),
+  "release/stable/artifacts/ios/Package.swift",
+  "release/stable/artifacts/native/scanly-core.h",
+  ...(androidArtifactPresent ? [androidArtifactRelative] : []),
+];
 const checksums = checksumPaths.sort().map((relative) => `${fileIdentity(relative).sha256}  ${relative.replace("release/stable/", "")}`).join("\n");
 fs.writeFileSync(path.join(stableRoot, "checksums.sha256"), `${checksums}\n`);
 const manifestHash = fileIdentity("release/stable/v2.0.0-manifest.json").sha256;
