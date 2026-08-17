@@ -11,6 +11,19 @@ const sourceCommit = process.env.STABLE_SOURCE_COMMIT
 const sourceTree = process.env.STABLE_SOURCE_TREE
   ?? execFileSync("git", ["rev-parse", "HEAD^{tree}"], { cwd: root, encoding: "utf8" }).trim();
 const sourceTimestamp = execFileSync("git", ["show", "-s", "--format=%cI", sourceCommit], { cwd: root, encoding: "utf8" }).trim();
+const stableDeployment = {
+  schemaVersion: "scanly-stable-deployment-1",
+  version: "2.0.0",
+  sourceCommit,
+  sourceTree,
+  status: "GO",
+  id: "dpl_CcgyxGYGYbJGLZxow4FG3ce4itt1",
+  url: "https://qr-decoder-hwu8fiv47-yangjunjie-lins-projects.vercel.app",
+  productionAlias: "https://qr-decoder-theta.vercel.app",
+  gitCommitSha: sourceCommit,
+  readyState: "READY",
+  target: "production",
+};
 const sha256 = (value) => crypto.createHash("sha256").update(value).digest("hex");
 const json = (value) => `${JSON.stringify(value, null, 2)}\n`;
 const writeJson = (relative, value) => fs.writeFileSync(path.join(stableRoot, relative), json(value));
@@ -174,6 +187,7 @@ const physical = {
   evidencePolicy: "NOT_TESTED is never promoted to PASS without admissible physical evidence.",
 };
 writeJson("physical-validation-status.json", physical);
+writeJson("deployment.json", stableDeployment);
 
 const releasePolicy = {
   schemaVersion: "scanly-stable-release-policy-1",
@@ -238,6 +252,7 @@ const manifest = {
   signing: "NO_GO",
   publicationCredentials: "NO_GO",
   publication: "NO_GO",
+  deployment: "GO",
   physicalValidation: { requiredForPublication: false, status: "POST_RELEASE_VALIDATION_PENDING", issue: 13 },
   stable: "V2_STABLE_RELEASE_NO_GO",
   blockers: [
@@ -253,6 +268,7 @@ const manifest = {
     signing: fileIdentity("release/stable/signing-manifest.json"),
     releasePolicy: fileIdentity("release/stable/release-policy.json"),
     physicalValidation: fileIdentity("release/stable/physical-validation-status.json"),
+    deployment: fileIdentity("release/stable/deployment.json"),
   },
 };
 writeJson("v2.0.0-manifest.json", manifest);

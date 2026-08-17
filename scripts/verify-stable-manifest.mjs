@@ -18,6 +18,7 @@ const policy = readJson("release/stable/release-policy.json");
 const signing = readJson("release/stable/signing-manifest.json");
 const artifacts = readJson("release/stable/artifact-manifest.json");
 const licenses = readJson("release/stable/license-inventory.json");
+const deployment = readJson("release/stable/deployment.json");
 
 if (manifest.schemaVersion !== "scanly-stable-manifest-1" || manifest.version !== "2.0.0") fail("Stable Manifest schema/version mismatch.");
 if (!/^[a-f0-9]{40}$/.test(sourceCommit ?? "") || !/^[a-f0-9]{40}$/.test(sourceTree ?? "")) fail("Stable Manifest source identity is malformed.");
@@ -28,6 +29,7 @@ if (artifacts.productSourceCommit !== sourceCommit || artifacts.sourceTree !== s
 if (licenses.sourceCommit !== sourceCommit || licenses.sourceTree !== sourceTree || licenses.unknownLicenseCount !== 0 || licenses.status !== "GO") fail("Stable license gate is not GO with zero unknown licenses.");
 if (!policy.featureFreeze || policy.physicalValidation?.requiredForPublication !== false || policy.physicalValidation?.status !== "POST_RELEASE_VALIDATION_PENDING") fail("Stable Release Policy is incomplete.");
 if (signing.secretMaterialCommitted !== false || signing.status !== "STABLE_SIGNING_NO_GO") fail("Signing manifest is not fail-closed or reports committed secret material.");
+if (deployment.status !== "GO" || deployment.sourceCommit !== sourceCommit || deployment.sourceTree !== sourceTree || deployment.gitCommitSha !== sourceCommit || deployment.readyState !== "READY" || deployment.target !== "production" || !/^https:\/\//.test(deployment.url ?? "")) fail("Stable production deployment provenance is incomplete or source-mismatched.");
 
 const pending = "POST_RELEASE_VALIDATION_PENDING";
 if (physical.version !== "2.0.0" || physical.issue !== 13 || physical.requiredForPublication !== false || physical.status !== "POST_RELEASE_VALIDATION_REQUIRED") fail("Physical validation status policy is invalid.");
