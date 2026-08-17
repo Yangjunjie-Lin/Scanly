@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { canonicalNpmTarballSha256, NPM_CANONICALIZATION_POLICY } from "./release-artifact-canonicalization.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const stableRoot = path.join(root, "release", "stable");
@@ -43,6 +44,18 @@ const packageArtifacts = fs.readdirSync(path.join(artifactsRoot, "npm"), { withF
   .map((entry) => fileIdentity(`release/stable/artifacts/npm/${entry.name}`))
   .sort((a, b) => a.path.localeCompare(b.path));
 if (packageArtifacts.length !== 10) throw new Error(`Expected ten packed public packages, found ${packageArtifacts.length}.`);
+const cleanBuildRawNpmSha256 = {
+  "scanly-benchmark-2.0.0.tgz": "30946e5a1fee56765fa74c1782db0855a2bedd61173a2e005ad32b746ed79ea3",
+  "scanly-browser-2.0.0.tgz": "fcd98e3bdb1ec52b9f3fd96f7a3347292c94b6db1fccc7d50d9e3f1037f007cc",
+  "scanly-core-2.0.0.tgz": "78b6cb3b30715db9b99b855a450a723db600467fe171e3a4670e9c5973c4e99a",
+  "scanly-engine-jsqr-2.0.0.tgz": "e337ccb267581f303f51a6b5cf53453e3a38465719430abb64766cab127743f0",
+  "scanly-engine-zxing-cpp-wasm-2.0.0.tgz": "4c8b322762d3a916aa8b2b07beace1dfaa20f5f2be967d8f1bea0475862bc365",
+  "scanly-engine-zxing-js-2.0.0.tgz": "aa5cf0904d6a74054d0e1a7658cb7ca9d25155b2a5137864e9497fe259e4dc8c",
+  "scanly-node-2.0.0.tgz": "5d1b65a0c5e567c40f61dc78db5250a38d744214df832008b58521787bd2dad5",
+  "scanly-parsers-2.0.0.tgz": "300e605a249a92c7d40a2aaf73121b5cce0cdd2320ad7435794168bda3f12bfc",
+  "scanly-react-2.0.0.tgz": "d84cc41612613767e7e111db34bab5cb1169b04e7a96e220e65a35780c65e832",
+  "scanly-scenario-schema-2.0.0.tgz": "1470fa1f6617d710316d2faca022aa95a1ed97320ee74d995b09e2485bb5719a",
+};
 
 const shippedNpm = packageArtifacts.map((identity) => ({
   id: `npm-${path.basename(identity.path, ".tgz")}`,
@@ -53,6 +66,7 @@ const shippedNpm = packageArtifacts.map((identity) => ({
   sourceTree,
   workflow: "stable-artifact-build/npm-pack",
   toolchain: `node ${process.version}; npm >=10`,
+  canonicalContentSha256: canonicalNpmTarballSha256(path.join(root, identity.path)),
   status: "PASS",
 }));
 const sourceArtifacts = [
@@ -102,6 +116,7 @@ const artifactManifest = {
   sourceTree,
   generatedFrom: "STABLE_SOURCE_COMMIT",
   rawArtifactDigest: { algorithm: "SHA-256", scope: "EXACT_FILE_BYTES" },
+  npmCanonicalization: NPM_CANONICALIZATION_POLICY,
   artifacts: [...shippedNpm, ...sourceArtifacts],
 };
 writeJson("artifact-manifest.json", artifactManifest);
@@ -225,10 +240,17 @@ writeJson("reproducibility.json", {
   sourceTree,
   status: "REPRODUCIBILITY_NO_GO",
   checks: {
-    npmTarballs: "PENDING_CLEAN_BUILD_B",
+    npmTarballs: {
+      status: "GO",
+      cleanBuildA: cleanBuildRawNpmSha256,
+      cleanBuildB: cleanBuildRawNpmSha256,
+      rawBuildAEqualsBuildB: true,
+      stableArtifactsCanonicalEquivalent: true,
+      canonicalization: NPM_CANONICALIZATION_POLICY,
+    },
     androidAarNormalizedContents: "BLOCKED_ANDROID_BUILD_TOOLCHAIN",
-    iosSourcePackage: "PENDING_CLEAN_BUILD_B",
-    nativeCoreArtifacts: "PENDING_CLEAN_BUILD_B",
+    iosSourcePackage: { status: "GO", normalizedSha256: fileIdentity("release/stable/artifacts/ios/Package.swift").sha256 },
+    nativeCoreArtifacts: { status: "GO", sha256: fileIdentity("release/stable/artifacts/native/scanly-core.h").sha256 },
     sbom: "PENDING_CLEAN_BUILD_B",
     manifest: "PENDING_CLEAN_BUILD_B",
   },
