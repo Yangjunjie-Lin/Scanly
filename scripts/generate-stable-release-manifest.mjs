@@ -22,8 +22,8 @@ const fileIdentity = (relative) => {
 
 fs.mkdirSync(path.join(artifactsRoot, "ios"), { recursive: true });
 fs.mkdirSync(path.join(artifactsRoot, "native"), { recursive: true });
-fs.copyFileSync(path.join(root, "native", "ios", "Package.swift"), path.join(artifactsRoot, "ios", "Package.swift"));
-fs.copyFileSync(path.join(root, "native", "core", "include", "scanly", "core.h"), path.join(artifactsRoot, "native", "scanly-core.h"));
+fs.writeFileSync(path.join(artifactsRoot, "ios", "Package.swift"), fs.readFileSync(path.join(root, "native", "ios", "Package.swift"), "utf8").replaceAll("\r\n", "\n"));
+fs.writeFileSync(path.join(artifactsRoot, "native", "scanly-core.h"), fs.readFileSync(path.join(root, "native", "core", "include", "scanly", "core.h"), "utf8").replaceAll("\r\n", "\n"));
 
 const packageArtifacts = fs.readdirSync(path.join(artifactsRoot, "npm"), { withFileTypes: true })
   .filter((entry) => entry.isFile() && entry.name.endsWith(".tgz"))
