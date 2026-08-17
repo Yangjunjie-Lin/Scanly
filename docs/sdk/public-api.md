@@ -2,7 +2,7 @@
 
 ## Version policy
 
-- SDK package version: `2.0.0-rc.2` (RC2 final-validation candidate; physical validation pending)
+- SDK package version: `2.0.0` (Stable software release; physical validation pending)
 
 ## Beta 4 camera platform surface
 

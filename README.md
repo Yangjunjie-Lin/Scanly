@@ -1,10 +1,10 @@
-# Scanly SDK v2.0.0-rc.2 — software candidate
+# Scanly SDK v2.0.0 Stable
 
-Scanly is a local-first barcode capture SDK foundation with Web/Node runtimes and a native mobile foundation. The RC2 candidate continues the frozen feature-complete source, public APIs, native ABIs, dependency policy, security gates, reproducible artifacts, SBOM, and provenance while running the final Web + Native physical validation campaign. This is not a stable release or production certification.
+Scanly is a local-first barcode capture SDK with Web/Node runtimes and native mobile packages. v2.0.0 is a stable software distribution with frozen public APIs, native ABIs, dependency policy, security gates, reproducible artifacts, SBOM, and provenance. Web and Native physical-device qualification continues after publication and is tracked in Issue #13; automated browser, simulator, and emulator coverage is not physical-device certification.
 
 ![Next.js 15](https://img.shields.io/badge/Next.js-15-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
-![SDK](https://img.shields.io/badge/SDK-2.0.0--rc.2-blue)
+![SDK](https://img.shields.io/badge/SDK-2.0.0-green)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **Live demo:** [https://qr-decoder-theta.vercel.app](https://qr-decoder-theta.vercel.app)
@@ -36,7 +36,7 @@ Alpha.5 explicitly supports QR Code Model 2, Data Matrix ECC 200, PDF417, Code 1
 
 - `main` is the unchanged v1.3 Stable line.
 - `develop/sdk-v2` contains the merged Beta 5 native mobile foundation at merge commit `c80856da361a865c3a339cfbd617e2e30c1f49f1`.
-- `release/sdk-v2-rc2-final-validation` is the active RC2 validation branch; RC1 remains historical and `main` remains unchanged.
+- `release/sdk-v2-v2.0.0` is the Stable release branch; RC1 and RC2 remain immutable historical evidence.
 - Alpha.5 is an internal integration snapshot, not production-certified evidence. No Alpha.5 tag, GitHub Release, npm publication, Stable claim, or `Latest` release is authorized.
 - Beta 1 remains development evidence. No Beta tag, GitHub Release, npm publication, Stable claim, or `Latest` release is authorized.
 - Beta 4 status is `BETA4_INTEGRATION_GO` / `DEVICE_HARNESS_GO` / `AUTOMATED_VALIDATION_GO` / `PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC` / `FULL_DEVICE_MATRIX_PENDING` / `BETA4_RELEASE_NO_GO`. No real iOS, Android, desktop-camera, remote-device-farm, or 30-minute physical soak session is currently stored in this repository.
@@ -60,7 +60,7 @@ Physical iOS Safari, Android Chrome, real-camera lifecycle, physical tracking/ba
 
 The shared [native fixture manifest](fixtures/native/manifest.json) contains nine deterministic Y8 inputs covering all eight public formats plus a two-symbol QR Code + Code 128 fixture. Payload, format, result-count, multi-result, and original-coordinate geometry contracts are checked across Native Core, Swift, Kotlin, and existing Web/Node ZXing-C++ paths. See [Native architecture](docs/native/architecture.md), [memory model](docs/native/memory-model.md), and [compatibility](docs/native/compatibility.md).
 
-RC2 produces SPM/AAR/npm outputs only as candidate artifacts. It does not publish CocoaPods, Maven Central, App Store, Google Play, npm latest, a GitHub Stable release, React Native, or Flutter packages.
+The required v2.0.0 publication matrix is GitHub Release, npm `latest`, Swift Package Manager, and the Android AAR distributed with the GitHub Release. CocoaPods, Maven Central, App Store, Google Play, React Native, and Flutter remain optional/later channels unless separately configured.
 
 ## Internal fixture benchmark
 
@@ -262,7 +262,7 @@ See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 
 ## Project status
 
-**SDK v2.0.0-rc.2 software candidate.** Automated gates must be green before `RC2_SOFTWARE_GO` is declared. The final physical matrix is fail-closed: Web iOS/Android and Native iOS/Android remain `NOT_TESTED` until admissible real-device evidence is available. Stable, Latest, production readiness, and physical certification are not claimed. See [the RC2 final-validation policy](docs/releases/v2.0.0-rc.2.md).
+**SDK v2.0.0 Stable software release.** Automated correctness, API/ABI, security, SBOM, licensing, artifact, reproducibility, and manifest-integrity gates are required for publication. Physical Web/Native validation remains `POST_RELEASE_VALIDATION_PENDING`; no device-certified or industrial-certified claim is made. See [the v2.0.0 release notes](docs/releases/v2.0.0.md) and [Issue #13](https://github.com/Yangjunjie-Lin/Scanly/issues/13).
 
 ## License
 

@@ -2,6 +2,17 @@
 
 All notable changes follow semantic versioning.
 
+## 2.0.0 — Stable software release
+
+- Promoted the frozen SDK v2 software, API/ABI, security, SBOM, licensing,
+  artifact, reproducibility, and manifest-integrity gates to Stable policy.
+- Published Web/Node/React packages, the Swift Package Manager source package,
+  and the Android AAR through the required release channels when credentials
+  are available.
+- Physical Web and Native device qualification remains explicitly
+  `POST_RELEASE_VALIDATION_PENDING` under Issue #13; automated coverage is not
+  physical-device certification.
+
 ## 2.0.0-rc.2 — Final validation candidate
 
 - Continued the feature freeze from the RC1 merge
