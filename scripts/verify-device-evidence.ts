@@ -105,7 +105,7 @@ const packageJson = read("package.json");
 const ajv = new Ajv({ allErrors: true, strict: false }); addFormats(ajv);
 const validate = ajv.compile(schema);
 
-assert(packageJson.version === "2.0.0-rc.2", "Repository SDK version is not RC2.");
+assert(packageJson.version === "2.0.0", "Repository SDK version is not Stable 2.0.0.");
 assert(manifest.schemaVersion === "beta4-device-manifest-1" && manifest.status === "DEVICE_MATRIX_PARTIAL", "Device manifest identity/status failed.");
 assert(manifest.groundTruthPolicy === "decoder-independent-fixed-before-scan", "Device manifest Ground Truth policy failed.");
 assert(exactArray((manifest.scenarios as Json[]).map((entry) => entry.id), SCENARIO_IDS), "Device protocol must contain exact P1-P12+N1 order.");
@@ -148,8 +148,8 @@ for (const name of sessionFiles) {
   counts[evidence.evidenceType as EvidenceType] += 1;
 
   assert(
-    evidence.sdkVersion === packageJson.version || evidence.sdkVersion === "2.0.0-beta.5",
-    `${name}: sdkVersion is neither the RC2 package version nor an explicitly retained Beta 5 historical version.`,
+    evidence.sdkVersion === packageJson.version || evidence.sdkVersion === "2.0.0-rc.2" || evidence.sdkVersion === "2.0.0-beta.5",
+    `${name}: sdkVersion is neither the Stable package version nor an explicitly retained RC2/Beta 5 historical version.`,
   );
   assert(existsCommit(evidence.sourceCommit), `${name}: sourceCommit is not a repository commit.`);
   assert(git("show", "-s", "--format=%T", evidence.sourceCommit) === evidence.sourceTree, `${name}: sourceTree does not match sourceCommit.`);

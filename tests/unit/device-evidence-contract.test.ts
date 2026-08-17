@@ -32,6 +32,18 @@ interface EvidenceSnapshot {
   sessions: Map<string, string>;
 }
 
+function writeFileWithWindowsRetry(file: string, contents: string): void {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    try {
+      fs.writeFileSync(file, contents);
+      return;
+    } catch (error) {
+      if (attempt === 9) throw error;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20);
+    }
+  }
+}
+
 function emptyStatus(): Json {
   return {
     ...read("device-evidence/status.json"),
@@ -63,8 +75,8 @@ function restoreRepositoryEvidence(snapshot: EvidenceSnapshot): void {
   for (const name of fs.readdirSync(sessionDirectory).filter((entry) => entry.endsWith(".json"))) {
     fs.rmSync(path.join(sessionDirectory, name));
   }
-  for (const [name, contents] of snapshot.sessions) fs.writeFileSync(path.join(sessionDirectory, name), contents);
-  fs.writeFileSync(statusPath, snapshot.status);
+  for (const [name, contents] of snapshot.sessions) writeFileWithWindowsRetry(path.join(sessionDirectory, name), contents);
+  writeFileWithWindowsRetry(statusPath, snapshot.status);
 }
 
 function assertRepositoryEvidenceRestored(snapshot: EvidenceSnapshot): void {
@@ -99,8 +111,8 @@ function withTemporaryEvidence(evidence: Json, assertion: () => void): void {
     for (const name of fs.readdirSync(sessionDirectory).filter((entry) => entry.endsWith(".json"))) {
       fs.rmSync(path.join(sessionDirectory, name));
     }
-    fs.writeFileSync(path.join(sessionDirectory, `${evidence.evidenceId}.json`), `${JSON.stringify(evidence, null, 2)}\n`);
-    fs.writeFileSync(statusPath, `${JSON.stringify(statusForPhysicalFixture(), null, 2)}\n`);
+    writeFileWithWindowsRetry(path.join(sessionDirectory, `${evidence.evidenceId}.json`), `${JSON.stringify(evidence, null, 2)}\n`);
+    writeFileWithWindowsRetry(statusPath, `${JSON.stringify(statusForPhysicalFixture(), null, 2)}\n`);
     assertion();
   } finally {
     restoreRepositoryEvidence(snapshot);
@@ -112,8 +124,8 @@ function withTemporaryEvidenceSet(entries: Json[], status: Json, assertion: () =
   const snapshot = snapshotRepositoryEvidence();
   try {
     for (const name of fs.readdirSync(sessionDirectory).filter((entry) => entry.endsWith(".json"))) fs.rmSync(path.join(sessionDirectory, name));
-    for (const evidence of entries) fs.writeFileSync(path.join(sessionDirectory, `${evidence.evidenceId}.json`), `${JSON.stringify(evidence, null, 2)}\n`);
-    fs.writeFileSync(statusPath, `${JSON.stringify(status, null, 2)}\n`);
+    for (const evidence of entries) writeFileWithWindowsRetry(path.join(sessionDirectory, `${evidence.evidenceId}.json`), `${JSON.stringify(evidence, null, 2)}\n`);
+    writeFileWithWindowsRetry(statusPath, `${JSON.stringify(status, null, 2)}\n`);
     assertion();
   } finally {
     restoreRepositoryEvidence(snapshot);

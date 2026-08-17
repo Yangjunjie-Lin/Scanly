@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 const root = process.cwd();
 const verifier = path.join(root, "scripts", "verify-release-manifest.mjs");
+const stableVerifier = path.join(root, "scripts", "verify-stable-manifest.mjs");
 const manifest = path.join(root, "release", "rc2", "rc2-candidate-manifest.v2.json");
 const sidecar = `${manifest}.sha256`;
 const expectedCandidateTag = JSON.parse(fs.readFileSync(manifest, "utf8")).identity.candidateTag as string;
@@ -166,13 +167,14 @@ describe("RC2 detached Release Manifest integrity", () => {
     expect(result.stderr).toContain("Duplicate required artifact id");
   });
 
-  it("keeps Stable qualification fail-closed while Physical and Signing remain NO-GO", () => {
-    const result = spawnSync(process.execPath, [verifier, "--mode=stable"], { cwd: root, encoding: "utf8" });
+  it("allows Physical pending while keeping incomplete software/publication gates fail-closed", () => {
+    const policy = execFileSync(process.execPath, [stableVerifier], { cwd: root, encoding: "utf8" });
+    expect(policy).toContain("physical=POST_RELEASE_VALIDATION_REQUIRED");
+    expect(policy).toContain("stable=V2_STABLE_RELEASE_NO_GO");
+
+    const result = spawnSync(process.execPath, [stableVerifier, "--require-go"], { cwd: root, encoding: "utf8" });
     expect(result.status).not.toBe(0);
-    expect(
-      result.stderr.includes(`Required candidate tag '${expectedCandidateTag}' is not present`) ||
-      result.stderr.includes("Stable release gate requires every Physical Matrix row to PASS"),
-    ).toBe(true);
+    expect(result.stderr).toContain("Stable promotion blocked: artifacts=NO_GO");
   });
 
   it("wires the verifier into RC assembly, artifact build, and the future Stable gate", () => {
@@ -182,7 +184,7 @@ describe("RC2 detached Release Manifest integrity", () => {
     const artifacts = read("rc-artifact-build.yml");
     const stable = read("stable-release-gate.yml");
 
-    for (const workflow of [integrity, evidence, artifacts, stable]) expect(workflow).toContain("rc:manifest:verify");
+    for (const workflow of [integrity, evidence, artifacts]) expect(workflow).toContain("rc:manifest:verify");
     expect(integrity).toContain("--require-candidate-tag");
     expect(integrity).toContain("--require-exact-candidate-head");
     expect(integrity).toContain("branches: [develop/sdk-v2, release/sdk-v2-rc2-final-validation]");
@@ -195,8 +197,10 @@ describe("RC2 detached Release Manifest integrity", () => {
     expect(artifacts).toContain("rc:artifacts:verify-canonical");
     expect(artifacts).toContain("--require-exact-candidate-head");
     expect(artifacts).toContain("branches: [develop/sdk-v2, release/sdk-v2-rc2-final-validation]");
-    expect(stable).toContain("--mode=stable");
+    expect(stable).toContain("stable:manifest:verify");
+    expect(stable).toContain("--require-go");
+    expect(stable).toContain("POST_RELEASE_VALIDATION_PENDING");
     expect(stable).not.toContain("--require-exact-candidate-head");
-    expect(stable).toContain("device:evidence:verify");
+    expect(stable).not.toContain("device:evidence:verify");
   });
 });

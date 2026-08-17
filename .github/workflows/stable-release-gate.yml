@@ -23,6 +23,7 @@ jobs:
       - uses: actions/setup-node@v7
         with: { node-version: 20, cache: npm }
       - run: npm ci
+      # Historical RC evidence remains checked by rc:manifest:verify; Stable promotion uses the policy-aware verifier below.
       - name: Verify Stable Manifest and POST_RELEASE_VALIDATION_PENDING policy
         run: npm run stable:manifest:verify -- --require-go
       - name: Verify Stable software quality gates
