@@ -8,6 +8,12 @@ const EVIDENCE_ONLY_PATHS = [
 
 const allowedEvidencePath = (file: string): boolean => EVIDENCE_ONLY_PATHS.some((allowed) => allowed.test(file.replace(/\\/g, "/")));
 
+export interface DeviceEvidenceSourceIdentity {
+  sourceCommit: string;
+  sourceTree: string;
+  sdkVersion: string;
+}
+
 function lines(output: string): string[] {
   return output.trim().split(/\r?\n/).filter(Boolean);
 }
@@ -26,4 +32,37 @@ export function deviceEvidenceOnlyAfterSource(root: string, sourceCommit: string
   } catch {
     return false;
   }
+}
+
+function exactReleasedSource(
+  root: string,
+  evidence: DeviceEvidenceSourceIdentity,
+  released: DeviceEvidenceSourceIdentity,
+  evidenceCommit: string,
+): boolean {
+  if (
+    evidence.sourceCommit !== released.sourceCommit
+    || evidence.sourceTree !== released.sourceTree
+    || evidence.sdkVersion !== released.sdkVersion
+  ) return false;
+  try {
+    const sourceType = execFileSync("git", ["cat-file", "-t", evidence.sourceCommit], { cwd: root, encoding: "utf8" }).trim();
+    if (sourceType !== "commit") return false;
+    const actualTree = execFileSync("git", ["show", "-s", "--format=%T", evidence.sourceCommit], { cwd: root, encoding: "utf8" }).trim();
+    if (actualTree !== evidence.sourceTree) return false;
+    execFileSync("git", ["merge-base", "--is-ancestor", evidence.sourceCommit, evidenceCommit], { cwd: root, stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function deviceEvidenceEligibleForQualification(
+  root: string,
+  evidence: DeviceEvidenceSourceIdentity,
+  released: DeviceEvidenceSourceIdentity,
+  evidenceCommit = "HEAD",
+): boolean {
+  return exactReleasedSource(root, evidence, released, evidenceCommit)
+    || deviceEvidenceOnlyAfterSource(root, evidence.sourceCommit, evidenceCommit);
 }
