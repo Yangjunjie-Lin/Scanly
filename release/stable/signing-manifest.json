@@ -4,28 +4,53 @@
   "sourceCommit": "d154287126eb10117ff6483b7d9602b401bcdf55",
   "sourceTree": "d218643790060764d5601ef5c9b42282ea2e4fae",
   "secretMaterialCommitted": false,
+  "phase": "QUALIFIED_FOR_PUBLICATION",
   "channels": {
     "gitTagSigning": {
-      "status": "BLOCKED",
-      "blocker": "PRODUCTION_GPG_OR_SSH_SIGNING_IDENTITY_NOT_CONFIGURED"
+      "status": "GIT_TAG_SIGNING_GO",
+      "scheme": "SSH_ED25519",
+      "githubAccount": "Yangjunjie-Lin",
+      "githubSigningKeyId": 1118906,
+      "publicKeyFingerprint": "SHA256:1odyhkHV3hKHFlE8QrELlBGMM/qlM5ftmiiVym/M6ck",
+      "publicKeyRegisteredAt": "2026-08-18T08:00:29.903+08:00",
+      "localSmokeTest": {
+        "status": "PASS",
+        "annotatedTagObjectCreated": true,
+        "sshSignatureBlockPresent": true,
+        "temporaryTagDeleted": true
+      }
     },
     "githubReleaseSigning": {
-      "status": "BLOCKED",
-      "blocker": "SIGNED_TAG_AND_RELEASE_PROVENANCE_NOT_AVAILABLE"
+      "status": "GITHUB_RELEASE_SIGNING_GO",
+      "policy": "GitHub-verified signed annotated tag plus checksums.sha256",
+      "signedTagRequiredAtPublication": true,
+      "checksumsPath": "release/stable/checksums.sha256"
     },
     "npmPublication": {
-      "status": "BLOCKED",
-      "blocker": "NPM_AUTHENTICATION_NOT_CONFIGURED"
+      "status": "NPM_PUBLICATION_GO",
+      "registry": "https://registry.npmjs.org/",
+      "account": "yangjunjielin",
+      "organization": "scanly",
+      "organizationRole": "owner",
+      "packageDryRunStatus": "PASS",
+      "packageDryRunCount": 10,
+      "githubSecretName": "NPM_TOKEN",
+      "secretValueRecorded": false,
+      "tokenExpiresOn": "2026-08-25",
+      "provenanceWorkflow": ".github/workflows/stable-npm-publish.yml",
+      "provenanceMechanism": "GITHUB_ACTIONS_OIDC"
     },
     "androidArtifactSigning": {
-      "status": "BLOCKED",
-      "blocker": "SIGNED_GITHUB_RELEASE_PROVENANCE_NOT_AVAILABLE",
+      "status": "ANDROID_ARTIFACT_SIGNING_GO",
+      "distribution": "ANDROID_AAR_GITHUB_RELEASE_ONLY",
+      "signedTagRequiredAtPublication": true,
       "artifactSha256": "44297a5a8b89762a68ccdde61cf107661c8dc7e2b6eb1117f534ce1c67c5098b"
     },
     "iosSpmRelease": {
-      "status": "BLOCKED",
-      "blocker": "SIGNED_V2_0_0_TAG_NOT_AVAILABLE"
+      "status": "IOS_SPM_RELEASE_GO",
+      "distribution": "SIGNED_GIT_TAG_AND_SWIFT_PACKAGE_MANAGER",
+      "signedTagRequiredAtPublication": true
     }
   },
-  "status": "STABLE_SIGNING_NO_GO"
+  "status": "STABLE_SIGNING_GO"
 }

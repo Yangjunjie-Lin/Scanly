@@ -1,0 +1,100 @@
+name: Stable npm Publication
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Exact signed Stable tag to publish
+        required: true
+        default: v2.0.0
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: stable-npm-v2.0.0
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish npm 2.0.0 with provenance
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.release.tag_name == 'v2.0.0' &&
+      github.event.release.prerelease == false &&
+      github.event.release.draft == false)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.tag }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+      - name: Verify exact GitHub-verified signed Stable tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.tag }}
+        run: |
+          set -euo pipefail
+          test "$RELEASE_TAG" = "v2.0.0"
+          test "$(git describe --tags --exact-match HEAD)" = "$RELEASE_TAG"
+          tag_type="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" --jq '.object.type')"
+          test "$tag_type" = "tag"
+          tag_object="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" --jq '.object.sha')"
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${tag_object}" --jq '.verification.verified')" = "true"
+      - name: Verify Stable Manifest and artifact checksums
+        run: |
+          npm run stable:manifest:verify -- --require-go
+          cd release/stable
+          sha256sum --check checksums.sha256
+      - name: Verify npm production identity and organization ownership
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "${NODE_AUTH_TOKEN:-}"
+          test "$(npm whoami --registry=https://registry.npmjs.org/)" = "yangjunjielin"
+          npm org ls scanly --json | node -e '
+            let input = "";
+            process.stdin.on("data", (chunk) => { input += chunk; });
+            process.stdin.on("end", () => {
+              const members = JSON.parse(input);
+              if (members.yangjunjielin !== "owner") process.exit(1);
+            });
+          '
+      - name: Publish dependency-ordered npm packages with provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          releases=(
+            "@scanly/parsers|release/stable/artifacts/npm/scanly-parsers-2.0.0.tgz"
+            "@scanly/scenario-schema|release/stable/artifacts/npm/scanly-scenario-schema-2.0.0.tgz"
+            "@scanly/benchmark|release/stable/artifacts/npm/scanly-benchmark-2.0.0.tgz"
+            "@scanly/core|release/stable/artifacts/npm/scanly-core-2.0.0.tgz"
+            "@scanly/engine-jsqr|release/stable/artifacts/npm/scanly-engine-jsqr-2.0.0.tgz"
+            "@scanly/engine-zxing-js|release/stable/artifacts/npm/scanly-engine-zxing-js-2.0.0.tgz"
+            "@scanly/engine-zxing-cpp-wasm|release/stable/artifacts/npm/scanly-engine-zxing-cpp-wasm-2.0.0.tgz"
+            "@scanly/browser|release/stable/artifacts/npm/scanly-browser-2.0.0.tgz"
+            "@scanly/node|release/stable/artifacts/npm/scanly-node-2.0.0.tgz"
+            "@scanly/react|release/stable/artifacts/npm/scanly-react-2.0.0.tgz"
+          )
+          for release in "${releases[@]}"; do
+            package="${release%%|*}"
+            tarball="${release#*|}"
+            published="$(npm view "${package}@2.0.0" version --json 2>/dev/null | tr -d '"' || true)"
+            if [ "$published" = "2.0.0" ]; then
+              echo "${package}@2.0.0 already exists; verifying and continuing"
+            else
+              npm publish "$tarball" --access public --tag latest --provenance
+            fi
+            test "$(npm view "${package}@2.0.0" version --json | tr -d '"')" = "2.0.0"
+          done

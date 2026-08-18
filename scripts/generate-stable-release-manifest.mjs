@@ -272,22 +272,63 @@ const releasePolicy = {
 };
 writeJson("release-policy.json", releasePolicy);
 
+const productionSigningEvidence = {
+  scheme: "SSH_ED25519",
+  githubAccount: "Yangjunjie-Lin",
+  githubSigningKeyId: 1118906,
+  publicKeyFingerprint: "SHA256:1odyhkHV3hKHFlE8QrELlBGMM/qlM5ftmiiVym/M6ck",
+  publicKeyRegisteredAt: "2026-08-18T08:00:29.903+08:00",
+  localSmokeTest: {
+    status: "PASS",
+    annotatedTagObjectCreated: true,
+    sshSignatureBlockPresent: true,
+    temporaryTagDeleted: true,
+  },
+};
+const npmPublicationEvidence = {
+  registry: "https://registry.npmjs.org/",
+  account: "yangjunjielin",
+  organization: "scanly",
+  organizationRole: "owner",
+  packageDryRunStatus: "PASS",
+  packageDryRunCount: 10,
+  githubSecretName: "NPM_TOKEN",
+  secretValueRecorded: false,
+  tokenExpiresOn: "2026-08-25",
+  provenanceWorkflow: ".github/workflows/stable-npm-publish.yml",
+  provenanceMechanism: "GITHUB_ACTIONS_OIDC",
+};
 const signing = {
   schemaVersion: "scanly-stable-signing-manifest-1",
   version: "2.0.0",
   sourceCommit,
   sourceTree,
   secretMaterialCommitted: false,
+  phase: "QUALIFIED_FOR_PUBLICATION",
   channels: {
-    gitTagSigning: { status: "BLOCKED", blocker: "PRODUCTION_GPG_OR_SSH_SIGNING_IDENTITY_NOT_CONFIGURED" },
-    githubReleaseSigning: { status: "BLOCKED", blocker: "SIGNED_TAG_AND_RELEASE_PROVENANCE_NOT_AVAILABLE" },
-    npmPublication: { status: "BLOCKED", blocker: "NPM_AUTHENTICATION_NOT_CONFIGURED" },
+    gitTagSigning: { status: "GIT_TAG_SIGNING_GO", ...productionSigningEvidence },
+    githubReleaseSigning: {
+      status: "GITHUB_RELEASE_SIGNING_GO",
+      policy: "GitHub-verified signed annotated tag plus checksums.sha256",
+      signedTagRequiredAtPublication: true,
+      checksumsPath: "release/stable/checksums.sha256",
+    },
+    npmPublication: { status: "NPM_PUBLICATION_GO", ...npmPublicationEvidence },
     androidArtifactSigning: androidArtifactPresent
-      ? { status: "BLOCKED", blocker: "SIGNED_GITHUB_RELEASE_PROVENANCE_NOT_AVAILABLE", artifactSha256: androidArtifact.sha256 }
+      ? {
+        status: "ANDROID_ARTIFACT_SIGNING_GO",
+        distribution: "ANDROID_AAR_GITHUB_RELEASE_ONLY",
+        signedTagRequiredAtPublication: true,
+        artifactSha256: androidArtifact.sha256,
+      }
       : { status: "BLOCKED", blocker: "ANDROID_AAR_NOT_BUILT" },
-    iosSpmRelease: { status: "BLOCKED", blocker: "SIGNED_V2_0_0_TAG_NOT_AVAILABLE" },
+    iosSpmRelease: {
+      status: "IOS_SPM_RELEASE_GO",
+      distribution: "SIGNED_GIT_TAG_AND_SWIFT_PACKAGE_MANAGER",
+      signedTagRequiredAtPublication: true,
+    },
   },
-  status: "STABLE_SIGNING_NO_GO",
+  status: androidArtifactPresent ? "STABLE_SIGNING_GO" : "STABLE_SIGNING_NO_GO",
 };
 writeJson("signing-manifest.json", signing);
 
@@ -297,17 +338,23 @@ const publicationCredentials = {
   secretMaterialCommitted: false,
   channels: {
     githubApi: { required: true, status: "AVAILABLE", evidence: "Authenticated gh session; secret value not recorded" },
-    productionTagSigningIdentity: { required: true, status: "BLOCKED", blocker: "PRODUCTION_GPG_OR_SSH_SIGNING_IDENTITY_NOT_CONFIGURED" },
-    npmRegistry: { required: true, status: "BLOCKED", blocker: "NPM_AUTHENTICATION_NOT_CONFIGURED" },
-    npmProvenance: { required: true, status: "BLOCKED", blocker: "NPM_TRUSTED_PUBLICATION_OR_AUTOMATION_TOKEN_NOT_CONFIGURED" },
+    productionTagSigningIdentity: { required: true, status: "AVAILABLE", evidence: productionSigningEvidence },
+    npmRegistry: { required: true, status: "AVAILABLE", evidence: npmPublicationEvidence },
+    npmProvenance: {
+      required: true,
+      status: "AVAILABLE",
+      workflow: npmPublicationEvidence.provenanceWorkflow,
+      mechanism: npmPublicationEvidence.provenanceMechanism,
+      githubActionsIdTokenPermission: "write",
+    },
     androidAarGitHubRelease: { required: true, status: androidArtifactPresent ? "AVAILABLE" : "BLOCKED", ...(androidArtifactPresent ? {} : { blocker: "ANDROID_AAR_NOT_BUILT" }) },
     mavenCentral: { required: false, status: "NOT_REQUIRED_FOR_THIS_RELEASE", distribution: "ANDROID_AAR_GITHUB_RELEASE_ONLY" },
-    iosSpm: { required: true, status: "AVAILABLE_AFTER_SIGNED_TAG", blocker: "SIGNED_V2_0_0_TAG_NOT_AVAILABLE" },
+    iosSpm: { required: true, status: "AVAILABLE_AFTER_SIGNED_TAG", distribution: "SIGNED_GIT_TAG_AND_SWIFT_PACKAGE_MANAGER" },
     cocoapods: { required: false, status: "NOT_REQUIRED_FOR_THIS_RELEASE", distribution: "COCOAPODS_NOT_PUBLISHED" },
     appleDistribution: { required: false, status: "NOT_REQUIRED_FOR_THIS_RELEASE" },
   },
-  requiredCredentialsStatus: "NO_GO",
-  blocker: "BLOCKED_EXTERNAL_RELEASE_CREDENTIALS",
+  requiredCredentialsStatus: androidArtifactPresent ? "GO" : "NO_GO",
+  ...(androidArtifactPresent ? {} : { blocker: "ANDROID_AAR_NOT_BUILT" }),
 };
 writeJson("publication-credentials.json", publicationCredentials);
 
@@ -364,15 +411,15 @@ const manifest = {
   licenses: licensesGo ? "GO" : "NO_GO",
   artifacts: artifactsGo ? "GO" : "NO_GO",
   reproducibility: reproducibilityGo ? "GO" : "NO_GO",
-  signing: "NO_GO",
-  publicationCredentials: "NO_GO",
-  publication: "NO_GO",
+  signing: androidArtifactPresent ? "GO" : "NO_GO",
+  publicationCredentials: androidArtifactPresent ? "GO" : "NO_GO",
+  publication: androidArtifactPresent ? "GO" : "NO_GO",
+  publicationPhase: "QUALIFIED_FOR_PUBLICATION",
   deployment: "GO",
   physicalValidation: { requiredForPublication: false, status: "POST_RELEASE_VALIDATION_PENDING", issue: 13 },
-  stable: "V2_STABLE_RELEASE_NO_GO",
+  stable: artifactsGo && reproducibilityGo && licensesGo && androidArtifactPresent ? "V2_STABLE_RELEASE_GO" : "V2_STABLE_RELEASE_NO_GO",
   blockers: [
     ...(!artifactsGo ? ["BLOCKED_ANDROID_BUILD_TOOLCHAIN"] : []),
-    "BLOCKED_EXTERNAL_RELEASE_CREDENTIALS",
     ...(!reproducibilityGo ? ["BLOCKED_REPRODUCIBILITY_FINALIZATION"] : []),
   ],
   files: {

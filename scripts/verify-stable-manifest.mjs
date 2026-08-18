@@ -35,6 +35,43 @@ if (signing.secretMaterialCommitted !== false || !["STABLE_SIGNING_GO", "STABLE_
 if ((manifest.signing === "GO") !== (signing.status === "STABLE_SIGNING_GO")) fail("Stable signing gate and signing manifest disagree.");
 if (publicationCredentials.secretMaterialCommitted !== false || !["GO", "NO_GO"].includes(publicationCredentials.requiredCredentialsStatus)) fail("Publication credential inventory is invalid or reports committed secret material.");
 if (publicationCredentials.requiredCredentialsStatus !== manifest.publicationCredentials) fail("Publication credential inventory and Stable gate disagree.");
+if (signing.status === "STABLE_SIGNING_GO") {
+  const expectedSigningChannels = {
+    gitTagSigning: "GIT_TAG_SIGNING_GO",
+    githubReleaseSigning: "GITHUB_RELEASE_SIGNING_GO",
+    npmPublication: "NPM_PUBLICATION_GO",
+    androidArtifactSigning: "ANDROID_ARTIFACT_SIGNING_GO",
+    iosSpmRelease: "IOS_SPM_RELEASE_GO",
+  };
+  for (const [channel, status] of Object.entries(expectedSigningChannels)) {
+    if (signing.channels?.[channel]?.status !== status) fail(`Stable signing channel ${channel} is not GO.`);
+  }
+  const tagIdentity = signing.channels.gitTagSigning;
+  if (tagIdentity.scheme !== "SSH_ED25519" || !Number.isInteger(tagIdentity.githubSigningKeyId)
+    || !/^SHA256:/.test(tagIdentity.publicKeyFingerprint ?? "")
+    || tagIdentity.localSmokeTest?.status !== "PASS"
+    || tagIdentity.localSmokeTest?.sshSignatureBlockPresent !== true
+    || tagIdentity.localSmokeTest?.temporaryTagDeleted !== true) {
+    fail("Production SSH tag signing evidence is incomplete.");
+  }
+}
+if (publicationCredentials.requiredCredentialsStatus === "GO") {
+  for (const channel of ["githubApi", "productionTagSigningIdentity", "npmRegistry", "npmProvenance", "androidAarGitHubRelease"]) {
+    if (publicationCredentials.channels?.[channel]?.status !== "AVAILABLE") fail(`Required publication credential ${channel} is unavailable.`);
+  }
+  if (publicationCredentials.blocker) fail("Publication credential GO cannot retain a blocker.");
+  const npmEvidence = publicationCredentials.channels.npmRegistry.evidence;
+  if (npmEvidence?.account !== "yangjunjielin" || npmEvidence?.organization !== "scanly"
+    || npmEvidence?.organizationRole !== "owner" || npmEvidence?.packageDryRunStatus !== "PASS"
+    || npmEvidence?.packageDryRunCount !== 10 || npmEvidence?.githubSecretName !== "NPM_TOKEN"
+    || npmEvidence?.secretValueRecorded !== false) fail("npm publication credential evidence is incomplete.");
+}
+const stableNpmWorkflowPath = ".github/workflows/stable-npm-publish.yml";
+if (!exists(stableNpmWorkflowPath)) fail("Stable npm provenance publication workflow is missing.");
+const stableNpmWorkflow = fs.readFileSync(path.join(root, stableNpmWorkflowPath), "utf8");
+for (const marker of ["id-token: write", "secrets.NPM_TOKEN", "--provenance", "v2.0.0", "stable:manifest:verify -- --require-go"]) {
+  if (!stableNpmWorkflow.includes(marker)) fail(`Stable npm provenance workflow is missing '${marker}'.`);
+}
 if ((manifest.reproducibility === "GO") !== (reproducibility.status === "REPRODUCIBILITY_GO")) fail("Stable reproducibility gate and report disagree.");
 if (deployment.status !== "GO" || deployment.sourceCommit !== sourceCommit || deployment.sourceTree !== sourceTree || deployment.gitCommitSha !== sourceCommit || deployment.readyState !== "READY" || deployment.target !== "production" || !/^https:\/\//.test(deployment.url ?? "")) fail("Stable production deployment provenance is incomplete or source-mismatched.");
 

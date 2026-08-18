@@ -122,5 +122,20 @@ const stableReleaseWorkflow = fs.readFileSync(path.join(workflowDirectory, "stab
 if (!stableReleaseWorkflow.includes("stable:manifest:verify") || !stableReleaseWorkflow.includes("--require-go") || !stableReleaseWorkflow.includes("POST_RELEASE_VALIDATION") || stableReleaseWorkflow.includes("device:evidence:verify") || stableReleaseWorkflow.includes("--require-exact-candidate-head")) {
   throw new Error("stable-release-gate.yml: Stable Manifest policy and post-release Physical status gates are incomplete.");
 }
+for (const marker of ["secrets.NPM_TOKEN", "npm whoami", "npm org ls scanly"]) {
+  if (!stableReleaseWorkflow.includes(marker)) throw new Error(`stable-release-gate.yml: missing publication credential preflight '${marker}'.`);
+}
+
+const stableNpmPublishWorkflow = fs.readFileSync(path.join(workflowDirectory, "stable-npm-publish.yml"), "utf8");
+for (const marker of ["release:", "types: [published]", "id-token: write", "secrets.NPM_TOKEN", "--provenance", "v2.0.0", "verification.verified", "stable:manifest:verify -- --require-go"]) {
+  if (!stableNpmPublishWorkflow.includes(marker)) throw new Error(`stable-npm-publish.yml: missing required production publication control '${marker}'.`);
+}
+const orderedPackages = ["@scanly/parsers", "@scanly/scenario-schema", "@scanly/core", "@scanly/engine-jsqr", "@scanly/browser", "@scanly/node", "@scanly/react"];
+let previousPackageIndex = -1;
+for (const packageName of orderedPackages) {
+  const packageIndex = stableNpmPublishWorkflow.indexOf(packageName);
+  if (packageIndex <= previousPackageIndex) throw new Error(`stable-npm-publish.yml: dependency order is invalid at ${packageName}.`);
+  previousPackageIndex = packageIndex;
+}
 
 console.log(`Verified YAML syntax for ${workflowFiles.length} GitHub Actions workflows.`);
