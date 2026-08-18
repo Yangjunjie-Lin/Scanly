@@ -1,0 +1,14 @@
+io.scanly.sdk 2.0.0-beta.5 public Kotlin API
+class ScanlyDecoder : Closeable
+  decodeYPlane(ByteBuffer,width,height,rowStride,pixelStride,ScanlyOptions): List<ScanlyResult>
+  close()
+class ScanlyScannerSession : AutoCloseable
+  start(); pause(); resume(); stop(); dispose(); analyze(ImageProxy); close()
+class ScanlyCameraXAdapter : AutoCloseable
+  bind(LifecycleOwner,CameraSelector); pause(); resume(); stop(); enableTorch(Boolean); close()
+enum ScanlyBarcodeFormat: QR_CODE,DATA_MATRIX,PDF417,CODE_128,EAN_13,EAN_8,UPC_A,UPC_E
+enum ScanlyErrorCode: INVALID_INPUT,UNSUPPORTED_FORMAT,DECODE_FAILED,ENGINE_INITIALIZATION_FAILED,ENGINE_EXECUTION_FAILED,CANCELLED,OUT_OF_MEMORY,INTERNAL_ERROR
+enum ScanlyScannerState: IDLE,RUNNING,PAUSED,STOPPED,DISPOSED
+enum ScanlyChecksumStatus: UNKNOWN,NOT_APPLICABLE,VALID,INVALID
+data ScanlyOptions: formats,maxResults,Balanced
+data ScanlyResult: payload,rawBytes,format,boundingBox,cornerPoints,orientationDegrees,checksumStatus,isValidated,structuredMetadataJson,engine,diagnosticsJson

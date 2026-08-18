@@ -1,0 +1,96 @@
+{
+  "schemaVersion": "beta4-device-manifest-1",
+  "status": "DEVICE_MATRIX_PARTIAL",
+  "groundTruthPolicy": "decoder-independent-fixed-before-scan",
+  "targetManifest": "device-lab/test-targets/ground-truth.json",
+  "scenarioSet": "beta4-physical-camera-v1",
+  "scenarios": [
+    {
+      "id": "P1",
+      "name": "Basic single scan",
+      "targetIds": ["qr-basic"],
+      "measurements": ["cameraStartupMs", "firstUsableFrameMs", "ttfdMs", "ttfcMs", "attempts"]
+    },
+    {
+      "id": "P2",
+      "name": "Multi-format",
+      "targetIds": ["qr-basic", "data-matrix-basic", "pdf417-basic", "code128-basic", "ean13-basic"]
+    },
+    {
+      "id": "P3",
+      "name": "Distance",
+      "targetIds": ["qr-basic"],
+      "testerDeclared": ["distanceLabel", "distanceMeasurement", "distanceUnit"]
+    },
+    {
+      "id": "P4",
+      "name": "Angle",
+      "targetIds": ["qr-basic"],
+      "testerDeclared": ["angleLabel", "approximateAngleDegrees"]
+    },
+    {
+      "id": "P5",
+      "name": "Low light",
+      "targetIds": ["qr-basic"],
+      "testerDeclared": ["lightingDescription"],
+      "notes": "Do not record lux unless an actual measurement exists."
+    },
+    {
+      "id": "P6",
+      "name": "Motion",
+      "targetIds": ["qr-basic"],
+      "measurements": ["ttfcMs", "droppedFrames", "qualityRejectedFrames", "recoveryRoutes"]
+    },
+    {
+      "id": "P7",
+      "name": "Glare",
+      "targetIds": ["screen-display"]
+    },
+    {
+      "id": "P8",
+      "name": "Small module",
+      "targetIds": ["qr-small"]
+    },
+    {
+      "id": "P9",
+      "name": "Multi-code",
+      "targetIds": ["multi-qr", "multi-data-matrix", "multi-code128", "multi-ean13"],
+      "expectedPhysicalTargetCount": 4
+    },
+    {
+      "id": "P10",
+      "name": "Same payload physical instances",
+      "targetIds": ["same-payload-a", "same-payload-b"],
+      "expectedPhysicalTargetCount": 2,
+      "requiredResultFields": ["physicalInstanceId"]
+    },
+    {
+      "id": "P11",
+      "name": "Tracking",
+      "targetIds": ["multi-qr", "multi-data-matrix", "multi-code128", "multi-ean13"],
+      "measurements": ["identitySwitches", "fragmentation", "falseTracks"]
+    },
+    {
+      "id": "P12",
+      "name": "Batch",
+      "targetIds": ["multi-qr", "multi-data-matrix", "multi-code128", "multi-ean13"],
+      "expectedPhysicalTargetCount": 4,
+      "measurements": ["expectedCount", "confirmedCount", "completed"]
+    },
+    {
+      "id": "N1",
+      "name": "Negative camera session",
+      "negativeSubjects": ["desk", "wall", "keyboard", "fabric", "screen-without-barcode", "packaging-without-barcode"],
+      "expectedConfirmedCount": 0
+    }
+  ],
+  "capabilityProtocols": {
+    "torch": ["on", "off"],
+    "zoom": ["minimum", "middle", "maximum-safe", "auto-cooldown", "manual-override"],
+    "focus": ["continuous-if-browser-reported"],
+    "cameraSwitch": ["rear", "front", "rear"],
+    "permission": ["prompt", "denied", "granted", "revoked-if-browser-permits"],
+    "lifecycle": ["background", "foreground", "screen-lock-or-interruption", "portrait", "landscape", "portrait"],
+    "network": ["load-application", "disable-network", "continue-scanning"]
+  }
+}

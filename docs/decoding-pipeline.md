@@ -1,33 +1,34 @@
-# Decoding Pipeline
+# Decoding pipeline
 
-Upload-mode decoding follows an ordered, budgeted fallback path. It is heuristic image processing — not a machine-learning model.
+Alpha.4's measured default order is jsQR → ZXing-C++ WASM → ZXing-JS. Fast defers fallback to protect cold first-frame latency. Balanced and Robust run a limited cheap jsQR probe, then one native original full-frame pass before the expensive preprocessing graph. Later fallback remains sequential and observable; initialization failure is isolated and does not masquerade as no-symbol.
 
-## Stages
+The shared Router graph orchestrates an ordered, budgeted QR fallback implementation. It is heuristic image processing, not a machine-learning model. Upload, Worker, main-thread, normalized-pixel, Node benchmark, and camera-sampled frames all use this path.
 
-1. **Load** — decode image bytes to RGBA (`createImageBitmap` in browser; Sharp with EXIF rotation in Node).
-2. **Candidate regions** — edge-density grid on a ~400px preview; top-N regions with NMS.
-3. **Crops** — tight / medium / expanded padding with edge clamping.
-4. **Scales** — original, downscaled, upscaled (pixel and time budgets enforced).
-5. **Preprocess** — ordered variants: original → contrast → invert → Otsu → fixed thresholds → gamma → sharpen.
-6. **Rotation** — 0° first; 90/180/270 after basic failures (limited on full-image fallback).
-7. **jsQR** — one `attemptBoth` inversion probe per preprocessing variant; equivalent inverted probes are not repeated.
-8. **Alternative candidates** — continue top-N if the first crop fails or when collecting multiple codes.
-9. **Full-image fallback** — 800 / 600 / 1200 max-side passes.
-10. **ZXing** — final adapter on promising crops.
+## Logical graph
 
-## Attempt metadata
+1. Frame normalization converts supported packed formats to RGBA without copying already-packed RGBA.
+2. ROI applies full-frame or bounded relative cropping.
+3. Localization creates an edge-density or full-frame plan.
+4. Candidate generation uses preview scoring, top-N regions, padding, scales, and bounded fallbacks.
+5. Candidate deduplication removes geometrically equivalent work.
+6. Enhancement planning orders original, contrast, invert, Otsu, thresholds, gamma, and sharpen as configured.
+7. Geometry planning applies the configured 0/90/180/270 rotations.
+8. Decoder execution calls registered engine plugins in real sequential or parallel mode.
+9. Result aggregation deduplicates and deterministically orders non-empty results.
+10. Validation executes registered validators and bounds messages.
+11. Semantic parsing attaches only scenario-enabled side-effect-free structured payloads.
 
-Each attempt stores candidate index/score, padding, scale, rotation, preprocess method, decoder, elapsed ms, and success/payload.
+The logical split reuses optimized internal pixel primitives and a per-frame artifact store; it does not force a copy at every operator boundary.
 
-## Budgets
+## Budgets and output
 
-- `maxCandidates`, `maxAttempts`, `timeoutMs`, `maxPixels`
-- Browser upload boundary: 25 MiB, 24 megapixels, and 12,000 pixels on either side before canvas RGBA allocation
-- AbortSignal cancellation for direct pipeline callers; browser Upload cancellation terminates the Worker for bounded latency
-- decoder selection for tests (`decoders.jsqr`, `decoders.zxing`, or `decoderOrder`)
+Scenarios bound pixels, candidates, attempts, execution time, concurrent frames, retained artifact allocations/bytes, and result count. The browser upload boundary additionally caps encoded bytes, decoded dimensions, and megapixels before canvas RGBA allocation. Cancellation propagates through the graph and engine calls; Worker cancellation terminates the Worker.
+
+Attempt metadata contains candidate index, padding, scale, rotation, preprocessing, engine, elapsed time, and success. It is exposed only when `output.includeAttempts` is enabled and never contains payload bytes or text.
 
 ## Multiple QR codes
 
-When `findMultiple` is enabled, unique payloads are collected across candidates (capped). Production uses a no-new-result stall window because it cannot know the true count. Benchmark multiple fixtures declare `requiredPayloads` and pass only when the complete required set is present; `expectedResultCount` is a benchmark stop hint, not a production assumption.
+When multi-code is enabled, unique payloads are collected across candidates up to the scenario cap. Production uses a no-new-result stall window because it cannot know the true count. Benchmark multiple fixtures declare required payload sets and pass only when the complete set is present. A stall is never success when no result was found. Successful public outcomes use a non-empty tuple and always define `primary`.
+# Format-aware execution
 
-A stall is never success when no result has been found. Successful outcomes use a non-empty tuple, always define `primary`, and are protected by a runtime invariant at their single constructor boundary.
+Alpha.5 keeps the existing QR pipeline compatibility surface but carries an explicit `formats` list through scenario compilation, candidate attempts, Worker messages, Node executors, and native calls. Matrix, stacked, and linear classes share bounded lifecycle and memory accounting while retaining different native masks and validation policies. A result outside the requested set is discarded at the pipeline boundary.

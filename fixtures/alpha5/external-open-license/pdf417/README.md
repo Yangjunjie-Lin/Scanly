@@ -1,0 +1,3 @@
+The three PDF417 originals are unchanged Android-camera black-box photographs from ZXing commit `19aa2d8254410e161f04dc3c928e68d5e90233c2`, authored by Daniel Switkin / ZXing authors and distributed under Apache-2.0. The source history explicitly describes the set as real-world PDF417 images taken with an Android device; repository-wide license coverage is pinned in each manifest entry.
+
+The complete source `LICENSE` is preserved as `ZXING-APACHE-2.0.txt` (SHA-256 `3f62881f0566227a24b12e5a754cc79f39aaa94883038e95c94812e1f50af42f`). Payloads are non-personal test strings. Identity documents, tickets, tracking labels, or any photo containing personal or sensitive information remain prohibited.

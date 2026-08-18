@@ -1,0 +1,51 @@
+import { CaptureRouter, type BarcodeFormat, type ConcurrentCallPolicy, type FormatSelection, type RecoveryBudget, type RecoveryProfile, type RecoveryRouteId, type ScanOutcome } from "@scanly/core";
+import { type ScenarioDefinition } from "@scanly/scenario-schema";
+import { type DecodeWorkerFactory, type WorkerScanOptions } from "./worker/worker-client.js";
+export type BrowserCaptureSessionState = "idle" | "initialized" | "running" | "stopped" | "disposed";
+export interface BrowserScanFileOptions extends WorkerScanOptions {
+    forceMainThread?: boolean;
+}
+export interface BrowserCaptureSessionOptions {
+    scenario?: ScenarioDefinition;
+    formats?: FormatSelection | readonly BarcodeFormat[];
+    concurrentCallPolicy?: ConcurrentCallPolicy;
+    workerFactory?: DecodeWorkerFactory;
+    router?: CaptureRouter;
+    disposeRouter?: boolean;
+    /** Static industrial recovery is explicit; normal upload behavior is unchanged. */
+    recovery?: false | BrowserStaticIndustrialRecoveryOptions;
+}
+export interface BrowserStaticIndustrialRecoveryOptions {
+    profile?: RecoveryProfile;
+    budget?: RecoveryBudget;
+    dpmExperimental?: boolean;
+    excludedRoutes?: readonly RecoveryRouteId[];
+}
+export declare class BrowserCaptureSession {
+    private state;
+    private scenario;
+    private readonly concurrentPolicy;
+    private readonly worker;
+    private readonly router;
+    private readonly ownsRouter;
+    private controller;
+    private owner;
+    private recovery;
+    private readonly recoveryPipeline;
+    constructor(options?: BrowserCaptureSessionOptions);
+    getState(): BrowserCaptureSessionState;
+    initialize(): void;
+    start(): void;
+    stop(): void;
+    cancel(): void;
+    updateConfiguration(scenario: ScenarioDefinition): void;
+    updateFormats(selection: FormatSelection | readonly BarcodeFormat[]): void;
+    scanFile(file: File, options?: BrowserScanFileOptions): Promise<ScanOutcome>;
+    updateRecovery(recovery: false | BrowserStaticIndustrialRecoveryOptions): void;
+    private workerRecovery;
+    private decodeOnMain;
+    dispose(): Promise<void>;
+    private assertNotDisposed;
+    private failure;
+}
+//# sourceMappingURL=browser-session.d.ts.map

@@ -1,0 +1,908 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://scanly.dev/schemas/physical-device-evidence-beta4.json",
+  "title": "Scanly Beta 4 PhysicalDeviceEvidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "sourceCommit",
+    "sourceTree",
+    "sdkVersion",
+    "evidenceId",
+    "evidenceType",
+    "session",
+    "device",
+    "browser",
+    "camera",
+    "scenarios",
+    "networkIsolation",
+    "fieldSources",
+    "sensitiveDataReviewed",
+    "rightsReviewed",
+    "repositoryDirty"
+  ],
+    "properties": {
+    "schemaVersion": { "const": "beta4-physical-device-evidence-1" },
+    "sourceCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "sourceTree": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "sdkVersion": { "const": "2.0.0-beta.5" },
+    "evidenceId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{7,127}$" },
+    "evidenceType": { "enum": ["simulated", "desktop-camera", "physical-mobile", "remote-physical-device"] },
+    "deployment": { "$ref": "#/$defs/deployment" },
+    "remoteHardware": { "$ref": "#/$defs/remoteHardware" },
+    "session": { "$ref": "#/$defs/session" },
+    "device": { "$ref": "#/$defs/device" },
+    "browser": { "$ref": "#/$defs/browser" },
+    "camera": { "$ref": "#/$defs/camera" },
+    "capabilityEvidence": { "$ref": "#/$defs/capabilityEvidence" },
+    "permissionLifecycle": { "$ref": "#/$defs/permissionLifecycle" },
+    "cameraSwitch": { "$ref": "#/$defs/cameraSwitch" },
+    "orientation": { "$ref": "#/$defs/orientation" },
+    "backgroundForeground": { "$ref": "#/$defs/backgroundForeground" },
+    "scenarios": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/scenario" }
+    },
+    "longRun": { "$ref": "#/$defs/longRun" },
+    "thermalObservation": { "$ref": "#/$defs/thermalObservation" },
+    "batteryObservation": { "$ref": "#/$defs/batteryObservation" },
+    "networkIsolation": { "$ref": "#/$defs/networkIsolation" },
+    "fieldSources": {
+      "type": "object",
+      "minProperties": 6,
+      "additionalProperties": { "$ref": "#/$defs/fieldSource" }
+    },
+    "sensitiveDataReviewed": { "const": true },
+    "rightsReviewed": { "const": true },
+    "repositoryDirty": { "const": false }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "evidenceType": { "enum": ["physical-mobile", "remote-physical-device"] } },
+        "required": ["evidenceType"]
+      },
+      "then": {
+        "required": [
+          "capabilityEvidence",
+          "permissionLifecycle",
+          "cameraSwitch",
+          "orientation",
+          "backgroundForeground",
+          "thermalObservation",
+          "batteryObservation"
+        ],
+        "properties": {
+          "session": {
+            "properties": {
+              "hardwareAccess": { "enum": ["physical-local", "remote-device-farm"] }
+            }
+          },
+          "device": {
+            "required": ["declaredModel", "manufacturer", "operatingSystem", "operatingSystemVersion"]
+          },
+          "scenarios": {
+            "minItems": 13,
+            "maxItems": 13,
+            "items": {
+              "properties": {
+                "status": { "enum": ["passed", "failed"] }
+              }
+            }
+          },
+          "networkIsolation": {
+            "properties": {
+              "tested": { "const": true },
+              "scannerContinuedAfterNetworkDisabled": { "const": true }
+            }
+          },
+          "fieldSources": { "minProperties": 9 }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "evidenceType": { "const": "physical-mobile" } }, "required": ["evidenceType"] },
+      "then": { "properties": { "session": { "properties": { "hardwareAccess": { "const": "physical-local" } } } } }
+    },
+    {
+      "if": { "properties": { "evidenceType": { "const": "remote-physical-device" } }, "required": ["evidenceType"] },
+      "then": {
+        "required": ["remoteHardware"],
+        "properties": {
+          "session": { "properties": { "hardwareAccess": { "const": "remote-device-farm" } } },
+          "longRun": { "properties": { "qualifyingPhysicalSoak": { "const": false } } }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "evidenceType": { "const": "desktop-camera" } }, "required": ["evidenceType"] },
+      "then": {
+        "properties": {
+          "session": { "properties": { "hardwareAccess": { "const": "desktop-local" } } },
+          "longRun": { "properties": { "qualifyingPhysicalSoak": { "const": false } } }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "evidenceType": { "const": "simulated" } }, "required": ["evidenceType"] },
+      "then": {
+        "properties": {
+          "session": { "properties": { "hardwareAccess": { "const": "simulated" } } },
+          "longRun": { "properties": { "qualifyingPhysicalSoak": { "const": false } } }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "fieldSource": {
+      "enum": [
+        "declared-by-tester",
+        "browser-reported",
+        "camera-api-reported",
+        "tester-measured",
+        "tester-estimated",
+        "tester-observed",
+        "tester-recorded",
+        "OS-reported",
+        "external-measured",
+        "provider-reported",
+        "unavailable"
+      ]
+    },
+    "metric": {
+      "oneOf": [
+        { "type": "number", "minimum": 0 },
+        { "const": "unavailable" }
+      ]
+    },
+    "observationResult": { "enum": ["passed", "failed", "unsupported"] },
+    "operationResult": { "enum": ["passed", "failed", "unsupported", "unavailable"] },
+    "deployment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "deploymentId", "gitCommit"],
+      "properties": {
+        "url": { "type": "string", "format": "uri", "pattern": "^https://" },
+        "deploymentId": { "type": "string", "minLength": 3 },
+        "gitCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" }
+      }
+    },
+    "remoteHardware": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "providerSessionId", "providerDeviceId", "realHardware", "attestationUrl", "attestationSha256"],
+      "properties": {
+        "provider": { "type": "string", "minLength": 2 },
+        "providerSessionId": { "type": "string", "minLength": 3 },
+        "providerDeviceId": { "type": "string", "minLength": 3 },
+        "realHardware": { "const": true },
+        "attestationUrl": { "type": "string", "format": "uri", "pattern": "^https://" },
+        "attestationSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sessionId", "startedAt", "endedAt", "testerId", "hardwareAccess"],
+      "properties": {
+        "sessionId": { "type": "string", "minLength": 8 },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "endedAt": { "type": "string", "format": "date-time" },
+        "testerId": { "type": "string", "minLength": 2 },
+        "hardwareAccess": { "enum": ["simulated", "desktop-local", "physical-local", "remote-device-farm"] }
+      }
+    },
+    "device": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operatingSystem"],
+      "properties": {
+        "declaredModel": { "type": "string", "minLength": 2 },
+        "manufacturer": { "type": "string", "minLength": 2 },
+        "operatingSystem": { "type": "string", "minLength": 2 },
+        "operatingSystemVersion": { "type": "string", "minLength": 1 }
+      }
+    },
+    "browser": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "userAgent"],
+      "properties": {
+        "name": { "type": "string", "minLength": 2 },
+        "version": { "type": "string", "minLength": 1 },
+        "userAgent": { "type": "string", "minLength": 8 }
+      }
+    },
+    "camera": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["settings", "capabilities", "constraints"],
+      "properties": {
+        "label": { "type": "string" },
+        "settings": { "type": "object" },
+        "capabilities": { "type": "object" },
+        "constraints": { "type": "object" }
+      }
+    },
+    "comparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["targetId", "expectedPayload", "expectedFormat", "result", "matched"],
+      "properties": {
+        "targetId": { "type": "string" },
+        "expectedPayload": { "type": "string" },
+        "expectedFormat": { "type": "string" },
+        "observedPayload": { "type": "string" },
+        "observedFormat": { "type": "string" },
+        "physicalInstanceId": { "type": "string", "minLength": 1 },
+        "result": { "$ref": "#/$defs/observationResult" },
+        "matched": { "type": "boolean" }
+      }
+    },
+    "distanceObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "distance", "unit", "source", "result"],
+      "properties": {
+        "label": { "enum": ["near", "medium", "far"] },
+        "distance": { "type": "number", "exclusiveMinimum": 0 },
+        "unit": { "enum": ["cm", "m", "in"] },
+        "source": { "enum": ["tester-measured", "tester-estimated"] },
+        "result": { "$ref": "#/$defs/observationResult" }
+      }
+    },
+    "angleObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "approximateAngleDegrees", "source", "result"],
+      "properties": {
+        "label": { "enum": ["0-degrees", "approximately-20-degrees", "approximately-40-degrees"] },
+        "approximateAngleDegrees": { "type": "number", "minimum": 0, "maximum": 90 },
+        "source": { "const": "tester-estimated" },
+        "result": { "$ref": "#/$defs/observationResult" }
+      }
+    },
+    "lightingObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["condition", "result"],
+      "properties": {
+        "condition": { "enum": ["normal-room", "dim-room", "dark-room-with-screen-illumination"] },
+        "result": { "$ref": "#/$defs/observationResult" },
+        "measuredLux": { "type": "number", "minimum": 0 },
+        "luxSource": { "const": "external-measured" }
+      },
+      "dependentRequired": { "measuredLux": ["luxSource"], "luxSource": ["measuredLux"] }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scenarioId", "status", "startedAt", "endedAt", "durationMs", "targetIds", "groundTruth", "falseConfirmedScans"],
+      "properties": {
+        "scenarioId": { "pattern": "^(P([1-9]|1[0-2])|N1)$" },
+        "status": { "enum": ["passed", "failed", "not-tested", "unavailable"] },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "endedAt": { "type": "string", "format": "date-time" },
+        "targetIds": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+        "groundTruth": { "type": "array", "items": { "$ref": "#/$defs/comparison" } },
+        "falseConfirmedScans": { "const": 0 },
+        "cameraStartupMs": { "$ref": "#/$defs/metric" },
+        "firstUsableFrameMs": { "$ref": "#/$defs/metric" },
+        "ttfdMs": { "$ref": "#/$defs/metric" },
+        "ttfcMs": { "$ref": "#/$defs/metric" },
+        "attempts": { "$ref": "#/$defs/metric" },
+        "distanceObservations": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "$ref": "#/$defs/distanceObservation" } },
+        "angleObservations": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "$ref": "#/$defs/angleObservation" } },
+        "lightingObservations": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "$ref": "#/$defs/lightingObservation" } },
+        "capturedFrames": { "type": "integer", "minimum": 0 },
+        "admittedFrames": { "type": "integer", "minimum": 0 },
+        "droppedFrames": { "type": "integer", "minimum": 0 },
+        "qualityRejectedFrames": { "type": "integer", "minimum": 0 },
+        "glareMedium": { "enum": ["screen-barcode", "reflective-surface"] },
+        "distance": { "type": "number", "exclusiveMinimum": 0 },
+        "distanceUnit": { "enum": ["cm", "m", "in"] },
+        "distanceSource": { "enum": ["tester-measured", "tester-estimated"] },
+        "cameraResolution": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["width", "height"],
+          "properties": {
+            "width": { "type": "integer", "minimum": 1 },
+            "height": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "zoom": { "$ref": "#/$defs/metric" },
+        "expectedCount": { "type": "integer", "minimum": 0 },
+        "decodedCount": { "type": "integer", "minimum": 0 },
+        "sameFrameId": { "oneOf": [{ "type": "integer", "minimum": 0 }, { "const": "unavailable" }] },
+        "formats": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "payloadCompleteness": { "type": "boolean" },
+        "payloadIdentical": { "type": "boolean" },
+        "identitySwitchCount": { "type": "integer", "minimum": 0 },
+        "fragmentationCount": { "type": "integer", "minimum": 0 },
+        "falseTrackCount": { "type": "integer", "minimum": 0 },
+        "trackingBindings": {
+          "type": "array",
+          "minItems": 4,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["label", "runtimePhysicalInstanceId", "observedAt"],
+            "properties": {
+              "label": { "type": "string", "minLength": 1 },
+              "runtimePhysicalInstanceId": { "type": "string", "minLength": 1 },
+              "observedAt": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
+        "auditedPhysicalTargetCount": { "type": "integer", "minimum": 0 },
+        "createdTrackCount": { "type": "integer", "minimum": 0 },
+        "confirmedPhysicalInstances": { "type": "integer", "minimum": 0 },
+        "completion": { "type": "boolean" },
+        "falseCompletion": { "type": "boolean" },
+        "negativeSubjects": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+        "durationMs": { "type": "number", "exclusiveMinimum": 0 },
+        "confirmedScanCount": { "type": "integer", "minimum": 0 },
+        "notes": { "type": "string" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "scenarioId": { "const": "P1" } }, "required": ["scenarioId"] },
+          "then": { "required": ["cameraStartupMs", "firstUsableFrameMs", "ttfdMs", "ttfcMs", "attempts"] }
+        },
+        {
+          "if": { "properties": { "scenarioId": { "const": "P3" } }, "required": ["scenarioId"] },
+          "then": { "required": ["distanceObservations"] }
+        },
+        {
+          "if": { "properties": { "scenarioId": { "const": "P4" } }, "required": ["scenarioId"] },
+          "then": { "required": ["angleObservations"] }
+        },
+        {
+          "if": { "properties": { "scenarioId": { "const": "P5" } }, "required": ["scenarioId"] },
+          "then": { "required": ["lightingObservations"] }
+        },
+        {
+          "if": { "properties": { "scenarioId": { "const": "P6" } }, "required": ["scenarioId"] },
+          "then": { "required": ["capturedFrames", "admittedFrames", "droppedFrames", "qualityRejectedFrames", "ttfcMs"] }
+        },
+        {
+          "if": { "properties": { "scenarioId": { "const": "P7" } }, "required": ["scenarioId"] },
+          "then": { "required": ["glareMedium"] }
+        },
+        {
+          "if": { "properties": { "scenarioId": { "const": "P8" } }, "required": ["scenarioId"] },
+          "then": { "required": ["distance", "distanceUnit", "distanceSource", "cameraResolution", "zoom"] }
+        },
+        {
+          "if": { "properties": { "scenarioId": { "const": "P9" } }, "required": ["scenarioId"] },
+          "then": { "required": ["expectedCount", "sameFrameId", "decodedCount", "formats", "payloadCompleteness"] }
+        },
+        {
+          "if": { "properties": { "scenarioId": { "const": "P10" } }, "required": ["scenarioId"] },
+          "then": { "required": ["payloadIdentical"] }
+        },
+        {
+          "if": { "properties": { "scenarioId": { "const": "P11" } }, "required": ["scenarioId"] },
+          "then": { "required": ["identitySwitchCount", "fragmentationCount", "falseTrackCount", "trackingBindings", "auditedPhysicalTargetCount", "createdTrackCount"] }
+        },
+        {
+          "if": { "properties": { "scenarioId": { "const": "P12" } }, "required": ["scenarioId"] },
+          "then": { "required": ["expectedCount", "confirmedPhysicalInstances", "completion", "falseCompletion"] }
+        },
+        {
+          "if": { "properties": { "scenarioId": { "const": "N1" } }, "required": ["scenarioId"] },
+          "then": { "required": ["negativeSubjects", "durationMs", "confirmedScanCount"] }
+        }
+      ]
+    },
+    "capabilityEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["torch", "zoom", "focus"],
+      "properties": {
+        "torch": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["reported", "on", "off"],
+          "properties": {
+            "reported": { "type": "boolean" },
+            "on": { "$ref": "#/$defs/operationResult" },
+            "off": { "$ref": "#/$defs/operationResult" }
+          }
+        },
+        "zoom": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["reported", "minimum", "maximum", "current", "manualZoom", "autoZoom", "manualOverride", "cooldown"],
+          "properties": {
+            "reported": { "type": "boolean" },
+            "minimum": { "$ref": "#/$defs/metric" },
+            "maximum": { "$ref": "#/$defs/metric" },
+            "current": { "$ref": "#/$defs/metric" },
+            "manualZoom": { "$ref": "#/$defs/operationResult" },
+            "autoZoom": { "$ref": "#/$defs/operationResult" },
+            "manualOverride": { "$ref": "#/$defs/operationResult" },
+            "cooldown": { "$ref": "#/$defs/operationResult" }
+          }
+        },
+        "focus": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["reported", "result"],
+          "properties": {
+            "reported": { "type": "boolean" },
+            "result": { "$ref": "#/$defs/operationResult" }
+          }
+        }
+      }
+    },
+    "permissionLifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "initialPrompt",
+        "grant",
+        "deny",
+        "retry",
+        "revoke",
+        "typedError",
+        "noUnhandledRejection",
+        "recoverableState",
+        "unhandledRejectionCount",
+        "steps"
+      ],
+      "properties": {
+        "status": { "enum": ["passed", "failed", "not-tested", "unavailable"] },
+        "initialPrompt": { "enum": ["observed", "failed", "not-tested", "unavailable"] },
+        "grant": { "enum": ["passed", "failed", "not-tested", "unavailable"] },
+        "deny": { "enum": ["passed", "failed", "not-tested", "unavailable"] },
+        "retry": { "enum": ["passed", "failed", "not-tested", "unavailable"] },
+        "revoke": { "enum": ["passed", "failed", "unavailable"] },
+        "typedError": { "oneOf": [{ "type": "boolean" }, { "const": "unavailable" }] },
+        "noUnhandledRejection": { "oneOf": [{ "type": "boolean" }, { "const": "unavailable" }] },
+        "recoverableState": { "oneOf": [{ "type": "boolean" }, { "const": "unavailable" }] },
+        "unhandledRejectionCount": { "type": "integer", "minimum": 0 },
+        "steps": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 5,
+          "items": { "$ref": "#/$defs/permissionLifecycleStep" }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "passed" } }, "required": ["status"] },
+          "then": {
+            "properties": {
+              "initialPrompt": { "const": "observed" },
+              "grant": { "const": "passed" },
+              "deny": { "const": "passed" },
+              "retry": { "const": "passed" },
+              "typedError": { "const": true },
+              "noUnhandledRejection": { "const": true },
+              "recoverableState": { "const": true },
+              "unhandledRejectionCount": { "const": 0 },
+              "steps": { "minItems": 4 }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "status": { "const": "not-tested" } }, "required": ["status"] },
+          "then": {
+            "properties": {
+              "initialPrompt": { "const": "not-tested" },
+              "grant": { "const": "not-tested" },
+              "deny": { "const": "not-tested" },
+              "retry": { "const": "not-tested" },
+              "revoke": { "const": "unavailable" },
+              "typedError": { "const": "unavailable" },
+              "noUnhandledRejection": { "const": "unavailable" },
+              "recoverableState": { "const": "unavailable" },
+              "unhandledRejectionCount": { "const": 0 },
+              "steps": { "maxItems": 0 }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "status": { "const": "unavailable" } }, "required": ["status"] },
+          "then": {
+            "properties": {
+              "initialPrompt": { "const": "unavailable" },
+              "grant": { "const": "unavailable" },
+              "deny": { "const": "unavailable" },
+              "retry": { "const": "unavailable" },
+              "revoke": { "const": "unavailable" },
+              "typedError": { "const": "unavailable" },
+              "noUnhandledRejection": { "const": "unavailable" },
+              "recoverableState": { "const": "unavailable" },
+              "unhandledRejectionCount": { "const": 0 },
+              "steps": { "maxItems": 0 }
+            }
+          }
+        }
+      ]
+    },
+    "permissionLifecycleStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["phase", "observedAt", "outcome", "scannerState", "recoverableState", "unhandledRejectionCount"],
+      "properties": {
+        "phase": { "enum": ["initial-prompt", "deny", "retry", "grant", "revoke"] },
+        "observedAt": { "type": "string", "format": "date-time" },
+        "outcome": { "enum": ["observed", "passed", "failed", "unavailable"] },
+        "scannerState": { "enum": ["idle", "starting", "scanning", "paused", "stopping", "stopped", "failed"] },
+        "errorCode": { "type": "string", "minLength": 1 },
+        "recoverableState": { "type": "boolean" },
+        "unhandledRejectionCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "cameraSwitch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tested", "result", "sequence", "oldTrackStopped", "newCameraActive", "generationInvalidated", "staleResultCount"],
+      "properties": {
+        "tested": { "type": "boolean" },
+        "result": { "$ref": "#/$defs/operationResult" },
+        "sequence": { "type": "array", "maxItems": 3, "items": { "enum": ["rear", "front"] } },
+        "oldTrackStopped": { "oneOf": [{ "type": "boolean" }, { "const": "unavailable" }] },
+        "newCameraActive": { "oneOf": [{ "type": "boolean" }, { "const": "unavailable" }] },
+        "generationInvalidated": { "oneOf": [{ "type": "boolean" }, { "const": "unavailable" }] },
+        "staleResultCount": { "type": "integer", "minimum": 0 },
+        "browserReportedMetadataComplete": { "type": "boolean" },
+        "distinctRearAndFrontDevices": { "type": "boolean" },
+        "deviceIds": { "type": "array", "maxItems": 3, "items": { "type": "string", "minLength": 1 } }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "tested": { "const": true } }, "required": ["tested"] },
+          "then": { "required": ["browserReportedMetadataComplete", "distinctRearAndFrontDevices", "deviceIds"], "properties": { "result": { "enum": ["passed", "failed"] } } }
+        },
+        {
+          "if": { "properties": { "tested": { "const": false } }, "required": ["tested"] },
+          "then": {
+            "properties": {
+              "result": { "const": "unavailable" },
+              "sequence": { "maxItems": 0 },
+              "oldTrackStopped": { "const": "unavailable" },
+              "newCameraActive": { "const": "unavailable" },
+              "generationInvalidated": { "const": "unavailable" }
+            }
+          }
+        }
+      ]
+    },
+    "orientationFrame": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["orientation", "width", "height"],
+      "properties": {
+        "orientation": { "enum": ["portrait", "landscape"] },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "orientation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tested", "result", "sequence", "decodedGeometryCorrect", "trackingGeometryCorrect", "overlayGeometryCorrect", "noMirrorOrQuarterTurnOffset", "frameDimensions"],
+      "properties": {
+        "tested": { "const": true },
+        "result": { "enum": ["passed", "failed"] },
+        "sequence": {
+          "type": "array",
+          "prefixItems": [{ "const": "portrait" }, { "const": "landscape" }, { "const": "portrait" }],
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "decodedGeometryCorrect": { "type": "boolean" },
+        "trackingGeometryCorrect": { "type": "boolean" },
+        "overlayGeometryCorrect": { "type": "boolean" },
+        "noMirrorOrQuarterTurnOffset": { "type": "boolean" },
+        "frameDimensions": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "$ref": "#/$defs/orientationFrame" } }
+      }
+    },
+    "lifecycleObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["phase", "mediaStreamTrackReadyState", "scannerSessionState", "workerState"],
+      "properties": {
+        "phase": { "enum": ["foreground-before", "background", "foreground-after"] },
+        "mediaStreamTrackReadyState": { "type": "string", "minLength": 1 },
+        "scannerSessionState": { "type": "string", "minLength": 1 },
+        "workerState": { "type": "string", "minLength": 1 }
+      }
+    },
+    "backgroundForeground": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tested", "waitDurationMs", "result", "observations", "recoveryTimeMs", "staleResultCount", "silentDeadState"],
+      "properties": {
+        "tested": { "const": true },
+        "waitDurationMs": { "type": "number", "minimum": 0 },
+        "result": { "enum": ["recovered", "explicit-restart-required", "failed"] },
+        "observations": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "$ref": "#/$defs/lifecycleObservation" } },
+        "recoveryTimeMs": { "$ref": "#/$defs/metric" },
+        "staleResultCount": { "type": "integer", "minimum": 0 },
+        "silentDeadState": { "const": false }
+      }
+    },
+    "networkIsolation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tested", "scannerContinuedAfterNetworkDisabled", "payloadRemainedLocal", "cloudDecodeRequests", "barcodePixelsUploaded", "barcodePayloadUploaded"],
+      "properties": {
+        "tested": { "type": "boolean" },
+        "scannerContinuedAfterNetworkDisabled": { "oneOf": [{ "type": "boolean" }, { "const": "not-tested" }] },
+        "payloadRemainedLocal": { "type": "boolean" },
+        "cloudDecodeRequests": { "type": "integer", "minimum": 0 },
+        "barcodePixelsUploaded": { "const": false },
+        "barcodePayloadUploaded": { "const": false }
+      }
+    },
+    "soakActivity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "observedAt", "cameraActive", "capturedFrames", "admittedFrames", "decodeAttempts", "confirmedScans", "runtimeObservation"],
+      "properties": {
+        "type": { "enum": ["basic", "multi-code", "moving", "negative"] },
+        "observedAt": { "type": "string", "format": "date-time" },
+        "cameraActive": { "const": true },
+        "capturedFrames": { "type": "integer", "minimum": 0 },
+        "admittedFrames": { "type": "integer", "minimum": 0 },
+        "decodeAttempts": { "type": "integer", "minimum": 0 },
+        "confirmedScans": { "type": "integer", "minimum": 0 },
+        "runtimeObservation": {
+          "oneOf": [
+            { "$ref": "#/$defs/soakBasicObservation" },
+            { "$ref": "#/$defs/soakMultiCodeObservation" },
+            { "$ref": "#/$defs/soakMovingObservation" },
+            { "$ref": "#/$defs/soakNegativeObservation" }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "basic" } }, "required": ["type"] },
+          "then": { "properties": { "runtimeObservation": { "$ref": "#/$defs/soakBasicObservation" } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "multi-code" } }, "required": ["type"] },
+          "then": { "properties": { "runtimeObservation": { "$ref": "#/$defs/soakMultiCodeObservation" } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "moving" } }, "required": ["type"] },
+          "then": { "properties": { "runtimeObservation": { "$ref": "#/$defs/soakMovingObservation" } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "negative" } }, "required": ["type"] },
+          "then": { "properties": { "runtimeObservation": { "$ref": "#/$defs/soakNegativeObservation" } } }
+        }
+      ]
+    },
+    "soakObservedTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["targetId", "payload", "format"],
+      "properties": {
+        "targetId": { "type": "string", "minLength": 1 },
+        "payload": { "type": "string", "minLength": 1 },
+        "format": { "type": "string", "minLength": 1 }
+      }
+    },
+    "soakBasicObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "frameId", "target", "confirmedAt", "physicalInstanceId"],
+      "properties": {
+        "kind": { "const": "basic-runtime-confirmation" },
+        "frameId": { "type": "integer", "minimum": 0 },
+        "target": { "$ref": "#/$defs/soakObservedTarget" },
+        "confirmedAt": { "type": "string", "format": "date-time" },
+        "physicalInstanceId": { "type": "string", "minLength": 1 }
+      }
+    },
+    "soakMultiCodeObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "frameId", "observedAt", "expectedTargetIds", "targets"],
+      "properties": {
+        "kind": { "const": "multi-code-same-frame" },
+        "frameId": { "type": "integer", "minimum": 0 },
+        "observedAt": { "type": "string", "format": "date-time" },
+        "expectedTargetIds": { "type": "array", "minItems": 4, "maxItems": 4, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "targets": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "$ref": "#/$defs/soakObservedTarget" } }
+      }
+    },
+    "soakMovingObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "targetId", "payload", "format", "physicalInstanceId", "startFrameId", "endFrameId", "startObservedAt", "endObservedAt", "startCenter", "endCenter", "displacementPixels", "observedFrameCount", "identitySwitchCount", "fragmentationCount", "falseTrackCount"],
+      "properties": {
+        "kind": { "const": "moving-track-displacement" },
+        "targetId": { "type": "string", "minLength": 1 },
+        "payload": { "type": "string", "minLength": 1 },
+        "format": { "type": "string", "minLength": 1 },
+        "physicalInstanceId": { "type": "string", "minLength": 1 },
+        "startFrameId": { "type": "integer", "minimum": 0 },
+        "endFrameId": { "type": "integer", "minimum": 0 },
+        "startObservedAt": { "type": "string", "format": "date-time" },
+        "endObservedAt": { "type": "string", "format": "date-time" },
+        "startCenter": { "$ref": "#/$defs/soakPoint" },
+        "endCenter": { "$ref": "#/$defs/soakPoint" },
+        "displacementPixels": { "type": "number", "exclusiveMinimum": 0 },
+        "observedFrameCount": { "type": "integer", "minimum": 2 },
+        "identitySwitchCount": { "const": 0 },
+        "fragmentationCount": { "const": 0 },
+        "falseTrackCount": { "const": 0 }
+      }
+    },
+    "soakPoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "number", "minimum": 0 },
+        "y": { "type": "number", "minimum": 0 }
+      }
+    },
+    "soakNegativeObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "startedAt", "endedAt", "capturedFrameDelta", "admittedFrameDelta", "decodeAttemptDelta", "confirmedScanDelta"],
+      "properties": {
+        "kind": { "const": "negative-runtime-interval" },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "endedAt": { "type": "string", "format": "date-time" },
+        "capturedFrameDelta": { "type": "integer", "minimum": 1 },
+        "admittedFrameDelta": { "type": "integer", "minimum": 1 },
+        "decodeAttemptDelta": { "type": "integer", "minimum": 1 },
+        "confirmedScanDelta": { "const": 0 }
+      }
+    },
+    "soakLivenessSample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observedAt", "cameraActive", "scannerState", "capturedFrames", "admittedFrames", "decodeAttempts", "confirmedScans"],
+      "properties": {
+        "observedAt": { "type": "string", "format": "date-time" },
+        "cameraActive": { "const": true },
+        "scannerState": { "const": "scanning" },
+        "capturedFrames": { "type": "integer", "minimum": 0 },
+        "admittedFrames": { "type": "integer", "minimum": 0 },
+        "decodeAttempts": { "type": "integer", "minimum": 0 },
+        "confirmedScans": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "performanceWindow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "startedAt", "endedAt", "durationMs", "ttfdMs", "ttfcMs", "decodeP50Ms", "decodeP95Ms", "effectiveDecodeFps", "frameDropRate"],
+      "properties": {
+        "label": { "enum": ["first-5-min", "middle-5-min", "last-5-min"] },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "endedAt": { "type": "string", "format": "date-time" },
+        "durationMs": { "const": 300000 },
+        "ttfdMs": { "$ref": "#/$defs/metric" },
+        "ttfcMs": { "$ref": "#/$defs/metric" },
+        "decodeP50Ms": { "type": "number", "minimum": 0 },
+        "decodeP95Ms": { "type": "number", "minimum": 0 },
+        "effectiveDecodeFps": { "type": "number", "minimum": 0 },
+        "frameDropRate": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "finalResources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["activeDecode", "pendingFrames", "activeTasks", "liveNativeResults", "wasmInputAllocations", "controlledMemory"],
+      "properties": {
+        "activeDecode": { "const": 0 },
+        "pendingFrames": { "const": 0 },
+        "activeTasks": { "const": 0 },
+        "liveNativeResults": { "const": 0 },
+        "wasmInputAllocations": { "const": 0 },
+        "controlledMemory": { "const": 0 }
+      }
+    },
+    "longRun": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["qualifyingPhysicalSoak", "durationMs"],
+      "properties": {
+        "qualifyingPhysicalSoak": { "type": "boolean" },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "endedAt": { "type": "string", "format": "date-time" },
+        "durationMs": { "type": "number", "minimum": 0 },
+        "cameraActive": { "type": "boolean" },
+        "endedCameraActive": { "type": "boolean" },
+        "activities": { "type": "array", "minItems": 4, "items": { "$ref": "#/$defs/soakActivity" } },
+        "livenessSamples": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/soakLivenessSample" } },
+        "capturedFrames": { "type": "integer", "minimum": 0 },
+        "admittedFrames": { "type": "integer", "minimum": 0 },
+        "droppedFrames": { "type": "integer", "minimum": 0 },
+        "decodeAttempts": { "type": "integer", "minimum": 0 },
+        "confirmedScans": { "type": "integer", "minimum": 0 },
+        "falseConfirmedScans": { "const": 0 },
+        "suppressedRepeats": { "type": "integer", "minimum": 0 },
+        "cameraTrackEndings": { "type": "integer", "minimum": 0 },
+        "scannerRestarts": { "type": "integer", "minimum": 0 },
+        "workerRestarts": { "type": "integer", "minimum": 0 },
+        "errors": { "type": "integer", "minimum": 0 },
+        "stalePublicEvents": { "const": 0 },
+        "finalResources": { "$ref": "#/$defs/finalResources" },
+        "windows": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "$ref": "#/$defs/performanceWindow" } }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "qualifyingPhysicalSoak": { "const": true } }, "required": ["qualifyingPhysicalSoak"] },
+          "then": {
+            "required": [
+              "startedAt",
+              "endedAt",
+              "cameraActive",
+              "endedCameraActive",
+              "activities",
+              "livenessSamples",
+              "capturedFrames",
+              "admittedFrames",
+              "droppedFrames",
+              "decodeAttempts",
+              "confirmedScans",
+              "falseConfirmedScans",
+              "suppressedRepeats",
+              "cameraTrackEndings",
+              "scannerRestarts",
+              "workerRestarts",
+              "errors",
+              "stalePublicEvents",
+              "finalResources",
+              "windows"
+            ],
+            "properties": {
+              "durationMs": { "minimum": 1800000 },
+              "cameraActive": { "const": true },
+              "endedCameraActive": { "const": true },
+              "capturedFrames": { "minimum": 1 },
+              "admittedFrames": { "minimum": 1 },
+              "decodeAttempts": { "minimum": 1 }
+            }
+          }
+        }
+      ]
+    },
+    "thermalObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "deviceBecameWarm", "visibleThrottling", "performanceDegraded"],
+      "properties": {
+        "source": { "enum": ["tester-observed", "OS-reported", "external-measured", "unavailable"] },
+        "deviceBecameWarm": { "oneOf": [{ "type": "boolean" }, { "const": "unavailable" }] },
+        "visibleThrottling": { "oneOf": [{ "type": "boolean" }, { "const": "unavailable" }] },
+        "performanceDegraded": { "oneOf": [{ "type": "boolean" }, { "const": "unavailable" }] },
+        "notes": { "type": "string" }
+      }
+    },
+    "batteryObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source"],
+      "properties": {
+        "source": { "enum": ["tester-recorded", "unavailable"] },
+        "startPercent": { "type": "number", "minimum": 0, "maximum": 100 },
+        "endPercent": { "type": "number", "minimum": 0, "maximum": 100 },
+        "durationMs": { "type": "number", "minimum": 0 },
+        "screenBrightnessSetting": { "type": "string", "minLength": 1 },
+        "chargingState": { "enum": ["charging", "not-charging", "unknown"] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "source": { "const": "tester-recorded" } }, "required": ["source"] },
+          "then": { "required": ["startPercent", "endPercent", "durationMs", "screenBrightnessSetting", "chargingState"] }
+        }
+      ]
+    }
+  }
+}

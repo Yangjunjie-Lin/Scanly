@@ -1,0 +1,566 @@
+import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+import { performance } from "node:perf_hooks";
+import { PUBLIC_BARCODE_FORMATS, SDK_VERSION } from "@scanly/core";
+import { createZxingCppWasmEngine } from "@scanly/engine-zxing-cpp-wasm";
+import { loadNormalizedFrameFromPath } from "@scanly/node";
+import type { BarcodeFormat } from "@scanly/scenario-schema";
+import {
+  ALPHA5_SDK_VERSION,
+  allSymbologyGatesPassed,
+  evaluateSymbologyGates,
+  FORMAT_FAMILIES,
+  formatGateFailureTable,
+  type SymbologyGateMode,
+  type FormatFamily,
+  type SymbologyGateResult,
+} from "./symbology-gates.js";
+import {
+  EXTERNAL_GROUND_TRUTH_REGISTRY_PATH,
+  deduplicateExternalSemanticResults,
+  diffExternalResultMultiset,
+  isAllowedExternalLicense,
+  isExternalFormatMisclassification,
+  isExternalGs1Misclassification,
+  validateExternalFixture,
+  validateExternalFixtureSet,
+  validateExternalGroundTruthRegistry,
+  type ExternalFixture,
+  type ExternalGroundTruthRegistry,
+} from "./external-open-license-contract.js";
+
+const ROOT = path.resolve(__dirname, "..");
+const MANIFEST_PATH = path.join(ROOT, "fixtures", "alpha5", "manifest.json");
+const TRACKED_ALIAS = path.join(ROOT, "benchmark-results", "symbologies.json");
+
+interface RequiredResult { format: BarcodeFormat; payload: string; isGs1?: boolean }
+interface Fixture {
+  id: string;
+  file: string;
+  format?: BarcodeFormat;
+  formatClass?: string;
+  sourceType: "generated" | "project-photo" | "external-open-license";
+  expectedPayload?: string | null;
+  expectedFormat?: BarcodeFormat;
+  physicalInstanceCount?: number;
+  payloadVerificationStatus?: "verified" | "unknown" | "sensitive";
+  sourcePage?: string;
+  originalUrl?: string;
+  sourceRepository?: string;
+  originalFilename?: string;
+  originalWidth?: number;
+  originalHeight?: number;
+  originalByteLength?: number;
+  sha256?: string;
+  assetKind?: "camera-photograph";
+  author?: string;
+  license?: string;
+  licenseUrl?: string;
+  rightsReviewStatus?: "verified";
+  sensitiveDataReviewStatus?: "passed";
+  attribution?: string;
+  retrievedAt?: string;
+  modifications?: unknown[];
+  publicRepositorySafe?: boolean;
+  provenanceNote?: string;
+  expectedOutcome: "decode" | "no-symbol";
+  requiredResults: RequiredResult[];
+  difficultyTags: string[];
+  expectedGs1?: boolean;
+}
+
+interface FixtureResult {
+  id: string;
+  pass: boolean;
+  elapsedMs: number;
+  requestedFormats: BarcodeFormat[];
+  requiredResults: RequiredResult[];
+  actualResults: Array<RequiredResult & { isGs1: boolean; rawBytes: number }>;
+  failureCategory?: string;
+}
+
+interface ExternalCohortSummary {
+  fixtureTotal: number;
+  fixturePassed: number;
+  visiblePhysicalInstanceCount: number;
+  resultTotal: number;
+  exactResults: number;
+  perFormatRecall: Record<BarcodeFormat, { total: number; decoded: number; recall: number | null }>;
+  detectionOnlyTotal: number;
+  detectionOnlyPassed: number;
+  detectionOnlyRecall: number | null;
+  averageLatencyMs: number;
+  medianLatencyMs: number;
+  p95LatencyMs: number;
+  exactPayloadKnownTotal: number;
+  exactPayloadKnownPassed: number;
+  exactPayloadRecall: number | null;
+  formatMisclassificationCount: number;
+  gs1MisclassificationCount: number;
+  falsePositiveCount: number;
+  familyPhotoCounts: Record<FormatFamily, number>;
+  provenanceCompleteness: { complete: number; total: number; rate: number | null };
+  redistributableLicenseCompliance: { complete: number; total: number; rate: number | null };
+  cameraPhotographVerification: { complete: number; total: number; rate: number | null };
+  rightsReviewCompleteness: { complete: number; total: number; rate: number | null };
+  sensitiveDataReviewCompleteness: { complete: number; total: number; rate: number | null };
+  publicRepositorySafety: { safe: number; total: number; rate: number | null };
+}
+
+function hash(bytes: Buffer | string): string {
+  return crypto.createHash("sha256").update(bytes).digest("hex");
+}
+
+function percentile(values: number[], p: number): number {
+  if (!values.length) return 0;
+  const sorted = [...values].sort((left, right) => left - right);
+  return sorted[Math.min(sorted.length - 1, Math.ceil((p / 100) * sorted.length) - 1)];
+}
+
+function exactRequired(required: readonly RequiredResult[], actual: readonly RequiredResult[]): boolean {
+  const remaining = [...actual];
+  for (const result of required) {
+    const index = remaining.findIndex((actualResult) => (
+      actualResult.format === result.format
+      && actualResult.payload === result.payload
+      && (result.isGs1 === undefined || actualResult.isGs1 === result.isGs1)
+    ));
+    if (index < 0) return false;
+    remaining.splice(index, 1);
+  }
+  return remaining.length === 0;
+}
+
+function familyOf(format: BarcodeFormat): FormatFamily | undefined {
+  for (const [family, formats] of Object.entries(FORMAT_FAMILIES) as Array<[FormatFamily, readonly BarcodeFormat[]]>) {
+    if (formats.includes(format)) return family;
+  }
+  return undefined;
+}
+
+async function git(args: string[]): Promise<string> {
+  const { execFile } = await import("node:child_process");
+  const { promisify } = await import("node:util");
+  return (await promisify(execFile)("git", args, { cwd: ROOT })).stdout.trim();
+}
+
+function parseCli(argv: string[]) {
+  const outputArgument = argv.find((argument) => argument.startsWith("--output="));
+  const requestedGateMode = argv.find((argument) => argument.startsWith("--gate-mode="))?.split("=", 2)[1];
+  if (requestedGateMode && requestedGateMode !== "integration" && requestedGateMode !== "release") {
+    throw new Error(`Unsupported symbology gate mode '${requestedGateMode}'. Use integration or release.`);
+  }
+  const gateMode: SymbologyGateMode = argv.includes("--allow-deferred-project-photos") || requestedGateMode === "integration"
+    ? "integration"
+    : "release";
+  return {
+    gate: argv.includes("--gate"),
+    development: argv.includes("--development") || (!argv.includes("--gate") && !argv.includes("--canonical-candidate")),
+    canonicalCandidate: argv.includes("--canonical-candidate"),
+    gateMode,
+    output: outputArgument
+      ? path.resolve(outputArgument.slice("--output=".length))
+      : path.join(ROOT, "benchmark-results", "development", "symbologies.json"),
+  };
+}
+
+async function main(): Promise<void> {
+  const cli = parseCli(process.argv);
+  if (cli.canonicalCandidate && !cli.gate) {
+    throw new Error("--canonical-candidate requires --gate.");
+  }
+  if (cli.canonicalCandidate && path.resolve(cli.output) === path.resolve(TRACKED_ALIAS)) {
+    throw new Error("--canonical-candidate must not write the tracked Canonical symbologies alias; supply an isolated --output path.");
+  }
+
+  const manifestBytes = await fs.promises.readFile(MANIFEST_PATH);
+  const manifest = JSON.parse(manifestBytes.toString("utf8")) as {
+    schemaVersion: string;
+    externalGroundTruth?: { registryPath: string; registrySha256: string; decoderIndependent: boolean } | null;
+    fixtures: Fixture[];
+  };
+  const externalFixtures = manifest.fixtures.filter((fixture) => fixture.sourceType === "external-open-license") as ExternalFixture[];
+  if (manifest.externalGroundTruth?.registryPath !== EXTERNAL_GROUND_TRUTH_REGISTRY_PATH
+    || manifest.externalGroundTruth.decoderIndependent !== true) {
+    throw new Error("Alpha.5 manifest external Ground Truth registry metadata is missing or not decoder-independent");
+  }
+  const groundTruthRegistryBytes = await fs.promises.readFile(path.join(ROOT, ...EXTERNAL_GROUND_TRUTH_REGISTRY_PATH.split("/")));
+  const groundTruthRegistrySha256 = hash(groundTruthRegistryBytes.toString("utf8").replaceAll("\r\n", "\n"));
+  if (manifest.externalGroundTruth.registrySha256 !== groundTruthRegistrySha256) {
+    throw new Error("Alpha.5 manifest external Ground Truth registry SHA-256 is stale");
+  }
+  const groundTruthRegistry = JSON.parse(groundTruthRegistryBytes.toString("utf8")) as ExternalGroundTruthRegistry;
+  validateExternalFixtureSet(externalFixtures);
+  validateExternalGroundTruthRegistry(externalFixtures, groundTruthRegistry);
+  for (const fixture of externalFixtures) validateExternalFixture(fixture);
+  const engine = createZxingCppWasmEngine();
+  const results: FixtureResult[] = [];
+  const started = performance.now();
+  let coldInitializationMs = 0;
+  try {
+    const initializationStarted = performance.now();
+    await engine.initialize();
+    coldInitializationMs = performance.now() - initializationStarted;
+    for (const fixture of manifest.fixtures) {
+      const requestedFormats = fixture.sourceType === "external-open-license"
+        ? [...PUBLIC_BARCODE_FORMATS]
+        : fixture.requiredResults.length
+        ? [...new Set(fixture.requiredResults.map((result) => result.format))]
+        : [...PUBLIC_BARCODE_FORMATS];
+      const frame = await loadNormalizedFrameFromPath(path.join(ROOT, fixture.file), fixture.id);
+      if (fixture.sourceType === "external-open-license") {
+        const bytes = await fs.promises.readFile(path.join(ROOT, fixture.file));
+        if (hash(bytes) !== fixture.sha256) throw new Error(`${fixture.id}: original SHA-256 mismatch`);
+        if (bytes.byteLength !== fixture.originalByteLength) throw new Error(`${fixture.id}: originalByteLength mismatch`);
+        if (frame.width !== fixture.originalWidth || frame.height !== fixture.originalHeight) {
+          throw new Error(`${fixture.id}: original dimensions mismatch`);
+        }
+      }
+      const fixtureStarted = performance.now();
+      const outcome = await engine.decode(frame, { formats: requestedFormats, findMultiple: fixture.sourceType === "external-open-license" || fixture.requiredResults.length > 1 });
+      const elapsedMs = performance.now() - fixtureStarted;
+      const decoded = outcome.ok ? outcome.results.map((result) => ({
+        format: result.format,
+        payload: result.text,
+        isGs1: result.isGs1 === true,
+        rawBytes: result.rawBytes?.byteLength ?? 0,
+      })) : [];
+      const actual = fixture.sourceType === "external-open-license"
+        ? deduplicateExternalSemanticResults(decoded)
+        : decoded;
+      const detectionOnly = fixture.sourceType === "external-open-license"
+        && fixture.payloadVerificationStatus === "unknown";
+      const pass = fixture.expectedOutcome === "no-symbol"
+        ? !outcome.ok && outcome.category === "not-found"
+        : detectionOnly
+          ? outcome.ok && actual.some((result) => result.format === (fixture.expectedFormat ?? fixture.format))
+        : outcome.ok && exactRequired(fixture.requiredResults, actual)
+          && (!fixture.expectedGs1 || actual.some((result) => result.isGs1));
+      results.push({
+        id: fixture.id, pass, elapsedMs, requestedFormats, requiredResults: fixture.requiredResults,
+        actualResults: actual,
+        ...(!outcome.ok ? { failureCategory: outcome.category } : {}),
+      });
+    }
+  } finally {
+    await engine.dispose();
+  }
+
+  const positives = manifest.fixtures.filter((fixture) => fixture.expectedOutcome === "decode");
+  const negatives = manifest.fixtures.filter((fixture) => fixture.expectedOutcome === "no-symbol");
+  const expectedByFormat = Object.fromEntries(PUBLIC_BARCODE_FORMATS.map((format) => [format, { total: 0, decoded: 0, exact: 0, falsePositives: 0 }])) as Record<BarcodeFormat, { total: number; decoded: number; exact: number; falsePositives: number }>;
+  const confusion = Object.fromEntries(PUBLIC_BARCODE_FORMATS.map((format) => [format, Object.fromEntries(PUBLIC_BARCODE_FORMATS.map((actual) => [actual, 0]))])) as Record<BarcodeFormat, Record<BarcodeFormat, number>>;
+  let selectedResults = 0;
+  let selectedCorrect = 0;
+  for (let index = 0; index < manifest.fixtures.length; index += 1) {
+    const fixture = manifest.fixtures[index];
+    const result = results[index];
+    if (fixture.sourceType === "external-open-license") continue;
+    for (const required of fixture.requiredResults) {
+      const metrics = expectedByFormat[required.format];
+      metrics.total += 1;
+      const samePayload = result.actualResults.find((actual) => actual.payload === required.payload);
+      if (samePayload) {
+        metrics.decoded += 1;
+        confusion[required.format][samePayload.format] += 1;
+        if (samePayload.format === required.format) metrics.exact += 1;
+      }
+    }
+    for (const actual of result.actualResults) {
+      selectedResults += 1;
+      if (result.requestedFormats.includes(actual.format)) selectedCorrect += 1;
+      if (fixture.expectedOutcome === "no-symbol") expectedByFormat[actual.format].falsePositives += 1;
+    }
+  }
+
+  const mixed = manifest.fixtures.map((fixture, index) => ({ fixture, result: results[index] })).filter(({ fixture }) => fixture.sourceType === "generated" && fixture.requiredResults.length > 1);
+  const gs1 = manifest.fixtures.map((fixture, index) => ({ fixture, result: results[index] })).filter(({ fixture }) => fixture.sourceType !== "external-open-license" && fixture.expectedGs1);
+  const positivePairs = manifest.fixtures.map((fixture, index) => ({ fixture, result: results[index] })).filter(({ fixture }) => fixture.expectedOutcome === "decode");
+  const cohortSummary = (entries: typeof positivePairs) => {
+    const required = entries.flatMap(({ fixture }) => fixture.requiredResults);
+    const exactResults = entries.reduce((total, { fixture, result }) => {
+      const remaining = [...result.actualResults];
+      return total + fixture.requiredResults.reduce((count, expected) => {
+        const index = remaining.findIndex((actual) => (
+          actual.format === expected.format
+          && actual.payload === expected.payload
+          && (expected.isGs1 === undefined || actual.isGs1 === expected.isGs1)
+        ));
+        if (index < 0) return count;
+        remaining.splice(index, 1);
+        return count + 1;
+      }, 0);
+    }, 0);
+    const perFormatRecall = Object.fromEntries(PUBLIC_BARCODE_FORMATS.map((format) => {
+      const expected = entries.flatMap(({ fixture }) => fixture.requiredResults).filter((result) => result.format === format);
+      const decoded = entries.reduce((count, { fixture, result }) => count + fixture.requiredResults.filter((required) => required.format === format && result.actualResults.some((actual) => (
+        actual.format === format
+        && actual.payload === required.payload
+        && (required.isGs1 === undefined || actual.isGs1 === required.isGs1)
+      ))).length, 0);
+      return [format, { total: expected.length, decoded, recall: expected.length ? decoded / expected.length : null }];
+    })) as Record<BarcodeFormat, { total: number; decoded: number; recall: number | null }>;
+    return {
+      fixtureTotal: entries.length,
+      fixturePassed: entries.filter(({ result }) => result.pass).length,
+      resultTotal: required.length,
+      exactResults,
+      perFormatRecall,
+    };
+  };
+  const clean = positivePairs.filter(({ fixture }) => fixture.sourceType === "generated" && fixture.difficultyTags.length === 1 && fixture.difficultyTags[0] === "clear");
+  const difficult = positivePairs.filter(({ fixture }) => fixture.sourceType === "generated" && fixture.requiredResults.length === 1 && !(fixture.difficultyTags.length === 1 && fixture.difficultyTags[0] === "clear"));
+  const realPhotos = positivePairs.filter(({ fixture }) => fixture.sourceType === "project-photo");
+  const externalPhotos = positivePairs.filter(({ fixture }) => fixture.sourceType === "external-open-license");
+  const cleanSummary = cohortSummary(clean);
+  const difficultSummary = cohortSummary(difficult);
+  const mixedSummary = cohortSummary(mixed);
+  const realPhotoSummary = cohortSummary(realPhotos);
+  const externalDetectionOnly = externalPhotos.filter(({ fixture }) => fixture.payloadVerificationStatus === "unknown");
+  const baseExternalSummary = cohortSummary(externalPhotos);
+  const completeExternalProvenance = externalPhotos.filter(({ fixture }) => [
+    fixture.sourcePage, fixture.originalUrl, fixture.sourceRepository, fixture.originalFilename, fixture.author,
+    fixture.license, fixture.licenseUrl, fixture.attribution, fixture.retrievedAt, fixture.provenanceNote,
+  ].every((value) => typeof value === "string" && value.length > 0)
+    && Number.isInteger(fixture.originalWidth) && (fixture.originalWidth ?? 0) > 0
+    && Number.isInteger(fixture.originalHeight) && (fixture.originalHeight ?? 0) > 0
+    && Number.isInteger(fixture.originalByteLength) && (fixture.originalByteLength ?? 0) > 0
+    && Array.isArray(fixture.modifications));
+  const compliantExternalLicenses = externalPhotos.filter(({ fixture }) => (
+    typeof fixture.license === "string"
+    && typeof fixture.licenseUrl === "string"
+    && isAllowedExternalLicense(fixture.license, fixture.licenseUrl)
+  ));
+  const verifiedCameraPhotographs = externalPhotos.filter(({ fixture }) => fixture.assetKind === "camera-photograph");
+  const completeRightsReviews = externalPhotos.filter(({ fixture }) => fixture.rightsReviewStatus === "verified");
+  const completeSensitiveDataReviews = externalPhotos.filter(({ fixture }) => fixture.sensitiveDataReviewStatus === "passed");
+  const externalDiffs = externalPhotos.map(({ fixture, result }) => ({
+    fixture,
+    diff: diffExternalResultMultiset(fixture.requiredResults, result.actualResults),
+  }));
+  const externalFormatMisclassificationCount = externalDiffs.reduce((count, { fixture, diff }) => (
+    count + diff.unexpected.filter((actual) => isExternalFormatMisclassification(fixture.requiredResults, actual)).length
+  ), 0);
+  const externalFalsePositiveCount = externalDiffs.reduce((count, { diff }) => count + diff.unexpected.length, 0);
+  const externalGs1MisclassificationCount = externalDiffs.reduce((count, { fixture, diff }) => (
+    count + diff.unexpected.filter((actual) => isExternalGs1Misclassification(fixture.requiredResults, actual)).length
+  ), 0);
+  const externalFamilyPhotoCounts = Object.fromEntries(
+    (Object.keys(FORMAT_FAMILIES) as FormatFamily[]).map((family) => [
+      family,
+      externalPhotos.filter(({ fixture }) => {
+        const format = fixture.expectedFormat ?? fixture.format;
+        return format ? familyOf(format) === family : false;
+      }).length,
+    ]),
+  ) as Record<FormatFamily, number>;
+  const completion = (complete: number) => ({
+    complete,
+    total: externalPhotos.length,
+    rate: externalPhotos.length ? complete / externalPhotos.length : null,
+  });
+  const externalSummary: ExternalCohortSummary = {
+    ...baseExternalSummary,
+    visiblePhysicalInstanceCount: externalPhotos.reduce((count, { fixture }) => count + (fixture.physicalInstanceCount ?? 0), 0),
+    perFormatRecall: baseExternalSummary.perFormatRecall,
+    detectionOnlyTotal: externalDetectionOnly.length,
+    detectionOnlyPassed: externalDetectionOnly.filter(({ result }) => result.pass).length,
+    detectionOnlyRecall: externalDetectionOnly.length
+      ? externalDetectionOnly.filter(({ result }) => result.pass).length / externalDetectionOnly.length
+      : null,
+    averageLatencyMs: externalPhotos.length
+      ? externalPhotos.reduce((sum, { result }) => sum + result.elapsedMs, 0) / externalPhotos.length : 0,
+    medianLatencyMs: percentile(externalPhotos.map(({ result }) => result.elapsedMs), 50),
+    p95LatencyMs: percentile(externalPhotos.map(({ result }) => result.elapsedMs), 95),
+    exactPayloadKnownTotal: baseExternalSummary.resultTotal,
+    exactPayloadKnownPassed: baseExternalSummary.exactResults,
+    exactPayloadRecall: baseExternalSummary.resultTotal ? baseExternalSummary.exactResults / baseExternalSummary.resultTotal : null,
+    formatMisclassificationCount: externalFormatMisclassificationCount,
+    gs1MisclassificationCount: externalGs1MisclassificationCount,
+    falsePositiveCount: externalFalsePositiveCount,
+    familyPhotoCounts: externalFamilyPhotoCounts,
+    provenanceCompleteness: completion(completeExternalProvenance.length),
+    redistributableLicenseCompliance: completion(compliantExternalLicenses.length),
+    cameraPhotographVerification: completion(verifiedCameraPhotographs.length),
+    rightsReviewCompleteness: completion(completeRightsReviews.length),
+    sensitiveDataReviewCompleteness: completion(completeSensitiveDataReviews.length),
+    publicRepositorySafety: {
+      safe: externalPhotos.filter(({ fixture }) => fixture.publicRepositorySafe === true).length,
+      total: externalPhotos.length,
+      rate: externalPhotos.length ? externalPhotos.filter(({ fixture }) => fixture.publicRepositorySafe === true).length / externalPhotos.length : null,
+    },
+  };
+  const latencies = results.map((result) => result.elapsedMs);
+  const memory = engine.getMemoryObservation();
+  const repositoryDirty = (await git(["status", "--porcelain"])).length > 0;
+  const checksumInvalidOutcomes = manifest.fixtures.flatMap((fixture, index) => (
+    fixture.difficultyTags.includes("checksum_invalid") ? [results[index]] : []
+  ));
+  const invalidChecksumAcceptanceCount = checksumInvalidOutcomes
+    .filter((result) => result.actualResults.length > 0).length;
+  const checksumRejectionCount = checksumInvalidOutcomes
+    .filter((result) => result.actualResults.length === 0 && result.failureCategory === "not-found").length;
+  const checksumEvaluationErrorCount = checksumInvalidOutcomes.length
+    - invalidChecksumAcceptanceCount
+    - checksumRejectionCount;
+  const realPhotoFamilyCounts = Object.fromEntries(
+    (Object.keys(FORMAT_FAMILIES) as FormatFamily[]).map((family) => [
+      family,
+      realPhotos.filter(({ fixture }) => {
+        const format = fixture.format ?? fixture.requiredResults[0]?.format;
+        return format ? familyOf(format) === family : false;
+      }).length,
+    ]),
+  ) as Record<FormatFamily, number>;
+
+  const gateInputs = {
+    sdkVersion: SDK_VERSION,
+    sourceIdentity: {
+      commitSha: await git(["rev-parse", "HEAD"]),
+      treeSha: await git(["rev-parse", "HEAD^{tree}"]),
+      repositoryDirty,
+    },
+    corpus: {
+      projectOwnedRealPhotos: manifest.fixtures.filter((fixture) => fixture.sourceType === "project-photo").length,
+      externalOpenLicenseCorpusCount: manifest.fixtures.filter((fixture) => fixture.sourceType === "external-open-license").length,
+    },
+    cohorts: {
+      generatedClean: cleanSummary,
+      generatedDifficult: difficultSummary,
+      generatedMixed: mixedSummary,
+      projectOwnedRealPhotos: realPhotoSummary,
+      externalOpenLicenseRealWorld: externalSummary,
+    },
+    acceptedFormatMisclassificationCount: Object.entries(confusion).reduce((count, [expected, row]) => count + Object.entries(row).reduce((rowCount, [actual, value]) => rowCount + (actual === expected ? 0 : value), 0), 0),
+    formatSelectionAccuracy: selectedResults ? selectedCorrect / selectedResults : null,
+    checksumRejectionCount,
+    checksumEvaluationErrorCount,
+    gs1RecognitionAccuracy: { total: gs1.length, recognized: gs1.filter(({ result }) => result.pass).length, accuracy: gs1.length ? gs1.filter(({ result }) => result.pass).length / gs1.length : null },
+    mixedFormatCompleteness: { total: mixed.length, complete: mixed.filter(({ result }) => result.pass).length, rate: mixed.length ? mixed.filter(({ result }) => result.pass).length / mixed.length : null },
+    falsePositiveCount: manifest.fixtures.reduce((count, fixture, index) => count + (fixture.expectedOutcome === "no-symbol" ? results[index].actualResults.length : 0), 0),
+    invalidChecksumAcceptanceCount,
+    realPhotoFamilyCounts,
+    physicalDeviceEvidence: "unavailable" as const,
+  };
+
+  const gateResults: SymbologyGateResult[] = evaluateSymbologyGates(gateInputs, {
+    canonicalCandidate: cli.canonicalCandidate,
+    gateMode: cli.gateMode,
+  });
+  const gatesPassed = allSymbologyGatesPassed(gateResults);
+  const integrationGateResults = evaluateSymbologyGates(gateInputs, {
+    canonicalCandidate: cli.canonicalCandidate,
+    gateMode: "integration",
+  });
+  const integrationGatesPassed = allSymbologyGatesPassed(integrationGateResults);
+  const releaseGateResults = evaluateSymbologyGates(gateInputs, {
+    canonicalCandidate: cli.canonicalCandidate,
+    gateMode: "release",
+  });
+  const releaseGatesPassed = allSymbologyGatesPassed(releaseGateResults);
+  const curatedPhotoGateResults = gateResults.filter((gate) => gate.id.startsWith("curated-"));
+  const curatedPhotoGateComplete = curatedPhotoGateResults.length > 0
+    && curatedPhotoGateResults.every((gate) => gate.passed);
+
+  const report = {
+    schemaVersion: "alpha5-symbology-evidence-1",
+    sdkVersion: SDK_VERSION,
+    generatedAt: new Date().toISOString(),
+    mode: cli.canonicalCandidate ? "canonical-candidate" : cli.gate ? "gate" : "development",
+    gateMode: cli.gateMode,
+    decision: {
+      integration: integrationGatesPassed ? "ALPHA5_INTEGRATION_GO" : "ALPHA5_INTEGRATION_NO_GO",
+      release: releaseGatesPassed ? "ALPHA5_RELEASE_GO" : "ALPHA5_RELEASE_NO_GO",
+      curatedOpenLicenseRealPhotoValidation: curatedPhotoGateComplete ? "PASS" : "FAIL",
+      projectOwnedRealPhotoValidation: "informational-only",
+      physicalDeviceEvidence: "unavailable",
+      beta1Release: "BETA1_RELEASE_NO_GO",
+    },
+    sourceIdentity: {
+      ...gateInputs.sourceIdentity,
+      symbologyManifestHash: hash(manifestBytes),
+      datasetHash: hash(manifest.fixtures.map((fixture) => `${fixture.id}\u001f${hash(fs.readFileSync(path.join(ROOT, fixture.file)))}`).join("\n")),
+    },
+    corpus: {
+      total: manifest.fixtures.length, positive: positives.length, negative: negatives.length,
+      generated: manifest.fixtures.filter((fixture) => fixture.sourceType === "generated").length,
+      projectOwnedRealPhotos: gateInputs.corpus.projectOwnedRealPhotos,
+      externalOpenLicenseCorpusCount: gateInputs.corpus.externalOpenLicenseCorpusCount,
+      curatedOpenLicenseRealPhotos: gateInputs.corpus.externalOpenLicenseCorpusCount,
+      realPhotoGateComplete: curatedPhotoGateComplete,
+      realPhotoFamilyCounts: externalFamilyPhotoCounts,
+      projectOwnedRealPhotoFamilyCounts: realPhotoFamilyCounts,
+    },
+    cohorts: gateInputs.cohorts,
+    passed: results.filter((result) => result.pass).length,
+    failed: results.filter((result) => !result.pass).map((result) => result.id),
+    perFormatRecall: Object.fromEntries(Object.entries(expectedByFormat).map(([format, metrics]) => [format, { total: metrics.total, decoded: metrics.decoded, recall: metrics.total ? metrics.decoded / metrics.total : null }])),
+    perFormatExactAccuracy: Object.fromEntries(Object.entries(expectedByFormat).map(([format, metrics]) => [format, { total: metrics.total, exact: metrics.exact, accuracy: metrics.total ? metrics.exact / metrics.total : null }])),
+    perFormatFalsePositives: Object.fromEntries(Object.entries(expectedByFormat).map(([format, metrics]) => [format, metrics.falsePositives])),
+    formatConfusionMatrix: confusion,
+    acceptedFormatMisclassificationCount: gateInputs.acceptedFormatMisclassificationCount,
+    formatSelectionAccuracy: gateInputs.formatSelectionAccuracy,
+    checksumRejectionCount: gateInputs.checksumRejectionCount,
+    checksumEvaluationErrorCount: gateInputs.checksumEvaluationErrorCount,
+    invalidChecksumAcceptanceCount,
+    gs1RecognitionAccuracy: gateInputs.gs1RecognitionAccuracy,
+    mixedFormatCompleteness: gateInputs.mixedFormatCompleteness,
+    falsePositiveCount: gateInputs.falsePositiveCount,
+    performance: {
+      coldInitializationMs, averageLatencyMs: latencies.reduce((sum, value) => sum + value, 0) / Math.max(1, latencies.length),
+      medianLatencyMs: percentile(latencies, 50), p95LatencyMs: percentile(latencies, 95), totalDurationMs: performance.now() - started,
+      wasmMemory: memory,
+    },
+    gates: Object.fromEntries(gateResults.map((gate) => [gate.id, gate.passed])),
+    gateResults,
+    physicalDeviceEvidence: "unavailable",
+    results,
+    externalOpenLicenseRealWorld: externalSummary,
+  };
+
+  if (cli.gate && cli.gateMode === "integration") {
+    const singleFormatPositives = manifest.fixtures.filter((fixture) => fixture.expectedOutcome === "decode" && fixture.requiredResults.length === 1).length;
+    const mixedPositives = manifest.fixtures.filter((fixture) => fixture.expectedOutcome === "decode" && fixture.requiredResults.length > 1).length;
+    const readme = fs.readFileSync(path.join(ROOT, "README.md"), "utf8");
+    const expectedReadmeRows = [
+      `| Generated Alpha.5 fixtures | ${report.corpus.generated} |`,
+      `| Curated open-license camera photographs | **${report.corpus.externalOpenLicenseCorpusCount} (minimum 12)** |`,
+      `| Single-format positives | ${singleFormatPositives} |`,
+      `| Mixed positives | ${mixedPositives} |`,
+      `| Negative fixtures | ${report.corpus.negative} |`,
+      `| Generated clean | **${report.cohorts.generatedClean.fixturePassed}/${report.cohorts.generatedClean.fixtureTotal}** |`,
+      `| Generated difficult | **${report.cohorts.generatedDifficult.fixturePassed}/${report.cohorts.generatedDifficult.fixtureTotal}** |`,
+      `| Mixed completeness | **${report.mixedFormatCompleteness.complete}/${report.mixedFormatCompleteness.total}** |`,
+      `| GS1 recognition | **${report.gs1RecognitionAccuracy.recognized}/${report.gs1RecognitionAccuracy.total}** |`,
+      `| False positives | **${report.falsePositiveCount}** |`,
+      `| Accepted-format misclassifications | **${report.acceptedFormatMisclassificationCount}** |`,
+      `| Invalid-checksum acceptances | **${report.invalidChecksumAcceptanceCount}** |`,
+      `| Optional project-owned photographs | **${report.corpus.projectOwnedRealPhotos}** |`,
+    ];
+    const staleRows = expectedReadmeRows.filter((row) => !readme.includes(row));
+    if (staleRows.length) throw new Error(`README Alpha.5 integration summary is stale:\n- ${staleRows.join("\n- ")}`);
+  }
+
+  if (cli.canonicalCandidate) {
+    if (SDK_VERSION !== ALPHA5_SDK_VERSION) throw new Error(`Canonical symbology candidate requires SDK ${ALPHA5_SDK_VERSION}.`);
+    if (repositoryDirty) throw new Error("Canonical symbology candidate requires a clean repository.");
+    if (!report.sourceIdentity.commitSha || !report.sourceIdentity.treeSha) throw new Error("Canonical symbology candidate requires Source Commit and Source Tree.");
+    if (!gatesPassed) {
+      console.error(formatGateFailureTable(gateResults));
+      throw new Error(`Canonical symbology candidate failed one or more ${cli.gateMode} gates.`);
+    }
+  }
+
+  await fs.promises.mkdir(path.dirname(cli.output), { recursive: true });
+  await fs.promises.writeFile(cli.output, `${JSON.stringify(report, null, 2)}\n`);
+  console.log(`Alpha.5 symbologies: ${report.passed}/${report.corpus.total}; false positives=${report.falsePositiveCount}; mixed=${report.mixedFormatCompleteness.complete}/${report.mixedFormatCompleteness.total}; gates=${gateResults.filter((gate) => gate.passed).length}/${gateResults.length}.`);
+  console.log(`Wrote ${cli.output}`);
+
+  if (cli.gate && !gatesPassed) {
+    console.error(formatGateFailureTable(gateResults));
+    process.exitCode = 1;
+  }
+}
+
+void main().catch((error) => { console.error(error); process.exitCode = 1; });

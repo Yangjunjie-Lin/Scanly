@@ -1,0 +1,4517 @@
+{
+  "schemaVersion": "2.0",
+  "runtime": {
+    "kind": "node",
+    "nodeVersion": "v24.15.0",
+    "platform": "win32",
+    "arch": "x64"
+  },
+  "sourceIdentity": {
+    "commitSha": "5ca3d52b0f2e936e6660e91336fab0a2c5bc15e3",
+    "treeSha": "f59dde2bbf4845eb4a912915bfeb51b1ef769b0d",
+    "repositoryDirty": false,
+    "packageLockHash": "b58a10200d6cff43739296ed746f588b8af49ebafe6c5dd2c9dd64ce9356372a",
+    "scenarioHash": "b1d39289457f5b58d0532242a8ea5e3c9e0df4bc01e81e467145bcd3b2571650",
+    "datasetHash": "47d72bf1658ab7a0bde1a402b6f6c382c21f7822d5715a714436191acf62f79b",
+    "engineCompositionHash": "04b14040d852e9e12c74b14a0e15ee323daf7e6f4d6abe416c758b6df7a2d22e",
+    "wasmBuildHash": "6a858c01e076bab3a1bd413e4f2cf5e5e45f819a0d9441d83c66993bc48ed38f",
+    "nativeAdapterHash": "ac3f458a5d1b512fbfbbdd0789fb498c1e5318c3cc0abb8b981f56eaecce0847",
+    "loaderHash": "af7aa9d3404f6bbe450dec9977fb0bc9b3b2981bcf7d683779b245470c26fd29",
+    "benchmarkRunnerHash": "89f565f4eaa85cb44e4cf5046b328bff240eaaf5c1507b395162b38ea176604f"
+  },
+  "executionPolicy": {
+    "mode": "canonical-candidate",
+    "evidenceType": "baseline-candidate",
+    "canonical": true,
+    "warmupIterations": 1,
+    "measuredIterations": 3,
+    "dirtyDevelopmentAllowed": false,
+    "updatesDocumentation": false
+  },
+  "environment": {
+    "gitCommit": "5ca3d52b0f2e936e6660e91336fab0a2c5bc15e3",
+    "sdkVersion": "2.0.0-alpha.4",
+    "scenario": "balanced",
+    "datasetManifestHash": "47d72bf1658ab7a0bde1a402b6f6c382c21f7822d5715a714436191acf62f79b",
+    "fixtureCount": 74,
+    "date": "2026-07-18",
+    "warmupPolicy": "1 explicit warmup fixture run(s); measured fixtures exclude warmup.",
+    "iterationCount": 3,
+    "coldInitializationMs": 12.97709999999995,
+    "warmInitializationMs": 0.008800000000064756,
+    "selectedWasmVariant": "standard",
+    "wasmLinearMemoryPeakBytes": 22282240
+  },
+  "generatedAt": "2026-07-18T11:12:22.248Z",
+  "total": 74,
+  "passed": 73,
+  "failed": 1,
+  "successRate": 0.9864864864864865,
+  "averageMs": 489.7432432432432,
+  "medianMs": 401.5,
+  "p95Ms": 1563,
+  "p99Ms": null,
+  "variance": {
+    "perFixtureRunStdDevMs": {
+      "average": 22.247145389674255,
+      "median": 11.900995537806946,
+      "p95": 84.0251285165469
+    },
+    "fixtureLatencySpreadMs": {
+      "standardDeviation": 436.8224347276285,
+      "medianAbsoluteDeviation": 155
+    },
+    "suiteDurationMs": 108784
+  },
+  "positiveCases": 63,
+  "decodeRecall": 0.9841269841269841,
+  "exactPayloadAccuracy": 0.9841269841269841,
+  "negativeCases": 11,
+  "falsePositiveCount": 0,
+  "falsePositiveRate": 0,
+  "timeoutCount": 0,
+  "cancellationCorrectness": {
+    "passed": 3,
+    "total": 3
+  },
+  "engineInitializationFailures": 0,
+  "engineExecutionFailures": 0,
+  "phaseTimingAvailability": {
+    "passed": 74,
+    "total": 74
+  },
+  "timeToFirstResult": {
+    "average": 28.21566774193484,
+    "median": 18.565200000000004,
+    "p95": 53.03060000000005
+  },
+  "averageAttempts": 41.270270270270274,
+  "medianAttempts": 36,
+  "p95Attempts": 96,
+  "decoderDistribution": {
+    "zxing-cpp-wasm": 49,
+    "jsqr": 13
+  },
+  "preprocessingDistribution": {
+    "original": 60,
+    "contrast": 1,
+    "threshold-140": 1
+  },
+  "candidateDistribution": {
+    "0": 11,
+    "-1": 51
+  },
+  "perFormatRecall": {
+    "qr_code": {
+      "total": 63,
+      "decoded": 62,
+      "recall": 0.9841269841269841
+    }
+  },
+  "memoryObservations": [
+    "Controlled peak covers Scanly-accounted frame artifacts, caches, and scratch leases; it does not claim exact decoder or process heap usage.",
+    "WASM linear-memory peak is reported separately (22282240 bytes; variant=standard)."
+  ],
+  "controlledMemoryPeakBytes": 66727104,
+  "finalControlledMemoryBytes": 0,
+  "phaseTiming": {
+    "candidateGenerationMs": {
+      "average": 16.297224324324528,
+      "median": 9.62905000000137,
+      "p95": 42.22609999999986
+    },
+    "preprocessMs": {
+      "average": 27.763982432429916,
+      "median": 19.23200000000577,
+      "p95": 109.87379999997938
+    },
+    "rotationMs": {
+      "average": 0,
+      "median": 0,
+      "p95": 0
+    },
+    "frameNormalizationMs": {
+      "average": 0.017612162161274657,
+      "median": 0.01525000000037835,
+      "p95": 0.03149999999914144
+    },
+    "roiMs": {
+      "average": 0.010181081081573456,
+      "median": 0.0051000000021304,
+      "p95": 0.019400000001041917
+    },
+    "localizationMs": {
+      "average": 0.010083783783861199,
+      "median": 0.008199999998396379,
+      "p95": 0.03019999999992251
+    },
+    "candidateDeduplicationMs": {
+      "average": 0.034290540541246015,
+      "median": 0.02944999999999709,
+      "p95": 0.07670000000143773
+    },
+    "validationMs": {
+      "average": 0.016908108107676945,
+      "median": 0.014749999998912244,
+      "p95": 0.051199999998061685
+    },
+    "semanticParsingMs": {
+      "average": 0.1332391891893087,
+      "median": 0.11175000000366708,
+      "p95": 0.3000000000029104
+    },
+    "engine:jsqr": {
+      "average": 316.59078378378365,
+      "median": 250.0710999999999,
+      "p95": 1332.608299999978
+    },
+    "engine:zxing-cpp-wasm": {
+      "average": 3.613143243242969,
+      "median": 2.498599999997168,
+      "p95": 7.872699999999895
+    },
+    "engine:zxing-js": {
+      "average": 0.2312810810810235,
+      "median": 0,
+      "p95": 0
+    }
+  },
+  "perCategory": {
+    "url": {
+      "total": 2,
+      "passed": 2,
+      "successRate": 1,
+      "averageMs": 333.5
+    },
+    "text": {
+      "total": 3,
+      "passed": 3,
+      "successRate": 1,
+      "averageMs": 298
+    },
+    "phone_photo": {
+      "total": 1,
+      "passed": 1,
+      "successRate": 1,
+      "averageMs": 783
+    },
+    "screen_capture": {
+      "total": 3,
+      "passed": 3,
+      "successRate": 1,
+      "averageMs": 885.6666666666666
+    },
+    "low_contrast": {
+      "total": 3,
+      "passed": 3,
+      "successRate": 1,
+      "averageMs": 437
+    },
+    "underexposed": {
+      "total": 2,
+      "passed": 2,
+      "successRate": 1,
+      "averageMs": 340.5
+    },
+    "overexposed": {
+      "total": 2,
+      "passed": 2,
+      "successRate": 1,
+      "averageMs": 337.5
+    },
+    "blur": {
+      "total": 3,
+      "passed": 3,
+      "successRate": 1,
+      "averageMs": 305.6666666666667
+    },
+    "glare": {
+      "total": 2,
+      "passed": 2,
+      "successRate": 1,
+      "averageMs": 346.5
+    },
+    "small_in_large": {
+      "total": 2,
+      "passed": 2,
+      "successRate": 1,
+      "averageMs": 1063
+    },
+    "complex_background": {
+      "total": 3,
+      "passed": 3,
+      "successRate": 1,
+      "averageMs": 422
+    },
+    "rotation": {
+      "total": 5,
+      "passed": 5,
+      "successRate": 1,
+      "averageMs": 297
+    },
+    "perspective": {
+      "total": 2,
+      "passed": 2,
+      "successRate": 1,
+      "averageMs": 396.5
+    },
+    "damaged": {
+      "total": 2,
+      "passed": 1,
+      "successRate": 0.5,
+      "averageMs": 536
+    },
+    "inverted": {
+      "total": 4,
+      "passed": 4,
+      "successRate": 1,
+      "averageMs": 295.5
+    },
+    "multiple": {
+      "total": 9,
+      "passed": 9,
+      "successRate": 1,
+      "averageMs": 41.77777777777778
+    },
+    "wifi": {
+      "total": 2,
+      "passed": 2,
+      "successRate": 1,
+      "averageMs": 255
+    },
+    "motion_blur": {
+      "total": 1,
+      "passed": 1,
+      "successRate": 1,
+      "averageMs": 303
+    },
+    "noise": {
+      "total": 2,
+      "passed": 2,
+      "successRate": 1,
+      "averageMs": 266.5
+    },
+    "near_edge": {
+      "total": 2,
+      "passed": 2,
+      "successRate": 1,
+      "averageMs": 408.5
+    },
+    "occlusion": {
+      "total": 1,
+      "passed": 1,
+      "successRate": 1,
+      "averageMs": 327
+    },
+    "high_resolution": {
+      "total": 4,
+      "passed": 4,
+      "successRate": 1,
+      "averageMs": 1337
+    },
+    "unusual_aspect": {
+      "total": 1,
+      "passed": 1,
+      "successRate": 1,
+      "averageMs": 292
+    },
+    "colored_background": {
+      "total": 2,
+      "passed": 2,
+      "successRate": 1,
+      "averageMs": 345
+    },
+    "clear": {
+      "total": 1,
+      "passed": 1,
+      "successRate": 1,
+      "averageMs": 267
+    },
+    "negative": {
+      "total": 3,
+      "passed": 3,
+      "successRate": 1,
+      "averageMs": 898.3333333333334
+    },
+    "adversarial": {
+      "total": 7,
+      "passed": 7,
+      "successRate": 1,
+      "averageMs": 983
+    }
+  },
+  "multipleCompleteness": {
+    "total": 9,
+    "complete": 9,
+    "incomplete": []
+  },
+  "worstFixtures": [
+    {
+      "id": "39-high-res",
+      "elapsedMs": 2225,
+      "attemptCount": 52,
+      "pass": true
+    },
+    {
+      "id": "55-negative-checker",
+      "elapsedMs": 2124,
+      "attemptCount": 96,
+      "pass": true
+    },
+    {
+      "id": "61-negative-screenshot",
+      "elapsedMs": 1716,
+      "attemptCount": 96,
+      "pass": true
+    },
+    {
+      "id": "72-version-40",
+      "elapsedMs": 1563,
+      "attemptCount": 36,
+      "pass": true
+    },
+    {
+      "id": "33-small-in-large-gen",
+      "elapsedMs": 1235,
+      "attemptCount": 36,
+      "pass": true
+    }
+  ],
+  "regressionCount": 0,
+  "remainingFailures": [
+    "14-damaged"
+  ],
+  "results": [
+    {
+      "id": "01-clear-url",
+      "category": "url",
+      "expectedPayload": "https://scanly.example/clear",
+      "actualPayload": "https://scanly.example/clear",
+      "allPayloads": [
+        "https://scanly.example/clear"
+      ],
+      "pass": true,
+      "elapsedMs": 412,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 18.948799999999892,
+      "heuristicMetrics": {
+        "entropyScore": 0.04972096664225651,
+        "highFrequencyRatio": 0.04972096664225651,
+        "candidateCountBeforeCap": 6,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 22657304,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.02589999999986503,
+        "roiMs": 0.008499999999912689,
+        "localizationMs": 0.03019999999992251,
+        "candidateGenerationMs": 18.452499999999873,
+        "candidateDeduplicationMs": 0.03780000000006112,
+        "preprocessMs": 20.177599999999757,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 249.32799999999997,
+          "zxing-cpp-wasm": 7.2094999999999345
+        },
+        "validationMs": 0.015599999999949432,
+        "semanticParsingMs": 0.1974999999999909
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        482,
+        412,
+        391
+      ]
+    },
+    {
+      "id": "02-clear-text",
+      "category": "text",
+      "expectedPayload": "SCANLY_CLEAR_TEXT",
+      "actualPayload": "SCANLY_CLEAR_TEXT",
+      "allPayloads": [
+        "SCANLY_CLEAR_TEXT"
+      ],
+      "pass": true,
+      "elapsedMs": 409,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 19.219700000000103,
+      "heuristicMetrics": {
+        "entropyScore": 0.04976515744551905,
+        "highFrequencyRatio": 0.04976515744551905,
+        "candidateCountBeforeCap": 6,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 22657304,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.027000000000043656,
+        "roiMs": 0.008699999999862484,
+        "localizationMs": 0.03749999999990905,
+        "candidateGenerationMs": 16.006800000000112,
+        "candidateDeduplicationMs": 0.03989999999976135,
+        "preprocessMs": 21.3370000000009,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 263.42359999999826,
+          "zxing-cpp-wasm": 6.667100000000119
+        },
+        "validationMs": 0.027299999999740976,
+        "semanticParsingMs": 0.2665999999999258
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        426,
+        400,
+        409
+      ]
+    },
+    {
+      "id": "03-phone-photo",
+      "category": "phone_photo",
+      "expectedPayload": "https://scanly.example/photo",
+      "actualPayload": "https://scanly.example/photo",
+      "allPayloads": [
+        "https://scanly.example/photo"
+      ],
+      "pass": true,
+      "elapsedMs": 783,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 53.03060000000005,
+      "heuristicMetrics": {
+        "entropyScore": 0.04303904923599321,
+        "highFrequencyRatio": 0.04303904923599321,
+        "candidateCountBeforeCap": 4,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 33060048,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.02599999999983993,
+        "roiMs": 0.008499999999912689,
+        "localizationMs": 0.010300000000370346,
+        "candidateGenerationMs": 30.023400000000038,
+        "candidateDeduplicationMs": 0.04169999999976426,
+        "preprocessMs": 30.56469999999763,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 609.0081000000005,
+          "zxing-cpp-wasm": 7.276400000000194
+        },
+        "validationMs": 0.014700000000630098,
+        "semanticParsingMs": 0.2842000000000553
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        783,
+        734,
+        786
+      ]
+    },
+    {
+      "id": "04-screen-capture",
+      "category": "screen_capture",
+      "expectedPayload": "https://scanly.example/screen",
+      "actualPayload": "https://scanly.example/screen",
+      "allPayloads": [
+        "https://scanly.example/screen"
+      ],
+      "pass": true,
+      "elapsedMs": 399,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 18.108799999999974,
+      "heuristicMetrics": {
+        "entropyScore": 0.04979040933309765,
+        "highFrequencyRatio": 0.04979040933309765,
+        "candidateCountBeforeCap": 5,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 22657304,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.028699999999844295,
+        "roiMs": 0.009500000000116415,
+        "localizationMs": 0.009299999999711872,
+        "candidateGenerationMs": 14.688599999999497,
+        "candidateDeduplicationMs": 0.04179999999996653,
+        "preprocessMs": 21.83629999999812,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 250.8141999999998,
+          "zxing-cpp-wasm": 6.328300000000127
+        },
+        "validationMs": 0.011899999999513966,
+        "semanticParsingMs": 0.19440000000031432
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        401,
+        397,
+        399
+      ]
+    },
+    {
+      "id": "05-low-contrast",
+      "category": "low_contrast",
+      "expectedPayload": "https://scanly.example/low-contrast",
+      "actualPayload": "https://scanly.example/low-contrast",
+      "allPayloads": [
+        "https://scanly.example/low-contrast"
+      ],
+      "pass": true,
+      "elapsedMs": 404,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 23.426499999999578,
+      "heuristicMetrics": {
+        "entropyScore": 0.04922855483447388,
+        "highFrequencyRatio": 0.04922855483447388,
+        "candidateCountBeforeCap": 5,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 22657304,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.025200000000040745,
+        "roiMs": 0.21720000000004802,
+        "localizationMs": 0.010599999999612919,
+        "candidateGenerationMs": 13.76090000000022,
+        "candidateDeduplicationMs": 0.06919999999990978,
+        "preprocessMs": 20.4507999999978,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 266.23919999999816,
+          "zxing-cpp-wasm": 6.900200000000041
+        },
+        "validationMs": 0.011599999999816646,
+        "semanticParsingMs": 0.18889999999919382
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        396,
+        413,
+        404
+      ]
+    },
+    {
+      "id": "06-dark-lighting",
+      "category": "underexposed",
+      "expectedPayload": "https://scanly.example/dark",
+      "actualPayload": "https://scanly.example/dark",
+      "allPayloads": [
+        "https://scanly.example/dark"
+      ],
+      "pass": true,
+      "elapsedMs": 419,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 18.869300000000294,
+      "heuristicMetrics": {
+        "entropyScore": 0.04994192065856923,
+        "highFrequencyRatio": 0.04994192065856923,
+        "candidateCountBeforeCap": 5,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 22657304,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.03149999999914144,
+        "roiMs": 0.010200000000622822,
+        "localizationMs": 0.010900000001129229,
+        "candidateGenerationMs": 13.472499999999854,
+        "candidateDeduplicationMs": 0.03650000000016007,
+        "preprocessMs": 30.41400000000249,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 271.1678999999949,
+          "zxing-cpp-wasm": 6.138200000001234
+        },
+        "validationMs": 0.010700000000724685,
+        "semanticParsingMs": 0.17580000000089058
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        399,
+        422,
+        419
+      ]
+    },
+    {
+      "id": "07-overexposed",
+      "category": "overexposed",
+      "expectedPayload": "https://scanly.example/bright",
+      "actualPayload": "https://scanly.example/bright",
+      "allPayloads": [
+        "https://scanly.example/bright"
+      ],
+      "pass": true,
+      "elapsedMs": 408,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 12.693199999999706,
+      "heuristicMetrics": {
+        "entropyScore": 0.05339827277088963,
+        "highFrequencyRatio": 0.05339827277088963,
+        "candidateCountBeforeCap": 4,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 22127112,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.029200000000855653,
+        "roiMs": 0.009899999999106512,
+        "localizationMs": 0.009400000000823638,
+        "candidateGenerationMs": 13.71309999999903,
+        "candidateDeduplicationMs": 0.029500000000552973,
+        "preprocessMs": 26.237199999999575,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 253.14700000000448,
+          "zxing-cpp-wasm": 4.00840000000062
+        },
+        "validationMs": 0.006299999999100692,
+        "semanticParsingMs": 0.04260000000067521
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        412,
+        403,
+        408
+      ]
+    },
+    {
+      "id": "08-blurry",
+      "category": "blur",
+      "expectedPayload": "https://scanly.example/blur",
+      "actualPayload": "https://scanly.example/blur",
+      "allPayloads": [
+        "https://scanly.example/blur"
+      ],
+      "pass": true,
+      "elapsedMs": 419,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 18.653299999999945,
+      "heuristicMetrics": {
+        "entropyScore": 0.08094808211913841,
+        "highFrequencyRatio": 0.08094808211913841,
+        "candidateCountBeforeCap": 6,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 22657304,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.034900000000561704,
+        "roiMs": 0.010299999999915599,
+        "localizationMs": 0.009000000000014552,
+        "candidateGenerationMs": 13.70390000000043,
+        "candidateDeduplicationMs": 0.02989999999954307,
+        "preprocessMs": 23.443500000001222,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 287.31670000000304,
+          "zxing-cpp-wasm": 6.782900000000154
+        },
+        "validationMs": 0.01510000000052969,
+        "semanticParsingMs": 0.19239999999990687
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        414,
+        419,
+        435
+      ]
+    },
+    {
+      "id": "09-glare",
+      "category": "glare",
+      "expectedPayload": "https://scanly.example/glare",
+      "actualPayload": "https://scanly.example/glare",
+      "allPayloads": [
+        "https://scanly.example/glare"
+      ],
+      "pass": true,
+      "elapsedMs": 421,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 20.60150000000067,
+      "heuristicMetrics": {
+        "entropyScore": 0.05138443473649655,
+        "highFrequencyRatio": 0.05138443473649655,
+        "candidateCountBeforeCap": 5,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 22657304,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.014999999999417923,
+        "roiMs": 0.015199999999822467,
+        "localizationMs": 0.007999999999810825,
+        "candidateGenerationMs": 13.331000000000131,
+        "candidateDeduplicationMs": 0.03139999999984866,
+        "preprocessMs": 25.916400000003705,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 272.2195000000029,
+          "zxing-cpp-wasm": 6.341200000000754
+        },
+        "validationMs": 0.01479999999901338,
+        "semanticParsingMs": 0.1838000000007014
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        434,
+        421,
+        409
+      ]
+    },
+    {
+      "id": "10-small-in-large",
+      "category": "small_in_large",
+      "expectedPayload": "https://scanly.example/small",
+      "actualPayload": "https://scanly.example/small",
+      "allPayloads": [
+        "https://scanly.example/small"
+      ],
+      "pass": true,
+      "elapsedMs": 891,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": 0,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 18.477100000000064,
+      "heuristicMetrics": {
+        "entropyScore": 0.007158116693948894,
+        "highFrequencyRatio": 0.007158116693948894,
+        "candidateCountBeforeCap": 4,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 66324580,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.016800000001239823,
+        "roiMs": 0.02050000000053842,
+        "localizationMs": 0.009000000000014552,
+        "candidateGenerationMs": 69.70550000000003,
+        "candidateDeduplicationMs": 0.032499999999345164,
+        "preprocessMs": 59.87480000000323,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 603.5415000000066,
+          "zxing-cpp-wasm": 5.652699999998731
+        },
+        "validationMs": 0.023600000000442378,
+        "semanticParsingMs": 0.21500000000014552
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        891,
+        877,
+        940
+      ]
+    },
+    {
+      "id": "11-complex-background",
+      "category": "complex_background",
+      "expectedPayload": "https://scanly.example/background",
+      "actualPayload": "https://scanly.example/background",
+      "allPayloads": [
+        "https://scanly.example/background"
+      ],
+      "pass": true,
+      "elapsedMs": 492,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 41.1875,
+      "heuristicMetrics": {
+        "entropyScore": 0.03437347635299854,
+        "highFrequencyRatio": 0.03437347635299854,
+        "candidateCountBeforeCap": 4,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 33581064,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.017299999999522697,
+        "roiMs": 0.018899999999121064,
+        "localizationMs": 0.008100000000922591,
+        "candidateGenerationMs": 21.841200000000754,
+        "candidateDeduplicationMs": 0.029700000000957516,
+        "preprocessMs": 28.57239999999547,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 324.7153999999973,
+          "zxing-cpp-wasm": 6.384399999999005
+        },
+        "validationMs": 0.05769999999756692,
+        "semanticParsingMs": 0.22309999999924912
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        492,
+        496,
+        458
+      ]
+    },
+    {
+      "id": "12-rotated",
+      "category": "rotation",
+      "expectedPayload": "https://scanly.example/rotated",
+      "actualPayload": "https://scanly.example/rotated",
+      "allPayloads": [
+        "https://scanly.example/rotated"
+      ],
+      "pass": true,
+      "elapsedMs": 489,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 33.013300000002346,
+      "heuristicMetrics": {
+        "entropyScore": 0.0730083353747778,
+        "highFrequencyRatio": 0.0730083353747778,
+        "candidateCountBeforeCap": 6,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 32980396,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.016400000000430737,
+        "roiMs": 0.018000000000029104,
+        "localizationMs": 0.008699999998498242,
+        "candidateGenerationMs": 16.248300000002928,
+        "candidateDeduplicationMs": 0.037000000000261934,
+        "preprocessMs": 22.941699999992125,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 348.71719999999914,
+          "zxing-cpp-wasm": 7.872699999999895
+        },
+        "validationMs": 0.016199999998207204,
+        "semanticParsingMs": 0.19369999999980791
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        479,
+        513,
+        489
+      ]
+    },
+    {
+      "id": "13-perspective",
+      "category": "perspective",
+      "expectedPayload": "https://scanly.example/perspective",
+      "actualPayload": "https://scanly.example/perspective",
+      "allPayloads": [
+        "https://scanly.example/perspective"
+      ],
+      "pass": true,
+      "elapsedMs": 500,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 26.694600000002538,
+      "heuristicMetrics": {
+        "entropyScore": 0.060206812959268705,
+        "highFrequencyRatio": 0.060206812959268705,
+        "candidateCountBeforeCap": 3,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 21596920,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.017400000000634464,
+        "roiMs": 0.019400000001041917,
+        "localizationMs": 0.010200000000622822,
+        "candidateGenerationMs": 11.681300000000192,
+        "candidateDeduplicationMs": 0.030300000002171146,
+        "preprocessMs": 31.519700000004377,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 308.08190000000104,
+          "zxing-cpp-wasm": 6.675100000000384
+        },
+        "validationMs": 0.005199999999604188,
+        "semanticParsingMs": 0.12670000000071013
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        514,
+        452,
+        500
+      ]
+    },
+    {
+      "id": "14-damaged",
+      "category": "damaged",
+      "expectedPayload": "https://scanly.example/damaged",
+      "actualPayload": null,
+      "allPayloads": [],
+      "pass": false,
+      "elapsedMs": 790,
+      "successfulDecoder": null,
+      "preprocessingPath": null,
+      "candidateIndex": null,
+      "attemptCount": 96,
+      "failureReason": "no_symbol_found",
+      "expectedOutcome": "decode",
+      "missingPayloads": [
+        "https://scanly.example/damaged"
+      ],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 0,
+      "heuristicMetrics": {
+        "entropyScore": 0.0475998080856544,
+        "highFrequencyRatio": 0.0475998080856544,
+        "candidateCountBeforeCap": 5,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "not-found"
+      },
+      "controlledMemoryPeakBytes": 24641080,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.025200000000040745,
+        "roiMs": 0.014400000000023283,
+        "localizationMs": 0.008700000002136221,
+        "candidateGenerationMs": 12.35649999999805,
+        "candidateDeduplicationMs": 0.07670000000143773,
+        "preprocessMs": 35.52409999999145,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 472.63629999997283,
+          "zxing-cpp-wasm": 3.73319999999876
+        },
+        "validationMs": 0.004199999999400461,
+        "semanticParsingMs": 0.002899999999499414
+      },
+      "iterationPassCount": 0,
+      "iterationFailureCount": 3,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        790,
+        769,
+        829
+      ]
+    },
+    {
+      "id": "15-inverted",
+      "category": "inverted",
+      "expectedPayload": "https://scanly.example/inverted",
+      "actualPayload": "https://scanly.example/inverted",
+      "allPayloads": [
+        "https://scanly.example/inverted"
+      ],
+      "pass": true,
+      "elapsedMs": 434,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 27.541000000001077,
+      "heuristicMetrics": {
+        "entropyScore": 0.050137622787303354,
+        "highFrequencyRatio": 0.050137622787303354,
+        "candidateCountBeforeCap": 4,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 22127112,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.01599999999962165,
+        "roiMs": 0.01959999999962747,
+        "localizationMs": 0.008399999998800922,
+        "candidateGenerationMs": 12.159199999998236,
+        "candidateDeduplicationMs": 0.03280000000086147,
+        "preprocessMs": 22.712499999997817,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 296.57200000001103,
+          "zxing-cpp-wasm": 7.243899999997666
+        },
+        "validationMs": 0.01269999999931315,
+        "semanticParsingMs": 0.16709999999875436
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        424,
+        446,
+        434
+      ]
+    },
+    {
+      "id": "16-multiple-codes",
+      "category": "multiple",
+      "expectedPayload": "https://scanly.example/primary",
+      "actualPayload": "https://scanly.example/primary",
+      "allPayloads": [
+        "https://scanly.example/primary",
+        "https://scanly.example/secondary"
+      ],
+      "pass": true,
+      "elapsedMs": 79,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 4,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 2,
+      "decodedPayloadCount": 2,
+      "timeToFirstResultMs": 41.74850000000151,
+      "heuristicMetrics": {
+        "entropyScore": 0.07159759864778224,
+        "highFrequencyRatio": 0.07159759864778224,
+        "candidateCountBeforeCap": 4,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 22088044,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.015299999999115244,
+        "roiMs": 0.012300000002142042,
+        "localizationMs": 0.008799999999610009,
+        "candidateGenerationMs": 22.879400000001624,
+        "candidateDeduplicationMs": 0.028500000000349246,
+        "preprocessMs": 2.3471000000026834,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 29.65690000000177,
+          "zxing-cpp-wasm": 6.681800000002113
+        },
+        "validationMs": 0.01420000000143773,
+        "semanticParsingMs": 0.06060000000070431
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        71,
+        79,
+        85
+      ]
+    },
+    {
+      "id": "17-clear-url-02",
+      "category": "url",
+      "expectedPayload": "https://scanly.example/clear-02",
+      "actualPayload": "https://scanly.example/clear-02",
+      "allPayloads": [
+        "https://scanly.example/clear-02"
+      ],
+      "pass": true,
+      "elapsedMs": 255,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 10.472499999999854,
+      "heuristicMetrics": {
+        "entropyScore": 0.048908717485087606,
+        "highFrequencyRatio": 0.048908717485087606,
+        "candidateCountBeforeCap": 6,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 6274764,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.015200000001641456,
+        "roiMs": 0.004899999999906868,
+        "localizationMs": 0.007600000000820728,
+        "candidateGenerationMs": 3.8932999999997264,
+        "candidateDeduplicationMs": 0.026799999999639113,
+        "preprocessMs": 5.882900000000518,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 83.44990000001417,
+          "zxing-cpp-wasm": 2.543600000000879
+        },
+        "validationMs": 0.051199999998061685,
+        "semanticParsingMs": 0.04800000000250293
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        253,
+        255,
+        271
+      ]
+    },
+    {
+      "id": "18-clear-text-02",
+      "category": "text",
+      "expectedPayload": "SCANLY_CLEAR_TEXT_02",
+      "actualPayload": "SCANLY_CLEAR_TEXT_02",
+      "allPayloads": [
+        "SCANLY_CLEAR_TEXT_02"
+      ],
+      "pass": true,
+      "elapsedMs": 214,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 11.488999999997759,
+      "heuristicMetrics": {
+        "entropyScore": 0.042619471113687954,
+        "highFrequencyRatio": 0.042619471113687954,
+        "candidateCountBeforeCap": 4,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 6108040,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.013699999999516876,
+        "roiMs": 0.00420000000303844,
+        "localizationMs": 0.007900000000518048,
+        "candidateGenerationMs": 2.834000000002561,
+        "candidateDeduplicationMs": 0.024600000000646105,
+        "preprocessMs": 5.505099999994854,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 69.42630000001009,
+          "zxing-cpp-wasm": 1.6152000000001863
+        },
+        "validationMs": 0.02149999999892316,
+        "semanticParsingMs": 0.09799999999813735
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        214,
+        233,
+        213
+      ]
+    },
+    {
+      "id": "19-wifi-payload",
+      "category": "wifi",
+      "expectedPayload": "WIFI:T:WPA;S:ScanlyLab;P:test-pass-01;;",
+      "actualPayload": "WIFI:T:WPA;S:ScanlyLab;P:test-pass-01;;",
+      "allPayloads": [
+        "WIFI:T:WPA;S:ScanlyLab;P:test-pass-01;;"
+      ],
+      "pass": true,
+      "elapsedMs": 249,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 10.805299999999988,
+      "heuristicMetrics": {
+        "entropyScore": 0.05610204302237596,
+        "highFrequencyRatio": 0.05610204302237596,
+        "candidateCountBeforeCap": 3,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 5918976,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.011999999998806743,
+        "roiMs": 0.004399999997986015,
+        "localizationMs": 0.0067000000017287675,
+        "candidateGenerationMs": 2.3751999999985856,
+        "candidateDeduplicationMs": 0.021000000000640284,
+        "preprocessMs": 5.345199999996112,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 90.09200000000055,
+          "zxing-cpp-wasm": 1.1052999999992608
+        },
+        "validationMs": 0.05199999999967986,
+        "semanticParsingMs": 0.07660000000032596
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        244,
+        267,
+        249
+      ]
+    },
+    {
+      "id": "20-low-contrast-02",
+      "category": "low_contrast",
+      "expectedPayload": "SCANLY_LOW_CONTRAST_02",
+      "actualPayload": "SCANLY_LOW_CONTRAST_02",
+      "allPayloads": [
+        "SCANLY_LOW_CONTRAST_02"
+      ],
+      "pass": true,
+      "elapsedMs": 465,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "contrast",
+      "candidateIndex": 0,
+      "attemptCount": 48,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 27.722799999999552,
+      "heuristicMetrics": {
+        "entropyScore": 0,
+        "highFrequencyRatio": 0,
+        "candidateCountBeforeCap": 0,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 18168172,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.014699999999720603,
+        "roiMs": 0.004700000001321314,
+        "localizationMs": 0.008099999999103602,
+        "candidateGenerationMs": 9.328799999999319,
+        "candidateDeduplicationMs": 0.11539999999877182,
+        "preprocessMs": 41.71669999999358,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 317.22179999999935,
+          "zxing-cpp-wasm": 1.4060999999965134
+        },
+        "validationMs": 0.013499999997293344,
+        "semanticParsingMs": 0.2242999999980384
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        464,
+        484,
+        465
+      ]
+    },
+    {
+      "id": "21-underexposed-gen",
+      "category": "underexposed",
+      "expectedPayload": "SCANLY_UNDEREXPOSED_01",
+      "actualPayload": "SCANLY_UNDEREXPOSED_01",
+      "allPayloads": [
+        "SCANLY_UNDEREXPOSED_01"
+      ],
+      "pass": true,
+      "elapsedMs": 262,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 10.69510000000082,
+      "heuristicMetrics": {
+        "entropyScore": 0.03771696371070988,
+        "highFrequencyRatio": 0.03771696371070988,
+        "candidateCountBeforeCap": 5,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 7927816,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.013799999996990664,
+        "roiMs": 0.004600000000209548,
+        "localizationMs": 0.007299999997485429,
+        "candidateGenerationMs": 5.235499999998865,
+        "candidateDeduplicationMs": 0.03190000000176951,
+        "preprocessMs": 8.50460000000021,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 89.16229999999996,
+          "zxing-cpp-wasm": 2.0423999999984517
+        },
+        "validationMs": 0.015599999998812564,
+        "semanticParsingMs": 0.08849999999802094
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        269,
+        262,
+        255
+      ]
+    },
+    {
+      "id": "22-overexposed-gen",
+      "category": "overexposed",
+      "expectedPayload": "SCANLY_OVEREXPOSED_01",
+      "actualPayload": "SCANLY_OVEREXPOSED_01",
+      "allPayloads": [
+        "SCANLY_OVEREXPOSED_01"
+      ],
+      "pass": true,
+      "elapsedMs": 267,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 6.367500000000291,
+      "heuristicMetrics": {
+        "entropyScore": 0.03723589978352123,
+        "highFrequencyRatio": 0.03723589978352123,
+        "candidateCountBeforeCap": 5,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 7927816,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.013999999999214197,
+        "roiMs": 0.004400000001623994,
+        "localizationMs": 0.007399999998597195,
+        "candidateGenerationMs": 3.3422000000027765,
+        "candidateDeduplicationMs": 0.023099999998521525,
+        "preprocessMs": 6.001799999990908,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 83.68720000001122,
+          "zxing-cpp-wasm": 1.1815999999998894
+        },
+        "validationMs": 0.01510000000052969,
+        "semanticParsingMs": 0.08899999999994179
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        267,
+        274,
+        243
+      ]
+    },
+    {
+      "id": "23-blur-gen",
+      "category": "blur",
+      "expectedPayload": "SCANLY_BLUR_01",
+      "actualPayload": "SCANLY_BLUR_01",
+      "allPayloads": [
+        "SCANLY_BLUR_01"
+      ],
+      "pass": true,
+      "elapsedMs": 476,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": 0,
+      "attemptCount": 48,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 8.87999999999738,
+      "heuristicMetrics": {
+        "entropyScore": 0.07562138428778714,
+        "highFrequencyRatio": 0.07562138428778714,
+        "candidateCountBeforeCap": 0,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 22387472,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.01540000000022701,
+        "roiMs": 0.004600000000209548,
+        "localizationMs": 0.008200000000215368,
+        "candidateGenerationMs": 9.812399999998888,
+        "candidateDeduplicationMs": 0.019500000002153683,
+        "preprocessMs": 42.099199999982375,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 325.18380000000616,
+          "zxing-cpp-wasm": 1.5557999999982712
+        },
+        "validationMs": 0.01780000000144355,
+        "semanticParsingMs": 0.28960000000006403
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        469,
+        483,
+        476
+      ]
+    },
+    {
+      "id": "24-motion-blur",
+      "category": "motion_blur",
+      "expectedPayload": "SCANLY_MOTION_BLUR_01",
+      "actualPayload": "SCANLY_MOTION_BLUR_01",
+      "allPayloads": [
+        "SCANLY_MOTION_BLUR_01"
+      ],
+      "pass": true,
+      "elapsedMs": 303,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 10.202799999999115,
+      "heuristicMetrics": {
+        "entropyScore": 0.07798397728425109,
+        "highFrequencyRatio": 0.07798397728425109,
+        "candidateCountBeforeCap": 6,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 11138812,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.015299999999115244,
+        "roiMs": 0.0054000000018277206,
+        "localizationMs": 0.008200000000215368,
+        "candidateGenerationMs": 6.951700000001438,
+        "candidateDeduplicationMs": 0.029399999999441206,
+        "preprocessMs": 9.542200000003504,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 123.8162000000084,
+          "zxing-cpp-wasm": 1.8092999999971653
+        },
+        "validationMs": 0.014400000000023283,
+        "semanticParsingMs": 0.1062000000019907
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        321,
+        303,
+        300
+      ]
+    },
+    {
+      "id": "25-noise",
+      "category": "noise",
+      "expectedPayload": "SCANLY_NOISE_01",
+      "actualPayload": "SCANLY_NOISE_01",
+      "allPayloads": [
+        "SCANLY_NOISE_01"
+      ],
+      "pass": true,
+      "elapsedMs": 270,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 6.876400000001013,
+      "heuristicMetrics": {
+        "entropyScore": 0.03639015836314119,
+        "highFrequencyRatio": 0.03639015836314119,
+        "candidateCountBeforeCap": 5,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 7927816,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.013600000002043089,
+        "roiMs": 0.004799999998795101,
+        "localizationMs": 0.008000000001629815,
+        "candidateGenerationMs": 4.480499999997846,
+        "candidateDeduplicationMs": 0.023999999997613486,
+        "preprocessMs": 6.7061999999968975,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 85.57690000000002,
+          "zxing-cpp-wasm": 1.2771999999968102
+        },
+        "validationMs": 0.04320000000006985,
+        "semanticParsingMs": 0.09299999999711872
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        270,
+        278,
+        242
+      ]
+    },
+    {
+      "id": "26-glare-gen",
+      "category": "glare",
+      "expectedPayload": "SCANLY_GLARE_01",
+      "actualPayload": "SCANLY_GLARE_01",
+      "allPayloads": [
+        "SCANLY_GLARE_01"
+      ],
+      "pass": true,
+      "elapsedMs": 272,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 14.920299999997951,
+      "heuristicMetrics": {
+        "entropyScore": 0.031387993794008834,
+        "highFrequencyRatio": 0.031387993794008834,
+        "candidateCountBeforeCap": 4,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 9506044,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.012199999997392297,
+        "roiMs": 0.004300000000512227,
+        "localizationMs": 0.006800000002840534,
+        "candidateGenerationMs": 3.85910000000149,
+        "candidateDeduplicationMs": 0.023600000000442378,
+        "preprocessMs": 7.660300000025018,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 97.12389999999868,
+          "zxing-cpp-wasm": 1.5627999999996973
+        },
+        "validationMs": 0.01579999999376014,
+        "semanticParsingMs": 0.12099999999918509
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        255,
+        272,
+        300
+      ]
+    },
+    {
+      "id": "27-inverted-01",
+      "category": "inverted",
+      "expectedPayload": "SCANLY_INVERTED_01",
+      "actualPayload": "SCANLY_INVERTED_01",
+      "allPayloads": [
+        "SCANLY_INVERTED_01"
+      ],
+      "pass": true,
+      "elapsedMs": 253,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 12.862300000000687,
+      "heuristicMetrics": {
+        "entropyScore": 0.04116508289030178,
+        "highFrequencyRatio": 0.04116508289030178,
+        "candidateCountBeforeCap": 5,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 6273836,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.013400000003457535,
+        "roiMs": 0.0051000000021304,
+        "localizationMs": 0.008099999999103602,
+        "candidateGenerationMs": 3.55290000000241,
+        "candidateDeduplicationMs": 0.024300000004586764,
+        "preprocessMs": 5.827899999982037,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 71.2844000000041,
+          "zxing-cpp-wasm": 1.07390000000305
+        },
+        "validationMs": 0.005499999999301508,
+        "semanticParsingMs": 0.29469999999855645
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        248,
+        253,
+        266
+      ]
+    },
+    {
+      "id": "28-inverted-02",
+      "category": "inverted",
+      "expectedPayload": "SCANLY_INVERTED_02",
+      "actualPayload": "SCANLY_INVERTED_02",
+      "allPayloads": [
+        "SCANLY_INVERTED_02"
+      ],
+      "pass": true,
+      "elapsedMs": 241,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 10.082199999997101,
+      "heuristicMetrics": {
+        "entropyScore": 0.048547680528256316,
+        "highFrequencyRatio": 0.048547680528256316,
+        "candidateCountBeforeCap": 4,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 4644768,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.011299999998300336,
+        "roiMs": 0.0039000000033411197,
+        "localizationMs": 0.006800000002840534,
+        "candidateGenerationMs": 2.802899999995134,
+        "candidateDeduplicationMs": 0.02200000000448199,
+        "preprocessMs": 4.195400000004156,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 64.45080000002054,
+          "zxing-cpp-wasm": 0.8781999999991967
+        },
+        "validationMs": 0.023399999998218846,
+        "semanticParsingMs": 0.08770000000367872
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        237,
+        241,
+        247
+      ]
+    },
+    {
+      "id": "29-rot-90",
+      "category": "rotation",
+      "expectedPayload": "SCANLY_ROT_90",
+      "actualPayload": "SCANLY_ROT_90",
+      "allPayloads": [
+        "SCANLY_ROT_90"
+      ],
+      "pass": true,
+      "elapsedMs": 237,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 13.410600000002887,
+      "heuristicMetrics": {
+        "entropyScore": 0.03621230137282456,
+        "highFrequencyRatio": 0.03621230137282456,
+        "candidateCountBeforeCap": 4,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 6096768,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.011599999997997656,
+        "roiMs": 0.00450000000273576,
+        "localizationMs": 0.007699999994656537,
+        "candidateGenerationMs": 2.87949999999546,
+        "candidateDeduplicationMs": 0.021600000000034925,
+        "preprocessMs": 4.830399999991641,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 62.19059999998717,
+          "zxing-cpp-wasm": 1.0561999999990803
+        },
+        "validationMs": 0.014299999995273538,
+        "semanticParsingMs": 0.08690000000206055
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        235,
+        237,
+        250
+      ]
+    },
+    {
+      "id": "30-rot-180",
+      "category": "rotation",
+      "expectedPayload": "SCANLY_ROT_180",
+      "actualPayload": "SCANLY_ROT_180",
+      "allPayloads": [
+        "SCANLY_ROT_180"
+      ],
+      "pass": true,
+      "elapsedMs": 237,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 9.75050000000192,
+      "heuristicMetrics": {
+        "entropyScore": 0.03480704788671495,
+        "highFrequencyRatio": 0.03480704788671495,
+        "candidateCountBeforeCap": 6,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 6251496,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.01269999999931315,
+        "roiMs": 0.004700000004959293,
+        "localizationMs": 0.007400000002235174,
+        "candidateGenerationMs": 2.7436999999990803,
+        "candidateDeduplicationMs": 0.023699999997916166,
+        "preprocessMs": 5.17250000002241,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 62.0422999999937,
+          "zxing-cpp-wasm": 1.0944000000017695
+        },
+        "validationMs": 0.014600000002246816,
+        "semanticParsingMs": 0.08299999999871943
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        223,
+        237,
+        246
+      ]
+    },
+    {
+      "id": "31-rot-270",
+      "category": "rotation",
+      "expectedPayload": "SCANLY_ROT_270",
+      "actualPayload": "SCANLY_ROT_270",
+      "allPayloads": [
+        "SCANLY_ROT_270"
+      ],
+      "pass": true,
+      "elapsedMs": 240,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 7.899199999999837,
+      "heuristicMetrics": {
+        "entropyScore": 0.03534752999675711,
+        "highFrequencyRatio": 0.03534752999675711,
+        "candidateCountBeforeCap": 6,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 6262564,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.012599999994563404,
+        "roiMs": 0.004399999997986015,
+        "localizationMs": 0.0072000000000116415,
+        "candidateGenerationMs": 2.5521999999982654,
+        "candidateDeduplicationMs": 0.022799999998824205,
+        "preprocessMs": 4.727700000003097,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 63.30580000000191,
+          "zxing-cpp-wasm": 1.1863999999986845
+        },
+        "validationMs": 0.01479999999719439,
+        "semanticParsingMs": 0.0923999999940861
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        240,
+        230,
+        253
+      ]
+    },
+    {
+      "id": "32-rot-15",
+      "category": "rotation",
+      "expectedPayload": "SCANLY_ROT_15",
+      "actualPayload": "SCANLY_ROT_15",
+      "allPayloads": [
+        "SCANLY_ROT_15"
+      ],
+      "pass": true,
+      "elapsedMs": 282,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 13.504800000002433,
+      "heuristicMetrics": {
+        "entropyScore": 0.05602396635291501,
+        "highFrequencyRatio": 0.05602396635291501,
+        "candidateCountBeforeCap": 5,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 9197312,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.013500000000931323,
+        "roiMs": 0.004699999997683335,
+        "localizationMs": 0.007799999999406282,
+        "candidateGenerationMs": 3.91809999999532,
+        "candidateDeduplicationMs": 0.02479999999923166,
+        "preprocessMs": 7.208699999981036,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 107.45219999999972,
+          "zxing-cpp-wasm": 1.4655000000057044
+        },
+        "validationMs": 0.01569999999628635,
+        "semanticParsingMs": 0.0859000000054948
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        252,
+        306,
+        282
+      ]
+    },
+    {
+      "id": "33-small-in-large-gen",
+      "category": "small_in_large",
+      "expectedPayload": "SCANLY_SMALL_01",
+      "actualPayload": "SCANLY_SMALL_01",
+      "allPayloads": [
+        "SCANLY_SMALL_01"
+      ],
+      "pass": true,
+      "elapsedMs": 1235,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": 0,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 45.014100000000326,
+      "heuristicMetrics": {
+        "entropyScore": 0.002304147465437788,
+        "highFrequencyRatio": 0.002304147465437788,
+        "candidateCountBeforeCap": 0,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 66548736,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.015500000001338776,
+        "roiMs": 0.005099999994854443,
+        "localizationMs": 0.008000000001629815,
+        "candidateGenerationMs": 119.42309999999998,
+        "candidateDeduplicationMs": 0.0253999999986263,
+        "preprocessMs": 109.87379999997938,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 871.5377000000008,
+          "zxing-cpp-wasm": 4.392200000002049
+        },
+        "validationMs": 0.015399999996589031,
+        "semanticParsingMs": 0.25059999999939464
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        1181,
+        1235,
+        1380
+      ]
+    },
+    {
+      "id": "34-near-edge",
+      "category": "near_edge",
+      "expectedPayload": "SCANLY_NEAR_EDGE_01",
+      "actualPayload": "SCANLY_NEAR_EDGE_01",
+      "allPayloads": [
+        "SCANLY_NEAR_EDGE_01"
+      ],
+      "pass": true,
+      "elapsedMs": 432,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": 0,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 19.66189999999915,
+      "heuristicMetrics": {
+        "entropyScore": 0.008860861831999352,
+        "highFrequencyRatio": 0.008860861831999352,
+        "candidateCountBeforeCap": 3,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 32092200,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.01720000000204891,
+        "roiMs": 0.005700000001525041,
+        "localizationMs": 0.008999999998195563,
+        "candidateGenerationMs": 24.27169999999751,
+        "candidateDeduplicationMs": 0.028200000000651926,
+        "preprocessMs": 24.691499999986263,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 260.2760000000126,
+          "zxing-cpp-wasm": 4.324699999997392
+        },
+        "validationMs": 0.016199999998207204,
+        "semanticParsingMs": 0.28009999999630963
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        454,
+        421,
+        432
+      ]
+    },
+    {
+      "id": "35-complex-bg-gen",
+      "category": "complex_background",
+      "expectedPayload": "SCANLY_COMPLEX_BG_01",
+      "actualPayload": "SCANLY_COMPLEX_BG_01",
+      "allPayloads": [
+        "SCANLY_COMPLEX_BG_01"
+      ],
+      "pass": true,
+      "elapsedMs": 618,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": 0,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 7.535599999995611,
+      "heuristicMetrics": {
+        "entropyScore": 0.019068046291276782,
+        "highFrequencyRatio": 0.019068046291276782,
+        "candidateCountBeforeCap": 5,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 40916432,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.0319999999992433,
+        "roiMs": 0.012300000002142042,
+        "localizationMs": 0.014999999999417923,
+        "candidateGenerationMs": 38.00209999999788,
+        "candidateDeduplicationMs": 0.035199999998440035,
+        "preprocessMs": 37.106100000026345,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 400.913899999985,
+          "zxing-cpp-wasm": 5.240000000005239
+        },
+        "validationMs": 0.02449999999953434,
+        "semanticParsingMs": 0.3798000000024331
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        484,
+        618,
+        657
+      ]
+    },
+    {
+      "id": "36-multiple-gen",
+      "category": "multiple",
+      "expectedPayload": "SCANLY_MULTI_PRIMARY",
+      "actualPayload": "SCANLY_MULTI_PRIMARY",
+      "allPayloads": [
+        "SCANLY_MULTI_PRIMARY",
+        "SCANLY_MULTI_SECONDARY"
+      ],
+      "pass": true,
+      "elapsedMs": 48,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 4,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 2,
+      "decodedPayloadCount": 2,
+      "timeToFirstResultMs": 32.0144999999975,
+      "heuristicMetrics": {
+        "entropyScore": 0.03759398496240601,
+        "highFrequencyRatio": 0.03759398496240601,
+        "candidateCountBeforeCap": 2,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 8627276,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.01900000000023283,
+        "roiMs": 0.007600000004458707,
+        "localizationMs": 0.013800000000628643,
+        "candidateGenerationMs": 9.445700000003853,
+        "candidateDeduplicationMs": 0.046600000001490116,
+        "preprocessMs": 0.8409999999930733,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 13.179200000005949,
+          "zxing-cpp-wasm": 5.276499999999942
+        },
+        "validationMs": 0.03299999999580905,
+        "semanticParsingMs": 0.5066999999980908
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        48,
+        48,
+        37
+      ]
+    },
+    {
+      "id": "37-occlusion",
+      "category": "occlusion",
+      "expectedPayload": "SCANLY_OCCLUSION_01",
+      "actualPayload": "SCANLY_OCCLUSION_01",
+      "allPayloads": [
+        "SCANLY_OCCLUSION_01"
+      ],
+      "pass": true,
+      "elapsedMs": 327,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 24.821499999998196,
+      "heuristicMetrics": {
+        "entropyScore": 0.037658770493711254,
+        "highFrequencyRatio": 0.037658770493711254,
+        "candidateCountBeforeCap": 6,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 7926776,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.024300000004586764,
+        "roiMs": 0.007299999997485429,
+        "localizationMs": 0.011500000000523869,
+        "candidateGenerationMs": 8.317900000001828,
+        "candidateDeduplicationMs": 0.05559999999968568,
+        "preprocessMs": 13.348799999999756,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 134.1051999999836,
+          "zxing-cpp-wasm": 3.120100000000093
+        },
+        "validationMs": 0.01750000000174623,
+        "semanticParsingMs": 0.1386999999958789
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        328,
+        327,
+        311
+      ]
+    },
+    {
+      "id": "38-damaged-gen",
+      "category": "damaged",
+      "expectedPayload": "SCANLY_DAMAGED_01",
+      "actualPayload": "SCANLY_DAMAGED_01",
+      "allPayloads": [
+        "SCANLY_DAMAGED_01"
+      ],
+      "pass": true,
+      "elapsedMs": 282,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 13.14600000000064,
+      "heuristicMetrics": {
+        "entropyScore": 0.03590909443595255,
+        "highFrequencyRatio": 0.03590909443595255,
+        "candidateCountBeforeCap": 4,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 7718836,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.01269999999931315,
+        "roiMs": 0.018000000003667083,
+        "localizationMs": 0.008399999998800922,
+        "candidateGenerationMs": 3.235899999999674,
+        "candidateDeduplicationMs": 0.022400000001653098,
+        "preprocessMs": 6.430799999987357,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 86.04879999999685,
+          "zxing-cpp-wasm": 1.2799999999988358
+        },
+        "validationMs": 0.014300000002549496,
+        "semanticParsingMs": 0.08530000000610016
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        296,
+        282,
+        282
+      ]
+    },
+    {
+      "id": "39-high-res",
+      "category": "high_resolution",
+      "expectedPayload": "SCANLY_HIRES_01",
+      "actualPayload": "SCANLY_HIRES_01",
+      "allPayloads": [
+        "SCANLY_HIRES_01"
+      ],
+      "pass": true,
+      "elapsedMs": 2225,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": 0,
+      "attemptCount": 52,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 52.925100000000384,
+      "heuristicMetrics": {
+        "entropyScore": 0.006638670254230895,
+        "highFrequencyRatio": 0.006638670254230895,
+        "candidateCountBeforeCap": 0,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 66727104,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.016700000000128057,
+        "roiMs": 0.0051000000021304,
+        "localizationMs": 0.008699999998498242,
+        "candidateGenerationMs": 188.70279999999912,
+        "candidateDeduplicationMs": 0.03450000000157161,
+        "preprocessMs": 248.3824000000168,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 1634.2925000000178,
+          "zxing-cpp-wasm": 7.809900000000198
+        },
+        "validationMs": 0.015099999996891711,
+        "semanticParsingMs": 0.3848999999972875
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        2357,
+        2225,
+        2126
+      ]
+    },
+    {
+      "id": "40-moire",
+      "category": "screen_capture",
+      "expectedPayload": "SCANLY_MOIRE_01",
+      "actualPayload": "SCANLY_MOIRE_01",
+      "allPayloads": [
+        "SCANLY_MOIRE_01"
+      ],
+      "pass": true,
+      "elapsedMs": 542,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "threshold-140",
+      "candidateIndex": -1,
+      "attemptCount": 96,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 450.11729999999807,
+      "heuristicMetrics": {
+        "entropyScore": 0.23465832822526206,
+        "highFrequencyRatio": 0.23465832822526206,
+        "candidateCountBeforeCap": 7,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 9110028,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.014000000002852175,
+        "roiMs": 0.004699999997683335,
+        "localizationMs": 0.008099999999103602,
+        "candidateGenerationMs": 3.649600000004284,
+        "candidateDeduplicationMs": 0.02569999999832362,
+        "preprocessMs": 18.28640000001178,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 252.72439999996277,
+          "zxing-cpp-wasm": 1.258399999998801
+        },
+        "validationMs": 0.03899999999703141,
+        "semanticParsingMs": 0.09430000000429573
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        592,
+        507,
+        542
+      ]
+    },
+    {
+      "id": "41-unusual-aspect",
+      "category": "unusual_aspect",
+      "expectedPayload": "SCANLY_ASPECT_01",
+      "actualPayload": "SCANLY_ASPECT_01",
+      "allPayloads": [
+        "SCANLY_ASPECT_01"
+      ],
+      "pass": true,
+      "elapsedMs": 292,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 24.051999999996042,
+      "heuristicMetrics": {
+        "entropyScore": 0.02177666388192704,
+        "highFrequencyRatio": 0.02177666388192704,
+        "candidateCountBeforeCap": 5,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 19122116,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.01479999999719439,
+        "roiMs": 0.005099999994854443,
+        "localizationMs": 0.015299999999115244,
+        "candidateGenerationMs": 11.908400000000256,
+        "candidateDeduplicationMs": 0.030899999997927807,
+        "preprocessMs": 13.77679999996326,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 166.49649999999383,
+          "zxing-cpp-wasm": 1.7336000000068452
+        },
+        "validationMs": 0.025199999996402767,
+        "semanticParsingMs": 0.19539999999688007
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        288,
+        292,
+        326
+      ]
+    },
+    {
+      "id": "42-colored-bg",
+      "category": "colored_background",
+      "expectedPayload": "SCANLY_COLOR_BG_01",
+      "actualPayload": "SCANLY_COLOR_BG_01",
+      "allPayloads": [
+        "SCANLY_COLOR_BG_01"
+      ],
+      "pass": true,
+      "elapsedMs": 446,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": 0,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 24.469300000004296,
+      "heuristicMetrics": {
+        "entropyScore": 0.015728544418690836,
+        "highFrequencyRatio": 0.015728544418690836,
+        "candidateCountBeforeCap": 0,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 36955808,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.014299999995273538,
+        "roiMs": 0.00480000000243308,
+        "localizationMs": 0.008699999998498242,
+        "candidateGenerationMs": 26.771899999999732,
+        "candidateDeduplicationMs": 0.02419999999983702,
+        "preprocessMs": 29.167399999991176,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 276.3132999999725,
+          "zxing-cpp-wasm": 3.252699999997276
+        },
+        "validationMs": 0.014400000000023283,
+        "semanticParsingMs": 0.12989999999990687
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        433,
+        446,
+        483
+      ]
+    },
+    {
+      "id": "43-transparent-bg",
+      "category": "colored_background",
+      "expectedPayload": "SCANLY_TRANSPARENT_01",
+      "actualPayload": "SCANLY_TRANSPARENT_01",
+      "allPayloads": [
+        "SCANLY_TRANSPARENT_01"
+      ],
+      "pass": true,
+      "elapsedMs": 244,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 9.037799999998242,
+      "heuristicMetrics": {
+        "entropyScore": 0.02426492295902664,
+        "highFrequencyRatio": 0.02426492295902664,
+        "candidateCountBeforeCap": 3,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 9250040,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.013800000000628643,
+        "roiMs": 0.0051000000021304,
+        "localizationMs": 0.008399999998800922,
+        "candidateGenerationMs": 3.5789000000004307,
+        "candidateDeduplicationMs": 0.02059999999619322,
+        "preprocessMs": 8.129000000015367,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 112.19710000000487,
+          "zxing-cpp-wasm": 1.4619999999995343
+        },
+        "validationMs": 0.016100000000733417,
+        "semanticParsingMs": 0.14619999999558786
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        237,
+        244,
+        275
+      ]
+    },
+    {
+      "id": "44-clear-url-03",
+      "category": "clear",
+      "expectedPayload": "https://scanly.example/clear-03",
+      "actualPayload": "https://scanly.example/clear-03",
+      "allPayloads": [
+        "https://scanly.example/clear-03"
+      ],
+      "pass": true,
+      "elapsedMs": 267,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 12.598099999995611,
+      "heuristicMetrics": {
+        "entropyScore": 0.05090547085603069,
+        "highFrequencyRatio": 0.05090547085603069,
+        "candidateCountBeforeCap": 5,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 5505000,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.01269999999931315,
+        "roiMs": 0.0044000000052619725,
+        "localizationMs": 0.0072000000000116415,
+        "candidateGenerationMs": 4.706599999997707,
+        "candidateDeduplicationMs": 0.0290000000022701,
+        "preprocessMs": 5.315000000009604,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 96.79510000002483,
+          "zxing-cpp-wasm": 1.0930999999982305
+        },
+        "validationMs": 0.013800000000628643,
+        "semanticParsingMs": 0.04160000000410946
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        234,
+        280,
+        267
+      ]
+    },
+    {
+      "id": "45-text-long",
+      "category": "text",
+      "expectedPayload": "SCANLY_LONG_TEXT_PAYLOAD_ABCDEF_0123456789",
+      "actualPayload": "SCANLY_LONG_TEXT_PAYLOAD_ABCDEF_0123456789",
+      "allPayloads": [
+        "SCANLY_LONG_TEXT_PAYLOAD_ABCDEF_0123456789"
+      ],
+      "pass": true,
+      "elapsedMs": 271,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 7.905800000000454,
+      "heuristicMetrics": {
+        "entropyScore": 0.045156751527942664,
+        "highFrequencyRatio": 0.045156751527942664,
+        "candidateCountBeforeCap": 6,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 9734328,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.013200000001234002,
+        "roiMs": 0.004899999999906868,
+        "localizationMs": 0.007799999999406282,
+        "candidateGenerationMs": 4.116799999996147,
+        "candidateDeduplicationMs": 0.026100000002770685,
+        "preprocessMs": 8.038499999973283,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 106.9433999999892,
+          "zxing-cpp-wasm": 1.5332000000053085
+        },
+        "validationMs": 0.01569999999628635,
+        "semanticParsingMs": 0.1529000000009546
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        280,
+        266,
+        271
+      ]
+    },
+    {
+      "id": "46-invert-url",
+      "category": "inverted",
+      "expectedPayload": "https://scanly.example/inverted-url",
+      "actualPayload": "https://scanly.example/inverted-url",
+      "allPayloads": [
+        "https://scanly.example/inverted-url"
+      ],
+      "pass": true,
+      "elapsedMs": 254,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 14.600500000000466,
+      "heuristicMetrics": {
+        "entropyScore": 0.05355686363145016,
+        "highFrequencyRatio": 0.05355686363145016,
+        "candidateCountBeforeCap": 3,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 5918976,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.013100000003760215,
+        "roiMs": 0.0054000000018277206,
+        "localizationMs": 0.008099999999103602,
+        "candidateGenerationMs": 2.4659000000028755,
+        "candidateDeduplicationMs": 0.02320000000327127,
+        "preprocessMs": 5.558600000003935,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 87.59879999999976,
+          "zxing-cpp-wasm": 1.0288000000000466
+        },
+        "validationMs": 0.014800000004470348,
+        "semanticParsingMs": 0.0456999999951222
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        218,
+        254,
+        258
+      ]
+    },
+    {
+      "id": "47-near-edge-bottom",
+      "category": "near_edge",
+      "expectedPayload": "SCANLY_NEAR_EDGE_02",
+      "actualPayload": "SCANLY_NEAR_EDGE_02",
+      "allPayloads": [
+        "SCANLY_NEAR_EDGE_02"
+      ],
+      "pass": true,
+      "elapsedMs": 385,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": 0,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 32.731299999999464,
+      "heuristicMetrics": {
+        "entropyScore": 0.008918617614269788,
+        "highFrequencyRatio": 0.008918617614269788,
+        "candidateCountBeforeCap": 0,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 47760740,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.013999999995576218,
+        "roiMs": 0.005599999996775296,
+        "localizationMs": 0.008000000001629815,
+        "candidateGenerationMs": 32.62600000000384,
+        "candidateDeduplicationMs": 0.02719999999681022,
+        "preprocessMs": 21.3971999999776,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 209.46830000000045,
+          "zxing-cpp-wasm": 4.37670000000071
+        },
+        "validationMs": 0.016799999997601844,
+        "semanticParsingMs": 0.13850000000093132
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        385,
+        379,
+        388
+      ]
+    },
+    {
+      "id": "48-perspective-mild",
+      "category": "perspective",
+      "expectedPayload": "SCANLY_PERSPECTIVE_01",
+      "actualPayload": "SCANLY_PERSPECTIVE_01",
+      "allPayloads": [
+        "SCANLY_PERSPECTIVE_01"
+      ],
+      "pass": true,
+      "elapsedMs": 293,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 13.48859999999695,
+      "heuristicMetrics": {
+        "entropyScore": 0.0654940654940655,
+        "highFrequencyRatio": 0.0654940654940655,
+        "candidateCountBeforeCap": 6,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 8775192,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.013699999995878898,
+        "roiMs": 0.0051000000021304,
+        "localizationMs": 0.007900000004156027,
+        "candidateGenerationMs": 4.646300000000338,
+        "candidateDeduplicationMs": 0.023999999997613486,
+        "preprocessMs": 7.467899999996007,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 120.22979999997187,
+          "zxing-cpp-wasm": 1.487700000005134
+        },
+        "validationMs": 0.014200000005075708,
+        "semanticParsingMs": 0.08649999999761349
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        302,
+        293,
+        261
+      ]
+    },
+    {
+      "id": "49-noise-dark",
+      "category": "noise",
+      "expectedPayload": "SCANLY_NOISE_DARK_01",
+      "actualPayload": "SCANLY_NOISE_DARK_01",
+      "allPayloads": [
+        "SCANLY_NOISE_DARK_01"
+      ],
+      "pass": true,
+      "elapsedMs": 263,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 12.798500000004424,
+      "heuristicMetrics": {
+        "entropyScore": 0.03973164173649724,
+        "highFrequencyRatio": 0.03973164173649724,
+        "candidateCountBeforeCap": 4,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 6867304,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.013800000000628643,
+        "roiMs": 0.004899999999906868,
+        "localizationMs": 0.007799999999406282,
+        "candidateGenerationMs": 2.9117999999944004,
+        "candidateDeduplicationMs": 0.023700000005192123,
+        "preprocessMs": 5.9051000000181375,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 83.31399999999121,
+          "zxing-cpp-wasm": 1.274199999999837
+        },
+        "validationMs": 0.015500000001338776,
+        "semanticParsingMs": 0.08469999999942956
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        263,
+        264,
+        245
+      ]
+    },
+    {
+      "id": "50-multiple-three",
+      "category": "multiple",
+      "expectedPayload": "SCANLY_TRI_A",
+      "actualPayload": "SCANLY_TRI_B",
+      "allPayloads": [
+        "SCANLY_TRI_B",
+        "SCANLY_TRI_A",
+        "SCANLY_TRI_C"
+      ],
+      "pass": true,
+      "elapsedMs": 35,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": 0,
+      "attemptCount": 4,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 3,
+      "decodedPayloadCount": 3,
+      "timeToFirstResultMs": 5.101499999997031,
+      "heuristicMetrics": {
+        "entropyScore": 0.01870591265130244,
+        "highFrequencyRatio": 0.01870591265130244,
+        "candidateCountBeforeCap": 5,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 19192936,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.014400000000023283,
+        "roiMs": 0.00480000000243308,
+        "localizationMs": 0.007400000002235174,
+        "candidateGenerationMs": 13.026899999997113,
+        "candidateDeduplicationMs": 0.03620000000228174,
+        "preprocessMs": 1.0613999999986845,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 9.367199999993318,
+          "zxing-cpp-wasm": 4.267099999997299
+        },
+        "validationMs": 0.006000000001222361,
+        "semanticParsingMs": 0.10230000000592554
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        33,
+        35,
+        45
+      ]
+    },
+    {
+      "id": "51-gamma-ish",
+      "category": "low_contrast",
+      "expectedPayload": "SCANLY_GAMMA_01",
+      "actualPayload": "SCANLY_GAMMA_01",
+      "allPayloads": [
+        "SCANLY_GAMMA_01"
+      ],
+      "pass": true,
+      "elapsedMs": 442,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": 0,
+      "attemptCount": 48,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 20.420200000000477,
+      "heuristicMetrics": {
+        "entropyScore": 0.04002749715021624,
+        "highFrequencyRatio": 0.04002749715021624,
+        "candidateCountBeforeCap": 0,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 16219788,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.013800000000628643,
+        "roiMs": 0.004099999998288695,
+        "localizationMs": 0.007499999999708962,
+        "candidateGenerationMs": 7.129400000005262,
+        "candidateDeduplicationMs": 0.022400000001653098,
+        "preprocessMs": 32.45089999999618,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 270.92500000001746,
+          "zxing-cpp-wasm": 1.1810999999943306
+        },
+        "validationMs": 0.01660000000265427,
+        "semanticParsingMs": 0.14540000000124564
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        442,
+        485,
+        398
+      ]
+    },
+    {
+      "id": "52-wifi-02",
+      "category": "wifi",
+      "expectedPayload": "WIFI:T:nopass;S:GuestScanly;P:;;",
+      "actualPayload": "WIFI:T:nopass;S:GuestScanly;P:;;",
+      "allPayloads": [
+        "WIFI:T:nopass;S:GuestScanly;P:;;"
+      ],
+      "pass": true,
+      "elapsedMs": 261,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 7.1229999999995925,
+      "heuristicMetrics": {
+        "entropyScore": 0.049842277493342246,
+        "highFrequencyRatio": 0.049842277493342246,
+        "candidateCountBeforeCap": 4,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 6108040,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.01419999999779975,
+        "roiMs": 0.005099999994854443,
+        "localizationMs": 0.007700000001932494,
+        "candidateGenerationMs": 2.618499999996857,
+        "candidateDeduplicationMs": 0.02079999999841675,
+        "preprocessMs": 8.733500000016647,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 80.73260000001756,
+          "zxing-cpp-wasm": 1.1140999999988708
+        },
+        "validationMs": 0.01600000000325963,
+        "semanticParsingMs": 0.15050000000337604
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        261,
+        210,
+        268
+      ]
+    },
+    {
+      "id": "53-negative-blank",
+      "category": "negative",
+      "expectedPayload": "",
+      "actualPayload": null,
+      "allPayloads": [],
+      "pass": true,
+      "elapsedMs": 842,
+      "successfulDecoder": null,
+      "preprocessingPath": null,
+      "candidateIndex": null,
+      "attemptCount": 96,
+      "failureReason": "no_symbol_found",
+      "expectedOutcome": "no-symbol",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "decodedPayloadCount": 0,
+      "heuristicMetrics": {
+        "entropyScore": 0,
+        "highFrequencyRatio": 0,
+        "candidateCountBeforeCap": 0,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "not-found"
+      },
+      "controlledMemoryPeakBytes": 20221548,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.017799999986891635,
+        "roiMs": 0.005600000004051253,
+        "localizationMs": 0.00909999999566935,
+        "candidateGenerationMs": 12.49210000000312,
+        "candidateDeduplicationMs": 0.021699999997508712,
+        "preprocessMs": 83.05419999998412,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 590.5504999999685,
+          "zxing-cpp-wasm": 1.326600000000326
+        },
+        "validationMs": 0.0028000000020256266,
+        "semanticParsingMs": 0.0025000000023283064
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        699,
+        842,
+        855
+      ]
+    },
+    {
+      "id": "54-negative-pattern",
+      "category": "adversarial",
+      "expectedPayload": "",
+      "actualPayload": null,
+      "allPayloads": [],
+      "pass": true,
+      "elapsedMs": 869,
+      "successfulDecoder": null,
+      "preprocessingPath": null,
+      "candidateIndex": null,
+      "attemptCount": 96,
+      "failureReason": "no_symbol_found",
+      "expectedOutcome": "no-symbol",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "decodedPayloadCount": 0,
+      "heuristicMetrics": {
+        "entropyScore": 0.017042606516290727,
+        "highFrequencyRatio": 0.017042606516290727,
+        "candidateCountBeforeCap": 0,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "not-found"
+      },
+      "controlledMemoryPeakBytes": 20221548,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.036399999997229315,
+        "roiMs": 0.013800000000628643,
+        "localizationMs": 0.03199999999196734,
+        "candidateGenerationMs": 19.65899999999965,
+        "candidateDeduplicationMs": 0.11590000000433065,
+        "preprocessMs": 80.38390000001527,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 613.4668000000529,
+          "zxing-cpp-wasm": 2.0102999999944586
+        },
+        "validationMs": 0.0031999999919207767,
+        "semanticParsingMs": 0.0028999999922234565
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        980,
+        869,
+        789
+      ]
+    },
+    {
+      "id": "55-negative-checker",
+      "category": "adversarial",
+      "expectedPayload": "",
+      "actualPayload": null,
+      "allPayloads": [],
+      "pass": true,
+      "elapsedMs": 2124,
+      "successfulDecoder": null,
+      "preprocessingPath": null,
+      "candidateIndex": null,
+      "attemptCount": 96,
+      "failureReason": "no_symbol_found",
+      "expectedOutcome": "no-symbol",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "decodedPayloadCount": 0,
+      "heuristicMetrics": {
+        "entropyScore": 0.14786967418546365,
+        "highFrequencyRatio": 0.14786967418546365,
+        "candidateCountBeforeCap": 0,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "not-found"
+      },
+      "controlledMemoryPeakBytes": 30304744,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.015099999989615753,
+        "roiMs": 0.004899999999906868,
+        "localizationMs": 0.00810000000637956,
+        "candidateGenerationMs": 15.938000000009197,
+        "candidateDeduplicationMs": 0.021699999997508712,
+        "preprocessMs": 116.3987000000343,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 1841.4687999999296,
+          "zxing-cpp-wasm": 1.7790999999997439
+        },
+        "validationMs": 0.004799999995157123,
+        "semanticParsingMs": 0.0044000000052619725
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        2019,
+        2205,
+        2124
+      ]
+    },
+    {
+      "id": "56-negative-random-noise",
+      "category": "adversarial",
+      "expectedPayload": "",
+      "actualPayload": null,
+      "allPayloads": [],
+      "pass": true,
+      "elapsedMs": 713,
+      "successfulDecoder": null,
+      "preprocessingPath": null,
+      "candidateIndex": null,
+      "attemptCount": 6,
+      "failureReason": "no_symbol_found",
+      "expectedOutcome": "no-symbol",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "decodedPayloadCount": 0,
+      "heuristicMetrics": {
+        "entropyScore": 0.43641293870126824,
+        "highFrequencyRatio": 0.43641293870126824,
+        "candidateCountBeforeCap": 1,
+        "pathologicalPathActivated": true,
+        "fallbackAttemptsUsed": 3,
+        "finalResult": "not-found"
+      },
+      "controlledMemoryPeakBytes": 2764800,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.014899999994668178,
+        "roiMs": 0.005099999994854443,
+        "localizationMs": 0.007900000011431985,
+        "candidateGenerationMs": 4.13660000001255,
+        "candidateDeduplicationMs": 0.050900000002002344,
+        "preprocessMs": 4.8836000000010245,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 664.408500000005,
+          "zxing-cpp-wasm": 5.681299999996554,
+          "zxing-js": 17.11479999999574
+        },
+        "validationMs": 0.001799999998183921,
+        "semanticParsingMs": 0.001600000003236346
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        713,
+        722,
+        691
+      ]
+    },
+    {
+      "id": "57-negative-text-blocks",
+      "category": "negative",
+      "expectedPayload": "",
+      "actualPayload": null,
+      "allPayloads": [],
+      "pass": true,
+      "elapsedMs": 769,
+      "successfulDecoder": null,
+      "preprocessingPath": null,
+      "candidateIndex": null,
+      "attemptCount": 96,
+      "failureReason": "no_symbol_found",
+      "expectedOutcome": "no-symbol",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "decodedPayloadCount": 0,
+      "heuristicMetrics": {
+        "entropyScore": 0.05973746627104159,
+        "highFrequencyRatio": 0.05973746627104159,
+        "candidateCountBeforeCap": 7,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "not-found"
+      },
+      "controlledMemoryPeakBytes": 18313644,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.01600000000325963,
+        "roiMs": 0.004899999999906868,
+        "localizationMs": 0.008800000010523945,
+        "candidateGenerationMs": 8.21840000001248,
+        "candidateDeduplicationMs": 0.04260000000067521,
+        "preprocessMs": 25.277100000021164,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 488.60150000007707,
+          "zxing-cpp-wasm": 2.2179999999934807
+        },
+        "validationMs": 0.0026000000070780516,
+        "semanticParsingMs": 0.0020000000076834112
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        816,
+        753,
+        769
+      ]
+    },
+    {
+      "id": "58-negative-datamatrix-like",
+      "category": "adversarial",
+      "expectedPayload": "",
+      "actualPayload": null,
+      "allPayloads": [],
+      "pass": true,
+      "elapsedMs": 872,
+      "successfulDecoder": null,
+      "preprocessingPath": null,
+      "candidateIndex": null,
+      "attemptCount": 96,
+      "failureReason": "no_symbol_found",
+      "expectedOutcome": "no-symbol",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "decodedPayloadCount": 0,
+      "heuristicMetrics": {
+        "entropyScore": 0.013944636026155614,
+        "highFrequencyRatio": 0.013944636026155614,
+        "candidateCountBeforeCap": 0,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "not-found"
+      },
+      "controlledMemoryPeakBytes": 21019396,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.013600000005681068,
+        "roiMs": 0.0044999999954598024,
+        "localizationMs": 0.007400000002235174,
+        "candidateGenerationMs": 10.440500000011525,
+        "candidateDeduplicationMs": 0.022899999996297993,
+        "preprocessMs": 78.7210999999952,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 644.0679000000237,
+          "zxing-cpp-wasm": 1.364900000000489
+        },
+        "validationMs": 0.005099999994854443,
+        "semanticParsingMs": 0.003700000001117587
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        926,
+        862,
+        872
+      ]
+    },
+    {
+      "id": "59-negative-logo",
+      "category": "negative",
+      "expectedPayload": "",
+      "actualPayload": null,
+      "allPayloads": [],
+      "pass": true,
+      "elapsedMs": 1084,
+      "successfulDecoder": null,
+      "preprocessingPath": null,
+      "candidateIndex": null,
+      "attemptCount": 96,
+      "failureReason": "no_symbol_found",
+      "expectedOutcome": "no-symbol",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "decodedPayloadCount": 0,
+      "heuristicMetrics": {
+        "entropyScore": 0.009694046436846834,
+        "highFrequencyRatio": 0.009694046436846834,
+        "candidateCountBeforeCap": 0,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "not-found"
+      },
+      "controlledMemoryPeakBytes": 26609224,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.030300000013085082,
+        "roiMs": 0.010199999989708886,
+        "localizationMs": 0.036699999996926636,
+        "candidateGenerationMs": 22.960000000006403,
+        "candidateDeduplicationMs": 0.037800000005518086,
+        "preprocessMs": 93.74549999996088,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 802.4798999999766,
+          "zxing-cpp-wasm": 2.0133999999961816
+        },
+        "validationMs": 0.0026000000070780516,
+        "semanticParsingMs": 0.0023999999975785613
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        1084,
+        1087,
+        1050
+      ]
+    },
+    {
+      "id": "60-negative-grid",
+      "category": "adversarial",
+      "expectedPayload": "",
+      "actualPayload": null,
+      "allPayloads": [],
+      "pass": true,
+      "elapsedMs": 572,
+      "successfulDecoder": null,
+      "preprocessingPath": null,
+      "candidateIndex": null,
+      "attemptCount": 96,
+      "failureReason": "no_symbol_found",
+      "expectedOutcome": "no-symbol",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "decodedPayloadCount": 0,
+      "heuristicMetrics": {
+        "entropyScore": 0.1941771992705779,
+        "highFrequencyRatio": 0.1941771992705779,
+        "candidateCountBeforeCap": 8,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "not-found"
+      },
+      "controlledMemoryPeakBytes": 17358664,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.025299999993876554,
+        "roiMs": 0.010000000009313226,
+        "localizationMs": 0.013899999990826473,
+        "candidateGenerationMs": 6.677100000000792,
+        "candidateDeduplicationMs": 0.044599999993806705,
+        "preprocessMs": 24.224499999996624,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 285.80150000004505,
+          "zxing-cpp-wasm": 2.3096999999979744
+        },
+        "validationMs": 0.0026000000070780516,
+        "semanticParsingMs": 0.0023999999975785613
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        511,
+        573,
+        572
+      ]
+    },
+    {
+      "id": "61-negative-screenshot",
+      "category": "screen_capture",
+      "expectedPayload": "",
+      "actualPayload": null,
+      "allPayloads": [],
+      "pass": true,
+      "elapsedMs": 1716,
+      "successfulDecoder": null,
+      "preprocessingPath": null,
+      "candidateIndex": null,
+      "attemptCount": 96,
+      "failureReason": "no_symbol_found",
+      "expectedOutcome": "no-symbol",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "decodedPayloadCount": 0,
+      "heuristicMetrics": {
+        "entropyScore": 0.007920745259374853,
+        "highFrequencyRatio": 0.007920745259374853,
+        "candidateCountBeforeCap": 0,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "not-found"
+      },
+      "controlledMemoryPeakBytes": 54802504,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.014499999990221113,
+        "roiMs": 0.004700000004959293,
+        "localizationMs": 0.007599999997182749,
+        "candidateGenerationMs": 42.22609999999986,
+        "candidateDeduplicationMs": 0.037299999996321276,
+        "preprocessMs": 144.03850000000966,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 1360.8044999999838,
+          "zxing-cpp-wasm": 3.85120000000461
+        },
+        "validationMs": 0.003400000001420267,
+        "semanticParsingMs": 0.0026000000070780516
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        1582,
+        1787,
+        1716
+      ]
+    },
+    {
+      "id": "62-negative-linear-barcode-like",
+      "category": "adversarial",
+      "expectedPayload": "",
+      "actualPayload": null,
+      "allPayloads": [],
+      "pass": true,
+      "elapsedMs": 990,
+      "successfulDecoder": null,
+      "preprocessingPath": null,
+      "candidateIndex": null,
+      "attemptCount": 96,
+      "failureReason": "no_symbol_found",
+      "expectedOutcome": "no-symbol",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "decodedPayloadCount": 0,
+      "heuristicMetrics": {
+        "entropyScore": 0.11978438558708329,
+        "highFrequencyRatio": 0.11978438558708329,
+        "candidateCountBeforeCap": 5,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "not-found"
+      },
+      "controlledMemoryPeakBytes": 17229084,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.014699999999720603,
+        "roiMs": 0.004899999999906868,
+        "localizationMs": 0.007700000001932494,
+        "candidateGenerationMs": 6.783699999999953,
+        "candidateDeduplicationMs": 0.034500000008847564,
+        "preprocessMs": 22.14370000004419,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 673.7714000000706,
+          "zxing-cpp-wasm": 2.4535999999934575
+        },
+        "validationMs": 0.0029000000067753717,
+        "semanticParsingMs": 0.0025000000023283064
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        984,
+        1002,
+        990
+      ]
+    },
+    {
+      "id": "63-negative-truncated",
+      "category": "adversarial",
+      "expectedPayload": "",
+      "actualPayload": null,
+      "allPayloads": [],
+      "pass": true,
+      "elapsedMs": 741,
+      "successfulDecoder": null,
+      "preprocessingPath": null,
+      "candidateIndex": null,
+      "attemptCount": 96,
+      "failureReason": "no_symbol_found",
+      "expectedOutcome": "no-symbol",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "decodedPayloadCount": 0,
+      "heuristicMetrics": {
+        "entropyScore": 0.015681132207229925,
+        "highFrequencyRatio": 0.015681132207229925,
+        "candidateCountBeforeCap": 0,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "not-found"
+      },
+      "controlledMemoryPeakBytes": 17076728,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.015899999998509884,
+        "roiMs": 0.004799999995157123,
+        "localizationMs": 0.008099999991827644,
+        "candidateGenerationMs": 8.30909999999858,
+        "candidateDeduplicationMs": 0.01980000000912696,
+        "preprocessMs": 63.720299999899,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 536.1375999998854,
+          "zxing-cpp-wasm": 1.0727999999944586
+        },
+        "validationMs": 0.0029000000067753717,
+        "semanticParsingMs": 0.002099999997881241
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        740,
+        754,
+        741
+      ]
+    },
+    {
+      "id": "64-multiple-five",
+      "category": "multiple",
+      "expectedPayload": "SCANLY_MULTI5_01",
+      "actualPayload": "SCANLY_MULTI5_01",
+      "allPayloads": [
+        "SCANLY_MULTI5_01",
+        "SCANLY_MULTI5_02",
+        "SCANLY_MULTI5_03",
+        "SCANLY_MULTI5_04",
+        "SCANLY_MULTI5_05"
+      ],
+      "pass": true,
+      "elapsedMs": 38,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 4,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 5,
+      "decodedPayloadCount": 5,
+      "timeToFirstResultMs": 27.518500000005588,
+      "heuristicMetrics": {
+        "entropyScore": 0.07000835421888053,
+        "highFrequencyRatio": 0.07000835421888053,
+        "candidateCountBeforeCap": 3,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 9133732,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.015499999994062819,
+        "roiMs": 0.005000000004656613,
+        "localizationMs": 0.008699999991222285,
+        "candidateGenerationMs": 6.533400000000256,
+        "candidateDeduplicationMs": 0.03170000000682194,
+        "preprocessMs": 0.43889999999373686,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 6.9570999999996275,
+          "zxing-cpp-wasm": 3.986299999989569
+        },
+        "validationMs": 0.011500000007799827,
+        "semanticParsingMs": 0.3000000000029104
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        38,
+        38,
+        33
+      ]
+    },
+    {
+      "id": "65-multiple-eight",
+      "category": "multiple",
+      "expectedPayload": "SCANLY_MULTI8_01",
+      "actualPayload": "SCANLY_MULTI8_01",
+      "allPayloads": [
+        "SCANLY_MULTI8_01",
+        "SCANLY_MULTI8_02",
+        "SCANLY_MULTI8_03",
+        "SCANLY_MULTI8_04",
+        "SCANLY_MULTI8_05",
+        "SCANLY_MULTI8_06",
+        "SCANLY_MULTI8_07",
+        "SCANLY_MULTI8_08"
+      ],
+      "pass": true,
+      "elapsedMs": 42,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 4,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 8,
+      "decodedPayloadCount": 8,
+      "timeToFirstResultMs": 26.436000000001513,
+      "heuristicMetrics": {
+        "entropyScore": 0.10987224157955865,
+        "highFrequencyRatio": 0.10987224157955865,
+        "candidateCountBeforeCap": 4,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 10995720,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.014100000000325963,
+        "roiMs": 0.004799999995157123,
+        "localizationMs": 0.00789999999688007,
+        "candidateGenerationMs": 11.095100000005914,
+        "candidateDeduplicationMs": 0.030299999998533167,
+        "preprocessMs": 0.8034999999945285,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 12.054199999998673,
+          "zxing-cpp-wasm": 5.572500000009313
+        },
+        "validationMs": 0.05059999998775311,
+        "semanticParsingMs": 0.15069999999832362
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        52,
+        37,
+        42
+      ]
+    },
+    {
+      "id": "66-multiple-twelve",
+      "category": "multiple",
+      "expectedPayload": "SCANLY_MULTI12_01",
+      "actualPayload": "SCANLY_MULTI12_01",
+      "allPayloads": [
+        "SCANLY_MULTI12_01",
+        "SCANLY_MULTI12_02",
+        "SCANLY_MULTI12_03",
+        "SCANLY_MULTI12_04",
+        "SCANLY_MULTI12_05",
+        "SCANLY_MULTI12_06",
+        "SCANLY_MULTI12_07",
+        "SCANLY_MULTI12_08"
+      ],
+      "pass": true,
+      "elapsedMs": 44,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 4,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 8,
+      "decodedPayloadCount": 8,
+      "timeToFirstResultMs": 27.003700000001118,
+      "heuristicMetrics": {
+        "entropyScore": 0.10825075934870289,
+        "highFrequencyRatio": 0.10825075934870289,
+        "candidateCountBeforeCap": 5,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 15335044,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.01579999999376014,
+        "roiMs": 0.005100000009406358,
+        "localizationMs": 0.008300000001327135,
+        "candidateGenerationMs": 10.591099999990547,
+        "candidateDeduplicationMs": 0.03239999999641441,
+        "preprocessMs": 1.1238999999768566,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 13.864700000005541,
+          "zxing-cpp-wasm": 6.495000000009895
+        },
+        "validationMs": 0.007099999987985939,
+        "semanticParsingMs": 0.15080000000307336
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        43,
+        44,
+        53
+      ]
+    },
+    {
+      "id": "67-multiple-same-two",
+      "category": "multiple",
+      "expectedPayload": "SCANLY_SAME_INSTANCE",
+      "actualPayload": "SCANLY_SAME_INSTANCE",
+      "allPayloads": [
+        "SCANLY_SAME_INSTANCE",
+        "SCANLY_SAME_INSTANCE"
+      ],
+      "pass": true,
+      "elapsedMs": 17,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 4,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 2,
+      "decodedPayloadCount": 2,
+      "timeToFirstResultMs": 10.096099999995204,
+      "heuristicMetrics": {
+        "entropyScore": 0.05524628879892038,
+        "highFrequencyRatio": 0.05524628879892038,
+        "candidateCountBeforeCap": 7,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 4806192,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.011599999997997656,
+        "roiMs": 0.004600000000209548,
+        "localizationMs": 0.007700000001932494,
+        "candidateGenerationMs": 3.713000000003376,
+        "candidateDeduplicationMs": 0.02500000000873115,
+        "preprocessMs": 0.24439999999594875,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 3.0609999999869615,
+          "zxing-cpp-wasm": 1.782099999996717
+        },
+        "validationMs": 0.006099999998696148,
+        "semanticParsingMs": 0.07639999999082647
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        23,
+        17,
+        12
+      ]
+    },
+    {
+      "id": "68-multiple-same-three",
+      "category": "multiple",
+      "expectedPayload": "SCANLY_SAME_TRIPLE",
+      "actualPayload": "SCANLY_SAME_TRIPLE",
+      "allPayloads": [
+        "SCANLY_SAME_TRIPLE",
+        "SCANLY_SAME_TRIPLE",
+        "SCANLY_SAME_TRIPLE"
+      ],
+      "pass": true,
+      "elapsedMs": 29,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 4,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 3,
+      "decodedPayloadCount": 3,
+      "timeToFirstResultMs": 16.454999999987194,
+      "heuristicMetrics": {
+        "entropyScore": 0.04279216559918314,
+        "highFrequencyRatio": 0.04279216559918314,
+        "candidateCountBeforeCap": 5,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 10777104,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.011400000003050081,
+        "roiMs": 0.004300000000512227,
+        "localizationMs": 0.006800000002840534,
+        "candidateGenerationMs": 9.00319999999192,
+        "candidateDeduplicationMs": 0.029700000013690442,
+        "preprocessMs": 0.6611999999877298,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 11.808700000008685,
+          "zxing-cpp-wasm": 2.943299999998999
+        },
+        "validationMs": 0.005600000004051253,
+        "semanticParsingMs": 0.11699999999837019
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        26,
+        34,
+        29
+      ]
+    },
+    {
+      "id": "69-multiple-mixed-size",
+      "category": "multiple",
+      "expectedPayload": "SCANLY_MIXED_LARGE",
+      "actualPayload": "SCANLY_MIXED_LARGE",
+      "allPayloads": [
+        "SCANLY_MIXED_LARGE",
+        "SCANLY_MIXED_MEDIUM",
+        "SCANLY_MIXED_SMALL"
+      ],
+      "pass": true,
+      "elapsedMs": 44,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 4,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 3,
+      "decodedPayloadCount": 3,
+      "timeToFirstResultMs": 21.567499999990105,
+      "heuristicMetrics": {
+        "entropyScore": 0.036629309121861256,
+        "highFrequencyRatio": 0.036629309121861256,
+        "candidateCountBeforeCap": 4,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 18277880,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.022299999996903352,
+        "roiMs": 0.005199999999604188,
+        "localizationMs": 0.008300000001327135,
+        "candidateGenerationMs": 16.68289999999979,
+        "candidateDeduplicationMs": 0.0283999999955995,
+        "preprocessMs": 1.0825000000040745,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 11.15350000000035,
+          "zxing-cpp-wasm": 4.846100000009756
+        },
+        "validationMs": 0.007700000001932494,
+        "semanticParsingMs": 0.10650000000896398
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        47,
+        44,
+        41
+      ]
+    },
+    {
+      "id": "70-version-20",
+      "category": "high_resolution",
+      "expectedPayload": "SCANLY_VERSION_20_DENSE_VALID_PAYLOAD",
+      "actualPayload": "SCANLY_VERSION_20_DENSE_VALID_PAYLOAD",
+      "allPayloads": [
+        "SCANLY_VERSION_20_DENSE_VALID_PAYLOAD"
+      ],
+      "pass": true,
+      "elapsedMs": 639,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 33.492700000002515,
+      "heuristicMetrics": {
+        "entropyScore": 0.12466002097976772,
+        "highFrequencyRatio": 0.12466002097976772,
+        "candidateCountBeforeCap": 6,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 30710484,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.01789999999164138,
+        "roiMs": 0.005499999999301508,
+        "localizationMs": 0.00930000000516884,
+        "candidateGenerationMs": 17.366299999994226,
+        "candidateDeduplicationMs": 0.037599999996018596,
+        "preprocessMs": 23.24010000000999,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 466.6226000000024,
+          "zxing-cpp-wasm": 9.541499999992084
+        },
+        "validationMs": 0.02599999999802094,
+        "semanticParsingMs": 0.21559999999590218
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        553,
+        737,
+        639
+      ]
+    },
+    {
+      "id": "71-version-30",
+      "category": "high_resolution",
+      "expectedPayload": "SCANLY_VERSION_30_DENSE_VALID_PAYLOAD",
+      "actualPayload": "SCANLY_VERSION_30_DENSE_VALID_PAYLOAD",
+      "allPayloads": [
+        "SCANLY_VERSION_30_DENSE_VALID_PAYLOAD"
+      ],
+      "pass": true,
+      "elapsedMs": 921,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 53.40540000000328,
+      "heuristicMetrics": {
+        "entropyScore": 0.16428288767030358,
+        "highFrequencyRatio": 0.16428288767030358,
+        "candidateCountBeforeCap": 4,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 40663924,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.02629999999771826,
+        "roiMs": 0.005600000004051253,
+        "localizationMs": 0.00930000000516884,
+        "candidateGenerationMs": 31.36479999999574,
+        "candidateDeduplicationMs": 0.030299999998533167,
+        "preprocessMs": 34.36359999999695,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 742.1402999999991,
+          "zxing-cpp-wasm": 9.844700000001467
+        },
+        "validationMs": 0.01720000000204891,
+        "semanticParsingMs": 0.15069999999832362
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        945,
+        893,
+        921
+      ]
+    },
+    {
+      "id": "72-version-40",
+      "category": "high_resolution",
+      "expectedPayload": "SCANLY_VERSION_40_DENSE_VALID_PAYLOAD",
+      "actualPayload": "SCANLY_VERSION_40_DENSE_VALID_PAYLOAD",
+      "allPayloads": [
+        "SCANLY_VERSION_40_DENSE_VALID_PAYLOAD"
+      ],
+      "pass": true,
+      "elapsedMs": 1563,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 36,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 67.34500000000116,
+      "heuristicMetrics": {
+        "entropyScore": 0.22984152109597303,
+        "highFrequencyRatio": 0.22984152109597303,
+        "candidateCountBeforeCap": 4,
+        "pathologicalPathActivated": false,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 48798788,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.015299999999115244,
+        "roiMs": 0.005199999999604188,
+        "localizationMs": 0.00819999999657739,
+        "candidateGenerationMs": 40.551800000001094,
+        "candidateDeduplicationMs": 0.13610000000335276,
+        "preprocessMs": 50.39159999997355,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 1332.608299999978,
+          "zxing-cpp-wasm": 11.48080000000482
+        },
+        "validationMs": 0.10199999999895226,
+        "semanticParsingMs": 0.16889999998966232
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        1563,
+        1818,
+        1451
+      ]
+    },
+    {
+      "id": "73-dense-checker-background",
+      "category": "complex_background",
+      "expectedPayload": "SCANLY_DENSE_CHECKER_POSITIVE",
+      "actualPayload": "SCANLY_DENSE_CHECKER_POSITIVE",
+      "allPayloads": [
+        "SCANLY_DENSE_CHECKER_POSITIVE"
+      ],
+      "pass": true,
+      "elapsedMs": 156,
+      "successfulDecoder": "jsqr",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 4,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 41.22069999999076,
+      "heuristicMetrics": {
+        "entropyScore": 0.31555591487679774,
+        "highFrequencyRatio": 0.31555591487679774,
+        "candidateCountBeforeCap": 1,
+        "pathologicalPathActivated": true,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 4032000,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.01570000000356231,
+        "roiMs": 0.005300000004353933,
+        "localizationMs": 0.009500000000116415,
+        "candidateGenerationMs": 4.596399999994901,
+        "candidateDeduplicationMs": 0.00990000000456348,
+        "preprocessMs": 4.44000000001688,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 137.15989999999874,
+          "zxing-cpp-wasm": 2.734599999996135
+        },
+        "validationMs": 0.0046999999904073775,
+        "semanticParsingMs": 0.07110000000102445
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        152,
+        156,
+        183
+      ]
+    },
+    {
+      "id": "74-zxing-contribution-blur",
+      "category": "blur",
+      "expectedPayload": "ZXING_UNIQUE_3_2_L",
+      "actualPayload": "ZXING_UNIQUE_3_2_L",
+      "allPayloads": [
+        "ZXING_UNIQUE_3_2_L"
+      ],
+      "pass": true,
+      "elapsedMs": 22,
+      "successfulDecoder": "zxing-cpp-wasm",
+      "preprocessingPath": "original",
+      "candidateIndex": -1,
+      "attemptCount": 4,
+      "failureReason": null,
+      "expectedOutcome": "decode",
+      "missingPayloads": [],
+      "unexpectedPayloads": [],
+      "requiredPayloadCount": 1,
+      "decodedPayloadCount": 1,
+      "timeToFirstResultMs": 17.113199999992503,
+      "heuristicMetrics": {
+        "entropyScore": 0.30473060946121894,
+        "highFrequencyRatio": 0.30473060946121894,
+        "candidateCountBeforeCap": 1,
+        "pathologicalPathActivated": true,
+        "fallbackAttemptsUsed": 1,
+        "finalResult": "success"
+      },
+      "controlledMemoryPeakBytes": 262144,
+      "finalControlledMemoryBytes": 0,
+      "phaseTiming": {
+        "frameNormalizationMs": 0.022899999996297993,
+        "roiMs": 0.00960000000486616,
+        "localizationMs": 0.012300000002142042,
+        "candidateGenerationMs": 0.5136999999958789,
+        "candidateDeduplicationMs": 0.010800000003655441,
+        "preprocessMs": 0.3951999999844702,
+        "rotationMs": 0,
+        "engineMs": {
+          "jsqr": 13.21820000000298,
+          "zxing-cpp-wasm": 0.8087999999988824
+        },
+        "validationMs": 0.007700000001932494,
+        "semanticParsingMs": 0.10280000000784639
+      },
+      "iterationPassCount": 3,
+      "iterationFailureCount": 0,
+      "unstablePayload": false,
+      "runTimingsMs": [
+        22,
+        22,
+        28
+      ]
+    }
+  ],
+  "evidenceId": "alpha4-ca549aa329cbee54",
+  "canonicalManifestHash": "9eb4d0750bbfa2cbd1307e4e7d9dcc4cb911c3bb9b34ee3a76a512a1c6240015",
+  "reportHash": "67f6fd7a42e7ef1b9a60051a6d6514bbae2672a905cc6578927901c267e98bda",
+  "passedIds": [
+    "01-clear-url",
+    "02-clear-text",
+    "03-phone-photo",
+    "04-screen-capture",
+    "05-low-contrast",
+    "06-dark-lighting",
+    "07-overexposed",
+    "08-blurry",
+    "09-glare",
+    "10-small-in-large",
+    "11-complex-background",
+    "12-rotated",
+    "13-perspective",
+    "15-inverted",
+    "16-multiple-codes",
+    "17-clear-url-02",
+    "18-clear-text-02",
+    "19-wifi-payload",
+    "20-low-contrast-02",
+    "21-underexposed-gen",
+    "22-overexposed-gen",
+    "23-blur-gen",
+    "24-motion-blur",
+    "25-noise",
+    "26-glare-gen",
+    "27-inverted-01",
+    "28-inverted-02",
+    "29-rot-90",
+    "30-rot-180",
+    "31-rot-270",
+    "32-rot-15",
+    "33-small-in-large-gen",
+    "34-near-edge",
+    "35-complex-bg-gen",
+    "36-multiple-gen",
+    "37-occlusion",
+    "38-damaged-gen",
+    "39-high-res",
+    "40-moire",
+    "41-unusual-aspect",
+    "42-colored-bg",
+    "43-transparent-bg",
+    "44-clear-url-03",
+    "45-text-long",
+    "46-invert-url",
+    "47-near-edge-bottom",
+    "48-perspective-mild",
+    "49-noise-dark",
+    "50-multiple-three",
+    "51-gamma-ish",
+    "52-wifi-02",
+    "53-negative-blank",
+    "54-negative-pattern",
+    "55-negative-checker",
+    "56-negative-random-noise",
+    "57-negative-text-blocks",
+    "58-negative-datamatrix-like",
+    "59-negative-logo",
+    "60-negative-grid",
+    "61-negative-screenshot",
+    "62-negative-linear-barcode-like",
+    "63-negative-truncated",
+    "64-multiple-five",
+    "65-multiple-eight",
+    "66-multiple-twelve",
+    "67-multiple-same-two",
+    "68-multiple-same-three",
+    "69-multiple-mixed-size",
+    "70-version-20",
+    "71-version-30",
+    "72-version-40",
+    "73-dense-checker-background",
+    "74-zxing-contribution-blur"
+  ]
+}

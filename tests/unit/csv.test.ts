@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { escapeCsvField, toCsvRow } from "../../lib/benchmark/csv";
+import { escapeCsvField, toCsvRow } from "@scanly/benchmark";
 
 describe("CSV escaping", () => {
   it("leaves simple fields unquoted", () => {

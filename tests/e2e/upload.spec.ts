@@ -5,6 +5,9 @@ import QRCode from "qrcode";
 
 const ROOT = path.resolve(__dirname, "../..");
 const fixtures = path.join(ROOT, "fixtures");
+const alpha5Manifest = JSON.parse(fs.readFileSync(path.join(fixtures, "alpha5", "manifest.json"), "utf8")) as {
+  fixtures: Array<{ id: string; file: string; expectedPayload: string; format?: string; expectedGs1?: boolean }>;
+};
 
 function fixture(name: string) {
   const file = path.join(fixtures, name);
@@ -43,6 +46,66 @@ test("upload clear QR through a real worker @smoke", async ({ page }) => {
   expect(state?.decodePosted).toBeGreaterThanOrEqual(1);
 });
 
+test("ZXing contribution fixture uses standard WASM through the real worker @smoke", async ({ page }) => {
+  await page.getByRole("tab", { name: "Upload" }).click();
+  await page.getByTestId("upload-input").setInputFiles(fixture("74-zxing-contribution-blur.png"));
+  const output = page.getByTestId("decoded-output");
+  await expect(output).toHaveValue("ZXING_UNIQUE_3_2_L", { timeout: 60_000 });
+  await expect(output).toHaveAttribute("data-engine", "zxing-cpp-wasm");
+  await expect(output).toHaveAttribute("data-engine-variant", "standard");
+  const state = await page.evaluate(() => window.__SCANLY_WORKER_DEBUG__);
+  expect(state?.lastPath).toBe("worker");
+  expect(state?.workerDecodeCount).toBeGreaterThanOrEqual(1);
+});
+
+for (const id of ["data-matrix-01", "pdf417-01", "code-128-13", "ean-13-01", "ean-8-01", "upc-a-01", "upc-e-01"]) {
+  const alpha5 = alpha5Manifest.fixtures.find((entry) => entry.id === id);
+  if (!alpha5?.format) throw new Error(`Missing Alpha.5 browser fixture '${id}'.`);
+  const { format, expectedPayload, file } = alpha5;
+  test(`upload ${format} through the real multi-format worker @smoke`, async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.getByRole("tab", { name: "Upload" }).click();
+    await page.getByRole("combobox", { name: "Format preset" }).selectOption("multiformat-balanced");
+    await page.getByTestId("upload-input").setInputFiles(path.join(ROOT, file));
+    const output = page.getByTestId("decoded-output");
+    await expect(output).toHaveValue(expectedPayload, { timeout: 75_000 });
+    await expect(output).toHaveAttribute("data-format", format);
+    await expect(output).toHaveAttribute("data-engine", "zxing-cpp-wasm");
+    await expect(page.getByTestId("format-badge")).toBeVisible();
+    await expect(page.getByTestId("raw-bytes")).toBeAttached();
+    if (alpha5.expectedGs1) await expect(page.getByTestId("gs1-indicator")).toBeVisible();
+    if (["ean_13", "ean_8", "upc_a", "upc_e"].includes(format)) {
+      await expect(page.getByTestId("checksum-status")).toContainText("valid");
+    }
+    const state = await page.evaluate(() => window.__SCANLY_WORKER_DEBUG__);
+    expect(state?.lastPath).toBe("worker");
+    expect(state?.workerDecodeCount).toBeGreaterThanOrEqual(1);
+  });
+}
+
+for (const id of ["data-matrix-13", "pdf417-01", "code-128-13", "ean-13-01", "ean-8-01", "upc-a-01", "upc-e-01"]) {
+  const alpha5 = alpha5Manifest.fixtures.find((entry) => entry.id === id);
+  if (!alpha5?.format) throw new Error(`Missing Alpha.5 main-thread fixture '${id}'.`);
+  const { format, expectedPayload, file } = alpha5;
+  test(`upload ${format} on the browser main thread`, async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.addInitScript(() => {
+      Object.defineProperty(globalThis, "Worker", { configurable: true, value: undefined });
+    });
+    await page.reload();
+    await page.getByRole("tab", { name: "Upload" }).click();
+    await page.getByRole("combobox", { name: "Format preset" }).selectOption("multiformat-balanced");
+    await page.getByTestId("upload-input").setInputFiles(path.join(ROOT, file));
+    const output = page.getByTestId("decoded-output");
+    await expect(output).toHaveValue(expectedPayload, { timeout: 75_000 });
+    await expect(output).toHaveAttribute("data-format", format);
+    await expect(output).toHaveAttribute("data-engine", "zxing-cpp-wasm");
+    const state = await page.evaluate(() => window.__SCANLY_WORKER_DEBUG__);
+    expect(state?.lastPath).toBe("main-thread");
+    expect(state?.mainThreadDecodeCount).toBeGreaterThanOrEqual(1);
+  });
+}
+
 test("upload clear QR shows exact payload and copy works", async ({ page, context }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.getByRole("tab", { name: "Upload" }).click();
@@ -76,11 +139,22 @@ test("invalid file shows understandable error", async ({ page }) => {
 
 test("second upload is not overwritten by first async result", async ({ page }) => {
   await page.getByRole("tab", { name: "Upload" }).click();
+  await expect(page.getByTestId("upload-input")).toBeEnabled();
   await page.getByTestId("upload-input").setInputFiles(fixture("14-damaged.png"));
   await page.getByTestId("upload-input").setInputFiles(fixture("02-clear-text.png"));
-  await expect(page.getByTestId("decoded-output")).toHaveValue("SCANLY_CLEAR_TEXT", {
-    timeout: 45_000,
-  });
+  try {
+    await expect(page.getByTestId("decoded-output")).toHaveValue("SCANLY_CLEAR_TEXT", {
+      timeout: 45_000,
+    });
+  } catch (error) {
+    console.log("superseded-upload diagnostics", await page.evaluate(() => ({
+      worker: window.__SCANLY_WORKER_DEBUG__,
+      status: document.querySelector<HTMLElement>("[data-testid='processing-status']")?.innerText,
+      errorCode: document.querySelector<HTMLElement>("[data-testid='error-reason']")?.innerText,
+      errorMessage: document.querySelector<HTMLElement>("[data-testid='error-message']")?.innerText,
+    })));
+    throw error;
+  }
   await page.waitForTimeout(3_000);
   await expect(page.getByTestId("decoded-output")).toHaveValue("SCANLY_CLEAR_TEXT");
   await expect(page.getByTestId("error-message")).toHaveCount(0);
@@ -147,11 +221,22 @@ test("three-code fixture returns complete payload set @smoke", async ({ page }) 
   await expect(page.getByTestId("decoded-output")).toHaveValue(payloads[0] ?? "");
 });
 
+test("eight-code fixture is complete and ordered through the real Worker @smoke", async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.getByRole("tab", { name: "Upload" }).click();
+  await page.getByTestId("upload-input").setInputFiles(fixture("65-multiple-eight.png"));
+  await expect(page.getByTestId("decoded-result-item")).toHaveCount(8, { timeout: 80_000 });
+  const payloads = await page.getByTestId("decoded-result-item").evaluateAll((elements) => elements.map((element) => element.getAttribute("data-payload")));
+  expect(payloads).toEqual(Array.from({ length: 8 }, (_, index) => `SCANLY_MULTI8_${String(index + 1).padStart(2, "0")}`));
+  const state = await page.evaluate(() => window.__SCANLY_WORKER_DEBUG__);
+  expect(state?.lastPath).toBe("worker");
+});
+
 test("in-flight cancel on hard fixture responds within 2 seconds @smoke", async ({ page }) => {
   await page.getByRole("tab", { name: "Upload" }).click();
   await page.getByTestId("upload-input").setInputFiles(fixture("14-damaged.png"));
   await expect(page.getByTestId("processing-status")).toContainText(
-    /Detecting|Decoding|Trying|Backup/,
+    /Routing|Detecting|Decoding|Trying|Backup/,
     { timeout: 10_000 }
   );
   const cancelStarted = Date.now();
@@ -171,7 +256,7 @@ test("upload after cancellation decodes clear fixture exactly @smoke", async ({ 
   await page.getByRole("tab", { name: "Upload" }).click();
   await page.getByTestId("upload-input").setInputFiles(fixture("14-damaged.png"));
   await expect(page.getByTestId("processing-status")).toContainText(
-    /Detecting|Decoding|Trying|Backup/,
+    /Routing|Detecting|Decoding|Trying|Backup/,
     { timeout: 10_000 }
   );
   await page.getByTestId("cancel-button").click();
@@ -278,7 +363,7 @@ test("oversized upload fails early with a clear reason", async ({ page }) => {
   });
   await expect(page.getByTestId("error-message")).toHaveAttribute(
     "data-error-reason",
-    "image_too_large"
+    "resource_limit_exceeded"
   );
   await expect(page.getByTestId("error-message")).toContainText("25 MiB");
 });
@@ -290,7 +375,7 @@ test("ten cancel cycles leave the next worker decode healthy", async ({ page }) 
     await page.getByTestId("upload-input").setInputFiles([]);
     await page.getByTestId("upload-input").setInputFiles(fixture("14-damaged.png"));
     await expect(page.getByTestId("processing-status")).toContainText(
-      /Detecting|Decoding|Trying|Backup/,
+      /Routing|Detecting|Decoding|Trying|Backup/,
       { timeout: 10_000 }
     );
     await page.getByTestId("cancel-button").click();

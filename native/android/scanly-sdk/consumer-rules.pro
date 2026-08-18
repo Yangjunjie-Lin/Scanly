@@ -1,0 +1,1 @@
+-keep class io.scanly.sdk.** { public *; }

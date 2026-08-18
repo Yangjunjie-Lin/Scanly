@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "rc1-dependency-freeze-1",
+  "version": "2.0.0-rc.1",
+  "policy": {
+    "featureFreeze": true,
+    "allowedUpgradeReasons": ["critical-or-high-security", "unsupported-runtime", "release-breaking-incompatibility"],
+    "deferredClass": "POST_V2",
+    "prohibitedRationales": ["nice to have", "while we're here"]
+  },
+  "pinnedNative": {
+    "zxing-cpp": "6c2961d2a9ea4bc4e4ae8f37b1497299f04dd861",
+    "androidNdk": "27.2.12479018",
+    "cmake": "3.22.1",
+    "swiftTools": "5.9"
+  },
+  "postV2": [
+    { "issue": 15, "scope": "ZXing-JS major compatibility migration", "reason": "tooling/compatibility follow-up; current adapter is frozen and tested" },
+    { "issue": 16, "scope": "Next/React major migration", "reason": "framework blast radius; current supported range is documented" },
+    { "issue": 17, "scope": "Sharp major migration", "reason": "native image pipeline compatibility; current pinned override is supported" },
+    { "issue": 18, "scope": "TypeScript/Node type migration", "reason": "tooling-only; current Node 20-24 matrix is tested" },
+    { "issue": 19, "scope": "ESLint migration", "reason": "tooling-only; current lint gate passes" },
+    { "issue": 20, "scope": "Vitest/coverage migration", "reason": "tooling-only; current coverage gate passes" },
+    { "issue": 21, "scope": "Playwright/accessibility migration", "reason": "tooling-only; current browser matrix and axe gate pass" },
+    { "issue": 22, "scope": "Next lint integration", "reason": "tooling-only; current lint workflow is explicit" }
+  ]
+}

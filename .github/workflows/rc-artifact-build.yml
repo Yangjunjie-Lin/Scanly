@@ -1,0 +1,95 @@
+name: RC Artifact Build
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [develop/sdk-v2, release/sdk-v2-rc2-final-validation]
+  push:
+    branches: [develop/sdk-v2, release/sdk-v2-rc2-final-validation]
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+jobs:
+  manifest-integrity:
+    name: RC Manifest Integrity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v7
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: npm run rc:manifest:verify -- --require-candidate-tag
+      - name: Require exact Candidate tag on the RC Candidate ref
+        if: >-
+          github.ref_name == 'release/sdk-v2-rc2-final-validation' ||
+          github.head_ref == 'release/sdk-v2-rc2-final-validation' ||
+          github.base_ref == 'release/sdk-v2-rc2-final-validation'
+        run: npm run rc:manifest:verify -- --require-candidate-tag --require-exact-candidate-head
+
+  npm:
+    name: npm RC artifacts
+    runs-on: ubuntu-latest
+    needs: manifest-integrity
+    env:
+      RC2_SOURCE_COMMIT: 20bd2d465c87b0d10e2504637a035b0f66c13e63
+      RC2_SOURCE_TREE: ba395228c37cfa2634d39b2200151d81fab67efa
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build:packages
+      - name: Pack public packages
+        shell: bash
+        env:
+          RC2_ARTIFACT_ROOT: ${{ runner.temp }}/rc2-artifacts
+        run: |
+          mkdir -p "$RC2_ARTIFACT_ROOT/npm"
+          for package in packages/core packages/browser packages/node packages/react packages/scenario-schema packages/parsers packages/benchmark engines/jsqr engines/zxing-js engines/zxing-cpp-wasm; do
+            npm pack --workspace="$package" --pack-destination "$RC2_ARTIFACT_ROOT/npm"
+          done
+      - name: Record isolated CI rebuild identities without rewriting frozen evidence
+        env:
+          RC2_ARTIFACT_ROOT: ${{ runner.temp }}/rc2-artifacts
+          RC2_ARTIFACT_MANIFEST_OUTPUT: ${{ runner.temp }}/rc2-artifact-rebuild-manifest.json
+        run: npm run rc:artifacts
+      - name: Verify cross-platform canonical package-content equivalence
+        env:
+          RC2_ARTIFACT_ROOT: ${{ runner.temp }}/rc2-artifacts
+        run: npm run rc:artifacts:verify-canonical -- --artifact-root="$RC2_ARTIFACT_ROOT"
+      - uses: actions/upload-artifact@v4
+        with: { name: rc2-npm-artifacts, path: "${{ runner.temp }}/rc2-artifacts/npm" }
+      - uses: actions/upload-artifact@v4
+        with: { name: rc2-artifact-rebuild-manifest, path: "${{ runner.temp }}/rc2-artifact-rebuild-manifest.json" }
+      - uses: actions/attest-build-provenance@v2
+        with: { subject-path: "${{ runner.temp }}/rc2-artifacts/npm/*.tgz" }
+
+  native-boundary:
+    name: Native candidate boundary
+    runs-on: ubuntu-latest
+    needs: manifest-integrity
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - name: Record native candidate requirements
+        shell: bash
+        run: |
+          mkdir -p "${{ runner.temp }}/rc2-native-boundary"
+          cp native/core/include/scanly/core.h "${{ runner.temp }}/rc2-native-boundary/scanly-core.h"
+          cp THIRD_PARTY_NOTICES "${{ runner.temp }}/rc2-native-boundary/THIRD_PARTY_NOTICES"
+          printf '%s\n' 'iOS=swift-package-source' 'Android=aar-arm64-v8a,x86_64' 'ABI=1' > "${{ runner.temp }}/rc2-native-boundary/native-candidate-boundary.txt"
+      - uses: actions/upload-artifact@v4
+        with: { name: rc2-native-boundary, path: "${{ runner.temp }}/rc2-native-boundary" }

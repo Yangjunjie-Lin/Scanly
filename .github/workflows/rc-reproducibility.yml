@@ -1,0 +1,30 @@
+name: RC Reproducibility
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [develop/sdk-v2, release/sdk-v2-rc2-final-validation]
+  push:
+    branches: [release/sdk-v2-rc2-final-validation]
+
+permissions:
+  contents: read
+
+jobs:
+  reproducibility:
+    name: RC normalized clean-build comparison
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build:packages
+      - run: npm run rc:repro -- --output=${{ runner.temp }}/rc2-reproducibility.json
+      - uses: actions/upload-artifact@v4
+        with: { name: rc2-reproducibility, path: "${{ runner.temp }}/rc2-reproducibility.json" }

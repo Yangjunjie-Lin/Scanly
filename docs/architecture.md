@@ -1,72 +1,75 @@
-# Architecture
+# SDK v2 architecture
 
-Scanly is a Next.js App Router client application. It has no image-processing backend: browser images remain on the device, while Node is used only for local/CI tests, fixture generation, and benchmarks.
+> Beta 5 keeps the optional ZXing-C++ WASM plugin as the bounded Web/Node multi-format engine and adds the same pinned ZXing-C++ source behind `native/core`'s stable C ABI for Swift and Kotlin. TypeScript Core remains dependency-inverted and contains no DOM, Node, concrete decoder, or WASM loader dependency. See [ZXing-C++ WebAssembly engine](wasm-engine.md) and [Native architecture](native/architecture.md).
 
-## Upload data flow
+`@scanly/scenario-schema` owns the closed public format union and scenario presets. `packages/core/src/barcode` owns format classes, explicit selection validation, generic results, and retail validation. Existing `packages/core/src/qr` imports remain compatibility facades around the established pipeline. `ScenarioCompiler` validates engine/format coverage before execution, and the native adapter maps Scanly format strings to a bounded ZXing mask and detected values back to Scanly strings.
 
-```text
-UI thread (QRTool)
-  → browser image loader + resource checks
-  → transferable PixelBuffer (RGBA ArrayBuffer)
-  → Worker client (jobId owner)
-  → decode Worker
-  → candidate generation + deduplication
-  → preprocess / scale / rotate attempt plan
-  → jsQR / ZXing adapters
-  → normalized non-empty result or typed failure
-  → Worker message with jobId
-  → active-owner check (stale IDs ignored)
-  → UI state
-```
+Scanly v2 has one local-only capture execution model. Framework adapters compose the runtime; they do not own decoding business logic.
 
-Key modules:
+Alpha.3 validation contracts are detailed in [frame orientation](frame-orientation.md), [benchmark provenance](benchmarking/provenance.md), [camera Worker architecture](camera-worker.md), [device validation](device-validation.md), and [API stability](sdk/api-stability.md).
+
+Benchmark outcome and timing rules are documented in [benchmark methodology](benchmark-methodology.md).
+
+## Authoritative execution paths
 
 ```text
-components/QRTool.tsx
-lib/qr/image-loader.ts
-lib/qr/decode-upload.ts
-lib/qr/worker/
-  worker-client.ts
-  worker-messages.ts
-  transferable-buffer.ts
-  decode-worker.ts
-lib/qr/decode-pipeline.ts
-lib/qr/candidate-generation.ts
-lib/qr/candidate-dedupe.ts
-lib/qr/preprocess.ts
-lib/qr/jsqr-decoder.ts
-lib/qr/zxing-decoder.ts
-lib/qr/result-normalizer.ts
+Browser File -> image adapter -> NormalizedFrame --+
+Browser Worker -> validated transferable frame ----+-> CaptureRouter
+Node image adapter -> NormalizedFrame -------------+     -> ScenarioCompiler
+Camera track -> video/canvas sampler -> CaptureSession    -> dependency-ready operator graph
+                                                            -> EngineRegistry
+                                                            -> ValidatorRegistry
+                                                            -> deterministic ScanOutcome
 ```
 
-## Why a Worker
+The Worker and main-thread fallback both invoke `CaptureRouter.scan(frame, { scenario })`. The deprecated upload helper constructs a `BrowserCaptureSession`; it does not call the legacy pixel pipeline. If an upload Worker fails to bootstrap or load its module chunks, the session reloads the local `File` and retries once through the main-thread Router; ordinary decoder failures are not masked by this fallback. Camera frames are sampled at a bounded cadence and sent to a persistent transferable-buffer Worker; unsupported or recovering Worker environments use CaptureSession and the same Router on the main thread.
 
-Image preprocessing and repeated decoder attempts can be CPU intensive. Upload decoding runs in a module Worker so React controls remain responsive. The loader transfers an owned `ArrayBuffer`; it is not cloned into a second full-size pixel allocation. Tests verify the production Worker route and transferable contract.
+## Dependency direction
 
-Cancellation terminates the Worker rather than waiting for a synchronous decoder call to yield. The active promise settles as `cancelled`, and the next upload lazily creates a fresh Worker. Unmount, replacement upload, and Worker errors also terminate or restart the Worker.
+```text
+scenario-schema       parsers
+       \                /
+          @scanly/core (contracts, graph, Router; no concrete decoder)
+             ^      ^
+             |      |
+   engine-jsqr      engine-zxing-js
+       |                 |
+     jsqr          @zxing/library
 
-## Job ownership
+browser -> core + engines       node -> core + engines + sharp
+react -> browser                apps/web-demo -> browser
 
-Each request receives a monotonically unique `jobId`. The client accepts stage, progress, result, and error messages only when the ID matches both the current owner and pending promise. UI sequence ownership adds a second boundary: an older file load or result cannot change the status of a newer upload.
+native/ios -> native/core C ABI -> pinned ZXing-C++
+native/android -> JNI -> native/core C ABI -> pinned ZXing-C++
+```
 
-Every successful core outcome has a non-empty tuple of results and a defined primary result. The stopping heuristic cannot produce success before a decoder has found a payload, and the success constructor enforces this invariant.
+`@scanly/core` has no `jsqr`, ZXing, `sharp`, React, or Next.js dependency. `sharp` is isolated in `@scanly/node`. Concrete engine versions and capabilities come from registered engine instances; Router contains no decoder version map.
 
-## Camera versus upload
+## Registries and compilation
 
-- **Upload:** browser file loader → transferable buffer → dedicated Worker → shared pipeline.
-- **Camera:** `@zxing/browser` owns the live stream and frame loop on the UI side. Switching away, stopping, or unmounting stops its media tracks.
+- `EngineRegistry` rejects duplicate ids unless replacement is explicit, lazily initializes engines, serializes instance-confined engines, propagates typed initialization errors, disposes once, and rejects use after disposal.
+- `OperatorRegistry` owns replaceable graph stages. The default graph contains frame normalization, ROI, localization, candidate generation, candidate deduplication, enhancement planning, geometry, decoder execution, result aggregation, validation, and semantic parsing.
+- `ValidatorRegistry` resolves required validators during compilation. Missing required validators fail before frame execution; missing optional validators become bounded warnings.
+- `ScenarioCompiler` checks operator/engine availability, format support, thread safety, validators, unsupported quality thresholds, missing dependencies, and cycles. Its LRU-style cache is bounded to 32 entries by default.
 
-Camera automation stays Chromium-only because fake media-device behavior differs across browser engines. Upload and Worker smoke tests run in Chromium, Firefox, and WebKit.
+Dependency-ready operator branches execute concurrently when safe. Decoder branches execute in scenario order or in parallel only when every requested engine reports thread safety. Aggregation order remains scenario order.
 
-## Benchmark reuse
+## Ownership and lifecycle
 
-Vitest integration tests and `scripts/run-benchmark.ts` call `decodePixelBuffer()` directly in Node. This removes Worker scheduling and browser hardware from the algorithm regression signal while preserving the exact candidate, preprocessing, decoder, result, and attempt logic used by Upload mode. Browser E2E separately verifies the Worker boundary.
+`FrameLease` is created before scenario, frame, budget, or concurrency preflight. Owned/transferred frames are therefore released exactly once on every Router return path; borrowed frames are never released by Scanly. Router disposal aborts and awaits every active scan before clearing compiler caches or disposing engines. Engine disposal waits for both serialized and thread-safe active decodes. Per-frame artifacts and preprocessing caches share one logical retained-buffer budget and release leases in `finally`.
 
-## Production boundaries
+`CaptureSession` supports `idle -> initialized -> running -> stopped -> running -> disposed`. Start/stop are idempotent, configuration/source changes cancel active ownership, stale results are replaced with `cancelled`, and async disposal can await owned Router/engine disposal.
 
-- No account, database, upload API, history, analytics, remote logging, or paid QR service.
-- Uploads are limited to 25 MiB, 24 MP, and 12,000 pixels per side before canvas allocation.
-- Pipeline pixel, attempt, result, and time budgets cap decoding work.
-- Payloads render only as text; link actions require a parsed HTTP or HTTPS URL.
-- Headers set nosniff, strict referrer policy, camera-only permissions, and framing denial.
-- A strict CSP is intentionally not shipped yet: a CSP must be verified against Next.js runtime chunks and module Workers on production Safari before adoption. An incorrect policy would break the scanner.
+The camera source has one internal stop path for success auto-stop, explicit stop, page hide, source switch, source error, and disposal. It clears timers, active ownership, track/listener registrations, `srcObject`, duplicate/stability state, options, canvas, and video references.
+
+## Bounds and security
+
+The runtime bounds frame pixels, candidates, attempts, results, retained allocations/bytes, execution time, concurrent frames, graph-cache entries, decoded text (65,536 characters), trace events/details, validation messages, warnings, Worker ids/messages, and duplicate history. Pixel data and decoded payloads are not written to traces or errors by default.
+
+No image, analytics event, or decoded payload is uploaded by the SDK. Host actions remain HTTP/HTTPS-only and require application code.
+
+## Compatibility and limits
+
+The shipped engines implement QR Code Model 2 through jsQR, ZXing JavaScript, and ZXing-C++ WASM. The bounded ZXing-C++ WASM and Native Core adapters additionally implement Data Matrix ECC 200, standard PDF417, Code 128, EAN-13, EAN-8, UPC-A, and UPC-E. Micro QR, rMQR, Aztec, Micro PDF417, DotCode, MaxiCode, GS1 DataBar, and deferred linear formats are not installed. Compilation rejects unregistered engines and formats outside the closed public union.
+
+Camera capture defaults to the fast scenario, samples at a maximum 960-pixel side before RGBA readback, prefers `requestVideoFrameCallback`, and keeps one active frame. The camera foundation is browser-tested with mocked media primitives, but physical devices, torch/zoom variants, thermal behavior, and long mobile sessions have not been certified. No industrial-readiness or commercial-SDK parity claim is made.

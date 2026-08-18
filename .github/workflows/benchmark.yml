@@ -2,55 +2,191 @@ name: Full Benchmark
 
 on:
   workflow_dispatch:
+    inputs:
+      gate_mode:
+        description: Evidence gate policy
+        required: true
+        default: integration
+        type: choice
+        options: [integration, release]
+  pull_request:
+    branches:
+      - develop/sdk-v2
   push:
     branches:
-      - main
-      - master
-    paths:
-      - "lib/qr/**"
-      - "lib/benchmark/**"
-      - "fixtures/**"
-      - "scripts/run-benchmark.ts"
-      - "scripts/generate-fixtures.ts"
-      - "components/QRTool.tsx"
-      - "package.json"
-      - "package-lock.json"
+      - develop/sdk-v2
+      - architecture/sdk-v2-beta5-**
+
+permissions:
+  contents: read
 
 jobs:
-  full-benchmark:
-    name: Full fixture benchmark
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-
+  symbologies:
+    name: Symbologies
+    needs: prepare
+    runs-on: windows-latest
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
         with:
-          node-version: 20
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Generate fixtures
-        run: npm run fixtures:generate
-
-      - name: Run full benchmark with regression gate
-        run: npx tsx scripts/run-benchmark.ts --gate
-
-      - name: Verify canonical benchmark and repository contracts
-        run: npm run quality:gates
-
-      - name: Upload benchmark artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v7
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: npm run wasm:verify
+      - run: npm run fixtures:generate
+      - run: git diff --exit-code -- fixtures
+      - name: Verify clean symbologies checkout
+        run: git status --porcelain --untracked-files=all | Tee-Object -Variable status; if ($status) { throw "symbologies checkout is dirty" }
+      - name: Verify curated open-license camera-photo cohort
+        run: npm run fixtures:verify-external -- --gate --output=benchmark-results/ci/external-open-license-validation.json
+      - name: Run symbology gate
+        run: npm run benchmark:symbologies -- --canonical-candidate --gate --gate-mode=${{ needs.prepare.outputs.workflow-mode }} --output=benchmark-results/ci/symbologies.json
+      - uses: actions/upload-artifact@v4
         with:
-          name: benchmark-full
+          name: benchmark-symbologies
+          retention-days: 21
           if-no-files-found: error
           path: |
-            benchmark-results/latest.json
-            benchmark-results/latest.csv
-            docs/benchmark.md
+            benchmark-results/ci/symbologies.json
+            benchmark-results/ci/external-open-license-validation.json
+
+  prepare:
+    name: Prepare
+    runs-on: windows-latest
+    outputs:
+      gate-mode: ${{ steps.gate-mode.outputs.mode }}
+      workflow-mode: ${{ steps.gate-mode.outputs.workflow-mode }}
+      baseline-id: ${{ steps.gate-mode.outputs.baseline-id }}
+      lifecycle-state: ${{ steps.gate-mode.outputs.lifecycle-state }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v7
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: npm run wasm:verify
+      - run: npm run fixtures:generate
+      - run: npm run scenarios:generate
+      - name: Verify deterministic fixture and scenario generation
+        run: git diff --exit-code -- fixtures scenarios
+      - name: Verify clean checkout
+        run: git status --porcelain --untracked-files=all | Tee-Object -Variable status; if ($status) { throw "prepare checkout is dirty" }
+      - name: Select benchmark gate mode
+        id: gate-mode
+        shell: pwsh
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          BASE_REF: ${{ github.base_ref }}
+          MANUAL_GATE_MODE: ${{ inputs.gate_mode }}
+        run: npx tsx scripts/select-benchmark-gate-mode.ts --runtime-family=node24-win32-x64 --registry=benchmark-results/baselines/registry.json --event-name=$env:EVENT_NAME --ref-name=$env:REF_NAME --base-ref=$env:BASE_REF --manual-gate-mode=$env:MANUAL_GATE_MODE --github-output="$env:GITHUB_OUTPUT"
+      - name: Summarize benchmark gate mode
+        shell: pwsh
+        env:
+          SELECTED_MODE: ${{ steps.gate-mode.outputs.mode }}
+          SELECTED_BASELINE_ID: ${{ steps.gate-mode.outputs.baseline-id }}
+          SELECTION_REASON: ${{ steps.gate-mode.outputs.reason }}
+          EVIDENCE_LIFECYCLE: ${{ steps.gate-mode.outputs.lifecycle-state }}
+          WORKFLOW_MODE: ${{ steps.gate-mode.outputs.workflow-mode }}
+        run: |
+          "Full Benchmark gate mode: $env:SELECTED_MODE" >> $env:GITHUB_STEP_SUMMARY
+          "Workflow evidence policy: $env:WORKFLOW_MODE" >> $env:GITHUB_STEP_SUMMARY
+          if ($env:SELECTED_BASELINE_ID) { "Active baseline: $env:SELECTED_BASELINE_ID" >> $env:GITHUB_STEP_SUMMARY }
+          "Evidence lifecycle: $env:EVIDENCE_LIFECYCLE" >> $env:GITHUB_STEP_SUMMARY
+          "Selection reason: $env:SELECTION_REASON" >> $env:GITHUB_STEP_SUMMARY
+
+  profile:
+    needs: prepare
+    name: ${{ matrix.label }}
+    runs-on: windows-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - profile: fast
+            label: Fast
+            report: latest-fast
+          - profile: balanced
+            label: Balanced
+            report: latest
+          - profile: robust
+            label: Robust
+            report: latest-robust
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v7
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: npm run wasm:verify
+      - run: npm run fixtures:generate
+      - run: npm run scenarios:generate
+      - run: git diff --exit-code -- fixtures scenarios
+      - name: Verify clean profile checkout
+        run: git status --porcelain --untracked-files=all | Tee-Object -Variable status; if ($status) { throw "profile checkout is dirty" }
+      - run: npx tsx scripts/run-benchmark.ts --canonical-candidate --profile=${{ matrix.profile }} --gate --gate-mode=${{ needs.prepare.outputs.gate-mode }} --warmup-iterations=1 --measured-iterations=3
+      - run: npm run benchmark:summary -- --report=benchmark-results/candidates/${{ matrix.report }}.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-${{ matrix.profile }}
+          retention-days: 21
+          if-no-files-found: error
+          path: |
+            benchmark-results/candidates/${{ matrix.report }}.json
+            benchmark-results/candidates/${{ matrix.report }}.csv
+
+  comparison:
+    needs: prepare
+    name: Comparison
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v7
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: npm run wasm:verify
+      - run: npm run fixtures:generate
+      - run: npm run scenarios:generate
+      - run: git diff --exit-code -- fixtures scenarios
+      - name: Verify clean comparison checkout
+        run: git status --porcelain --untracked-files=all | Tee-Object -Variable status; if ($status) { throw "comparison checkout is dirty" }
+      - run: npm run benchmark:compare -- --canonical-candidate --warmup-iterations=1 --measured-iterations=3
+      - run: npm run benchmark:summary -- --report=benchmark-results/candidates/comparison.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-comparison
+          retention-days: 21
+          if-no-files-found: error
+          path: benchmark-results/candidates/comparison.json
+
+  assemble:
+    needs: [prepare, symbologies, profile, comparison]
+    name: Full Benchmark / Assemble
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v7
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: benchmark-*
+          merge-multiple: true
+          path: benchmark-artifacts
+      - run: npm run benchmark:assemble-canonical -- --gate-mode=${{ needs.prepare.outputs.workflow-mode }} --fast=benchmark-artifacts/latest-fast.json --fast-csv=benchmark-artifacts/latest-fast.csv --balanced=benchmark-artifacts/latest.json --balanced-csv=benchmark-artifacts/latest.csv --robust=benchmark-artifacts/latest-robust.json --robust-csv=benchmark-artifacts/latest-robust.csv --comparison=benchmark-artifacts/comparison.json --symbologies=benchmark-artifacts/symbologies.json --output=benchmark-artifacts/${{ needs.prepare.outputs.workflow-mode }}
+      - run: npm run benchmark:verify-evidence -- --mode=${{ needs.prepare.outputs.workflow-mode }} --canonical-manifest=benchmark-artifacts/${{ needs.prepare.outputs.workflow-mode }}/canonical-evidence-manifest.json
+      - run: npm run benchmark:summary -- --manifest=benchmark-artifacts/${{ needs.prepare.outputs.workflow-mode }}/canonical-evidence-manifest.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-assembled
+          retention-days: 21
+          if-no-files-found: error
+          path: benchmark-artifacts/${{ needs.prepare.outputs.workflow-mode }}

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://scanly.dev/schemas/physical-device-evidence-rc2.json",
+  "title": "Scanly RC2 Unified Physical Device Evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "surface", "artifactIdentity", "sourceIdentity", "deviceIdentity", "platformIdentity", "cameraPath", "scenarioResults", "longSessionResult", "sensitiveDataReviewed"],
+  "properties": {
+    "schemaVersion": { "const": "rc2-unified-physical-device-evidence-1" },
+    "surface": { "enum": ["web", "native-ios", "native-android"] },
+    "artifactIdentity": {
+      "type": "object", "additionalProperties": false, "required": ["artifactSha256"],
+      "properties": { "artifactSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }, "deploymentId": { "type": "string", "minLength": 3 }, "deploymentUrl": { "type": "string", "format": "uri", "pattern": "^https://" } }
+    },
+    "sourceIdentity": {
+      "type": "object", "additionalProperties": false, "required": ["sourceCommit", "sourceTree", "sdkVersion"],
+      "properties": { "sourceCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" }, "sourceTree": { "type": "string", "pattern": "^[0-9a-f]{40}$" }, "sdkVersion": { "const": "2.0.0-rc.2" } }
+    },
+    "deviceIdentity": { "type": "object", "additionalProperties": false, "required": ["model", "manufacturer", "os", "osVersion", "realHardware"], "properties": { "model": { "type": "string", "minLength": 2 }, "manufacturer": { "type": "string", "minLength": 2 }, "os": { "type": "string", "minLength": 2 }, "osVersion": { "type": "string", "minLength": 1 }, "realHardware": { "const": true } } },
+    "platformIdentity": { "type": "object", "additionalProperties": false, "required": ["browserOrApp", "version"], "properties": { "browserOrApp": { "type": "string", "minLength": 2 }, "version": { "type": "string", "minLength": 1 } } },
+    "cameraPath": { "type": "object", "additionalProperties": false, "required": ["live", "path"], "properties": { "live": { "const": true }, "path": { "enum": ["MediaStream", "AVCaptureSession-CVPixelBuffer", "CameraX-ImageProxy-YUV420"] } } },
+    "scenarioResults": { "type": "array", "minItems": 13, "items": { "type": "object", "additionalProperties": false, "required": ["scenarioId", "status", "falseConfirmedScans"], "properties": { "scenarioId": { "pattern": "^(P([1-9]|1[0-2])|N1)$" }, "status": { "enum": ["passed", "failed", "not-tested", "unavailable"] }, "falseConfirmedScans": { "type": "integer", "minimum": 0 } } } },
+    "longSessionResult": { "type": "object", "additionalProperties": false, "required": ["durationMs", "cameraLive", "stalePublicEvents", "finalResources"], "properties": { "durationMs": { "type": "number", "minimum": 0 }, "cameraLive": { "type": "boolean" }, "stalePublicEvents": { "type": "integer", "minimum": 0 }, "finalResources": { "type": "object", "additionalProperties": false, "required": ["activeDecode", "pendingFrames", "activeTasks", "liveNativeResults", "wasmInputAllocations", "controlledMemory"], "properties": { "activeDecode": { "type": "integer", "minimum": 0 }, "pendingFrames": { "type": "integer", "minimum": 0 }, "activeTasks": { "type": "integer", "minimum": 0 }, "liveNativeResults": { "type": "integer", "minimum": 0 }, "wasmInputAllocations": { "type": "integer", "minimum": 0 }, "controlledMemory": { "type": "integer", "minimum": 0 } } } } },
+    "sensitiveDataReviewed": { "const": true }
+  }
+}

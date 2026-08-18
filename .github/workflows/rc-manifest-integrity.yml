@@ -1,0 +1,36 @@
+name: RC Manifest Integrity
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [develop/sdk-v2, release/sdk-v2-rc2-final-validation]
+  push:
+    branches: [develop/sdk-v2, release/sdk-v2-rc2-final-validation]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: RC Manifest Integrity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v7
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - name: Verify schema v2 detached digest and Candidate tag integration
+        run: npm run rc:manifest:verify -- --require-candidate-tag
+      - name: Require exact Candidate tag on the RC Candidate ref
+        if: >-
+          github.ref_name == 'release/sdk-v2-rc2-final-validation' ||
+          github.head_ref == 'release/sdk-v2-rc2-final-validation' ||
+          github.base_ref == 'release/sdk-v2-rc2-final-validation'
+        run: npm run rc:manifest:verify -- --require-candidate-tag --require-exact-candidate-head
+      - name: Classify RC1 r1 as legacy without claiming raw-hash verification
+        run: node scripts/verify-release-manifest.mjs --manifest release/rc1/rc1-candidate-manifest.json
+      - name: Classify RC2 r1 as legacy without claiming raw-hash verification
+        run: node scripts/verify-release-manifest.mjs --manifest release/rc2/rc2-candidate-manifest.json

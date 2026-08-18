@@ -1,8 +1,8 @@
 import { afterAll, describe, expect, it } from "vitest";
-import { decodeWithZXing } from "../../lib/qr/zxing-decoder";
-import { decodePixelBuffer } from "../../lib/qr/decode-pipeline";
-import { loadPixelBufferFromPath } from "../../lib/qr/image-loader-node";
-import { createPixelBuffer } from "../../lib/qr/grayscale";
+import { createRgbaFrame } from "@scanly/core";
+import { createPixelBuffer } from "@scanly/core/qr";
+import { decodePixelBufferWithNodeEngines as decodePixelBuffer, loadPixelBufferFromPath } from "@scanly/node";
+import { ZxingJsEngine } from "@scanly/engine-zxing-js";
 import QRCode from "qrcode";
 import fs from "node:fs";
 import path from "node:path";
@@ -26,13 +26,14 @@ describe("ZXing forced tests", () => {
       fs.writeFileSync(file, buf);
     }
     const pixel = await loadPixelBufferFromPath(file);
-    const result = decodeWithZXing(pixel);
-    expect(result?.payload).toBe("SCANLY_ZXING_ADAPTER");
+    const result = await new ZxingJsEngine().decode(createRgbaFrame(pixel.data, pixel.width, pixel.height), { formats: ["qr_code"], findMultiple: false });
+    expect(result.ok && result.results[0].text).toBe("SCANLY_ZXING_ADAPTER");
   });
 
-  it("decodeWithZXing returns null on empty buffer without throwing", () => {
+  it("ZXing engine returns a typed miss on empty buffer without throwing", async () => {
     const empty = createPixelBuffer(new Uint8ClampedArray(0), 0, 0);
-    expect(decodeWithZXing(empty)).toBeNull();
+    const result = await new ZxingJsEngine().decode(createRgbaFrame(empty.data, 0, 0), { formats: ["qr_code"], findMultiple: false });
+    expect(result.ok).toBe(false);
   });
 
   it("decodeWithZXing returns null for a real blank image", async () => {
@@ -40,7 +41,9 @@ describe("ZXing forced tests", () => {
     await sharp({ create: { width: 200, height: 200, channels: 3, background: "#ffffff" } })
       .png()
       .toFile(file);
-    expect(decodeWithZXing(await loadPixelBufferFromPath(file))).toBeNull();
+    const pixel = await loadPixelBufferFromPath(file);
+    const result = await new ZxingJsEngine().decode(createRgbaFrame(pixel.data, pixel.width, pixel.height), { formats: ["qr_code"], findMultiple: false });
+    expect(result.ok).toBe(false);
   });
 
   it("ZXing-only pipeline decodes clear fixture with zxing decoder", async () => {
@@ -50,13 +53,13 @@ describe("ZXing forced tests", () => {
     const out = await decodePixelBuffer(buffer, {
       config: {
         findMultiple: false,
-        decoders: { jsqr: false, zxing: true, decoderOrder: ["zxing"] },
+        decoders: { order: ["zxing-js"], execution: "sequential" },
       },
     });
     expect(out.ok).toBe(true);
     if (out.ok) {
       expect(out.primary.payload).toBe("SCANLY_CLEAR_TEXT");
-      expect(out.primary.decoder).toBe("zxing");
+      expect(out.primary.decoder).toBe("zxing-js");
     }
   });
 
@@ -67,7 +70,7 @@ describe("ZXing forced tests", () => {
     const out = await decodePixelBuffer(buffer, {
       config: {
         findMultiple: false,
-        decoders: { jsqr: true, zxing: false, decoderOrder: ["jsqr"] },
+        decoders: { order: ["jsqr"], execution: "sequential" },
       },
     });
     expect(out.ok).toBe(true);
@@ -80,11 +83,11 @@ describe("ZXing forced tests", () => {
       config: {
         findMultiple: false,
         maxAttempts: 20,
-        decoders: { jsqr: false, zxing: true, decoderOrder: ["zxing"] },
+        decoders: { order: ["zxing-js"], execution: "sequential" },
       },
     });
     expect(out.ok).toBe(false);
     expect(out.attemptCount).toBeGreaterThan(1);
-    expect(out.attempts.every((attempt) => attempt.decoder === "zxing")).toBe(true);
+    expect(out.attempts.every((attempt) => attempt.decoder === "zxing-js")).toBe(true);
   });
 });
