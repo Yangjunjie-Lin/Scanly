@@ -90,7 +90,10 @@ jobs:
               # v2.0.0 tarballs are immutable. Their package manifests predate npm's
               # provenance repository-url validation, so add repository identity to
               # the Registry manifest while preserving the exact tarball bytes.
-              node --input-type=commonjs - "$tarball" "$package" <<'NODE'
+              npm_cli="$(readlink -f "$(command -v npm)")"
+              npm_internal_modules="$(dirname "$(dirname "$npm_cli")")/node_modules"
+              test -d "$npm_internal_modules/pacote" -a -d "$npm_internal_modules/libnpmpublish"
+              NODE_PATH="$npm_internal_modules" node --input-type=commonjs - "$tarball" "$package" <<'NODE'
           const fs = require("node:fs");
           const path = require("node:path");
           const pacote = require("pacote");
