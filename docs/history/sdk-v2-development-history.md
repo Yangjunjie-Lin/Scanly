@@ -62,6 +62,8 @@ Alpha.5 integration evidence is development evidence. It is not frozen canonical
 | Mixed completeness | **12/12** |
 | GS1 recognition | **8/8** |
 | False positives | **0** |
+| Accepted-format misclassifications | **0** |
+| Invalid-checksum acceptances | **0** |
 | Optional project-owned photographs | **0** |
 <!-- ALPHA5_INTEGRATION_SUMMARY_END -->
 
