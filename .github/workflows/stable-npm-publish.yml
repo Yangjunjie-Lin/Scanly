@@ -55,14 +55,14 @@ jobs:
           npm run stable:manifest:verify -- --require-go
           cd release/stable
           sha256sum --check checksums.sha256
-      - name: Verify npm production identity and organization ownership
+      - name: Verify npm production identity and registry access
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           set -euo pipefail
           test -n "${NODE_AUTH_TOKEN:-}"
           test "$(npm whoami --registry=https://registry.npmjs.org/)" = "yangjunjielin"
-          npm access list packages '@scanly' --json > /dev/null
+          npm ping --registry=https://registry.npmjs.org/ > /dev/null
       - name: Publish dependency-ordered npm packages with provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

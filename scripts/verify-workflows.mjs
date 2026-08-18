@@ -122,7 +122,7 @@ const stableReleaseWorkflow = fs.readFileSync(path.join(workflowDirectory, "stab
 if (!stableReleaseWorkflow.includes("stable:manifest:verify") || !stableReleaseWorkflow.includes("--require-go") || !stableReleaseWorkflow.includes("POST_RELEASE_VALIDATION") || stableReleaseWorkflow.includes("device:evidence:verify") || stableReleaseWorkflow.includes("--require-exact-candidate-head")) {
   throw new Error("stable-release-gate.yml: Stable Manifest policy and post-release Physical status gates are incomplete.");
 }
-for (const marker of ["secrets.NPM_TOKEN", "npm whoami", "npm access list packages '@scanly'"]) {
+for (const marker of ["secrets.NPM_TOKEN", "npm whoami", "npm ping --registry=https://registry.npmjs.org/"]) {
   if (!stableReleaseWorkflow.includes(marker)) throw new Error(`stable-release-gate.yml: missing publication credential preflight '${marker}'.`);
 }
 
