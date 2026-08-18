@@ -3,7 +3,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 import crypto from "node:crypto";
-import { deviceEvidenceOnlyAfterSource } from "./device-evidence-source-policy.js";
+import { deviceEvidenceEligibleForQualification } from "./device-evidence-source-policy.js";
 
 const root = path.resolve(__dirname, "..");
 const require = createRequire(import.meta.url);
@@ -95,17 +95,28 @@ const findForbiddenPhysicalClaim = (value: unknown, trail = "evidence"): string 
   }
   return undefined;
 };
-const evidenceOnlyAfterSource = (sourceCommit: string): boolean => deviceEvidenceOnlyAfterSource(root, sourceCommit);
-
 const schema = read("device-evidence/schema.json");
 const manifest = read("device-lab/manifest.json");
 const truth = read("device-lab/test-targets/ground-truth.json");
 const status = read("device-evidence/status.json");
 const packageJson = read("package.json");
+const stableManifest = read("release/stable/v2.0.0-manifest.json");
+const releasedSource = {
+  sourceCommit: stableManifest.identity.productSourceCommit,
+  sourceTree: stableManifest.identity.sourceTree,
+  sdkVersion: stableManifest.version,
+};
+const evidenceEligibleForQualification = (evidence: Json): boolean =>
+  deviceEvidenceEligibleForQualification(root, {
+    sourceCommit: evidence.sourceCommit,
+    sourceTree: evidence.sourceTree,
+    sdkVersion: evidence.sdkVersion,
+  }, releasedSource);
 const ajv = new Ajv({ allErrors: true, strict: false }); addFormats(ajv);
 const validate = ajv.compile(schema);
 
 assert(packageJson.version === "2.0.0", "Repository SDK version is not Stable 2.0.0.");
+assert(stableManifest.version === packageJson.version, "Stable release source identity does not match the repository SDK version.");
 assert(manifest.schemaVersion === "beta4-device-manifest-1" && manifest.status === "DEVICE_MATRIX_PARTIAL", "Device manifest identity/status failed.");
 assert(manifest.groundTruthPolicy === "decoder-independent-fixed-before-scan", "Device manifest Ground Truth policy failed.");
 assert(exactArray((manifest.scenarios as Json[]).map((entry) => entry.id), SCENARIO_IDS), "Device protocol must contain exact P1-P12+N1 order.");
@@ -499,7 +510,7 @@ for (const [type, count] of Object.entries(counts)) {
 const historicalPhysicalMobileSessions = physicalSessions.filter(isPhysicalMobile);
 const bySource = new Map<string, Json[]>();
 for (const evidence of historicalPhysicalMobileSessions) {
-  if (!evidenceOnlyAfterSource(evidence.sourceCommit)) continue;
+  if (!evidenceEligibleForQualification(evidence)) continue;
   const key = `${evidence.sourceCommit}:${evidence.sourceTree}:${evidence.sdkVersion}`;
   bySource.set(key, [...(bySource.get(key) ?? []), evidence]);
 }

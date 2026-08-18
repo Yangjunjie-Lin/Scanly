@@ -231,7 +231,7 @@ function validPhysicalFixture(): Json {
     schemaVersion: "beta4-physical-device-evidence-1",
     sourceCommit,
     sourceTree,
-    sdkVersion: "2.0.0-beta.5",
+    sdkVersion: "2.0.0",
     evidenceId: "beta4-contract-physical-fixture",
     evidenceType: "physical-mobile",
     session: {
@@ -393,7 +393,7 @@ function qualifyingSoak(durationMs = 30 * 60_000): Json {
 }
 
 describe.sequential("Beta 4 device evidence contracts", () => {
-  it("rejects Beta 4 evidence as non-exact-source for the Beta 5 repository version", () => {
+  it("rejects an unsupported Beta 4 sdkVersion in the Stable repository", () => {
     const evidence = validPhysicalFixture();
     evidence.sdkVersion = "2.0.0-beta.4";
     expectVerifierFailure(evidence);
@@ -411,6 +411,14 @@ describe.sequential("Beta 4 device evidence contracts", () => {
 
   it("accepts a complete physical fixture before testing fail-closed mutations", () => {
     withTemporaryEvidence(validPhysicalFixture(), () => expect(runVerifier()).toContain("Device evidence verification passed"));
+  }, 30_000);
+
+  it("accepts Stable evidence bound to the immutable released product source", () => {
+    const evidence = validPhysicalFixture();
+    const stable = read("release/stable/v2.0.0-manifest.json");
+    evidence.sourceCommit = stable.identity.productSourceCommit;
+    evidence.sourceTree = stable.identity.sourceTree;
+    withTemporaryEvidence(evidence, () => expect(runVerifier()).toContain("Device evidence verification passed"));
   }, 30_000);
 
   it("rejects physical-mobile evidence with missing device metadata", () => {
