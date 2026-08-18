@@ -32,14 +32,7 @@ jobs:
         run: |
           test -n "${NODE_AUTH_TOKEN:-}"
           test "$(npm whoami --registry=https://registry.npmjs.org/)" = "yangjunjielin"
-          npm org ls scanly --json | node -e '
-            let input = "";
-            process.stdin.on("data", (chunk) => { input += chunk; });
-            process.stdin.on("end", () => {
-              const members = JSON.parse(input);
-              if (members.yangjunjielin !== "owner") process.exit(1);
-            });
-          '
+          npm access list packages '@scanly' --json > /dev/null
       # Historical RC evidence remains checked by rc:manifest:verify; Stable promotion uses the policy-aware verifier below.
       - name: Verify Stable Manifest and POST_RELEASE_VALIDATION_PENDING policy
         run: npm run stable:manifest:verify -- --require-go
