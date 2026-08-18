@@ -125,11 +125,20 @@ jobs:
               forceAuth: { token },
             });
             console.log(`Published ${manifest.name}@${manifest.version} with immutable tarball bytes and npm provenance.`);
-          })().catch((error) => {
-            console.error(error);
-            process.exitCode = 1;
-          });
+              })().catch((error) => {
+                console.error(error);
+                process.exitCode = 1;
+              });
           NODE
             fi
-            test "$(npm view "${package}@2.0.0" version --json | tr -d '"')" = "2.0.0"
+            verified=""
+            for attempt in {1..12}; do
+              verified="$(npm view "${package}@2.0.0" version --json 2>/dev/null | tr -d '"' || true)"
+              if [ "$verified" = "2.0.0" ]; then
+                break
+              fi
+              echo "Waiting for Registry propagation: ${package}@2.0.0 (${attempt}/12)"
+              sleep 10
+            done
+            test "$verified" = "2.0.0"
           done
