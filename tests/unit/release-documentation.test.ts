@@ -7,7 +7,7 @@ const read = (file: string) => fs.readFileSync(path.join(root, file), "utf8");
 const json = <T>(file: string): T => JSON.parse(read(file)) as T;
 
 describe("Alpha.5 release documentation policy", () => {
-  it("derives separate historical and integration README summaries from authoritative manifests", () => {
+  it("preserves historical benchmark summaries outside the Stable user README", () => {
     const legacy = json<{ fixtures: Array<{ sourceType: string }> }>("fixtures/manifest.json");
     const alpha5 = json<{ fixtures: Array<{ sourceType: string; expectedOutcome: string; expectedResultCount: number; difficultyTags: string[]; expectedGs1?: boolean }> }>("fixtures/alpha5/manifest.json");
     const photos = json<{ fixtures: unknown[] }>("fixtures/alpha5/project-photos/manifest.json");
@@ -30,12 +30,15 @@ describe("Alpha.5 release documentation policy", () => {
     const positivePassed = balanced.results.filter((result) => result.expectedOutcome === "decode" && result.pass).length;
 
     const readme = read("README.md");
-    const historical = readme.match(/<!-- HISTORICAL_BENCHMARK_SUMMARY_START -->([\s\S]*?)<!-- HISTORICAL_BENCHMARK_SUMMARY_END -->/)?.[1] ?? "";
-    const integration = readme.match(/<!-- ALPHA5_INTEGRATION_SUMMARY_START -->([\s\S]*?)<!-- ALPHA5_INTEGRATION_SUMMARY_END -->/)?.[1] ?? "";
-    expect(readme).toContain(`**Alpha.4 r4** (\`${baselineId}\`)`);
-    expect(readme).toContain(canonical.evidenceId);
-    expect(readme).toContain(canonical.sourceIdentity.sourceCommitSha);
-    expect(readme).toContain(canonical.sourceIdentity.sourceTreeSha);
+    const history = read("docs/history/sdk-v2-development-history.md");
+    const historical = history.match(/<!-- HISTORICAL_BENCHMARK_SUMMARY_START -->([\s\S]*?)<!-- HISTORICAL_BENCHMARK_SUMMARY_END -->/)?.[1] ?? "";
+    const integration = history.match(/<!-- ALPHA5_INTEGRATION_SUMMARY_START -->([\s\S]*?)<!-- ALPHA5_INTEGRATION_SUMMARY_END -->/)?.[1] ?? "";
+    expect(readme).toContain("docs/history/sdk-v2-development-history.md");
+    expect(readme).not.toContain("HISTORICAL_BENCHMARK_SUMMARY_START");
+    expect(history).toContain(`**Alpha.4 r4** (\`${baselineId}\`)`);
+    expect(history).toContain(canonical.evidenceId);
+    expect(history).toContain(canonical.sourceIdentity.sourceCommitSha);
+    expect(history).toContain(canonical.sourceIdentity.sourceTreeSha);
     expect(historical).toContain(`| Legacy QR fixtures | ${canonical.fixtureCount} |`);
     expect(historical).toContain(`| Generated fixtures | ${generatedLegacy} |`);
     expect(historical).toContain(`| Project-owned photographs | ${projectPhotosLegacy} |`);
@@ -54,7 +57,7 @@ describe("Alpha.5 release documentation policy", () => {
     expect(integration).toContain(`| Optional project-owned photographs | **${photos.fixtures.length}** |`);
     expect(integration).not.toContain("73/74");
     expect(historical).not.toContain("Generated Alpha.5 fixtures");
-    expect(readme).toContain("Alpha.5 integration evidence is development evidence. It is not frozen canonical release evidence.");
+    expect(history).toContain("Alpha.5 integration evidence is development evidence. It is not frozen canonical release evidence.");
   });
 
   it("records the merged result while retaining a clearly superseded pre-merge audit", () => {

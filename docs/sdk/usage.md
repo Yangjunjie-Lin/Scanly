@@ -1,10 +1,12 @@
-# SDK usage
+# Scanly SDK v2.0.0 usage
 
-The default Browser and Node composition includes the Alpha.5 WASM plugin but its binary is loaded lazily. Pass `zxingCppWasm: false` to the corresponding capture-router factory for a JavaScript-only installation, or create and register `createZxingCppWasmEngine()` explicitly for preload/prewarm control. See [WASM engine deployment](../wasm-engine.md).
+Scanly SDK v2.0.0 packages are published Stable packages. Browser, Node, and React packages declare all required Scanly dependencies; install only the public runtime package your application uses.
 
-The v2 packages are preview packages prepared for later publication; this repository does not publish them automatically.
+## Browser
 
-## Plain browser JavaScript
+```bash
+npm install @scanly/browser
+```
 
 ```js
 import { BrowserCaptureSession } from "@scanly/browser";
@@ -15,72 +17,41 @@ scanner.start();
 
 const outcome = await scanner.scanFile(fileInput.files[0]);
 if (outcome.ok) {
-  for (const result of outcome.results) console.log(result.rawText);
+  for (const result of outcome.results) console.log(result.format, result.rawText);
 } else {
   console.error(outcome.error.code, outcome.error.message);
 }
 
-scanner.dispose();
+await scanner.dispose();
 ```
 
-The browser runtime uses a module Worker by default and transfers the decoded RGBA backing buffer. Pass `{ forceMainThread: true }` only for environments that cannot create a Worker.
+The browser runtime uses a module Worker by default and transfers the RGBA backing buffer. Pass `{ forceMainThread: true }` only when a deployment cannot create the Worker.
 
-## TypeScript pixel-buffer input
+## Node.js
 
-```ts
-import { CaptureRouter, createRgbaFrame } from "@scanly/core";
-import { getBuiltinScenario } from "@scanly/scenario-schema";
+```bash
+npm install @scanly/node
+```
 
-const router = new CaptureRouter({ scenario: getBuiltinScenario("balanced"), formats: ["qr_code"] });
-const frame = createRgbaFrame(rgba, width, height, {
-  id: crypto.randomUUID(),
-  sourceType: "pixel-buffer",
-  ownership: "borrowed",
+```js
+import { createNodeCaptureRouter, loadNormalizedFrameFromPath } from "@scanly/node";
+
+const router = createNodeCaptureRouter({
+  formats: ["qr_code", "data_matrix", "pdf417", "code_128"],
 });
-const outcome = await router.scan(frame, { signal: abortController.signal });
-```
-
-Opt into additional formats explicitly:
-
-```ts
-const retail = new CaptureRouter({ formats: { formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128"] } });
-const result = await retail.scan(frame);
-```
-
-Every successful result carries its detected `format` and `formatClass`; UPC/EAN payload identity is preserved and invalid checksums are rejected.
-
-Borrowed buffers remain caller-owned. For `owned` or `transferred` frames, supply `dispose` when the source has a release contract; the Router calls it after the frame finishes.
-
-## Explicit industrial recovery
-
-Static browser sessions can enable bounded industrial recovery after a normal miss:
-
-```ts
-import { BrowserCaptureSession } from "@scanly/browser";
-import { getBuiltinScenario } from "@scanly/scenario-schema";
-
-const scanner = new BrowserCaptureSession({
-  scenario: getBuiltinScenario("multiformat-balanced"),
-  recovery: { profile: "industrial" },
-});
-
-const outcome = await scanner.scanFile(file);
-```
-
-Node uses the same core recovery contracts explicitly:
-
-```ts
-import { createNodeCaptureRouter, loadNormalizedFrameFromPath, scanWithNodeIndustrialRecovery } from "@scanly/node";
-
-const router = createNodeCaptureRouter();
-const frame = await loadNormalizedFrameFromPath("label.png");
-const recovered = await scanWithNodeIndustrialRecovery(router, frame, { profile: "industrial" });
+const frame = await loadNormalizedFrameFromPath("shipping-label.png");
+const outcome = await router.scan(frame);
+if (outcome.ok) console.log(outcome.results);
 await router.dispose();
 ```
 
-Use `dpm-experimental` only for evaluation of Data Matrix direct-part marks. It is off by default and is not equivalent to certified DPM support. Recovery diagnostics and `evidenceScore` explain routing evidence; `evidenceScore` is not a probability. No recovery path uses neural super-resolution, generative inpainting, or payload guessing.
+`sharp` is isolated inside `@scanly/node`; it is not added to Browser or Core dependency graphs.
 
 ## React
+
+```bash
+npm install @scanly/react
+```
 
 ```tsx
 "use client";
@@ -99,48 +70,33 @@ export function UploadScanner() {
 }
 ```
 
-React does not participate in decoding. The hook disposes its browser session and Worker on unmount.
+React does not decode. `useScanly` owns a `BrowserCaptureSession`, disposes its session and Worker on unmount, and exposes the session for explicit composition. Camera UI should compose `BrowserCameraSource` from `@scanly/browser` in a React effect and stop/dispose it during cleanup.
 
-## Cancellation and repeated scans
+## Advanced / Core
 
-```ts
-const controller = new AbortController();
-const pending = scanner.scanFile(file, { signal: controller.signal });
-controller.abort();
-const cancelled = await pending; // error.code === "cancelled"
-
-// The Worker is recreated lazily; the same session can scan again.
-const recovered = await scanner.scanFile(nextFile);
+```bash
+npm install @scanly/core @scanly/engine-zxing-cpp-wasm
 ```
 
-## Multiple codes
-
-The balanced and robust profiles enable multi-code collection. Success is always non-empty:
+Core is the framework-independent public composition layer; it does not register a concrete decoder automatically.
 
 ```ts
-if (outcome.ok) {
-  const [primary, ...additional] = outcome.results;
-  console.log(primary.rawText, additional.map((item) => item.rawText));
-}
+import { CaptureRouter, EngineRegistry, createRgbaFrame } from "@scanly/core";
+import { createZxingCppWasmEngine } from "@scanly/engine-zxing-cpp-wasm";
+
+const engines = new EngineRegistry();
+engines.register(createZxingCppWasmEngine());
+const router = new CaptureRouter({ engines, formats: ["qr_code", "data_matrix"] });
+const frame = createRgbaFrame(rgba, width, height, { ownership: "borrowed" });
+const outcome = await router.scan(frame);
+await router.dispose();
 ```
 
-## Custom scenario
+## WASM, Worker, and CSP
 
-```ts
-import { getBuiltinScenario, validateScenario } from "@scanly/scenario-schema";
+Browser and Node default composition includes the optional ZXing-C++ WASM backend. It initializes lazily; pass `zxingCppWasm: false` for JavaScript-only composition or create the engine explicitly for preload/prewarm control.
 
-const scenario = getBuiltinScenario("balanced");
-scenario.id = "warehouse.preview";
-scenario.revision = 1;
-scenario.multiCode.maxResults = 12;
-scenario.budgets.maxExecutionMs = 15_000;
-
-const checked = validateScenario(scenario);
-if (!checked.ok) throw new Error(checked.message);
-scanner.updateConfiguration(checked.value);
-```
-
-Changing a session configuration cancels its current job so results from the old scenario cannot cross the ownership boundary.
+The SDK does not fetch mutable code from a CDN. Bundlers must emit the module Worker and packaged `zxing-cpp.wasm`, serve WASM as `application/wasm`, and keep both assets same-origin or on an explicitly trusted origin. CSP must permit the emitted Worker URL through `worker-src`; stricter deployments may also need `script-src 'wasm-unsafe-eval'` according to browser policy. See [Worker deployment](worker-deployment.md) and [WASM deployment](../wasm-engine.md).
 
 ## Camera lifecycle
 
@@ -149,19 +105,39 @@ import { BrowserCameraSource } from "@scanly/browser";
 
 const camera = new BrowserCameraSource();
 await camera.start(videoElement, {
-  deviceId,
-  stopAfterResult: true,
+  stopAfterResult: false,
   onResult: (result) => console.log(result.ok && result.primary.rawText),
   onError: (failure) => console.error(failure.error.code),
 });
-const capabilities = camera.getCapabilities();
-if (capabilities.torch) await camera.setTorch(true);
-camera.stop(); // stops every MediaStream track
+
+camera.stop();
 camera.dispose();
 ```
 
-Never infer physical torch/zoom support from desktop emulation. Query the active track and test the actual device.
+Camera APIs require a secure context (HTTPS or localhost) and user permission. Query the active track for torch, zoom, and focus capabilities; never infer physical support from emulation.
 
-## Safe actions
+## Multiple formats and codes
 
-Semantic parsing never executes an action. The reference app enables an Open Link control only when `isSafeActionUrl(rawText)` accepts an explicit HTTP or HTTPS URL. Wi-Fi, telephone, SMS, email, calendar, and geo payloads remain data until the host application asks the user and performs an action.
+The public format vocabulary is `qr_code`, `data_matrix`, `pdf417`, `code_128`, `ean_13`, `ean_8`, `upc_a`, and `upc_e`. The default is QR-only. Balanced and robust multi-code scenarios can return more than one result:
+
+```ts
+if (outcome.ok) {
+  const [primary, ...additional] = outcome.results;
+  console.log(primary.rawText, additional.map((item) => item.rawText));
+}
+```
+
+## Industrial recovery
+
+```ts
+const scanner = new BrowserCaptureSession({
+  scenario: getBuiltinScenario("multiformat-balanced"),
+  recovery: { profile: "industrial" },
+});
+```
+
+Use `dpm-experimental` only for evaluation. Industrial recovery does not claim industrial, warehouse, or DPM certification, and no path guesses a payload.
+
+## Privacy and validation boundary
+
+Decode, parsing, tracking, and recovery are local-only and offline-capable after assets load. Scanly has no image upload or analytics endpoint. Automated browser, simulator, and emulator coverage is not physical-device qualification; physical validation remains `POST_RELEASE_VALIDATION_PENDING` under [Issue #13](https://github.com/Yangjunjie-Lin/Scanly/issues/13).

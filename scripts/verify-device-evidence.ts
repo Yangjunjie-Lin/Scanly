@@ -3,7 +3,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 import crypto from "node:crypto";
-import { deviceEvidenceOnlyAfterSource } from "./device-evidence-source-policy.js";
+import { deviceEvidenceEligibleForQualification } from "./device-evidence-source-policy.js";
 
 const root = path.resolve(__dirname, "..");
 const require = createRequire(import.meta.url);
@@ -35,12 +35,12 @@ const FULL_MATRIX_GAPS = [
   "Issue #13 full matrix: desktop real webcam session",
 ] as const;
 const FOUNDATION_GAPS = [
-  "Beta 4 Foundation: iOS Safari physical-mobile session",
-  "Beta 4 Foundation: Android Chrome physical-mobile session",
-  "Beta 4 Foundation: 30-minute physical-mobile camera soak",
+  "Post-release validation: iOS Safari physical-mobile session",
+  "Post-release validation: Android Chrome physical-mobile session",
+  "Post-release validation: 30-minute physical-mobile camera soak",
 ] as const;
-const FOUNDATION_PERMISSION_GAP = "Beta 4 Foundation: complete physical permission lifecycle audit";
-const FOUNDATION_CAMERA_SWITCH_GAP = "Beta 4 Foundation: verified rear-front-rear camera switch";
+const FOUNDATION_PERMISSION_GAP = "Post-release validation: complete physical permission lifecycle audit";
+const FOUNDATION_CAMERA_SWITCH_GAP = "Post-release validation: verified rear-front-rear camera switch";
 const FORBIDDEN_PHYSICAL_KEYS = /(^|[_-])(simulated|simulation|emulated|emulation|synthetic|mock|spoofed)([_-]|$)/i;
 
 const read = (file: string): Json => JSON.parse(fs.readFileSync(path.join(root, file), "utf8"));
@@ -95,17 +95,28 @@ const findForbiddenPhysicalClaim = (value: unknown, trail = "evidence"): string 
   }
   return undefined;
 };
-const evidenceOnlyAfterSource = (sourceCommit: string): boolean => deviceEvidenceOnlyAfterSource(root, sourceCommit);
-
 const schema = read("device-evidence/schema.json");
 const manifest = read("device-lab/manifest.json");
 const truth = read("device-lab/test-targets/ground-truth.json");
 const status = read("device-evidence/status.json");
 const packageJson = read("package.json");
+const stableManifest = read("release/stable/v2.0.0-manifest.json");
+const releasedSource = {
+  sourceCommit: stableManifest.identity.productSourceCommit,
+  sourceTree: stableManifest.identity.sourceTree,
+  sdkVersion: stableManifest.version,
+};
+const evidenceEligibleForQualification = (evidence: Json): boolean =>
+  deviceEvidenceEligibleForQualification(root, {
+    sourceCommit: evidence.sourceCommit,
+    sourceTree: evidence.sourceTree,
+    sdkVersion: evidence.sdkVersion,
+  }, releasedSource);
 const ajv = new Ajv({ allErrors: true, strict: false }); addFormats(ajv);
 const validate = ajv.compile(schema);
 
-assert(packageJson.version === "2.0.0-rc.2", "Repository SDK version is not RC2.");
+assert(packageJson.version === "2.0.0", "Repository SDK version is not Stable 2.0.0.");
+assert(stableManifest.version === packageJson.version, "Stable release source identity does not match the repository SDK version.");
 assert(manifest.schemaVersion === "beta4-device-manifest-1" && manifest.status === "DEVICE_MATRIX_PARTIAL", "Device manifest identity/status failed.");
 assert(manifest.groundTruthPolicy === "decoder-independent-fixed-before-scan", "Device manifest Ground Truth policy failed.");
 assert(exactArray((manifest.scenarios as Json[]).map((entry) => entry.id), SCENARIO_IDS), "Device protocol must contain exact P1-P12+N1 order.");
@@ -148,8 +159,8 @@ for (const name of sessionFiles) {
   counts[evidence.evidenceType as EvidenceType] += 1;
 
   assert(
-    evidence.sdkVersion === packageJson.version || evidence.sdkVersion === "2.0.0-beta.5",
-    `${name}: sdkVersion is neither the RC2 package version nor an explicitly retained Beta 5 historical version.`,
+    evidence.sdkVersion === packageJson.version || evidence.sdkVersion === "2.0.0-rc.2" || evidence.sdkVersion === "2.0.0-beta.5",
+    `${name}: sdkVersion is neither the Stable package version nor an explicitly retained RC2/Beta 5 historical version.`,
   );
   assert(existsCommit(evidence.sourceCommit), `${name}: sourceCommit is not a repository commit.`);
   assert(git("show", "-s", "--format=%T", evidence.sourceCommit) === evidence.sourceTree, `${name}: sourceTree does not match sourceCommit.`);
@@ -499,7 +510,7 @@ for (const [type, count] of Object.entries(counts)) {
 const historicalPhysicalMobileSessions = physicalSessions.filter(isPhysicalMobile);
 const bySource = new Map<string, Json[]>();
 for (const evidence of historicalPhysicalMobileSessions) {
-  if (!evidenceOnlyAfterSource(evidence.sourceCommit)) continue;
+  if (!evidenceEligibleForQualification(evidence)) continue;
   const key = `${evidence.sourceCommit}:${evidence.sourceTree}:${evidence.sdkVersion}`;
   bySource.set(key, [...(bySource.get(key) ?? []), evidence]);
 }
@@ -530,7 +541,7 @@ for (const [key, expected] of [
 const minimumGatePassed = exactSourceCohorts.some((entry) => Object.values(entry).every(Boolean));
 const expectedValidationStatus = minimumGatePassed
   ? "PHYSICAL_DEVICE_VALIDATION_STARTED_AND_MINIMUM_GATE_PASSED"
-  : "PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC";
+  : "POST_RELEASE_VALIDATION_PENDING";
 assert(status.physicalValidationStatus === expectedValidationStatus, `status.json physicalValidationStatus must be ${expectedValidationStatus}.`);
 assert(Array.isArray(status.requiredGaps) && status.requiredGaps.length > 0, "A partial Device Matrix requires documented gaps.");
 const present = (key: keyof ReturnType<typeof cohortState>) => exactSourceCohorts.some((entry) => entry[key]);
@@ -543,7 +554,7 @@ const expectedGaps = [
   ...FULL_MATRIX_GAPS,
 ];
 assert(exactArray(status.requiredGaps, expectedGaps), `status.json requiredGaps must exactly match verifier-derived pending work: ${JSON.stringify(expectedGaps)}.`);
-assert(status.matrixStatus === "DEVICE_MATRIX_PARTIAL", "Beta 4 foundation evidence must not claim the full Device Matrix is complete.");
+assert(status.matrixStatus === "DEVICE_MATRIX_PARTIAL", "Foundation evidence must not claim the full Device Matrix is complete.");
 assert(status.fullDeviceMatrixStatus === "FULL_DEVICE_MATRIX_PENDING", "Issue #13 full Device Matrix must remain pending.");
 
 console.log(`Device evidence verification passed: ${sessionFiles.length} historical sessions (${JSON.stringify(counts)}); admissible exact-source cohorts: ${currentExactSourceDeviceKeys.size} physical mobile devices, ${expectedIos} iOS Safari, ${expectedAndroid} Android Chrome, ${expectedPhysicalScenarios} physical scenarios, ${expectedLongRuns} qualifying physical long sessions; status=${expectedValidationStatus}.`);

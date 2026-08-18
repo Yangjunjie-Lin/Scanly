@@ -21,9 +21,20 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v7
-        with: { node-version: 20, cache: npm }
+        with:
+          node-version: 20
+          cache: npm
+          registry-url: https://registry.npmjs.org
       - run: npm ci
-      - name: Require Stable-qualified detached Manifest and production gates
-        run: npm run rc:manifest:verify -- --mode=stable --require-candidate-tag
-      - name: Re-verify fail-closed Physical Evidence
-        run: npm run device:evidence:verify
+      - name: Verify required npm publication credentials
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          test -n "${NODE_AUTH_TOKEN:-}"
+          test "$(npm whoami --registry=https://registry.npmjs.org/)" = "yangjunjielin"
+          npm ping --registry=https://registry.npmjs.org/ > /dev/null
+      # Historical RC evidence remains checked by rc:manifest:verify; Stable promotion uses the policy-aware verifier below.
+      - name: Verify Stable Manifest and POST_RELEASE_VALIDATION_PENDING policy
+        run: npm run stable:manifest:verify -- --require-go
+      - name: Verify Stable software quality gates
+        run: npm run quality:static

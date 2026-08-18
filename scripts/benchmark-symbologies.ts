@@ -522,8 +522,8 @@ async function main(): Promise<void> {
   if (cli.gate && cli.gateMode === "integration") {
     const singleFormatPositives = manifest.fixtures.filter((fixture) => fixture.expectedOutcome === "decode" && fixture.requiredResults.length === 1).length;
     const mixedPositives = manifest.fixtures.filter((fixture) => fixture.expectedOutcome === "decode" && fixture.requiredResults.length > 1).length;
-    const readme = fs.readFileSync(path.join(ROOT, "README.md"), "utf8");
-    const expectedReadmeRows = [
+    const developmentHistory = fs.readFileSync(path.join(ROOT, "docs/history/sdk-v2-development-history.md"), "utf8");
+    const expectedHistoryRows = [
       `| Generated Alpha.5 fixtures | ${report.corpus.generated} |`,
       `| Curated open-license camera photographs | **${report.corpus.externalOpenLicenseCorpusCount} (minimum 12)** |`,
       `| Single-format positives | ${singleFormatPositives} |`,
@@ -538,8 +538,8 @@ async function main(): Promise<void> {
       `| Invalid-checksum acceptances | **${report.invalidChecksumAcceptanceCount}** |`,
       `| Optional project-owned photographs | **${report.corpus.projectOwnedRealPhotos}** |`,
     ];
-    const staleRows = expectedReadmeRows.filter((row) => !readme.includes(row));
-    if (staleRows.length) throw new Error(`README Alpha.5 integration summary is stale:\n- ${staleRows.join("\n- ")}`);
+    const staleRows = expectedHistoryRows.filter((row) => !developmentHistory.includes(row));
+    if (staleRows.length) throw new Error(`Historical Alpha.5 integration summary is stale:\n- ${staleRows.join("\n- ")}`);
   }
 
   if (cli.canonicalCandidate) {

@@ -20,11 +20,11 @@ const fullMatrixGaps = [
   "Issue #13 full matrix: desktop real webcam session",
 ];
 const foundationGaps = [
-  "Beta 4 Foundation: iOS Safari physical-mobile session",
-  "Beta 4 Foundation: Android Chrome physical-mobile session",
-  "Beta 4 Foundation: 30-minute physical-mobile camera soak",
-  "Beta 4 Foundation: complete physical permission lifecycle audit",
-  "Beta 4 Foundation: verified rear-front-rear camera switch",
+  "Post-release validation: iOS Safari physical-mobile session",
+  "Post-release validation: Android Chrome physical-mobile session",
+  "Post-release validation: 30-minute physical-mobile camera soak",
+  "Post-release validation: complete physical permission lifecycle audit",
+  "Post-release validation: verified rear-front-rear camera switch",
 ];
 
 interface EvidenceSnapshot {
@@ -32,12 +32,24 @@ interface EvidenceSnapshot {
   sessions: Map<string, string>;
 }
 
+function writeFileWithWindowsRetry(file: string, contents: string): void {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    try {
+      fs.writeFileSync(file, contents);
+      return;
+    } catch (error) {
+      if (attempt === 9) throw error;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20);
+    }
+  }
+}
+
 function emptyStatus(): Json {
   return {
     ...read("device-evidence/status.json"),
     matrixStatus: "DEVICE_MATRIX_PARTIAL",
     fullDeviceMatrixStatus: "FULL_DEVICE_MATRIX_PENDING",
-    physicalValidationStatus: "PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC",
+    physicalValidationStatus: "POST_RELEASE_VALIDATION_PENDING",
     physicalMobileSessionCount: 0,
     remotePhysicalDeviceSessionCount: 0,
     desktopCameraSessionCount: 0,
@@ -63,8 +75,8 @@ function restoreRepositoryEvidence(snapshot: EvidenceSnapshot): void {
   for (const name of fs.readdirSync(sessionDirectory).filter((entry) => entry.endsWith(".json"))) {
     fs.rmSync(path.join(sessionDirectory, name));
   }
-  for (const [name, contents] of snapshot.sessions) fs.writeFileSync(path.join(sessionDirectory, name), contents);
-  fs.writeFileSync(statusPath, snapshot.status);
+  for (const [name, contents] of snapshot.sessions) writeFileWithWindowsRetry(path.join(sessionDirectory, name), contents);
+  writeFileWithWindowsRetry(statusPath, snapshot.status);
 }
 
 function assertRepositoryEvidenceRestored(snapshot: EvidenceSnapshot): void {
@@ -79,7 +91,7 @@ function statusForPhysicalFixture(): Json {
     ...read("device-evidence/status.json"),
     matrixStatus: "DEVICE_MATRIX_PARTIAL",
     fullDeviceMatrixStatus: "FULL_DEVICE_MATRIX_PENDING",
-    physicalValidationStatus: "PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC",
+    physicalValidationStatus: "POST_RELEASE_VALIDATION_PENDING",
     physicalMobileSessionCount: 1,
     remotePhysicalDeviceSessionCount: 0,
     desktopCameraSessionCount: 0,
@@ -99,8 +111,8 @@ function withTemporaryEvidence(evidence: Json, assertion: () => void): void {
     for (const name of fs.readdirSync(sessionDirectory).filter((entry) => entry.endsWith(".json"))) {
       fs.rmSync(path.join(sessionDirectory, name));
     }
-    fs.writeFileSync(path.join(sessionDirectory, `${evidence.evidenceId}.json`), `${JSON.stringify(evidence, null, 2)}\n`);
-    fs.writeFileSync(statusPath, `${JSON.stringify(statusForPhysicalFixture(), null, 2)}\n`);
+    writeFileWithWindowsRetry(path.join(sessionDirectory, `${evidence.evidenceId}.json`), `${JSON.stringify(evidence, null, 2)}\n`);
+    writeFileWithWindowsRetry(statusPath, `${JSON.stringify(statusForPhysicalFixture(), null, 2)}\n`);
     assertion();
   } finally {
     restoreRepositoryEvidence(snapshot);
@@ -112,8 +124,8 @@ function withTemporaryEvidenceSet(entries: Json[], status: Json, assertion: () =
   const snapshot = snapshotRepositoryEvidence();
   try {
     for (const name of fs.readdirSync(sessionDirectory).filter((entry) => entry.endsWith(".json"))) fs.rmSync(path.join(sessionDirectory, name));
-    for (const evidence of entries) fs.writeFileSync(path.join(sessionDirectory, `${evidence.evidenceId}.json`), `${JSON.stringify(evidence, null, 2)}\n`);
-    fs.writeFileSync(statusPath, `${JSON.stringify(status, null, 2)}\n`);
+    for (const evidence of entries) writeFileWithWindowsRetry(path.join(sessionDirectory, `${evidence.evidenceId}.json`), `${JSON.stringify(evidence, null, 2)}\n`);
+    writeFileWithWindowsRetry(statusPath, `${JSON.stringify(status, null, 2)}\n`);
     assertion();
   } finally {
     restoreRepositoryEvidence(snapshot);
@@ -219,7 +231,7 @@ function validPhysicalFixture(): Json {
     schemaVersion: "beta4-physical-device-evidence-1",
     sourceCommit,
     sourceTree,
-    sdkVersion: "2.0.0-beta.5",
+    sdkVersion: "2.0.0",
     evidenceId: "beta4-contract-physical-fixture",
     evidenceType: "physical-mobile",
     session: {
@@ -381,7 +393,7 @@ function qualifyingSoak(durationMs = 30 * 60_000): Json {
 }
 
 describe.sequential("Beta 4 device evidence contracts", () => {
-  it("rejects Beta 4 evidence as non-exact-source for the Beta 5 repository version", () => {
+  it("rejects an unsupported Beta 4 sdkVersion in the Stable repository", () => {
     const evidence = validPhysicalFixture();
     evidence.sdkVersion = "2.0.0-beta.4";
     expectVerifierFailure(evidence);
@@ -399,6 +411,14 @@ describe.sequential("Beta 4 device evidence contracts", () => {
 
   it("accepts a complete physical fixture before testing fail-closed mutations", () => {
     withTemporaryEvidence(validPhysicalFixture(), () => expect(runVerifier()).toContain("Device evidence verification passed"));
+  }, 30_000);
+
+  it("accepts Stable evidence bound to the immutable released product source", () => {
+    const evidence = validPhysicalFixture();
+    const stable = read("release/stable/v2.0.0-manifest.json");
+    evidence.sourceCommit = stable.identity.productSourceCommit;
+    evidence.sourceTree = stable.identity.sourceTree;
+    withTemporaryEvidence(evidence, () => expect(runVerifier()).toContain("Device evidence verification passed"));
   }, 30_000);
 
   it("rejects physical-mobile evidence with missing device metadata", () => {
@@ -686,8 +706,8 @@ describe.sequential("Beta 4 device evidence contracts", () => {
     const android = validPhysicalFixture(); android.evidenceId = "beta4-contract-android-pending"; android.longRun = qualifyingSoak();
     const ios = clone(android); ios.evidenceId = "beta4-contract-ios-pending"; ios.device = { declaredModel: "iPhone declared by tester", manufacturer: "Apple", operatingSystem: "iOS", operatingSystemVersion: "19.0" }; ios.browser = { name: "Safari", version: "19.0", userAgent: "fixture-ios" }; ios.longRun = { qualifyingPhysicalSoak: false, durationMs: 0 };
     for (const evidence of [android, ios]) evidence.permissionLifecycle = { status: "not-tested", initialPrompt: "not-tested", grant: "not-tested", deny: "not-tested", retry: "not-tested", revoke: "unavailable", typedError: "unavailable", noUnhandledRejection: "unavailable", recoverableState: "unavailable", unhandledRejectionCount: 0, steps: [] };
-    const status = { ...statusForFoundationFixtures(), physicalValidationStatus: "PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC", requiredGaps: [foundationGaps[3], ...fullMatrixGaps] };
-    withTemporaryEvidenceSet([android, ios], status, () => expect(runVerifier()).toContain("PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC"));
+    const status = { ...statusForFoundationFixtures(), physicalValidationStatus: "POST_RELEASE_VALIDATION_PENDING", requiredGaps: [foundationGaps[3], ...fullMatrixGaps] };
+    withTemporaryEvidenceSet([android, ios], status, () => expect(runVerifier()).toContain("POST_RELEASE_VALIDATION_PENDING"));
   }, 30_000);
 
   it("rejects an otherwise physical record when repository status omits derived counts", () => {
@@ -773,7 +793,7 @@ describe.sequential("Beta 4 device evidence contracts", () => {
   it("verifies the current honest empty matrix and deterministic target bytes", () => {
     expect(() => runVerifier()).not.toThrow();
     expect(() => execFileSync(process.execPath, ["--import", "tsx", "scripts/generate-device-test-targets.ts", "--verify"], { cwd: root, stdio: "pipe" })).not.toThrow();
-    expect(read("device-evidence/status.json")).toMatchObject({ matrixStatus: "DEVICE_MATRIX_PARTIAL", physicalValidationStatus: "PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC", physicalMobileSessionCount: 0 });
+    expect(read("device-evidence/status.json")).toMatchObject({ matrixStatus: "DEVICE_MATRIX_PARTIAL", physicalValidationStatus: "POST_RELEASE_VALIDATION_PENDING", physicalMobileSessionCount: 0 });
   }, 30_000);
 
   it("keeps Device Lab free of network decode and analytics code paths", () => {

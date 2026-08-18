@@ -29,5 +29,5 @@ if let device = AVCaptureDevice.default(for: .video) {
 ```
 
 The host app supplies camera permission UI, preview rendering, orientation
-policy, and interruption notifications. Physical iPhone behavior is not
-certified by this sample.
+policy, and interruption notifications. Physical iPhone behavior remains
+`POST_RELEASE_VALIDATION_PENDING`; this sample is not qualification evidence.

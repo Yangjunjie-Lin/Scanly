@@ -17,9 +17,9 @@ const sources = [
 
 const hash = (value) => crypto.createHash("sha256").update(value.replaceAll("\r\n", "\n")).digest("hex");
 const snapshot = {
-  schemaVersion: "rc2-native-api-snapshot-1",
-  sdkVersion: "2.0.0-rc.2",
-  classification: "rc2-breaking-changes-forbidden-with-explicit-compatibility-review",
+  schemaVersion: "stable-native-api-snapshot-1",
+  sdkVersion: "2.0.0",
+  classification: "stable-breaking-changes-forbidden-with-explicit-compatibility-review",
   files: Object.fromEntries(sources.map((relative) => [relative, hash(fs.readFileSync(path.join(root, relative), "utf8"))])),
 };
 

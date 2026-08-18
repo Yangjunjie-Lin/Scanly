@@ -1,49 +1,30 @@
-# Alpha.5 Symbologies
+# Supported barcode formats
 
-Scanly SDK v2 Alpha.5 is a privacy-first preview. Public format selection is explicit; the default scenario remains `formats: ["qr_code"]`.
+Scanly SDK v2.0.0 exposes an explicit eight-format public contract. The default scenario remains `formats: ["qr_code"]` for compatibility; applications opt into additional formats or select a multi-format scenario.
 
-| Format | Class | Primary engine | Fallback | Notes |
+| Format | Public ID | Class | Default engine support | Notes |
 | --- | --- | --- | --- | --- |
-| `qr_code` | matrix | ZXing-C++ WASM | jsQR, ZXing-JS | Model 2 only; existing QR suite remains the regression denominator |
-| `data_matrix` | matrix | ZXing-C++ WASM | none | ECC 200; GS1 is exposed as metadata when FNC1 is reported |
-| `pdf417` | stacked | ZXing-C++ WASM | none | Standard PDF417; Macro/Micro PDF417 and AAMVA parsing are deferred |
-| `code_128` | linear | ZXing-C++ WASM | none | Code sets A/B/C; GS1-128 is represented with GS1 metadata |
-| `ean_13` | linear | ZXing-C++ WASM | none | 13 digits and valid check digit required; leading zeroes preserved |
-| `ean_8` | linear | ZXing-C++ WASM | none | 8 digits and valid check digit required |
-| `upc_a` | linear | ZXing-C++ WASM | none | 12 digits and valid check digit required; never relabeled as EAN-13 |
-| `upc_e` | linear | ZXing-C++ WASM | none | Original 8-digit payload preserved; expansion is optional metadata |
+| QR Code Model 2 | `qr_code` | matrix | ZXing-C++ WASM, jsQR, ZXing-JS | JavaScript fallback engines are QR-only |
+| Data Matrix ECC 200 | `data_matrix` | matrix | ZXing-C++ WASM | GS1 metadata is exposed when reported |
+| PDF417 | `pdf417` | stacked | ZXing-C++ WASM | Standard PDF417 |
+| Code 128 | `code_128` | linear | ZXing-C++ WASM | GS1-128 metadata is preserved |
+| EAN-13 | `ean_13` | linear | ZXing-C++ WASM | Valid check digit required; leading zeroes preserved |
+| EAN-8 | `ean_8` | linear | ZXing-C++ WASM | Valid check digit required |
+| UPC-A | `upc_a` | linear | ZXing-C++ WASM | Format identity is not relabeled as EAN-13 |
+| UPC-E | `upc_e` | linear | ZXing-C++ WASM | Original payload is preserved; expansion is optional metadata |
 
-Deferred formats include Micro QR, rMQR, Aztec, Micro PDF417, DotCode, MaxiCode, GS1 DataBar/Composite, postal codes, Codabar, Code 39, Code 93, ITF, and DPM-specific modes. Internal ZXing support does not make a format public.
+Core owns the format vocabulary and selection contract but does not register a decoder. Browser and Node compose jsQR, the lazy ZXing-C++ WASM engine, and ZXing-JS. A format with no registered supporting engine fails with `unsupported_format`.
 
-All decoding is local in Browser, Worker, and Node runtimes. No image upload, cloud decoder, mutable WASM download, or telemetry path is part of Alpha.5.
+```ts
+const router = createNodeCaptureRouter({
+  formats: ["qr_code", "data_matrix", "pdf417", "code_128"],
+});
+```
 
-## Generated development evidence
+Deferred formats—including Micro QR, rMQR, Aztec, Micro PDF417, DotCode, MaxiCode, GS1 DataBar/Composite, postal codes, Codabar, Code 39, Code 93, and ITF—are not part of the v2.0.0 public union. Upstream ZXing support does not make a format public.
 
-The dedicated corpus has 100 single-format positives, 12 mixed positives, and 34 format-specific negatives. The table below counts expected results, including mixed fixtures; it is development evidence from `npm run benchmark:symbologies`, not an immutable Alpha.5 baseline.
+Direct Part Mark Data Matrix uses the opt-in `dpm-experimental` recovery profile. It is not DPM or industrial certification. Difficult, occluded, low-contrast, or strongly distorted symbols can still fail.
 
-| Format | Single positives | Expected results | Exact results | Recall | False positives |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| QR Code | mixed only | 4 | 4 | 100.0% | 0 |
-| Data Matrix | 24 | 28 | 26 | 92.9% | 0 |
-| PDF417 | 20 | 23 | 21 | 91.3% | 0 |
-| Code 128 | 24 | 31 | 29 | 93.5% | 0 |
-| EAN-13 | 8 | 11 | 10 | 90.9% | 0 |
-| EAN-8 | 8 | 9 | 8 | 88.9% | 0 |
-| UPC-A | 8 | 9 | 8 | 88.9% | 0 |
-| UPC-E | 8 | 9 | 8 | 88.9% | 0 |
-
-Clean generated fixtures pass 15/15; difficult single-format fixtures pass 75/85; mixed fixtures pass 12/12. The maintained Alpha.5 negative corpus has zero accepted results.
-
-## Release gates
-
-`npm run benchmark:symbologies -- --gate --gate-mode=integration` evaluates the Alpha.5 regression and Beta 1 curated-photo gates and exits nonzero on any required deterministic correctness, provenance, safety, runtime, or package failure. Project-owned photo count is informational. Release/evidence work uses the strict default `--gate-mode=release` and additionally requires independent physical-camera/device evidence, canonical evidence, and immutable baselines.
-
-## Curated open-license camera photographs
-
-The Beta 1 photo gate requires at least 12 audited camera photographs with a minimum of three per major family: Data Matrix, PDF417, Code 128, and EAN/UPC. It also requires at least 80% overall semantic recall, at least two-thirds recall in every family, zero unexpected results, zero format/GS1 errors, and complete pinned provenance, redistribution rights, camera-photo, and sensitive-data review. The current 16-photo cohort is documented under [external-open-license](../fixtures/alpha5/external-open-license/README.md).
-
-With those curated assets present, Alpha.5 integration may report `ALPHA5_INTEGRATION_GO`. Release remains `ALPHA5_RELEASE_NO_GO` until the independent physical-camera/device evidence and the remaining release-only evidence are complete; final Evidence Freeze is deferred to Beta 1.
-
-The `externalOpenLicenseRealWorld` cohort currently records 16 originals, 21 visible physical instances, and 20/20 exact `(format, payload, isGs1)` semantic results. Project-owned photographs remain optional supplemental evidence at 0 and are never inferred from Internet assets. Physical-camera/device execution is an independent release gate and is still unavailable; therefore this evidence does not activate `v2-beta1-r1`.
+All decoding is local in Browser, Worker, Node, iOS, and Android runtimes. Historical format-development evidence is preserved in [SDK v2 development history](history/sdk-v2-development-history.md) and the release evidence directories.
 
 Curated open-license camera photographs satisfy the Beta 1 photo gate but do not constitute physical-camera/device evidence or project ownership.

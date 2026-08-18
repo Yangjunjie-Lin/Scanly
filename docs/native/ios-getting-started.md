@@ -1,8 +1,26 @@
-# iOS getting started
+# ScanlySDK v2.0.0 for iOS
 
-Add this repository's `native/ios` package in Xcode and select the `ScanlySDK`
-product. Beta 5 is a source package pinned to the shared ZXing-C++ revision; no
-CocoaPods release is published.
+ScanlySDK v2.0.0 is a Stable Swift Package Manager source package for iOS 13+. CocoaPods is not a v2.0.0 distribution channel.
+
+## Install from the immutable tag
+
+The package manifest lives at `native/ios/Package.swift`, not the repository root. Swift Package Manager cannot resolve this repository as a remote versioned dependency using the root Git URL. For v2.0.0, check out the immutable tag and add the subdirectory as a local package:
+
+```bash
+git clone --branch v2.0.0 --depth 1 https://github.com/Yangjunjie-Lin/Scanly.git
+```
+
+In Xcode choose **File → Add Package Dependencies → Add Local** and select `Scanly/native/ios`, then add the `ScanlySDK` product to the app target. A Package.swift-based host can use a local path:
+
+```swift
+dependencies: [
+    .package(path: "../Scanly/native/ios")
+]
+```
+
+The checked-out `v2.0.0` tag is the version pin. Standard remote root-URL resolution such as `.package(url: ..., from: "2.0.0")` requires a root package manifest and is tracked as a post-release packaging improvement; do not use it for the published layout.
+
+## Decode
 
 ```swift
 import ScanlySDK
@@ -14,16 +32,10 @@ let results = try decoder.decode(pixelBuffer, options: ScanlyOptions(
 ))
 ```
 
-`decode(_:)` accepts NV12 and BGRA `CVPixelBuffer` values. NV12 reads the Y
-plane directly. For camera scanning, create `ScanlyScannerSession`, subscribe to
-`onResults`, bind `ScanlyCameraAdapter` to an `AVCaptureDevice`, and call
-`start`, `pause`, `resume`, or `stop` with the host lifecycle.
+`decode(_:)` accepts NV12 and BGRA `CVPixelBuffer` values. NV12 reads the Y plane directly. For camera scanning, create `ScanlyScannerSession`, subscribe to `onResults`, bind `ScanlyCameraAdapter` to an `AVCaptureDevice`, and call `start`, `pause`, `resume`, or `stop` with the host lifecycle.
 
-The app must provide `NSCameraUsageDescription`. Observe background/foreground,
-interruption, and orientation events in the host and transition/rebind the
-adapter as appropriate. The SDK suppresses stale generations but does not own
-the application UI or permission prompt.
+The host must provide `NSCameraUsageDescription`. It owns permission UI, preview rendering, orientation policy, interruption handling, and background/foreground transitions. The SDK suppresses stale generations but does not own application UI.
 
-See `examples/ios` for continuous scan, multi-code, format filtering, and torch
-composition. Simulator/unit evidence is automated; physical iPhone validation
-remains `DEFERRED_TO_RC`.
+See [the iOS example](../../examples/ios/README.md) for continuous, multi-code, format-filtered, and torch composition.
+
+Automated Swift build, simulator, and unsigned-device compilation are not physical-device qualification. Physical iPhone validation remains `POST_RELEASE_VALIDATION_PENDING` under [Issue #13](https://github.com/Yangjunjie-Lin/Scanly/issues/13).

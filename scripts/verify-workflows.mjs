@@ -27,6 +27,7 @@ const deletedAlphaBranches = [
   "architecture/sdk-v2-alpha3-industrial-validation",
   "architecture/sdk-v2-alpha4-zxing-cpp-wasm",
   "architecture/sdk-v2-alpha5-multisymbology-foundation",
+  "architecture/sdk-v2-beta5-**",
 ];
 for (const file of primary) {
   const document = parsedWorkflows.get(file);
@@ -37,9 +38,11 @@ for (const file of primary) {
   }
   const pullBranches = triggers.pull_request?.branches ?? [];
   const pushBranches = triggers.push?.branches ?? [];
-  if (!pullBranches.includes("develop/sdk-v2")) throw new Error(`${file}: pull requests must target develop/sdk-v2.`);
-  if (!pushBranches.includes("develop/sdk-v2") || !pushBranches.includes("architecture/sdk-v2-beta5-**")) {
-    throw new Error(`${file}: push routing must include develop/sdk-v2 and architecture/sdk-v2-beta5-**.`);
+  if (!pullBranches.includes("main") || !pullBranches.includes("develop/sdk-v2")) {
+    throw new Error(`${file}: pull requests must target main and develop/sdk-v2.`);
+  }
+  if (!pushBranches.includes("main") || !pushBranches.includes("develop/sdk-v2")) {
+    throw new Error(`${file}: push routing must include main and develop/sdk-v2.`);
   }
   for (const deleted of deletedAlphaBranches) {
     if (pushBranches.includes(deleted)) throw new Error(`${file}: deleted Alpha branch remains a push target: ${deleted}.`);
@@ -61,7 +64,9 @@ if (gateInput?.default !== "integration" || !gateInput?.options?.includes("relea
 for (const file of ["rc-manifest-integrity.yml", "rc-evidence-assemble.yml", "rc-artifact-build.yml", "stable-release-gate.yml"]) {
   if (!parsedWorkflows.has(file)) throw new Error(`Missing release-integrity workflow '${file}'.`);
   const source = fs.readFileSync(path.join(workflowDirectory, file), "utf8");
-  if (!source.includes("rc:manifest:verify")) throw new Error(`${file}: missing detached Manifest verifier gate.`);
+  if (file === "stable-release-gate.yml") {
+    if (!source.includes("stable:manifest:verify")) throw new Error(`${file}: missing Stable Manifest verifier gate.`);
+  } else if (!source.includes("rc:manifest:verify")) throw new Error(`${file}: missing detached Manifest verifier gate.`);
   if (!source.includes("fetch-depth: 0")) throw new Error(`${file}: release integrity requires full Git history and tags.`);
 }
 
@@ -117,8 +122,19 @@ for (const [stepName, expectedEnvironment] of requiredTemporaryStepEnvironment) 
   }
 }
 const stableReleaseWorkflow = fs.readFileSync(path.join(workflowDirectory, "stable-release-gate.yml"), "utf8");
-if (!stableReleaseWorkflow.includes("--mode=stable") || !stableReleaseWorkflow.includes("device:evidence:verify") || stableReleaseWorkflow.includes("--require-exact-candidate-head")) {
-  throw new Error("stable-release-gate.yml: stable Manifest and Physical Evidence gates are incomplete.");
+if (!stableReleaseWorkflow.includes("stable:manifest:verify") || !stableReleaseWorkflow.includes("--require-go") || !stableReleaseWorkflow.includes("POST_RELEASE_VALIDATION") || stableReleaseWorkflow.includes("device:evidence:verify") || stableReleaseWorkflow.includes("--require-exact-candidate-head")) {
+  throw new Error("stable-release-gate.yml: Stable Manifest policy and post-release Physical status gates are incomplete.");
+}
+for (const marker of ["secrets.NPM_TOKEN", "npm whoami", "npm ping --registry=https://registry.npmjs.org/"]) {
+  if (!stableReleaseWorkflow.includes(marker)) throw new Error(`stable-release-gate.yml: missing publication credential preflight '${marker}'.`);
+}
+
+const stableNpmPublishWorkflow = fs.readFileSync(path.join(workflowDirectory, "stable-npm-publish.yml"), "utf8");
+for (const marker of ["release:", "types: [published]", "id-token: write", "secrets.NPM_TOKEN", "--provenance", "provenance: true", "libnpmpublish", "Legacy v2.0.0 recovery only", "npm_internal_modules", "error?.statusCode", "Waiting for Registry propagation", "git+https://github.com/Yangjunjie-Lin/Scanly.git", "verification.verified", "release/stable/artifact-manifest.json", "stable-npm-publication-plan.tsv", "manifest.version !== version", "packageJson.version !== version", "npm run package:metadata:verify", "stable:manifest:verify -- --require-go"]) {
+  if (!stableNpmPublishWorkflow.includes(marker)) throw new Error(`stable-npm-publish.yml: missing required production publication control '${marker}'.`);
+}
+for (const forbidden of ["test \"$RELEASE_TAG\" = \"v2.0.0\"", "group: stable-npm-v2.0.0", "@scanly/parsers|release/stable/artifacts/npm/"]) {
+  if (stableNpmPublishWorkflow.includes(forbidden)) throw new Error(`stable-npm-publish.yml: future-version workflow retains hard-coded publication control '${forbidden}'.`);
 }
 
 console.log(`Verified YAML syntax for ${workflowFiles.length} GitHub Actions workflows.`);

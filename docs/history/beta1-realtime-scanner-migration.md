@@ -1,4 +1,4 @@
-# Beta 1 real-time scanner migration
+# Historical Beta 1 real-time scanner migration
 
 Beta 1 development adds a continuous camera runtime while keeping the Alpha.5 static upload and Node APIs intact. Existing `BrowserCaptureSession` and `BrowserCameraSource` remain compatibility adapters. New camera integrations should compose:
 
@@ -19,7 +19,7 @@ const unsubscribe = session.onResult((event) => {
 
 `CameraCapabilityController` can be used for typed torch, zoom, focus, and auto-zoom state management. Unsupported torch/zoom, manual override, cooldown, maximum clamping, anti-oscillation, and source-switch refresh are deterministic state-logic contracts. Applications must still feature-detect the active track and must not interpret these tests as physical auto-zoom validation.
 
-The runtime is a Beta preview. `ScannerSessionStatistics` reports TTFD, TTFC, effective decode FPS, frame drops, Fast/Balanced/Robust distribution, repeat/stale counts, queue peaks, Worker activity, and controlled memory for development evidence.
+At this historical milestone, the runtime was a development build. `ScannerSessionStatistics` reports TTFD, TTFC, effective decode FPS, frame drops, Fast/Balanced/Robust distribution, repeat/stale counts, queue peaks, Worker activity, and controlled memory for development evidence.
 
 The 20-sequence harness uses scenario-specific drivers and independent Ground Truth; report schema `2.0-beta1` keeps expected events separate from decoder stimulus and records observed events, assertions, failure reasons, metrics, and timelines. Its 10,000-frame Scanner Core Soak uses a fake decoder to exercise successful temporal confirmation, repeat suppression, and ROI follow-ups while explicitly marking Worker evidence not applicable. Persistent browser Worker and ZXing-C++ WASM evidence comes only from the separate 1,000-frame pull-request soak or 10,000-frame extended soak. Apply the `scanner-extended-soak` pull-request label to exercise the latter against an exact PR head; GitHub registers its scheduled/manual entry after the workflow definition reaches the repository default branch.
 

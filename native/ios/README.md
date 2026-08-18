@@ -2,8 +2,9 @@
 
 See [iOS getting started](../../docs/native/ios-getting-started.md), [Native
 architecture](../../docs/native/architecture.md), and [memory
-ownership](../../docs/native/memory-model.md). RC2 is a CI candidate artifact
-only (`2.0.0-rc.2`); physical validation remains fail-closed and is not yet PASS.
+ownership](../../docs/native/memory-model.md). v2.0.0 is the Stable Swift
+Package Manager source artifact; physical validation remains
+`POST_RELEASE_VALIDATION_PENDING` and is not represented as PASS.
 
 Swift Package Manager foundation for iOS 13+. `ScanlyDecoder` owns a serialized
 Native Core context and accepts NV12 Y-plane or BGRA `CVPixelBuffer` storage
@@ -15,5 +16,5 @@ generation invalidation, stale-result discard, repeat suppression, and explicit
 start/pause/resume/stop/dispose lifecycle. `ScanlyCameraAdapter` uses
 `AVCaptureVideoDataOutput` and never creates `UIImage`, PNG, or JPEG intermediates.
 
-Physical iPhone validation is `DEFERRED_TO_RC`; Swift build/simulator/unit status
-must never be reported as physical-device evidence.
+Physical iPhone validation is `POST_RELEASE_VALIDATION_PENDING`; Swift
+build/simulator/unit status must never be reported as physical-device evidence.

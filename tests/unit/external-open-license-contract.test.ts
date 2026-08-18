@@ -526,7 +526,7 @@ describe("external open-license Alpha.5 cohort", () => {
 
   it("documents the photo, ownership, and physical-device boundary", () => {
     const sentence = "Curated open-license camera photographs satisfy the Beta 1 photo gate but do not constitute physical-camera/device evidence or project ownership.";
-    expect(read("README.md")).toContain(sentence);
+    expect(read("docs/history/sdk-v2-development-history.md")).toContain(sentence);
     expect(read("docs/symbologies.md")).toContain(sentence);
     expect(read("docs/benchmarking/methodology.md")).toContain(sentence);
     expect(read("fixtures/alpha5/external-open-license/README.md")).toContain(sentence);

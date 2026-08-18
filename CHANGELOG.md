@@ -2,6 +2,34 @@
 
 All notable changes follow semantic versioning.
 
+## Unreleased
+
+### Documentation
+
+- Converged README, SDK, Native, security, maintenance, migration, and package documentation on the published v2.0.0 Stable state.
+- Moved detailed Alpha/Beta/RC navigation to the development-history index while preserving historical evidence.
+
+### Maintenance
+
+- Normalized metadata for all ten publishable packages and documented the post-v2 branch and repository-governance policy.
+- Added Stable documentation and package-metadata consistency gates.
+
+### Release engineering
+
+- Generalized Stable npm publication around the signed tag and artifact manifest while retaining the isolated legacy v2.0.0 recovery path.
+- Added the immutable v2.0.0 post-publication record and verifier without rewriting the qualification manifest.
+
+## 2.0.0 — Stable software release
+
+- Promoted the frozen SDK v2 software, API/ABI, security, SBOM, licensing,
+  artifact, reproducibility, and manifest-integrity gates to Stable policy.
+- Published all ten SDK packages to npm `latest` with provenance, the Swift
+  Package Manager source package under the signed Git tag, the Android AAR on
+  the GitHub Release, and the production Web deployment.
+- Physical Web and Native device qualification remains explicitly
+  `POST_RELEASE_VALIDATION_PENDING` under Issue #13; automated coverage is not
+  physical-device certification.
+
 ## 2.0.0-rc.2 — Final validation candidate
 
 - Continued the feature freeze from the RC1 merge
@@ -14,7 +42,7 @@ All notable changes follow semantic versioning.
 - Physical Web and Native mobile validation remains deferred to the final RC
   campaign; this candidate is not a stable or production release.
 
-## Unreleased — SDK v2 Beta 5 development
+## SDK v2 Beta 5 development history
 
 - Entered `2.0.0-beta.5` development on `architecture/sdk-v2-beta5-native-mobile-foundation` from Beta 4 merge commit `5eb8dae92dd6ab137dc2777de82e7dab07389a6f` on `develop/sdk-v2`.
 - Began the shared Native Decode Core, Swift Package, Android AAR/JNI, cross-platform parity, memory/safety, and native artifact validation foundation.
@@ -23,7 +51,7 @@ All notable changes follow semantic versioning.
 - Added separate Native Core, iOS SDK, Android SDK, Native Fixture Parity, Native Memory, and Native Artifact Validation CI jobs plus Swift/Kotlin API snapshots and development-only P50/P95 benchmarks.
 - Physical Web iOS/Android and Native iOS/Android validation remain `DEFERRED_TO_RC`; this scheduling state is never represented as PASS.
 
-## Unreleased — SDK v2 Beta 4 development
+## SDK v2 Beta 4 development history
 
 - Entered `2.0.0-beta.4` development on `architecture/sdk-v2-beta4-device-platform-hardening` from Beta 3 merge commit `333c4a9a202c3871d10cb0455354390932e8ee5b` on `develop/sdk-v2`.
 - Added a dedicated `/device-lab` physical-camera harness, fixed Ground Truth targets, printable/screen target generation, privacy-aware draft export, and browser/camera diagnostics without promoting drafts to evidence.
@@ -34,7 +62,7 @@ All notable changes follow semantic versioning.
 - Physical iOS Safari, Android Chrome, real-camera lifecycle, physical tracking/batch, and long-running camera evidence have intentionally been deferred to the final RC validation campaign. This deferral does not change any evidence count into a PASS.
 - No tag, GitHub Release, npm publication, Stable/Latest claim, Native SDK work, or new symbology is authorized.
 
-## Unreleased — SDK v2 Beta 3 development
+## SDK v2 Beta 3 development history
 
 - Entered `2.0.0-beta.3` development on `architecture/sdk-v2-beta3-industrial-robustness-foundation` from the Beta 2 merge commit on `develop/sdk-v2`.
 - Began a diagnosis-driven, budgeted industrial recovery layer for difficult barcode inputs while preserving Alpha.5 symbology, Beta 1 real-time, and Beta 2 tracking/batch regression gates.

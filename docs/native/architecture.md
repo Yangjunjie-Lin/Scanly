@@ -1,6 +1,6 @@
 # Native mobile architecture
 
-Scanly SDK v2 Beta 5 adds one shared ZXing-C++ decode implementation behind a
+Scanly SDK v2.0.0 uses one shared ZXing-C++ decode implementation behind a
 stable C ABI. The web runtime continues to use the pinned ZXing-C++ WASM
 adapter; Swift and Kotlin do not select independent decoder libraries.
 
@@ -29,10 +29,10 @@ and typed failures. Complex C++ types never cross the ABI.
 
 ## Session strategy
 
-Beta 5 uses the platform-wrapper strategy for frame scheduling, lifecycle,
+v2.0.0 uses the platform-wrapper strategy for frame scheduling, lifecycle,
 latest-frame admission, repeat suppression, and stale-result discard. The
 portable C++ boundary remains decode-only. Cross-platform session behavior is
-constrained by deterministic contracts and will be converged further before RC;
+constrained by deterministic contracts and may be converged further in a future minor release;
 full Web tracking/batch parity is deliberately P2 and is not claimed here.
 
 ## Geometry contract
@@ -51,6 +51,6 @@ for their own privacy disclosures and camera permission strings.
 ## Validation boundary
 
 Compiler, unit, fixture, simulator, and emulator results are automated
-integration evidence. They are not physical device evidence. Physical Web and
-Native iOS/Android validation is `DEFERRED_TO_RC` and remains tracked by Issue
-#13.
+integration evidence. They are not physical-device evidence. Physical Web and
+Native iOS/Android validation is `POST_RELEASE_VALIDATION_PENDING` and remains
+tracked by Issue #13.

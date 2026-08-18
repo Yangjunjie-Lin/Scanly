@@ -50,18 +50,19 @@ describe("benchmark workflow contracts", () => {
     expect(workflow.match(/ref: \$\{\{ github\.event_name == 'pull_request' && github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/g)?.length).toBe(5);
   });
 
-  it("routes all primary SDK workflows to develop and Beta 5 without deleted Alpha branches", () => {
+  it("routes all primary SDK workflows to main and develop without deleted development branches", () => {
     const primary = ["ci.yml", "benchmark.yml", "browser-benchmark.yml", "public-api.yml", "tracking-benchmark.yml", "industrial-benchmark.yml", "device-evidence-validation.yml", "native-mobile.yml"];
     for (const file of primary) {
       const workflow = read(file);
       expect(workflow).toContain("workflow_dispatch:");
       expect(workflow).toContain("pull_request:");
+      expect(workflow).toContain("- main");
       expect(workflow).toContain("- develop/sdk-v2");
-      expect(workflow).toContain("- architecture/sdk-v2-beta5-**");
       for (const deleted of [
         "architecture/sdk-v2-alpha3-industrial-validation",
         "architecture/sdk-v2-alpha4-zxing-cpp-wasm",
         "architecture/sdk-v2-alpha5-multisymbology-foundation",
+        "architecture/sdk-v2-beta5-**",
       ]) expect(workflow).not.toContain(deleted);
     }
   });
@@ -71,10 +72,16 @@ describe("benchmark workflow contracts", () => {
     for (const file of ["ci.yml", "benchmark.yml", "browser-benchmark.yml", "public-api.yml", "tracking-benchmark.yml", "industrial-benchmark.yml", "device-evidence-validation.yml", "native-mobile.yml"]) {
       const workflow = read(file);
       const checkoutCount = workflow.match(/uses: actions\/checkout@v4/g)?.length ?? 0;
-      const exactHeadCount = workflow.split(exactHeadRef).length - 1;
+      const expectedRef = file === "native-mobile.yml"
+        ? "ref: ${{ github.event_name == 'workflow_dispatch' && inputs.source_commit || github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}"
+        : exactHeadRef;
+      const exactHeadCount = workflow.split(expectedRef).length - 1;
       expect(checkoutCount).toBeGreaterThan(0);
       expect(exactHeadCount).toBe(checkoutCount);
     }
+    const nativeWorkflow = read("native-mobile.yml");
+    expect(nativeWorkflow).toContain("source_commit:");
+    expect(nativeWorkflow).toContain("Exact source commit to build");
   });
 
   it("keeps ordinary development in integration mode and manual release explicit", () => {
@@ -268,7 +275,7 @@ describe("benchmark workflow contracts", () => {
     expect(workflow).toContain("camera-platform.test.ts");
     expect(workflow).toContain("fetch-depth: 0");
     expect(workflow).not.toContain("physical-mobile: passed");
-    expect(fs.readFileSync(path.join(process.cwd(), "device-evidence", "status.json"), "utf8")).toContain("PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC");
+    expect(fs.readFileSync(path.join(process.cwd(), "device-evidence", "status.json"), "utf8")).toContain("POST_RELEASE_VALIDATION_PENDING");
     const network = fs.readFileSync(path.join(process.cwd(), "tests", "browser-benchmark", "device-lab-network.spec.ts"), "utf8");
     expect(network).toContain("context.setOffline(true)");
     expect(network).toContain("same-origin resources");

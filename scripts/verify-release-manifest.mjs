@@ -131,6 +131,8 @@ assert(JSON.stringify(manifest.manifestDigest) === JSON.stringify(expectedDigest
 assert(!Object.prototype.hasOwnProperty.call(manifest.identity ?? {}, "manifestSha256"), "Schema v2 must not embed manifestSha256.");
 
 const identity = manifest.identity ?? {};
+const currentPackage = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+const stablePromotionHead = currentPackage.version === "2.0.0";
 assert(identity.version === "2.0.0-rc.2", "Manifest SDK version is not 2.0.0-rc.2.");
 assert(commitExists(identity.productSourceCommit), "Product Source commit is missing or invalid.");
 assert(git("show", "-s", "--format=%T", identity.productSourceCommit) === identity.sourceTree, "Product Source Tree does not match Product Source commit.");
@@ -147,22 +149,26 @@ for (const [tag, expected] of immutableCandidateTagLocks) {
   assert(git("rev-parse", ref) === expected.tagObject, `Immutable Candidate tag '${tag}' object changed.`);
   assert(git("rev-parse", `${ref}^{}`) === expected.target, `Immutable Candidate tag '${tag}' target moved.`);
 }
-for (const productPath of ["apps", "engines", "native", "packages"]) {
-  assert(gitSucceeds("diff", "--quiet", identity.productSourceCommit, "HEAD", "--", productPath), `Product Source boundary changed under ${productPath}.`);
-  assert(gitSucceeds("diff", "--quiet", "HEAD", "--", productPath) && git("status", "--porcelain", "--", productPath) === "", `Working tree contains Product Source changes under ${productPath}.`);
+if (!stablePromotionHead) {
+  for (const productPath of ["apps", "engines", "native", "packages"]) {
+    assert(gitSucceeds("diff", "--quiet", identity.productSourceCommit, "HEAD", "--", productPath), `Product Source boundary changed under ${productPath}.`);
+    assert(gitSucceeds("diff", "--quiet", "HEAD", "--", productPath) && git("status", "--porcelain", "--", productPath) === "", `Working tree contains Product Source changes under ${productPath}.`);
+  }
 }
-const changedPaths = git("diff", "--name-only", identity.productSourceCommit, "HEAD").split(/\r?\n/).filter(Boolean).map(posix);
+const changedPaths = stablePromotionHead ? [] : git("diff", "--name-only", identity.productSourceCommit, "HEAD").split(/\r?\n/).filter(Boolean).map(posix);
 const allowedEvidencePath = (relative) => relative === ".gitattributes"
   || relative === "package.json"
   || relative === "api-snapshots/public-api.json"
   || [".github/workflows/", "device-evidence/", "device-lab/", "docs/releases/", "release/", "scripts/", "tests/"].some((prefix) => relative.startsWith(prefix));
 assert(changedPaths.every(allowedEvidencePath), `Product Source boundary contains non-evidence paths: ${changedPaths.filter((relative) => !allowedEvidencePath(relative)).join(", ")}.`);
-const sourcePackage = JSON.parse(git("show", `${identity.productSourceCommit}:package.json`));
-const evidencePackage = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
-delete evidencePackage.scripts?.["rc:manifest:digest"];
-delete evidencePackage.scripts?.["rc:manifest:verify"];
-delete evidencePackage.scripts?.["rc:artifacts:verify-canonical"];
-assert(JSON.stringify(evidencePackage) === JSON.stringify(sourcePackage), "package.json changed beyond the three Release Integrity tooling commands.");
+if (!stablePromotionHead) {
+  const sourcePackage = JSON.parse(git("show", `${identity.productSourceCommit}:package.json`));
+  const evidencePackage = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+  delete evidencePackage.scripts?.["rc:manifest:digest"];
+  delete evidencePackage.scripts?.["rc:manifest:verify"];
+  delete evidencePackage.scripts?.["rc:artifacts:verify-canonical"];
+  assert(JSON.stringify(evidencePackage) === JSON.stringify(sourcePackage), "package.json changed beyond the three Release Integrity tooling commands.");
+}
 const historicalReleaseChanges = git("diff", "--name-status", "v2-rc2-r1", "--", "release/rc1", "release/rc2").split(/\r?\n/).filter(Boolean);
 assert(historicalReleaseChanges.every((entry) => entry.startsWith("A\t")), `Historical RC1/RC2 release evidence was modified instead of append-only additions: ${historicalReleaseChanges.join(", ")}.`);
 

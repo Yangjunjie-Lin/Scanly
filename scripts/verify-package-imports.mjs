@@ -16,7 +16,7 @@ const expectedExports = [
   ["@scanly/engine-zxing-cpp-wasm", "createZxingCppWasmEngine"],
 ];
 
-const alpha5Formats = [
+const publicFormats = [
   "qr_code",
   "data_matrix",
   "pdf417",
@@ -35,10 +35,10 @@ for (const [specifier, expectedExport] of expectedExports) {
 }
 
 const core = await import("@scanly/core");
-if (core.SDK_VERSION !== "2.0.0-rc.2") {
-  throw new Error(`Installed @scanly/core version is ${core.SDK_VERSION}, expected 2.0.0-rc.2.`);
+if (core.SDK_VERSION !== "2.0.0") {
+  throw new Error(`Installed @scanly/core version is ${core.SDK_VERSION}, expected 2.0.0.`);
 }
-for (const format of alpha5Formats) {
+for (const format of publicFormats) {
   if (!core.PUBLIC_BARCODE_FORMATS.includes(format)) {
     throw new Error(`PUBLIC_BARCODE_FORMATS is missing ${format}.`);
   }
@@ -61,4 +61,4 @@ const engine = wasm.createZxingCppWasmEngine();
 await engine.initialize();
 await engine.dispose();
 
-console.log(`Native ESM import smoke passed for ${expectedExports.length} public entry points and the preserved Alpha.5 format surface on Beta 1.`);
+console.log(`Native ESM import smoke passed for ${expectedExports.length} public entry points and the v2.0.0 eight-format surface.`);

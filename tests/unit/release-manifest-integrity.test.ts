@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 const root = process.cwd();
 const verifier = path.join(root, "scripts", "verify-release-manifest.mjs");
+const stableVerifier = path.join(root, "scripts", "verify-stable-manifest.mjs");
 const manifest = path.join(root, "release", "rc2", "rc2-candidate-manifest.v2.json");
 const sidecar = `${manifest}.sha256`;
 const expectedCandidateTag = JSON.parse(fs.readFileSync(manifest, "utf8")).identity.candidateTag as string;
@@ -166,14 +167,36 @@ describe("RC2 detached Release Manifest integrity", () => {
     expect(result.stderr).toContain("Duplicate required artifact id");
   });
 
-  it("keeps Stable qualification fail-closed while Physical and Signing remain NO-GO", () => {
-    const result = spawnSync(process.execPath, [verifier, "--mode=stable"], { cwd: root, encoding: "utf8" });
-    expect(result.status).not.toBe(0);
-    expect(
-      result.stderr.includes(`Required candidate tag '${expectedCandidateTag}' is not present`) ||
-      result.stderr.includes("Stable release gate requires every Physical Matrix row to PASS"),
-    ).toBe(true);
+  it("allows Physical pending when all software and publication gates are GO", () => {
+    const policy = execFileSync(process.execPath, [stableVerifier], { cwd: root, encoding: "utf8" });
+    expect(policy).toContain("physical=POST_RELEASE_VALIDATION_REQUIRED");
+    expect(policy).toContain("stable=V2_STABLE_RELEASE_GO");
+
+    const result = spawnSync(process.execPath, [stableVerifier, "--require-go"], { cwd: root, encoding: "utf8" });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("stable=V2_STABLE_RELEASE_GO");
   });
+
+  it("keeps incomplete software or publication gates fail-closed", () => {
+    const repository = clonedRepository();
+    const repositoryStableVerifier = path.join(repository, "scripts", "verify-stable-manifest.mjs");
+    const repositoryStableManifest = path.join(repository, "release", "stable", "v2.0.0-manifest.json");
+    const repositoryStableSidecar = `${repositoryStableManifest}.sha256`;
+    const value = JSON.parse(fs.readFileSync(repositoryStableManifest, "utf8"));
+    value.publication = "NO_GO";
+    value.stable = "V2_STABLE_RELEASE_NO_GO";
+    fs.writeFileSync(repositoryStableManifest, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+    const digest = crypto.createHash("sha256").update(fs.readFileSync(repositoryStableManifest)).digest("hex");
+    fs.writeFileSync(repositoryStableSidecar, `${digest}  v2.0.0-manifest.json\n`, "utf8");
+
+    const policy = execFileSync(process.execPath, [repositoryStableVerifier], { cwd: repository, encoding: "utf8" });
+    expect(policy).toContain("physical=POST_RELEASE_VALIDATION_REQUIRED");
+    expect(policy).toContain("stable=V2_STABLE_RELEASE_NO_GO");
+
+    const result = spawnSync(process.execPath, [repositoryStableVerifier, "--require-go"], { cwd: repository, encoding: "utf8" });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("Stable promotion blocked: publication=NO_GO");
+  }, 90_000);
 
   it("wires the verifier into RC assembly, artifact build, and the future Stable gate", () => {
     const read = (file: string) => fs.readFileSync(path.join(root, ".github", "workflows", file), "utf8");
@@ -182,7 +205,7 @@ describe("RC2 detached Release Manifest integrity", () => {
     const artifacts = read("rc-artifact-build.yml");
     const stable = read("stable-release-gate.yml");
 
-    for (const workflow of [integrity, evidence, artifacts, stable]) expect(workflow).toContain("rc:manifest:verify");
+    for (const workflow of [integrity, evidence, artifacts]) expect(workflow).toContain("rc:manifest:verify");
     expect(integrity).toContain("--require-candidate-tag");
     expect(integrity).toContain("--require-exact-candidate-head");
     expect(integrity).toContain("branches: [develop/sdk-v2, release/sdk-v2-rc2-final-validation]");
@@ -195,8 +218,10 @@ describe("RC2 detached Release Manifest integrity", () => {
     expect(artifacts).toContain("rc:artifacts:verify-canonical");
     expect(artifacts).toContain("--require-exact-candidate-head");
     expect(artifacts).toContain("branches: [develop/sdk-v2, release/sdk-v2-rc2-final-validation]");
-    expect(stable).toContain("--mode=stable");
+    expect(stable).toContain("stable:manifest:verify");
+    expect(stable).toContain("--require-go");
+    expect(stable).toContain("POST_RELEASE_VALIDATION_PENDING");
     expect(stable).not.toContain("--require-exact-candidate-head");
-    expect(stable).toContain("device:evidence:verify");
+    expect(stable).not.toContain("device:evidence:verify");
   });
 });

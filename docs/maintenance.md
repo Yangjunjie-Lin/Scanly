@@ -1,64 +1,76 @@
 # Maintenance policy
 
-Scanly v1 remains a feature-complete browser scanner baseline. SDK v2 is an alpha foundation: future work should prioritize stable contracts, lifecycle safety, external datasets, physical-device evidence, security, optional engines, and verified format expansion rather than unrelated product features.
+Scanly v2.0.0 is the current Stable SDK line. Maintenance prioritizes security, correctness, compatibility, performance, physical qualification, bug fixes, patch releases, and carefully scoped minor releases. New work must preserve the local-only privacy boundary and the public eight-format contract.
 
 ## Supported toolchain
 
-- Node.js: 20 through 24 (`>=20 <25`); CI uses 20 and the final local audit uses 24
-- npm: 10 or newer
-- Reproducible install: `npm ci` with the committed `package-lock.json`
+- Node.js 20 through 24 (`>=20.16 <25`)
+- npm 10 or newer
+- Reproducible install with `npm ci` and the committed lockfile
+- iOS 13+, Swift tools 5.9, and the package's pinned ZXing-C++ revision
+- Android API 24+, Java 17, `arm64-v8a` and `x86_64`
+
+## Branch strategy
+
+- `main` is the latest released Stable line.
+- `develop/sdk-v2` is the next patch/minor integration line.
+- Feature and fix branches start from `develop/sdk-v2` and return through pull requests.
+- Temporary release branches qualify a release and are not long-term development bases.
+- Immutable tags and evidence preserve released history; never move or rebuild a published tag.
+
+For a normal v2.0.1 bug fix:
+
+```text
+develop/sdk-v2 -> fix branch -> PR to develop/sdk-v2
+-> release branch when qualification requires it -> PR to main
+-> signed v2.0.1 tag -> GitHub Release -> npm / Native publication
+-> synchronize main back into develop/sdk-v2
+```
+
+For an urgent hotfix:
+
+```text
+main -> hotfix branch -> PR to main -> signed patch release
+-> back-merge or fast-forward the released main line into develop/sdk-v2
+```
 
 ## Dependency policy
 
-Dependabot opens small monthly npm and GitHub Actions groups. Merge security patches promptly after `npm run check` and cross-browser smoke tests. Prefer patched versions within the current framework major; major upgrades require an explicit compatibility task, full E2E, full benchmark, and production Worker verification. Never use `npm audit fix --force` to hide a conflict.
+Dependabot opens small npm and GitHub Actions groups. Merge security patches promptly after relevant checks. Prefer patched versions within the current framework major; major upgrades require an explicit compatibility task, browser/build verification, and package/API checks. Never use `npm audit fix --force` to hide a conflict.
 
-## Fixture rules
+## Fixture and benchmark rules
 
-- Do not delete, weaken, relabel, or change expected payloads to improve the score.
-- Keep hard failures such as `14-damaged` in the denominator.
-- Generated fixtures must be reproducible from the fixed seed and generator script.
-- Project photos must be owned/licensed for repository distribution.
-- Public issues must not include QR images containing credentials or personal data.
-- New multiple fixtures must declare every required payload and expected result count.
+- Do not delete, weaken, relabel, or change expected payloads to improve a score.
+- Keep hard failures in the denominator.
+- Generated fixtures must be reproducible from a fixed seed.
+- Public issues must not include credentials or personal data in barcode images.
+- Run `benchmark:smoke` for changes that cannot affect decoding; run the full relevant profile for decoder, fixture, loader, or benchmark-contract changes.
+- Canonical evidence is regenerated only as an intentional, reviewed release-evidence operation.
 
-Regenerate deterministic inputs with `npm run fixtures:generate`. Ordinary `npm run benchmark` writes ignored development evidence. From a clean committed revision, `npm run benchmark:canonical-candidate -- --profile=<profile>` creates one candidate report and `npm run benchmark:symbologies -- --canonical-candidate --gate` creates the required Symbologies report; assemble all profiles plus Comparison and Symbologies with `benchmark:assemble-canonical`, install approved aliases/docs with `benchmark:update-canonical`, freeze immutable profile baselines with `benchmark:freeze`, and activate the complete three-profile set with `benchmark:activate`.
+## Stable release checklist
 
-## Which benchmark to run
+1. Confirm a clean intended diff, package versions, release metadata, and changelog.
+2. Run version, workflow, docs, package metadata, API/ABI, Native, security, and relevant correctness gates.
+3. Build and inspect publishable tarballs and Native artifacts from the qualified source.
+4. Record artifact hashes, SBOM, licenses, provenance, and reproducibility evidence.
+5. Merge through a protected pull request to `main`.
+6. Create a signed SemVer tag without moving earlier tags.
+7. Create a non-draft, non-prerelease GitHub Release and publish the required channels.
+8. Verify npm dist-tags/provenance, Native assets, production deployment, and the post-publication record.
+9. Synchronize `main` into `develop/sdk-v2` so future work contains the released line.
 
-Run `npm run benchmark:smoke` for UI-only, documentation, safe dependency patch, and Worker-client changes that do not alter decoding logic. Run all development profiles for any change to the loader, pixel representation, region/candidate logic, preprocessing, decoder adapters/order, result normalization, fixture manifest/generator, or benchmark contract; reserve canonical mode for intentional release-evidence regeneration.
+## Physical qualification
 
-## Release checklist
+Automated browser, simulator, and emulator coverage is not physical-device qualification. v2.0.0 physical validation remains `POST_RELEASE_VALIDATION_PENDING` under Issue #13.
 
-1. Confirm a clean intended diff and update `CHANGELOG.md`.
-2. Run `npm ci`, `npm run fixtures:generate`, and `npm run scenarios:generate`.
-3. Run `npm run check` and all three Playwright project commands.
-4. Run smoke/full benchmark gates and the identical-input comparison harness.
-5. Run `npm audit` and `npm audit --omit=dev`; resolve high/critical production findings.
-6. Confirm canonical benchmark/README synchronization and retain known failures.
-7. Verify the Vercel production deployment, Worker chunk, console/network, representative fixtures, cancel/recovery, camera denial, and mobile viewport.
-8. Create a SemVer tag and GitHub release only from a committed, green revision.
+When that program completes, do not modify v2.0.0 binaries or the qualification/publication records. Add `release/stable/v2.0.0-physical-qualification-record.json` containing the released artifact hashes, real device matrix, 30/60-minute soak evidence, and false-positive gate. The release evidence chain is Qualification → Publication → Physical Qualification.
 
-## Security updates
+## Required repository settings
 
-Treat high/critical production advisories as priority maintenance. Determine whether Scanly uses the affected surface, update to the smallest supported patched release, run the full production build and browser Worker tests, then deploy and document the resolution. Follow `SECURITY.md` for private reports.
-
-## Vercel checks
-
-Keep a single production project and stable alias. Never commit `.vercel/` or tokens. After framework, headers, Worker, or build changes, verify that the production Worker JavaScript returns successfully, no CSP/Permissions-Policy rule blocks it, no localhost request appears, and the latest GitHub main deployment owns the production alias.
+Protection and merge settings are documented in [GitHub repository settings](maintenance/github-repository-settings.md). Required checks must use current workflow check names and must not force nightly/manual-only long benchmarks onto every ordinary pull request.
 
 ## Maintenance scope
 
-Accepted future work:
+Accepted work includes security vulnerabilities, correctness defects, browser/platform API changes, package/runtime compatibility, physical qualification, performance regressions, and reproducible barcode-decoding improvements.
 
-- security vulnerabilities;
-- unsupported dependencies or Next.js/Vercel compatibility;
-
-- browser API changes;
-- reproducible, tested QR decoding improvements;
-- real user-reported bugs.
-
-Out of scope: accounts, cloud uploads, history, databases, analytics, ads, social features, unrelated utilities, AI/ML branding, and feature work intended only to create contribution activity.
-
-## Required merge checks
-
-Branch protection should require the stable check names `CI`, `Full Benchmark / Fast`, `Full Benchmark / Balanced`, `Full Benchmark / Robust`, `Full Benchmark / Comparison`, `Full Benchmark / Assemble`, `Browser Benchmark / Chromium`, `Browser Benchmark / Firefox`, `Browser Benchmark / WebKit`, `Public API`, and `Vercel`. A skipped, missing, or stale check is not a pass. Full Benchmark uses independent clean checkouts and assembles only source-compatible machine-readable reports; browser pull requests use the smoke suite while manual/scheduled runs may select the full suite.
+Out of scope are accounts, cloud image uploads, server-side history, analytics, ads, social features, unrelated utilities, and certification claims without independent evidence.
