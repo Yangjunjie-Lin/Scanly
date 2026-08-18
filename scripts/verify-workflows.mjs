@@ -127,7 +127,7 @@ for (const marker of ["secrets.NPM_TOKEN", "npm whoami", "npm ping --registry=ht
 }
 
 const stableNpmPublishWorkflow = fs.readFileSync(path.join(workflowDirectory, "stable-npm-publish.yml"), "utf8");
-for (const marker of ["release:", "types: [published]", "id-token: write", "secrets.NPM_TOKEN", "--provenance", "v2.0.0", "verification.verified", "stable:manifest:verify -- --require-go"]) {
+for (const marker of ["release:", "types: [published]", "id-token: write", "secrets.NPM_TOKEN", "provenance: true", "libnpmpublish", "git+https://github.com/Yangjunjie-Lin/Scanly.git", "v2.0.0", "verification.verified", "stable:manifest:verify -- --require-go"]) {
   if (!stableNpmPublishWorkflow.includes(marker)) throw new Error(`stable-npm-publish.yml: missing required production publication control '${marker}'.`);
 }
 const orderedPackages = ["@scanly/parsers", "@scanly/scenario-schema", "@scanly/core", "@scanly/engine-jsqr", "@scanly/browser", "@scanly/node", "@scanly/react"];
