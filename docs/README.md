@@ -37,9 +37,13 @@
 ## Migration, benchmarking, and release integrity
 
 - [Migrate from v1 to v2.0.0](migration/v1-to-v2.md)
+- [Post-release Physical Device Validation](physical-device-validation.md)
 - [Benchmark methodology](benchmarking/methodology.md)
 - [Benchmark provenance](benchmarking/provenance.md)
 - [v2.0.0 release notes](releases/v2.0.0.md)
 - [Stable qualification manifest](../release/stable/v2.0.0-manifest.json)
 - [Stable publication record](../release/stable/v2.0.0-publication-record.json)
 - [SDK v2 development history](history/sdk-v2-development-history.md)
+
+Current physical validation status is tracked by
+[Issue #13](https://github.com/Yangjunjie-Lin/Scanly/issues/13).

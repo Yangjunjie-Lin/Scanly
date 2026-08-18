@@ -46,5 +46,11 @@ with admissible exact-source cohort counts derived by the verifier and run
 `npm run benchmark:device`. A rejected record stays out of this directory; its
 failure must not be converted into PASS or hidden by deleting scenario results.
 
-There is no reviewed physical-device result in this directory while status is
-`PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC` and its physical counts are zero.
+There is currently no reviewed physical-device result in this directory.
+
+Current status:
+
+`POST_RELEASE_VALIDATION_PENDING`
+
+Physical counts remain zero until admissible real-hardware evidence is
+reviewed.

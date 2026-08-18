@@ -1,10 +1,18 @@
 # Device evidence
 
-This directory stores privacy-reviewed metadata from manual camera runs. The
-current repository state remains `DEVICE_MATRIX_PARTIAL` /
-`PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC` until admissible physical evidence
-is actually committed during the final RC campaign. CI validates claims; it
-does not create physical evidence or convert deferral into PASS.
+This directory stores privacy-reviewed metadata from manual camera runs.
+
+The current released v2.0.0 repository state is:
+
+`DEVICE_MATRIX_PARTIAL` / `POST_RELEASE_VALIDATION_PENDING`
+
+Physical evidence has not yet been admitted.
+
+v2.0.0 has already been released.
+
+The remaining physical work is a post-release qualification campaign against
+released artifacts and the production deployment. CI validates claims; it does
+not create physical evidence or convert a pending state into PASS.
 
 ## Truth boundary
 
@@ -76,7 +84,17 @@ advanced. The verifier rejects, among other things, incomplete device metadata,
 missing or duplicate scenarios, simulated/emulated/synthetic physical claims,
 false confirmations, short qualifying soaks, and source commit/tree mismatch.
 
-## Beta 4 Foundation minimum
+## Foundation minimum and current qualification target
+
+The physical evidence contract originated in Beta4. The same protocol is
+reused for post-release v2.0.0 qualification.
+
+Current evidence target:
+
+- v2.0.0 released artifacts; and
+- production deployment.
+
+The current target is not a Beta4 development checkout.
 
 The minimum Foundation gate requires all of the following admitted evidence:
 
@@ -94,6 +112,6 @@ Only then may the status advance to
 `PHYSICAL_DEVICE_VALIDATION_STARTED_AND_MINIMUM_GATE_PASSED`. That status does
 not mean the full Device Matrix is complete. Until the remaining Issue #13
 device classes are covered, the matrix remains partial and the issue remains
-open. With no qualifying hardware evidence under the current project schedule,
-the honest result is `PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC` /
-`FULL_DEVICE_MATRIX_PENDING` / `BETA4_RELEASE_NO_GO`.
+open. With no qualifying hardware evidence admitted for the released artifacts,
+the honest result is `POST_RELEASE_VALIDATION_PENDING` /
+`FULL_DEVICE_MATRIX_PENDING`.
