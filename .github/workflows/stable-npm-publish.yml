@@ -117,28 +117,42 @@ jobs:
               type: "git",
               url: "git+https://github.com/Yangjunjie-Lin/Scanly.git",
             };
-            await publish(manifest, tarballData, {
-              access: "public",
-              defaultTag: "latest",
-              provenance: true,
-              registry: "https://registry.npmjs.org/",
-              forceAuth: { token },
-            });
-            console.log(`Published ${manifest.name}@${manifest.version} with immutable tarball bytes and npm provenance.`);
+            try {
+              await publish(manifest, tarballData, {
+                access: "public",
+                defaultTag: "latest",
+                provenance: true,
+                registry: "https://registry.npmjs.org/",
+                forceAuth: { token },
+              });
+              console.log(`Published ${manifest.name}@${manifest.version} with immutable tarball bytes and npm provenance.`);
+            } catch (error) {
+              if (error?.statusCode === 409 || error?.code === "E409") {
+                console.log(`${manifest.name}@${manifest.version} was already accepted; waiting for Registry propagation.`);
+              } else {
+                throw error;
+              }
+            }
               })().catch((error) => {
                 console.error(error);
                 process.exitCode = 1;
               });
           NODE
             fi
-            verified=""
-            for attempt in {1..12}; do
-              verified="$(npm view "${package}@2.0.0" version --json 2>/dev/null | tr -d '"' || true)"
-              if [ "$verified" = "2.0.0" ]; then
-                break
-              fi
-              echo "Waiting for Registry propagation: ${package}@2.0.0 (${attempt}/12)"
-              sleep 10
-            done
-            test "$verified" = "2.0.0"
           done
+          for attempt in {1..60}; do
+            pending=0
+            for release in "${releases[@]}"; do
+              package="${release%%|*}"
+              verified="$(npm view "${package}@2.0.0" version --json 2>/dev/null | tr -d '"' || true)"
+              if [ "$verified" != "2.0.0" ]; then
+                echo "Waiting for Registry propagation: ${package}@2.0.0 (${attempt}/60)"
+                pending=$((pending + 1))
+              fi
+            done
+            if [ "$pending" -eq 0 ]; then
+              break
+            fi
+            sleep 10
+          done
+          test "$pending" -eq 0
