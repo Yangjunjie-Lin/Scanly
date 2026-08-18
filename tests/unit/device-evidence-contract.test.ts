@@ -20,11 +20,11 @@ const fullMatrixGaps = [
   "Issue #13 full matrix: desktop real webcam session",
 ];
 const foundationGaps = [
-  "Beta 4 Foundation: iOS Safari physical-mobile session",
-  "Beta 4 Foundation: Android Chrome physical-mobile session",
-  "Beta 4 Foundation: 30-minute physical-mobile camera soak",
-  "Beta 4 Foundation: complete physical permission lifecycle audit",
-  "Beta 4 Foundation: verified rear-front-rear camera switch",
+  "Post-release validation: iOS Safari physical-mobile session",
+  "Post-release validation: Android Chrome physical-mobile session",
+  "Post-release validation: 30-minute physical-mobile camera soak",
+  "Post-release validation: complete physical permission lifecycle audit",
+  "Post-release validation: verified rear-front-rear camera switch",
 ];
 
 interface EvidenceSnapshot {
@@ -49,7 +49,7 @@ function emptyStatus(): Json {
     ...read("device-evidence/status.json"),
     matrixStatus: "DEVICE_MATRIX_PARTIAL",
     fullDeviceMatrixStatus: "FULL_DEVICE_MATRIX_PENDING",
-    physicalValidationStatus: "PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC",
+    physicalValidationStatus: "POST_RELEASE_VALIDATION_PENDING",
     physicalMobileSessionCount: 0,
     remotePhysicalDeviceSessionCount: 0,
     desktopCameraSessionCount: 0,
@@ -91,7 +91,7 @@ function statusForPhysicalFixture(): Json {
     ...read("device-evidence/status.json"),
     matrixStatus: "DEVICE_MATRIX_PARTIAL",
     fullDeviceMatrixStatus: "FULL_DEVICE_MATRIX_PENDING",
-    physicalValidationStatus: "PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC",
+    physicalValidationStatus: "POST_RELEASE_VALIDATION_PENDING",
     physicalMobileSessionCount: 1,
     remotePhysicalDeviceSessionCount: 0,
     desktopCameraSessionCount: 0,
@@ -698,8 +698,8 @@ describe.sequential("Beta 4 device evidence contracts", () => {
     const android = validPhysicalFixture(); android.evidenceId = "beta4-contract-android-pending"; android.longRun = qualifyingSoak();
     const ios = clone(android); ios.evidenceId = "beta4-contract-ios-pending"; ios.device = { declaredModel: "iPhone declared by tester", manufacturer: "Apple", operatingSystem: "iOS", operatingSystemVersion: "19.0" }; ios.browser = { name: "Safari", version: "19.0", userAgent: "fixture-ios" }; ios.longRun = { qualifyingPhysicalSoak: false, durationMs: 0 };
     for (const evidence of [android, ios]) evidence.permissionLifecycle = { status: "not-tested", initialPrompt: "not-tested", grant: "not-tested", deny: "not-tested", retry: "not-tested", revoke: "unavailable", typedError: "unavailable", noUnhandledRejection: "unavailable", recoverableState: "unavailable", unhandledRejectionCount: 0, steps: [] };
-    const status = { ...statusForFoundationFixtures(), physicalValidationStatus: "PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC", requiredGaps: [foundationGaps[3], ...fullMatrixGaps] };
-    withTemporaryEvidenceSet([android, ios], status, () => expect(runVerifier()).toContain("PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC"));
+    const status = { ...statusForFoundationFixtures(), physicalValidationStatus: "POST_RELEASE_VALIDATION_PENDING", requiredGaps: [foundationGaps[3], ...fullMatrixGaps] };
+    withTemporaryEvidenceSet([android, ios], status, () => expect(runVerifier()).toContain("POST_RELEASE_VALIDATION_PENDING"));
   }, 30_000);
 
   it("rejects an otherwise physical record when repository status omits derived counts", () => {
@@ -785,7 +785,7 @@ describe.sequential("Beta 4 device evidence contracts", () => {
   it("verifies the current honest empty matrix and deterministic target bytes", () => {
     expect(() => runVerifier()).not.toThrow();
     expect(() => execFileSync(process.execPath, ["--import", "tsx", "scripts/generate-device-test-targets.ts", "--verify"], { cwd: root, stdio: "pipe" })).not.toThrow();
-    expect(read("device-evidence/status.json")).toMatchObject({ matrixStatus: "DEVICE_MATRIX_PARTIAL", physicalValidationStatus: "PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC", physicalMobileSessionCount: 0 });
+    expect(read("device-evidence/status.json")).toMatchObject({ matrixStatus: "DEVICE_MATRIX_PARTIAL", physicalValidationStatus: "POST_RELEASE_VALIDATION_PENDING", physicalMobileSessionCount: 0 });
   }, 30_000);
 
   it("keeps Device Lab free of network decode and analytics code paths", () => {

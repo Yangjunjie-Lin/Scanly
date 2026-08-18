@@ -199,7 +199,7 @@ const report = {
   fullDeviceMatrixStatus: "FULL_DEVICE_MATRIX_PENDING",
   physicalValidationStatus: minimumGatePassed
     ? "PHYSICAL_DEVICE_VALIDATION_STARTED_AND_MINIMUM_GATE_PASSED"
-    : "PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC",
+    : "POST_RELEASE_VALIDATION_PENDING",
   counts: {
     sessions: currentExactSourceSessions.length,
     browsers: new Set(currentExactSourceSessions.map((entry) => `${entry.browser.name} ${entry.browser.version}`)).size,

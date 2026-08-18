@@ -45,16 +45,16 @@ const counts = {
 
 if (mode === "integration") {
   requireValue(
-    status.physicalValidationStatus === "PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC"
+    status.physicalValidationStatus === "POST_RELEASE_VALIDATION_PENDING"
       || status.physicalValidationStatus === "PHYSICAL_DEVICE_VALIDATION_STARTED_AND_MINIMUM_GATE_PASSED",
-    "Integration requires an honest deferred or verifier-proven physical validation state.",
+    "Integration requires an honest post-release pending or verifier-proven physical validation state.",
   );
   requireValue(status.matrixStatus === "DEVICE_MATRIX_PARTIAL", "Integration must retain FULL_DEVICE_MATRIX_PENDING.");
   requireValue(status.fullDeviceMatrixStatus === "FULL_DEVICE_MATRIX_PENDING", "Integration must retain FULL_DEVICE_MATRIX_PENDING.");
   const physicalStatus = String(status.physicalValidationStatus);
   console.log(
     "BETA4_DEVICE_INTEGRATION_GO / DEVICE_HARNESS_GO / "
-      + `${physicalStatus} / FULL_DEVICE_MATRIX_PENDING / BETA4_RELEASE_NO_GO`,
+      + `${physicalStatus} / FULL_DEVICE_MATRIX_PENDING / POST_RELEASE_QUALIFICATION_OPEN`,
   );
   process.exit(0);
 }
@@ -71,13 +71,13 @@ const releaseRequirements: Array<[boolean, string]> = [
   [counts.physicalLongSessionCount >= 1, "qualifying physical-mobile camera soak"],
   [counts.desktopCameraSessionCount >= 1, "desktop real-camera matrix row"],
 ];
-// RC must additionally activate explicit evidence-to-matrix-row contracts. The
-// current Beta 4 schema intentionally cannot promote model names or device
-// counts into second-generation/tier claims.
-releaseRequirements.push([false, "RC physical matrix-row evidence contract activation"]);
+// Full post-release qualification must additionally activate explicit
+// evidence-to-matrix-row contracts. The current schema intentionally cannot
+// promote model names or device counts into second-generation/tier claims.
+releaseRequirements.push([false, "full physical matrix-row evidence contract activation"]);
 const missing = releaseRequirements.filter(([passed]) => !passed).map(([, label]) => label);
 if (missing.length) {
-  throw new Error(`BETA4_RELEASE_NO_GO: missing ${missing.join(", ")}.`);
+  throw new Error(`POST_RELEASE_PHYSICAL_VALIDATION_NO_GO: missing ${missing.join(", ")}.`);
 }
 
-console.log("BETA4_RELEASE_GO");
+console.log("POST_RELEASE_PHYSICAL_VALIDATION_GO");

@@ -4,7 +4,13 @@ import path from "node:path";
 const root = path.resolve(import.meta.dirname, "..");
 const files = ["README.md", "SECURITY.md", "CONTRIBUTING.md"];
 const recursiveRoots = ["docs/sdk", "docs/native", "docs/migration"];
-const directFiles = ["docs/platform-compatibility.md", "docs/maintenance.md"];
+const directFiles = [
+  "docs/platform-compatibility.md",
+  "docs/maintenance.md",
+  "device-evidence/README.md",
+  "device-evidence/sessions/README.md",
+  "docs/physical-device-validation.md",
+];
 
 for (const relativeRoot of recursiveRoots) {
   const visit = (directory) => {
@@ -25,6 +31,8 @@ const forbidden = [
   { pattern: /not yet published/i, label: "not yet published" },
   { pattern: /before v2 stable/i, label: "before v2 stable" },
   { pattern: /DEFERRED_TO_RC/i, label: "DEFERRED_TO_RC" },
+  { pattern: /BETA4_RELEASE_NO_GO/i, label: "BETA4_RELEASE_NO_GO" },
+  { pattern: /final RC campaign/i, label: "final RC campaign" },
   { pattern: /future WASM engines?/i, label: "future WASM engine" },
 ];
 

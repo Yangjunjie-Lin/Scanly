@@ -35,12 +35,12 @@ const FULL_MATRIX_GAPS = [
   "Issue #13 full matrix: desktop real webcam session",
 ] as const;
 const FOUNDATION_GAPS = [
-  "Beta 4 Foundation: iOS Safari physical-mobile session",
-  "Beta 4 Foundation: Android Chrome physical-mobile session",
-  "Beta 4 Foundation: 30-minute physical-mobile camera soak",
+  "Post-release validation: iOS Safari physical-mobile session",
+  "Post-release validation: Android Chrome physical-mobile session",
+  "Post-release validation: 30-minute physical-mobile camera soak",
 ] as const;
-const FOUNDATION_PERMISSION_GAP = "Beta 4 Foundation: complete physical permission lifecycle audit";
-const FOUNDATION_CAMERA_SWITCH_GAP = "Beta 4 Foundation: verified rear-front-rear camera switch";
+const FOUNDATION_PERMISSION_GAP = "Post-release validation: complete physical permission lifecycle audit";
+const FOUNDATION_CAMERA_SWITCH_GAP = "Post-release validation: verified rear-front-rear camera switch";
 const FORBIDDEN_PHYSICAL_KEYS = /(^|[_-])(simulated|simulation|emulated|emulation|synthetic|mock|spoofed)([_-]|$)/i;
 
 const read = (file: string): Json => JSON.parse(fs.readFileSync(path.join(root, file), "utf8"));
@@ -530,7 +530,7 @@ for (const [key, expected] of [
 const minimumGatePassed = exactSourceCohorts.some((entry) => Object.values(entry).every(Boolean));
 const expectedValidationStatus = minimumGatePassed
   ? "PHYSICAL_DEVICE_VALIDATION_STARTED_AND_MINIMUM_GATE_PASSED"
-  : "PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC";
+  : "POST_RELEASE_VALIDATION_PENDING";
 assert(status.physicalValidationStatus === expectedValidationStatus, `status.json physicalValidationStatus must be ${expectedValidationStatus}.`);
 assert(Array.isArray(status.requiredGaps) && status.requiredGaps.length > 0, "A partial Device Matrix requires documented gaps.");
 const present = (key: keyof ReturnType<typeof cohortState>) => exactSourceCohorts.some((entry) => entry[key]);
@@ -543,7 +543,7 @@ const expectedGaps = [
   ...FULL_MATRIX_GAPS,
 ];
 assert(exactArray(status.requiredGaps, expectedGaps), `status.json requiredGaps must exactly match verifier-derived pending work: ${JSON.stringify(expectedGaps)}.`);
-assert(status.matrixStatus === "DEVICE_MATRIX_PARTIAL", "Beta 4 foundation evidence must not claim the full Device Matrix is complete.");
+assert(status.matrixStatus === "DEVICE_MATRIX_PARTIAL", "Foundation evidence must not claim the full Device Matrix is complete.");
 assert(status.fullDeviceMatrixStatus === "FULL_DEVICE_MATRIX_PENDING", "Issue #13 full Device Matrix must remain pending.");
 
 console.log(`Device evidence verification passed: ${sessionFiles.length} historical sessions (${JSON.stringify(counts)}); admissible exact-source cohorts: ${currentExactSourceDeviceKeys.size} physical mobile devices, ${expectedIos} iOS Safari, ${expectedAndroid} Android Chrome, ${expectedPhysicalScenarios} physical scenarios, ${expectedLongRuns} qualifying physical long sessions; status=${expectedValidationStatus}.`);
