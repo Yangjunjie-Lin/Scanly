@@ -91,42 +91,42 @@ jobs:
               # provenance repository-url validation, so add repository identity to
               # the Registry manifest while preserving the exact tarball bytes.
               node --input-type=commonjs - "$tarball" "$package" <<'NODE'
-              const fs = require("node:fs");
-              const path = require("node:path");
-              const pacote = require("pacote");
-              const { publish } = require("libnpmpublish");
+          const fs = require("node:fs");
+          const path = require("node:path");
+          const pacote = require("pacote");
+          const { publish } = require("libnpmpublish");
 
-              const tarballPath = path.resolve(process.argv[2]);
-              const expectedPackage = process.argv[3];
-              const token = process.env.NODE_AUTH_TOKEN;
-              if (!token) throw new Error("NODE_AUTH_TOKEN is required.");
+          const tarballPath = path.resolve(process.argv[2]);
+          const expectedPackage = process.argv[3];
+          const token = process.env.NODE_AUTH_TOKEN;
+          if (!token) throw new Error("NODE_AUTH_TOKEN is required.");
 
-              (async () => {
-                const tarballData = fs.readFileSync(tarballPath);
-                const manifest = await pacote.manifest(tarballPath, {
-                  fullmetadata: true,
-                  fullReadJson: true,
-                });
-                if (manifest.name !== expectedPackage || manifest.version !== "2.0.0") {
-                  throw new Error(`Unexpected tarball identity ${manifest.name}@${manifest.version}.`);
-                }
-                manifest.repository = {
-                  type: "git",
-                  url: "git+https://github.com/Yangjunjie-Lin/Scanly.git",
-                };
-                await publish(manifest, tarballData, {
-                  access: "public",
-                  defaultTag: "latest",
-                  provenance: true,
-                  registry: "https://registry.npmjs.org/",
-                  forceAuth: { token },
-                });
-                console.log(`Published ${manifest.name}@${manifest.version} with immutable tarball bytes and npm provenance.`);
-              })().catch((error) => {
-                console.error(error);
-                process.exitCode = 1;
-              });
-              NODE
+          (async () => {
+            const tarballData = fs.readFileSync(tarballPath);
+            const manifest = await pacote.manifest(tarballPath, {
+              fullmetadata: true,
+              fullReadJson: true,
+            });
+            if (manifest.name !== expectedPackage || manifest.version !== "2.0.0") {
+              throw new Error(`Unexpected tarball identity ${manifest.name}@${manifest.version}.`);
+            }
+            manifest.repository = {
+              type: "git",
+              url: "git+https://github.com/Yangjunjie-Lin/Scanly.git",
+            };
+            await publish(manifest, tarballData, {
+              access: "public",
+              defaultTag: "latest",
+              provenance: true,
+              registry: "https://registry.npmjs.org/",
+              forceAuth: { token },
+            });
+            console.log(`Published ${manifest.name}@${manifest.version} with immutable tarball bytes and npm provenance.`);
+          })().catch((error) => {
+            console.error(error);
+            process.exitCode = 1;
+          });
+          NODE
             fi
             test "$(npm view "${package}@2.0.0" version --json | tr -d '"')" = "2.0.0"
           done
