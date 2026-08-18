@@ -167,15 +167,36 @@ describe("RC2 detached Release Manifest integrity", () => {
     expect(result.stderr).toContain("Duplicate required artifact id");
   });
 
-  it("allows Physical pending while keeping incomplete software/publication gates fail-closed", () => {
+  it("allows Physical pending when all software and publication gates are GO", () => {
     const policy = execFileSync(process.execPath, [stableVerifier], { cwd: root, encoding: "utf8" });
+    expect(policy).toContain("physical=POST_RELEASE_VALIDATION_REQUIRED");
+    expect(policy).toContain("stable=V2_STABLE_RELEASE_GO");
+
+    const result = spawnSync(process.execPath, [stableVerifier, "--require-go"], { cwd: root, encoding: "utf8" });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("stable=V2_STABLE_RELEASE_GO");
+  });
+
+  it("keeps incomplete software or publication gates fail-closed", () => {
+    const repository = clonedRepository();
+    const repositoryStableVerifier = path.join(repository, "scripts", "verify-stable-manifest.mjs");
+    const repositoryStableManifest = path.join(repository, "release", "stable", "v2.0.0-manifest.json");
+    const repositoryStableSidecar = `${repositoryStableManifest}.sha256`;
+    const value = JSON.parse(fs.readFileSync(repositoryStableManifest, "utf8"));
+    value.publication = "NO_GO";
+    value.stable = "V2_STABLE_RELEASE_NO_GO";
+    fs.writeFileSync(repositoryStableManifest, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+    const digest = crypto.createHash("sha256").update(fs.readFileSync(repositoryStableManifest)).digest("hex");
+    fs.writeFileSync(repositoryStableSidecar, `${digest}  v2.0.0-manifest.json\n`, "utf8");
+
+    const policy = execFileSync(process.execPath, [repositoryStableVerifier], { cwd: repository, encoding: "utf8" });
     expect(policy).toContain("physical=POST_RELEASE_VALIDATION_REQUIRED");
     expect(policy).toContain("stable=V2_STABLE_RELEASE_NO_GO");
 
-    const result = spawnSync(process.execPath, [stableVerifier, "--require-go"], { cwd: root, encoding: "utf8" });
+    const result = spawnSync(process.execPath, [repositoryStableVerifier, "--require-go"], { cwd: repository, encoding: "utf8" });
     expect(result.status).not.toBe(0);
-    expect(result.stderr).toContain("Stable promotion blocked: signing=NO_GO");
-  });
+    expect(result.stderr).toContain("Stable promotion blocked: publication=NO_GO");
+  }, 90_000);
 
   it("wires the verifier into RC assembly, artifact build, and the future Stable gate", () => {
     const read = (file: string) => fs.readFileSync(path.join(root, ".github", "workflows", file), "utf8");
