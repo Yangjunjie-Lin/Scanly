@@ -2,7 +2,7 @@
 
 For the optional WASM engine, deploy only the verified package asset, retain integrity verification, and never map query parameters or uploaded metadata to `assetResolver`. Serve `application/wasm`, restrict `connect-src` to trusted local origins, review whether the deployment CSP requires `wasm-unsafe-eval`, and use a Worker where hard termination is required.
 
-- Keep Worker and future WASM assets self-hosted; do not add an image-upload fallback.
+- Keep Worker and packaged WASM assets self-hosted; do not add an image-upload fallback.
 - Treat `rawText`, raw bytes, structured fields, filenames, and scenario descriptions as untrusted data. Render text nodes, not HTML.
 - Require a user gesture for navigation, Wi-Fi, email, SMS, telephone, calendar, clipboard, torch, and camera actions.
 - Permit navigation only after parsing and allowlisting protocols; consider host/domain policy for higher-risk products.

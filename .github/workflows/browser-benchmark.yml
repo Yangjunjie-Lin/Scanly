@@ -11,11 +11,12 @@ on:
         options: [smoke, full]
   pull_request:
     branches:
+      - main
       - develop/sdk-v2
   push:
     branches:
+      - main
       - develop/sdk-v2
-      - architecture/sdk-v2-beta5-**
   schedule:
     - cron: "17 3 * * 1"
 

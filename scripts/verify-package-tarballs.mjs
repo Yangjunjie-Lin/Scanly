@@ -47,7 +47,7 @@ try {
   execFileSync(process.execPath, ["--input-type=module", "--eval", `for (const id of ${JSON.stringify(probe)}) await import(id);`], { cwd: temporary, stdio: "pipe" });
 
   const fixture = path.join(root, "fixtures", "alpha5", "generated", "data-matrix-01.png");
-  if (!fs.existsSync(fixture)) throw new Error("Alpha.5 Data Matrix fixture is missing for installed-package decode verification.");
+  if (!fs.existsSync(fixture)) throw new Error("The Data Matrix fixture is missing for installed-package decode verification.");
   const decodeProbe = `
     import { copyFileSync } from "node:fs";
     import { PUBLIC_BARCODE_FORMATS, normalizeRetailBarcode } from "@scanly/core";
@@ -70,7 +70,7 @@ try {
     }
   `;
   execFileSync(process.execPath, ["--input-type=module", "--eval", decodeProbe], { cwd: temporary, stdio: "pipe" });
-  console.log(`Tarball verification passed for ${workspaces.length} publishable packages (${tarballs.length} installed tarballs), including Alpha.5 multi-symbology decode.`);
+  console.log(`Tarball verification passed for ${workspaces.length} publishable packages (${tarballs.length} installed tarballs), including v2.0.0 multi-symbology decode.`);
 } finally {
   fs.rmSync(temporary, { recursive: true, force: true });
 }

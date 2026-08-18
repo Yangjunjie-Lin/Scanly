@@ -50,18 +50,19 @@ describe("benchmark workflow contracts", () => {
     expect(workflow.match(/ref: \$\{\{ github\.event_name == 'pull_request' && github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/g)?.length).toBe(5);
   });
 
-  it("routes all primary SDK workflows to develop and Beta 5 without deleted Alpha branches", () => {
+  it("routes all primary SDK workflows to main and develop without deleted development branches", () => {
     const primary = ["ci.yml", "benchmark.yml", "browser-benchmark.yml", "public-api.yml", "tracking-benchmark.yml", "industrial-benchmark.yml", "device-evidence-validation.yml", "native-mobile.yml"];
     for (const file of primary) {
       const workflow = read(file);
       expect(workflow).toContain("workflow_dispatch:");
       expect(workflow).toContain("pull_request:");
+      expect(workflow).toContain("- main");
       expect(workflow).toContain("- develop/sdk-v2");
-      expect(workflow).toContain("- architecture/sdk-v2-beta5-**");
       for (const deleted of [
         "architecture/sdk-v2-alpha3-industrial-validation",
         "architecture/sdk-v2-alpha4-zxing-cpp-wasm",
         "architecture/sdk-v2-alpha5-multisymbology-foundation",
+        "architecture/sdk-v2-beta5-**",
       ]) expect(workflow).not.toContain(deleted);
     }
   });

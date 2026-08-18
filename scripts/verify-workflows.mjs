@@ -27,6 +27,7 @@ const deletedAlphaBranches = [
   "architecture/sdk-v2-alpha3-industrial-validation",
   "architecture/sdk-v2-alpha4-zxing-cpp-wasm",
   "architecture/sdk-v2-alpha5-multisymbology-foundation",
+  "architecture/sdk-v2-beta5-**",
 ];
 for (const file of primary) {
   const document = parsedWorkflows.get(file);
@@ -37,9 +38,11 @@ for (const file of primary) {
   }
   const pullBranches = triggers.pull_request?.branches ?? [];
   const pushBranches = triggers.push?.branches ?? [];
-  if (!pullBranches.includes("develop/sdk-v2")) throw new Error(`${file}: pull requests must target develop/sdk-v2.`);
-  if (!pushBranches.includes("develop/sdk-v2") || !pushBranches.includes("architecture/sdk-v2-beta5-**")) {
-    throw new Error(`${file}: push routing must include develop/sdk-v2 and architecture/sdk-v2-beta5-**.`);
+  if (!pullBranches.includes("main") || !pullBranches.includes("develop/sdk-v2")) {
+    throw new Error(`${file}: pull requests must target main and develop/sdk-v2.`);
+  }
+  if (!pushBranches.includes("main") || !pushBranches.includes("develop/sdk-v2")) {
+    throw new Error(`${file}: push routing must include main and develop/sdk-v2.`);
   }
   for (const deleted of deletedAlphaBranches) {
     if (pushBranches.includes(deleted)) throw new Error(`${file}: deleted Alpha branch remains a push target: ${deleted}.`);
@@ -127,15 +130,11 @@ for (const marker of ["secrets.NPM_TOKEN", "npm whoami", "npm ping --registry=ht
 }
 
 const stableNpmPublishWorkflow = fs.readFileSync(path.join(workflowDirectory, "stable-npm-publish.yml"), "utf8");
-for (const marker of ["release:", "types: [published]", "id-token: write", "secrets.NPM_TOKEN", "provenance: true", "libnpmpublish", "npm_internal_modules", "error?.statusCode === 409", "Waiting for Registry propagation", "git+https://github.com/Yangjunjie-Lin/Scanly.git", "v2.0.0", "verification.verified", "stable:manifest:verify -- --require-go"]) {
+for (const marker of ["release:", "types: [published]", "id-token: write", "secrets.NPM_TOKEN", "--provenance", "provenance: true", "libnpmpublish", "Legacy v2.0.0 recovery only", "npm_internal_modules", "error?.statusCode", "Waiting for Registry propagation", "git+https://github.com/Yangjunjie-Lin/Scanly.git", "verification.verified", "release/stable/artifact-manifest.json", "stable-npm-publication-plan.tsv", "manifest.version !== version", "packageJson.version !== version", "npm run package:metadata:verify", "stable:manifest:verify -- --require-go"]) {
   if (!stableNpmPublishWorkflow.includes(marker)) throw new Error(`stable-npm-publish.yml: missing required production publication control '${marker}'.`);
 }
-const orderedPackages = ["@scanly/parsers", "@scanly/scenario-schema", "@scanly/core", "@scanly/engine-jsqr", "@scanly/browser", "@scanly/node", "@scanly/react"];
-let previousPackageIndex = -1;
-for (const packageName of orderedPackages) {
-  const packageIndex = stableNpmPublishWorkflow.indexOf(packageName);
-  if (packageIndex <= previousPackageIndex) throw new Error(`stable-npm-publish.yml: dependency order is invalid at ${packageName}.`);
-  previousPackageIndex = packageIndex;
+for (const forbidden of ["test \"$RELEASE_TAG\" = \"v2.0.0\"", "group: stable-npm-v2.0.0", "@scanly/parsers|release/stable/artifacts/npm/"]) {
+  if (stableNpmPublishWorkflow.includes(forbidden)) throw new Error(`stable-npm-publish.yml: future-version workflow retains hard-coded publication control '${forbidden}'.`);
 }
 
 console.log(`Verified YAML syntax for ${workflowFiles.length} GitHub Actions workflows.`);

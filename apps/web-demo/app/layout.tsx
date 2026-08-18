@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Scanly — Browser QR Decoder",
   description:
-    "Scan supported barcodes with the Scanly SDK v2 Beta 1 real-time camera runtime or local image upload — no uploads, no accounts.",
+    "Scan supported barcodes with the Scanly SDK v2.0.0 Stable camera runtime or local image input — local-only, with no uploads or accounts.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

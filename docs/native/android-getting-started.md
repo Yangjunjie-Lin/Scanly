@@ -1,8 +1,22 @@
-# Android getting started
+# Scanly SDK v2.0.0 for Android
 
-Beta 5 builds a Maven-compatible `io.scanly:scanly-sdk:2.0.0-beta.5` AAR as a CI
-artifact; it is not published to Maven Central. A local project can include
-`native/android` or consume the generated AAR.
+Scanly SDK v2.0.0 is distributed as `scanly-sdk-2.0.0.aar` on the [v2.0.0 GitHub Release](https://github.com/Yangjunjie-Lin/Scanly/releases/tag/v2.0.0). Maven Central is **not published and not required for v2.0.0**; do not use `implementation("io.scanly:scanly-sdk:2.0.0")`.
+
+## Install the AAR
+
+1. Download `scanly-sdk-2.0.0.aar` from the GitHub Release.
+2. Place it at `app/libs/scanly-sdk-2.0.0.aar`.
+3. Add the file dependency:
+
+```kotlin
+dependencies {
+    implementation(files("libs/scanly-sdk-2.0.0.aar"))
+}
+```
+
+The AAR has SHA-256 `44297a5a8b89762a68ccdde61cf107661c8dc7e2b6eb1117f534ce1c67c5098b`; verify it against the release checksum before integration.
+
+## CameraX quick start
 
 ```kotlin
 val decoder = ScanlyDecoder()
@@ -11,18 +25,15 @@ val session = ScanlyScannerSession(
     ScanlyOptions(formats = setOf(ScanlyBarcodeFormat.QR_CODE), maxResults = 8),
 )
 session.onResults = { outcome -> outcome.onSuccess(::renderResults) }
+
 val camera = ScanlyCameraXAdapter(context, session)
 camera.bind(this) // LifecycleOwner
 ```
 
-CameraX uses `ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST`. The Y plane of
-`YUV_420_888` goes directly through JNI; the adapter always closes each
-`ImageProxy`. Call `pause`, `resume`, `stop`, or `close` with the host lifecycle.
+CameraX uses `ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST`. The `YUV_420_888` Y plane goes directly through JNI and every `ImageProxy` is closed. Call `pause`, `resume`, `stop`, or `close` with the host lifecycle.
 
-The host must request camera permission. `enableTorch` delegates to CameraX and
-can be unavailable on a specific camera. The AAR must contain
-`arm64-v8a/libscanly_jni.so` and `x86_64/libscanly_jni.so`; `armeabi-v7a` is
-intentionally unsupported in Beta 5.
+The host must request camera permission. Torch support delegates to CameraX and can be unavailable for a specific camera. The AAR contains `arm64-v8a/libscanly_jni.so` and `x86_64/libscanly_jni.so`; `armeabi-v7a` is intentionally unsupported.
 
-Emulator smoke evidence is automated. Physical Android validation remains
-`DEFERRED_TO_RC`.
+See [the Android example](../../examples/android/README.md).
+
+Automated unit, lint, AAR, and x86_64 emulator fixture checks are not physical-device qualification. Physical Android validation remains `POST_RELEASE_VALIDATION_PENDING` under [Issue #13](https://github.com/Yangjunjie-Lin/Scanly/issues/13).

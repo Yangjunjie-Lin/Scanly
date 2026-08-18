@@ -6,26 +6,24 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Exact signed Stable tag to publish
+        description: Exact signed Stable SemVer tag to publish (for example v2.0.1)
         required: true
-        default: v2.0.0
+        type: string
 
 permissions:
   contents: read
   id-token: write
 
 concurrency:
-  group: stable-npm-v2.0.0
+  group: stable-npm-${{ github.event_name == 'release' && github.event.release.tag_name || inputs.tag }}
   cancel-in-progress: false
 
 jobs:
   publish:
-    name: Publish npm 2.0.0 with provenance
+    name: Publish npm packages with provenance
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      (github.event.release.tag_name == 'v2.0.0' &&
-      github.event.release.prerelease == false &&
-      github.event.release.draft == false)
+      (github.event.release.prerelease == false && github.event.release.draft == false)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -38,23 +36,77 @@ jobs:
           cache: npm
           registry-url: https://registry.npmjs.org
       - run: npm ci
-      - name: Verify exact GitHub-verified signed Stable tag
+      - name: Resolve and verify signed Stable release identity
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.tag }}
         run: |
           set -euo pipefail
-          test "$RELEASE_TAG" = "v2.0.0"
+          [[ "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          VERSION="${RELEASE_TAG#v}"
+          echo "RELEASE_TAG=$RELEASE_TAG" >> "$GITHUB_ENV"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           test "$(git describe --tags --exact-match HEAD)" = "$RELEASE_TAG"
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" --jq '.tag_name')" = "$RELEASE_TAG"
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" --jq '.draft')" = "false"
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" --jq '.prerelease')" = "false"
           tag_type="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" --jq '.object.type')"
           test "$tag_type" = "tag"
           tag_object="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" --jq '.object.sha')"
           test "$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${tag_object}" --jq '.verification.verified')" = "true"
-      - name: Verify Stable Manifest and artifact checksums
+      - name: Verify artifact manifest and create dependency-ordered publication plan
         run: |
-          npm run stable:manifest:verify -- --require-go
-          cd release/stable
-          sha256sum --check checksums.sha256
+          set -euo pipefail
+          VERSION="$VERSION" node --input-type=commonjs <<'NODE'
+          const crypto = require("node:crypto");
+          const { execFileSync } = require("node:child_process");
+          const fs = require("node:fs");
+          const path = require("node:path");
+
+          const version = process.env.VERSION;
+          const manifest = JSON.parse(fs.readFileSync("release/stable/artifact-manifest.json", "utf8"));
+          if (manifest.version !== version) throw new Error(`Artifact Manifest ${manifest.version} does not match tag version ${version}.`);
+          const artifacts = manifest.artifacts.filter((artifact) => artifact.platform === "npm");
+          if (!artifacts.length) throw new Error("Artifact Manifest contains no npm packages.");
+          const records = artifacts.map((artifact) => {
+            if (!artifact.path.startsWith("release/stable/artifacts/npm/") || path.isAbsolute(artifact.path)) throw new Error(`Unsafe npm artifact path: ${artifact.path}`);
+            const bytes = fs.readFileSync(artifact.path);
+            const digest = crypto.createHash("sha256").update(bytes).digest("hex");
+            if (digest !== artifact.sha256 || bytes.length !== artifact.size) throw new Error(`Artifact identity mismatch: ${artifact.path}`);
+            const packageJson = JSON.parse(execFileSync("tar", ["-xOf", artifact.path, "package/package.json"], { encoding: "utf8" }));
+            if (!packageJson.name?.startsWith("@scanly/") || packageJson.version !== version) throw new Error(`Unexpected tarball package identity: ${artifact.path}`);
+            if (version !== "2.0.0") {
+              if (packageJson.repository?.url !== "git+https://github.com/Yangjunjie-Lin/Scanly.git" || !packageJson.repository?.directory || packageJson.homepage !== "https://github.com/Yangjunjie-Lin/Scanly#readme" || packageJson.bugs?.url !== "https://github.com/Yangjunjie-Lin/Scanly/issues") {
+                throw new Error(`${packageJson.name}@${version} tarball is missing canonical repository metadata.`);
+              }
+            }
+            return { name: packageJson.name, artifact: artifact.path, dependencies: Object.keys(packageJson.dependencies ?? {}).filter((name) => name.startsWith("@scanly/")) };
+          });
+          const packageNames = new Set(records.map((record) => record.name));
+          for (const record of records) {
+            for (const dependency of record.dependencies) {
+              if (!packageNames.has(dependency)) throw new Error(`${record.name} depends on missing manifest artifact ${dependency}.`);
+            }
+          }
+          const remaining = new Map(records.map((record) => [record.name, record]));
+          const ordered = [];
+          while (remaining.size) {
+            const ready = [...remaining.values()].filter((record) => record.dependencies.every((dependency) => !remaining.has(dependency))).sort((a, b) => a.name.localeCompare(b.name));
+            if (!ready.length) throw new Error(`Cyclic or missing Scanly package dependencies: ${[...remaining.keys()].join(", ")}`);
+            for (const record of ready) {
+              ordered.push(record);
+              remaining.delete(record.name);
+            }
+          }
+          fs.writeFileSync("stable-npm-publication-plan.tsv", `${ordered.map((record) => `${record.name}\t${record.artifact}`).join("\n")}\n`);
+          console.log(`Prepared ${ordered.length} manifest-driven npm publications for ${version}.`);
+          NODE
+          if [ "$VERSION" = "2.0.0" ]; then
+            npm run stable:manifest:verify -- --require-go
+            (cd release/stable && sha256sum --check checksums.sha256)
+          else
+            npm run package:metadata:verify
+          fi
       - name: Verify npm production identity and registry access
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -63,33 +115,20 @@ jobs:
           test -n "${NODE_AUTH_TOKEN:-}"
           test "$(npm whoami --registry=https://registry.npmjs.org/)" = "yangjunjielin"
           npm ping --registry=https://registry.npmjs.org/ > /dev/null
-      - name: Publish dependency-ordered npm packages with provenance
+      - name: Publish manifest-driven npm packages with provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           set -euo pipefail
-          releases=(
-            "@scanly/parsers|release/stable/artifacts/npm/scanly-parsers-2.0.0.tgz"
-            "@scanly/scenario-schema|release/stable/artifacts/npm/scanly-scenario-schema-2.0.0.tgz"
-            "@scanly/benchmark|release/stable/artifacts/npm/scanly-benchmark-2.0.0.tgz"
-            "@scanly/core|release/stable/artifacts/npm/scanly-core-2.0.0.tgz"
-            "@scanly/engine-jsqr|release/stable/artifacts/npm/scanly-engine-jsqr-2.0.0.tgz"
-            "@scanly/engine-zxing-js|release/stable/artifacts/npm/scanly-engine-zxing-js-2.0.0.tgz"
-            "@scanly/engine-zxing-cpp-wasm|release/stable/artifacts/npm/scanly-engine-zxing-cpp-wasm-2.0.0.tgz"
-            "@scanly/browser|release/stable/artifacts/npm/scanly-browser-2.0.0.tgz"
-            "@scanly/node|release/stable/artifacts/npm/scanly-node-2.0.0.tgz"
-            "@scanly/react|release/stable/artifacts/npm/scanly-react-2.0.0.tgz"
-          )
-          for release in "${releases[@]}"; do
-            package="${release%%|*}"
-            tarball="${release#*|}"
-            published="$(npm view "${package}@2.0.0" version --json 2>/dev/null | tr -d '"' || true)"
-            if [ "$published" = "2.0.0" ]; then
-              echo "${package}@2.0.0 already exists; verifying and continuing"
-            else
-              # v2.0.0 tarballs are immutable. Their package manifests predate npm's
-              # provenance repository-url validation, so add repository identity to
-              # the Registry manifest while preserving the exact tarball bytes.
+          while IFS=$'\t' read -r package tarball; do
+            test -n "$package" -a -f "$tarball"
+            published="$(npm view "${package}@${VERSION}" version --json 2>/dev/null | tr -d '"' || true)"
+            if [ "$published" = "$VERSION" ]; then
+              echo "${package}@${VERSION} already exists; verifying and continuing"
+            elif [ "$VERSION" = "2.0.0" ]; then
+              # Legacy v2.0.0 recovery only: immutable tarballs predate npm's
+              # repository-url provenance validation. Add Registry manifest
+              # identity while preserving the exact tarball bytes.
               npm_cli="$(readlink -f "$(command -v npm)")"
               npm_internal_modules="$(dirname "$(dirname "$npm_cli")")/node_modules"
               test -d "$npm_internal_modules/pacote" -a -d "$npm_internal_modules/libnpmpublish"
@@ -106,17 +145,9 @@ jobs:
 
           (async () => {
             const tarballData = fs.readFileSync(tarballPath);
-            const manifest = await pacote.manifest(tarballPath, {
-              fullmetadata: true,
-              fullReadJson: true,
-            });
-            if (manifest.name !== expectedPackage || manifest.version !== "2.0.0") {
-              throw new Error(`Unexpected tarball identity ${manifest.name}@${manifest.version}.`);
-            }
-            manifest.repository = {
-              type: "git",
-              url: "git+https://github.com/Yangjunjie-Lin/Scanly.git",
-            };
+            const manifest = await pacote.manifest(tarballPath, { fullmetadata: true, fullReadJson: true });
+            if (manifest.name !== expectedPackage || manifest.version !== "2.0.0") throw new Error(`Unexpected tarball identity ${manifest.name}@${manifest.version}.`);
+            manifest.repository = { type: "git", url: "git+https://github.com/Yangjunjie-Lin/Scanly.git" };
             try {
               await publish(manifest, tarballData, {
                 access: "public",
@@ -125,34 +156,35 @@ jobs:
                 registry: "https://registry.npmjs.org/",
                 forceAuth: { token },
               });
-              console.log(`Published ${manifest.name}@${manifest.version} with immutable tarball bytes and npm provenance.`);
             } catch (error) {
               if (error?.statusCode === 409 || error?.code === "E409") {
-                console.log(`${manifest.name}@${manifest.version} was already accepted; waiting for Registry propagation.`);
+                console.log(`${manifest.name}@${manifest.version} was accepted; waiting for Registry propagation.`);
               } else {
                 throw error;
               }
             }
-              })().catch((error) => {
-                console.error(error);
-                process.exitCode = 1;
-              });
+          })().catch((error) => { console.error(error); process.exitCode = 1; });
           NODE
+            else
+              npm publish "$tarball" --access public --provenance --tag latest
             fi
-          done
+          done < stable-npm-publication-plan.tsv
+
           for attempt in {1..60}; do
             pending=0
-            for release in "${releases[@]}"; do
-              package="${release%%|*}"
-              verified="$(npm view "${package}@2.0.0" version --json 2>/dev/null | tr -d '"' || true)"
-              if [ "$verified" != "2.0.0" ]; then
-                echo "Waiting for Registry propagation: ${package}@2.0.0 (${attempt}/60)"
+            while IFS=$'\t' read -r package tarball; do
+              verified="$(npm view "${package}@${VERSION}" version --json 2>/dev/null | tr -d '"' || true)"
+              if [ "$verified" != "$VERSION" ]; then
+                echo "Waiting for Registry propagation: ${package}@${VERSION} (${attempt}/60)"
                 pending=$((pending + 1))
               fi
-            done
-            if [ "$pending" -eq 0 ]; then
-              break
-            fi
+            done < stable-npm-publication-plan.tsv
+            [ "$pending" -eq 0 ] && break
             sleep 10
           done
           test "$pending" -eq 0
+
+          while IFS=$'\t' read -r package tarball; do
+            test "$(npm view "$package" dist-tags.latest --json | tr -d '"')" = "$VERSION"
+            test "$(npm view "${package}@${VERSION}" dist.attestations.provenance.predicateType --json | tr -d '"')" = "https://slsa.dev/provenance/v1"
+          done < stable-npm-publication-plan.tsv
