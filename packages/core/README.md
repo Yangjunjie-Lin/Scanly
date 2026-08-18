@@ -1,3 +1,25 @@
 # @scanly/core
 
-Framework-independent SDK v2 preview contracts, bounded capture router, deterministic session lifecycle, and the migrated QR pipeline. It has no React or Next.js dependency. The default QR path currently supports QR Code Model 2 through jsQR and ZXing JavaScript; other format identifiers are capability vocabulary, not support claims.
+`@scanly/core` is the framework-independent core for Scanly SDK v2.0.0. It provides frame/result/error contracts, engine and operator registries, `CaptureRouter`, sessions, tracking, batch, and bounded industrial recovery without React or Next.js dependencies.
+
+```bash
+npm install @scanly/core @scanly/engine-zxing-cpp-wasm
+```
+
+```ts
+import { CaptureRouter, EngineRegistry, createRgbaFrame } from "@scanly/core";
+import { createZxingCppWasmEngine } from "@scanly/engine-zxing-cpp-wasm";
+
+const engines = new EngineRegistry();
+engines.register(createZxingCppWasmEngine());
+const router = new CaptureRouter({ engines, formats: ["qr_code", "data_matrix"] });
+const frame = createRgbaFrame(rgba, width, height, { ownership: "borrowed" });
+const outcome = await router.scan(frame);
+await router.dispose();
+```
+
+The public format contract contains QR Code, Data Matrix, PDF417, Code 128, EAN-13, EAN-8, UPC-A, and UPC-E. Core does not bundle or register concrete decoders by itself; actual support depends on registered engine capabilities. Browser and Node packages provide the default engine composition.
+
+This is an advanced public package. Prefer `@scanly/browser`, `@scanly/node`, or `@scanly/react` for standard applications.
+
+Version: 2.0.0 · [SDK documentation](https://github.com/Yangjunjie-Lin/Scanly/blob/main/docs/sdk/usage.md)

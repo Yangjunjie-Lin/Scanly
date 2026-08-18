@@ -4,7 +4,7 @@
 
 - SDK package version: `2.0.0` (Stable software release; physical validation pending)
 
-## Beta 4 camera platform surface
+## Camera platform surface
 
 `@scanly/browser` exports `CameraConstraintPolicy`, `DeviceDiagnostics`, `CameraRecoveryPolicy`, and `CameraRecoveryController`. Constraint negotiation requests ideal facing mode, resolution, and frame rate, then removes optional preferences through a bounded fallback sequence. An explicit device ID remains exact unless the caller deliberately chooses ideal matching.
 
@@ -18,7 +18,7 @@ The typed source taxonomy includes `camera_permission_denied`, `camera_not_found
 
 Static multi-code scans default to `payload-format-spatial` deduplication. Schema `2.1` also supports `payload`, `payload-format`, and `tracked-instance` policy selection. Geometry-proven separate instances with the same payload remain separate under the default; when geometry is unavailable, the documented fallback is payload plus format identity.
 
-## Beta 3 industrial recovery surface
+## Industrial recovery surface
 
 `@scanly/core` exports the public configuration and result contracts `RecoveryProfile`, `RecoveryBudget`, `RecoveryRouteId`, `BarcodeDifficultyDiagnosis`, `ScanEvidence`, and `ScannerDiagnostics`. `IndustrialRecoveryPipeline`, `RecoveryRouteRegistry`, and `RecoveryPlanner` are exported for advanced composition. Candidate-region heuristics, recovery coordinate implementations, preprocessing buffers, and temporary image ownership are not frozen as application APIs.
 
@@ -28,9 +28,9 @@ Static multi-code scans default to `payload-format-spatial` deduplication. Schem
 
 Browser static and camera composition accepts explicit recovery options. Node exports `scanWithNodeIndustrialRecovery` as the explicit static-image entry point. The existing `CaptureRouter.scan` and default camera path remain compatible and do not automatically run the highest-cost industrial profile.
 
-See [Beta 3 industrial difficult-barcode recovery](../beta3-industrial-recovery.md) for budgets, route boundaries, Worker ownership, DPM limitations, evidence, and non-claims.
+See [industrial difficult-barcode recovery](../beta3-industrial-recovery.md) for budgets, route boundaries, Worker ownership, DPM limitations, evidence, and non-claims.
 
-## Beta 2 tracking and batch surface
+## Tracking and batch surface
 
 `@scanly/browser` exports tracking and batch composition from the package root. `ScannerSession.onObservations` publishes one complete `BarcodeObservationSet` per admitted frame, including every valid decoder result rather than only the primary result. `BatchScanSession` consumes that boundary and composes the existing scanner with `BarcodeTracker` and `BatchController`; it does not create another camera runtime.
 
@@ -46,9 +46,9 @@ Batch completion uses confirmed physical tracks. `expected-count` cannot complet
 
 `BatchControllerOptions.maxRetainedTracks` and `maxRetainedPhysicalInstances` bound long-running continuous and checklist evidence. Terminal completion freezes classification state; statistics expose current/peak retention and rejected/evicted counts for reliability gates.
 
-See [Beta 2 barcode tracking and batch scan](../beta2-tracking-batch.md) for composition examples, bounded association behavior, ROI recovery, evidence, and non-claims.
+See [barcode tracking and batch scan](../beta2-tracking-batch.md) for composition examples, bounded association behavior, ROI recovery, evidence, and non-claims.
 
-## Beta 1 real-time scanner runtime
+## Real-time scanner runtime
 
 `@scanly/browser` exposes `ScannerSession` for continuous camera work. A session owns the camera source, persistent decode Worker, frame scheduler, temporal candidate store, ROI hint, repeat policy, cancellation generation, and diagnostics; a React adapter should only render state and subscribe to events.
 
@@ -64,7 +64,7 @@ CameraFrameSource -> FrameScheduler -> FrameQualityAnalyzer
 
 `DeterministicFrameSequenceSource` is the CI camera simulator. `MediaStreamCameraFrameSource` is the browser-only media adapter. `CameraCapabilityController` feature-detects torch, zoom, and focus and returns typed `CapabilityResult` failures when a browser or track does not support a capability. The public `ScannerSessionStatistics` includes TTFD, TTFC, effective decode FPS, admission/drop counts, profile distribution, duplicate suppression, Worker counts, and controlled-memory cleanup.
 
-The required Beta 1 real-time surface is exported from the `@scanly/browser` package root; none of the following contracts is internal:
+The Stable real-time surface is exported from the `@scanly/browser` package root; none of the following contracts is internal:
 
 | Runtime values | Runtime types |
 | --- | --- |
@@ -77,7 +77,7 @@ The bounded escalation, temporal candidate, repeat-suppression, and temporal ROI
 
 Camera capability tests validate unsupported torch/zoom, focus, manual zoom override, auto-zoom cooldown and maximum clamp, anti-oscillation state, and capability refresh after source switching. This is API/state-machine evidence only and is not a claim that physical auto zoom has been validated.
 
-Beta 1 development evidence uses 20 scenario-specific Ground Truth drivers. The decoder stimulus is separate from each scenario's expected payload, format, event count, and physical-instance identity. `benchmark-results/realtime/sequence-results.json` uses schema `2.0-beta1` and records `expected`, `observed`, assertions, failure reasons, metrics, and event/profile/diagnostic timelines per scenario. A 10,000-frame fake-decoder Core Soak explicitly reports Worker evidence as not applicable. Real Worker/WASM evidence is separate: at least 1,000 pull-request frames, or 10,000 scheduled/manual frames, execute through `BrowserScannerFrameDecoder`, a persistent `DecodeWorkerClient`, a browser Worker, and ZXing-C++ WASM.
+Historical real-time development evidence uses 20 scenario-specific Ground Truth drivers. The decoder stimulus is separate from each scenario's expected payload, format, event count, and physical-instance identity. `benchmark-results/realtime/sequence-results.json` uses the historical schema `2.0-beta1` and records `expected`, `observed`, assertions, failure reasons, metrics, and event/profile/diagnostic timelines per scenario. A 10,000-frame fake-decoder Core Soak explicitly reports Worker evidence as not applicable. Real Worker/WASM evidence is separate: at least 1,000 pull-request frames, or 10,000 scheduled/manual frames, execute through `BrowserScannerFrameDecoder`, a persistent `DecodeWorkerClient`, a browser Worker, and ZXing-C++ WASM.
 
 - Static decode scenario schema: `2.1`
 - Real-time benchmark report schema: `2.0-beta1`
@@ -85,7 +85,7 @@ Beta 1 development evidence uses 20 scenario-specific Ground Truth drivers. The 
 
 `npm run api:snapshot` and `npm run api:diff` validate the package-root declarations. Their presence here does not assert that a particular GitHub PR head has passed the Public API workflow.
 
-Alpha APIs may change. Before v2 stable, a breaking public change increments the alpha/preview release and receives a migration note. After stable, semantic versioning applies; supported deprecated APIs receive at least one minor-release migration window unless a security fix requires removal.
+The v2.0.0 Stable APIs follow semantic versioning. Supported deprecated APIs receive at least one minor-release migration window unless a security fix requires removal.
 
 ## Authoritative execution API
 
@@ -126,6 +126,6 @@ When `output.includeAttempts` is enabled, `attempts` contains a bounded, payload
 
 ## Supported capability versus vocabulary
 
-Alpha.5 publicly supports `qr_code`, `data_matrix`, `pdf417`, `code_128`, `ean_13`, `ean_8`, `upc_a`, and `upc_e`. Deferred ZXing formats are not in the public union. jsQR and ZXing-JS report QR-only capabilities; the pinned ZXing-C++ WASM engine reports the eight verified mappings. A scenario requesting a format with no registered engine returns `unsupported_format` during compilation.
+Scanly SDK v2.0.0 publicly supports `qr_code`, `data_matrix`, `pdf417`, `code_128`, `ean_13`, `ean_8`, `upc_a`, and `upc_e`. Deferred ZXing formats are not in the public union. jsQR and ZXing-JS report QR-only capabilities; the pinned ZXing-C++ WASM engine reports the eight verified mappings. A scenario requesting a format with no registered engine returns `unsupported_format` during compilation.
 
 `FormatSelection` accepts a non-empty list, normalizes duplicates, rejects deferred/unknown formats, and is propagated through Router, Worker, Node, and native decode options. QR-only remains the default when no explicit selection or non-QR scenario is supplied.

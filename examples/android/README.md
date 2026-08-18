@@ -1,6 +1,6 @@
 # Scanly Android CameraX example
 
-This source sketch consumes the Beta 5 AAR/module. It performs no analytics or
+This source sketch consumes the v2.0.0 Stable AAR/module. It performs no analytics or
 uploads.
 
 ```kotlin
@@ -27,4 +27,4 @@ adapter.enableTorch(true)
 
 The one session covers single, continuous, format-restricted, and multi-code
 results. The host owns runtime camera permission and rendering. Physical Android
-behavior is not certified by this sample.
+behavior remains `POST_RELEASE_VALIDATION_PENDING`; this sample is not qualification evidence.

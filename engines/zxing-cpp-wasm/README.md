@@ -1,28 +1,24 @@
 # @scanly/engine-zxing-cpp-wasm
 
-Experimental, optional ZXing-C++ WebAssembly engine for Scanly SDK v2 Alpha.5.
-The public Alpha.5 mask enables QR Code Model 2, Data Matrix ECC 200, PDF417, Code 128, EAN-13, EAN-8, UPC-A, and UPC-E. Requests remain format-filtered; the engine never receives an implicit all-formats mask.
+Optional, lazy ZXing-C++ WebAssembly engine for Scanly SDK v2.0.0. It implements the public QR Code, Data Matrix, PDF417, Code 128, EAN-13, EAN-8, UPC-A, and UPC-E format mappings.
 
-The package never downloads code by default. Its loader resolves the packaged
-WASM asset relative to the installed package, verifies SHA-256, and initializes
-only when requested. Concurrent initialization calls share one promise.
+```bash
+npm install @scanly/engine-zxing-cpp-wasm
+```
 
 ```ts
 import { createZxingCppWasmEngine } from "@scanly/engine-zxing-cpp-wasm";
 
 const engine = createZxingCppWasmEngine({ variant: "auto" });
 await engine.initialize();
-// Register engine in a Scanly EngineRegistry, reuse it, then:
+// Register the engine in a Scanly EngineRegistry and reuse it.
 await engine.dispose();
 ```
 
-Browser and Worker deployments must serve `wasm/zxing-cpp.wasm` with
-`application/wasm`. Node reads the same asset from the installed package.
-Consumers with a custom asset pipeline can provide `assetResolver`; the URL is
-a trusted-code boundary and should not accept untrusted user input.
+Requests remain explicitly format-filtered. The loader resolves the packaged WASM asset, verifies SHA-256, deduplicates concurrent initialization, and never downloads mutable code by default. Browser/Worker deployments must emit the packaged asset and serve it as `application/wasm`; custom `assetResolver` URLs are trusted-code boundaries.
 
-The current pinned upstream distribution has a standard WASM asset only.
-SIMD detection and selection are implemented, but Alpha.4 does not report SIMD
-acceleration until a separately built and benchmarked SIMD artifact is present.
-Cancellation during native execution is cooperative: Scanly suppresses a late
-result, but does not claim preemptive interruption of synchronous native code.
+The shipped asset is standard WASM. SIMD selection is implemented, but no SIMD performance claim is made without a separately shipped and measured SIMD asset. Cancellation during synchronous native execution is cooperative.
+
+This is an advanced public engine package. Browser and Node use it automatically unless `zxingCppWasm: false` is configured.
+
+Version: 2.0.0 · [WASM deployment documentation](https://github.com/Yangjunjie-Lin/Scanly/blob/main/docs/wasm-engine.md)

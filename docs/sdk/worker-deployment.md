@@ -1,15 +1,32 @@
-# Worker deployment and self-hosting
+# Worker and WASM deployment
 
-Alpha.4 Workers resolve `zxing-cpp.wasm` relative to the installed engine module and retain one initialized module for the Worker lifetime. Ensure the asset is copied by the bundler, served as `application/wasm`, and permitted by CSP. Terminating the Worker cancels ownership, rejects pending work, and releases the WASM realm; cancellation during synchronous native code suppresses delivery rather than preempting execution.
+`@scanly/browser` v2.0.0 creates a module Worker with a relative ESM asset URL. The package emits `dist/worker/decode-worker.js`; bundlers must copy or chunk the Worker and the packaged ZXing-C++ WASM asset into the application deployment.
 
-`@scanly/browser` creates a module Worker using a relative ESM asset URL. The package build emits `dist/worker/decode-worker.js`; bundlers must copy or chunk that asset on the same origin. Worker creation, termination, malformed-message failure, stale-ID rejection, and lazy recreation are tested in unit and production browser paths.
+The default Browser composition is jsQR → lazy ZXing-C++ WASM → ZXing-JS. Worker ownership is persistent across scans and releases when the session is disposed. Terminating a Worker rejects pending work, prevents stale delivery, and releases its WASM realm; cancellation during synchronous native execution suppresses late delivery rather than preempting native code.
+
+## Asset requirements
+
+- Serve the Worker and WASM from the same origin or an explicitly trusted application-controlled origin.
+- Serve `zxing-cpp.wasm` as `application/wasm`.
+- Preserve package-relative asset URLs or provide an explicit trusted `assetResolver`.
+- Do not replace the pinned asset with a mutable CDN script or user-controlled URL.
+- Verify the production Worker and WASM URLs after bundler/framework upgrades.
+
+The loader verifies the packaged WASM SHA-256 and initializes lazily. After application code and assets load, decoding remains local and works without network access.
 
 ## CSP
 
-At minimum a host policy must permit its application scripts and emitted Worker asset. A common starting point is `worker-src 'self' blob:` and `img-src 'self' blob: data:`. Do not paste this into production blindly: Next.js script/style nonce strategy and Safari Worker behavior must be verified for the actual deployment. Scanly does not ship a permissive universal CSP because that would either break consumers or weaken their policy.
+A common starting point is:
 
-The reference application sets `nosniff`, strict referrer policy, camera-only Permissions Policy, and frame denial. It has no remote logging/report endpoint.
+```text
+worker-src 'self' blob:;
+img-src 'self' blob: data:;
+```
 
-## Future WASM
+Some browser/toolchain combinations also require `script-src 'wasm-unsafe-eval'` for WebAssembly compilation. Add it only when the deployed browser matrix requires it. Do not copy a sample CSP blindly: nonce strategy, Safari Worker behavior, custom asset origins, and the host application's other resources must be validated together.
 
-No ZXing-C++ WASM binary is included. A future engine package must expose an explicit same-origin asset resolver, document MIME types, pin the binary checksum in release provenance, avoid `eval`, and test initialization failure/recovery under the same engine contract. Subresource Integrity does not automatically cover `fetch()`/Worker-loaded WASM in every integration; verify the chosen loading design.
+The reference application sets `nosniff`, a strict referrer policy, camera-only Permissions Policy, and frame denial. Scanly has no remote image upload, analytics, or reporting endpoint.
+
+## Main-thread fallback
+
+`BrowserCaptureSession` uses a Worker by default. `{ forceMainThread: true }` exists for environments that cannot create a module Worker; it changes scheduling and responsiveness but does not change the local-only privacy boundary.

@@ -4,7 +4,7 @@ The Alpha.4 WASM binary is executable supply-chain input. It is pinned, shipped 
 
 ## Assets and trust boundaries
 
-Assets are user image bytes, camera frames, decoded content, browser permissions, CPU/memory availability, and host-application integrity. Untrusted boundaries include uploaded files, pixel-buffer metadata, QR payload strings, scenario JSON, Worker messages, media devices, npm dependencies, custom plugins, and future WASM binaries.
+Assets are user image bytes, camera frames, decoded content, browser permissions, CPU/memory availability, and host-application integrity. Untrusted boundaries include uploaded files, pixel-buffer metadata, barcode payload strings, scenario JSON, Worker messages, media devices, npm dependencies, custom plugins, and custom WASM asset resolvers.
 
 ## Principal threats and controls
 

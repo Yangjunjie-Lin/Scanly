@@ -1,6 +1,6 @@
 # React Native and Flutter wrapper plan
 
-Beta 5 does not publish React Native or Flutter adapters. The Native APIs are
+Scanly v2.0.0 does not publish React Native or Flutter adapters. The Native APIs are
 kept wrapper-friendly by using immutable value results, typed platform errors,
 explicit decoder/session disposal, bounded multiple-result arrays, and the
 stable C ABI beneath both platforms.
@@ -15,5 +15,5 @@ ABI through FFI for owned static buffers. FFI bindings must mirror every create
 with destroy and must copy borrowed result views before freeing the result set.
 
 Before either publication: freeze native API snapshots, run the unified shared
-fixture vectors, add wrapper lifecycle/memory soak, and complete RC physical
-validation. No wrapper publication is authorized in Beta 5.
+fixture vectors, add wrapper lifecycle/memory soak, and complete physical
+validation. No wrapper publication is part of v2.0.0.
