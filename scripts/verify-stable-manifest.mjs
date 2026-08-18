@@ -69,7 +69,7 @@ if (publicationCredentials.requiredCredentialsStatus === "GO") {
 const stableNpmWorkflowPath = ".github/workflows/stable-npm-publish.yml";
 if (!exists(stableNpmWorkflowPath)) fail("Stable npm provenance publication workflow is missing.");
 const stableNpmWorkflow = fs.readFileSync(path.join(root, stableNpmWorkflowPath), "utf8");
-for (const marker of ["id-token: write", "secrets.NPM_TOKEN", "provenance: true", "libnpmpublish", "npm_internal_modules", "Waiting for Registry propagation", "git+https://github.com/Yangjunjie-Lin/Scanly.git", "v2.0.0", "stable:manifest:verify -- --require-go"]) {
+for (const marker of ["id-token: write", "secrets.NPM_TOKEN", "provenance: true", "libnpmpublish", "npm_internal_modules", "error?.statusCode === 409", "Waiting for Registry propagation", "git+https://github.com/Yangjunjie-Lin/Scanly.git", "v2.0.0", "stable:manifest:verify -- --require-go"]) {
   if (!stableNpmWorkflow.includes(marker)) fail(`Stable npm provenance workflow is missing '${marker}'.`);
 }
 if ((manifest.reproducibility === "GO") !== (reproducibility.status === "REPRODUCIBILITY_GO")) fail("Stable reproducibility gate and report disagree.");
