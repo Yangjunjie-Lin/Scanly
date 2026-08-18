@@ -14,12 +14,12 @@ const runGate = (mode: "integration" | "release"): string =>
   });
 
 describe.sequential("Beta 4 integration and release gates", () => {
-  it("accepts honest RC deferral for the Device Evidence integration component", () => {
+  it("accepts the honest post-release pending state for the Device Evidence integration component", () => {
     expect(runGate("integration")).toContain("BETA4_DEVICE_INTEGRATION_GO");
   });
 
   it("keeps release fail-closed while physical evidence and matrix rows are absent", () => {
-    expect(() => runGate("release")).toThrow(/BETA4_RELEASE_NO_GO/);
+    expect(() => runGate("release")).toThrow(/POST_RELEASE_PHYSICAL_VALIDATION_NO_GO/);
   });
 
   it("rejects tampered derived counts before either gate is evaluated", () => {

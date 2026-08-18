@@ -275,7 +275,7 @@ describe("benchmark workflow contracts", () => {
     expect(workflow).toContain("camera-platform.test.ts");
     expect(workflow).toContain("fetch-depth: 0");
     expect(workflow).not.toContain("physical-mobile: passed");
-    expect(fs.readFileSync(path.join(process.cwd(), "device-evidence", "status.json"), "utf8")).toContain("PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC");
+    expect(fs.readFileSync(path.join(process.cwd(), "device-evidence", "status.json"), "utf8")).toContain("POST_RELEASE_VALIDATION_PENDING");
     const network = fs.readFileSync(path.join(process.cwd(), "tests", "browser-benchmark", "device-lab-network.spec.ts"), "utf8");
     expect(network).toContain("context.setOffline(true)");
     expect(network).toContain("same-origin resources");

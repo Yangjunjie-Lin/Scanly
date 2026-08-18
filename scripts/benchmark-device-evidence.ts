@@ -1,13 +1,19 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { deviceEvidenceOnlyAfterSource } from "./device-evidence-source-policy.js";
+import { deviceEvidenceEligibleForQualification } from "./device-evidence-source-policy.js";
 
 const root = path.resolve(__dirname, "..");
 execFileSync(process.execPath, ["--import", "tsx", path.join(root, "scripts", "verify-device-evidence.ts")], { cwd: root, stdio: "ignore" });
 const directory = path.join(root, "device-evidence", "sessions");
 const groundTruth = JSON.parse(fs.readFileSync(path.join(root, "device-lab", "test-targets", "ground-truth.json"), "utf8"));
 const deviceManifest = JSON.parse(fs.readFileSync(path.join(root, "device-lab", "manifest.json"), "utf8"));
+const stableManifest = JSON.parse(fs.readFileSync(path.join(root, "release", "stable", "v2.0.0-manifest.json"), "utf8"));
+const releasedSource = {
+  sourceCommit: stableManifest.identity.productSourceCommit,
+  sourceTree: stableManifest.identity.sourceTree,
+  sdkVersion: stableManifest.version,
+};
 const evidence = fs.readdirSync(directory)
   .filter((name) => name.endsWith(".json"))
   .sort()
@@ -131,7 +137,8 @@ const deviceKey = (session: any): string => [
 const quantile = (values: number[], q: number): number | null => values.length
   ? [...values].sort((a, b) => a - b)[Math.min(values.length - 1, Math.ceil(values.length * q) - 1)]
   : null;
-const evidenceOnlyAfterSource = (sourceCommit: string): boolean => deviceEvidenceOnlyAfterSource(root, sourceCommit);
+const evidenceEligibleForQualification = (session: any): boolean =>
+  deviceEvidenceEligibleForQualification(root, session, releasedSource);
 const drift = (longRun: any): any => {
   if (!longRun?.windows || longRun.windows.length !== 3) return null;
   const first = longRun.windows[0]; const last = longRun.windows[2];
@@ -175,7 +182,7 @@ const physicalSessions = evidence.filter(physical);
 const physicalMobileSessions = evidence.filter(physicalMobile);
 const bySource = new Map<string, any[]>();
 for (const session of physicalMobileSessions) {
-  if (!evidenceOnlyAfterSource(session.sourceCommit)) continue;
+  if (!evidenceEligibleForQualification(session)) continue;
   const key = `${session.sourceCommit}:${session.sourceTree}:${session.sdkVersion}`;
   bySource.set(key, [...(bySource.get(key) ?? []), session]);
 }
@@ -199,7 +206,7 @@ const report = {
   fullDeviceMatrixStatus: "FULL_DEVICE_MATRIX_PENDING",
   physicalValidationStatus: minimumGatePassed
     ? "PHYSICAL_DEVICE_VALIDATION_STARTED_AND_MINIMUM_GATE_PASSED"
-    : "PHYSICAL_DEVICE_VALIDATION_DEFERRED_TO_RC",
+    : "POST_RELEASE_VALIDATION_PENDING",
   counts: {
     sessions: currentExactSourceSessions.length,
     browsers: new Set(currentExactSourceSessions.map((entry) => `${entry.browser.name} ${entry.browser.version}`)).size,

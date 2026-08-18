@@ -1,3 +1,11 @@
+> Historical Beta 4 protocol.
+>
+> The current post-release physical qualification target is v2.0.0 and is
+> tracked by Issue #13.
+>
+> See [docs/physical-device-validation.md](physical-device-validation.md) for
+> the current post-release protocol.
+
 # Beta 4 physical device validation protocol
 
 ## Current gate

@@ -4,7 +4,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { afterEach, describe, expect, it } from "vitest";
 import { assertCleanRepository, collectSourceIdentity, computeDatasetHash, sha256Text, verifyEvidenceCommitPolicy, verifyEvidenceOnlyPaths, verifyEvidenceWorkingTreePolicy } from "../../scripts/benchmark-provenance.js";
-import { deviceEvidenceOnlyAfterSource } from "../../scripts/device-evidence-source-policy.js";
+import { deviceEvidenceEligibleForQualification, deviceEvidenceOnlyAfterSource } from "../../scripts/device-evidence-source-policy.js";
 import { loadBaselineRegistry, resolveActiveBaseline, validateBaselineForActivation, writeImmutableBaseline } from "../../scripts/baseline-registry.js";
 
 const roots: string[] = [];
@@ -167,6 +167,19 @@ describe("physical device source/evidence policy", () => {
     execFileSync("git", ["add", "."], { cwd: repo.root });
     execFileSync("git", ["commit", "-m", "runtime change"], { cwd: repo.root });
     expect(deviceEvidenceOnlyAfterSource(repo.root, source)).toBe(false);
+  });
+
+  it("accepts only the exact immutable released source across later repository-only changes", () => {
+    const repo = repository();
+    const source = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repo.root, encoding: "utf8" }).trim();
+    const tree = execFileSync("git", ["show", "-s", "--format=%T", source], { cwd: repo.root, encoding: "utf8" }).trim();
+    repo.write("source.ts", "export const value = 2;");
+    execFileSync("git", ["add", "."], { cwd: repo.root });
+    execFileSync("git", ["commit", "-m", "post-release repository change"], { cwd: repo.root });
+    const released = { sourceCommit: source, sourceTree: tree, sdkVersion: "2.0.0" };
+    expect(deviceEvidenceEligibleForQualification(repo.root, released, released)).toBe(true);
+    expect(deviceEvidenceEligibleForQualification(repo.root, { ...released, sourceTree: "0".repeat(40) }, released)).toBe(false);
+    expect(deviceEvidenceEligibleForQualification(repo.root, { ...released, sdkVersion: "2.0.1" }, released)).toBe(false);
   });
 
   it("rejects a tree object presented as a source commit", () => {
