@@ -13,25 +13,25 @@ Scanly v2.0.0 is the current Stable SDK line. Maintenance prioritizes security, 
 ## Branch strategy
 
 - `main` is the latest released Stable line.
-- `develop/sdk-v2` is the next patch/minor integration line.
-- Feature and fix branches start from `develop/sdk-v2` and return through pull requests.
+- `develop` is the next patch/minor integration line.
+- Feature and fix branches start from `develop` and return through pull requests.
 - Temporary release branches qualify a release and are not long-term development bases.
 - Immutable tags and evidence preserve released history; never move or rebuild a published tag.
 
 For a normal v2.0.1 bug fix:
 
 ```text
-develop/sdk-v2 -> fix branch -> PR to develop/sdk-v2
+develop -> fix branch -> PR to develop
 -> release branch when qualification requires it -> PR to main
 -> signed v2.0.1 tag -> GitHub Release -> npm / Native publication
--> synchronize main back into develop/sdk-v2
+-> synchronize main back into develop
 ```
 
 For an urgent hotfix:
 
 ```text
 main -> hotfix branch -> PR to main -> signed patch release
--> back-merge or fast-forward the released main line into develop/sdk-v2
+-> back-merge or fast-forward the released main line into develop
 ```
 
 ## Dependency policy
@@ -57,7 +57,7 @@ Dependabot opens small npm and GitHub Actions groups. Merge security patches pro
 6. Create a signed SemVer tag without moving earlier tags.
 7. Create a non-draft, non-prerelease GitHub Release and publish the required channels.
 8. Verify npm dist-tags/provenance, Native assets, production deployment, and the post-publication record.
-9. Synchronize `main` into `develop/sdk-v2` so future work contains the released line.
+9. Synchronize `main` into `develop` so future work contains the released line.
 
 ## Physical qualification
 

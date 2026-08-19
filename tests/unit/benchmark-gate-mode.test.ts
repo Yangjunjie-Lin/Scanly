@@ -66,18 +66,18 @@ function select(registry: BaselineRegistry, root: string, current: CurrentBenchm
 
 describe("benchmark gate mode selector", () => {
   it("classifies develop, Beta branches, and PR development as integration", () => {
-    expect(selectWorkflowEvidenceMode({ eventName: "push", refName: "develop/sdk-v2" })).toBe("integration");
+    expect(selectWorkflowEvidenceMode({ eventName: "push", refName: "develop" })).toBe("integration");
     expect(selectWorkflowEvidenceMode({ eventName: "push", refName: "architecture/sdk-v2-beta1-realtime-scanner-foundation" })).toBe("integration");
     expect(selectWorkflowEvidenceMode({ eventName: "push", refName: "architecture/sdk-v2-beta2-barcode-tracking-foundation" })).toBe("integration");
     expect(selectWorkflowEvidenceMode({ eventName: "push", refName: "architecture/sdk-v2-beta3-industrial-robustness-foundation" })).toBe("integration");
     expect(selectWorkflowEvidenceMode({ eventName: "push", refName: "architecture/sdk-v2-beta4-device-platform-hardening" })).toBe("integration");
-    expect(selectWorkflowEvidenceMode({ eventName: "pull_request", baseRef: "develop/sdk-v2" })).toBe("integration");
-    expect(selectWorkflowEvidenceMode({ eventName: "workflow_dispatch", refName: "develop/sdk-v2", manualGateMode: "integration" })).toBe("integration");
+    expect(selectWorkflowEvidenceMode({ eventName: "pull_request", baseRef: "develop" })).toBe("integration");
+    expect(selectWorkflowEvidenceMode({ eventName: "workflow_dispatch", refName: "develop", manualGateMode: "integration" })).toBe("integration");
     expect(selectWorkflowEvidenceMode({ eventName: "workflow_dispatch", refName: "release/sdk-v2-v2.0.0", manualGateMode: "integration" })).toBe("integration");
   });
 
   it("enters release policy only through an explicit manual input or release candidate ref", () => {
-    expect(selectWorkflowEvidenceMode({ eventName: "workflow_dispatch", refName: "develop/sdk-v2", manualGateMode: "release" })).toBe("release");
+    expect(selectWorkflowEvidenceMode({ eventName: "workflow_dispatch", refName: "develop", manualGateMode: "release" })).toBe("release");
     expect(selectWorkflowEvidenceMode({ eventName: "push", refName: "rc/sdk-v2-beta2" })).toBe("release");
     expect(selectWorkflowEvidenceMode({ eventName: "push", refName: "feature/unclassified" })).toBe("integration");
   });

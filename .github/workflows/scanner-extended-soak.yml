@@ -6,10 +6,11 @@ on:
       ref:
         description: Branch or commit to exercise (defaults to the Beta 1 integration branch)
         required: false
-        default: develop/sdk-v2
+        default: develop
         type: string
   pull_request:
     branches:
+      - develop
       - develop/sdk-v2
     types: [labeled]
   schedule:
@@ -27,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || inputs.ref || 'develop/sdk-v2' }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || inputs.ref || 'develop' }}
       - uses: actions/setup-node@v7
         with: { node-version: 20, cache: npm }
       - run: npm ci

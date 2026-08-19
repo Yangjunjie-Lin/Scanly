@@ -38,11 +38,11 @@ for (const file of primary) {
   }
   const pullBranches = triggers.pull_request?.branches ?? [];
   const pushBranches = triggers.push?.branches ?? [];
-  if (!pullBranches.includes("main") || !pullBranches.includes("develop/sdk-v2")) {
-    throw new Error(`${file}: pull requests must target main and develop/sdk-v2.`);
+  if (!pullBranches.includes("main") || !pullBranches.includes("develop")) {
+    throw new Error(`${file}: pull requests must target main and develop.`);
   }
-  if (!pushBranches.includes("main") || !pushBranches.includes("develop/sdk-v2")) {
-    throw new Error(`${file}: push routing must include main and develop/sdk-v2.`);
+  if (!pushBranches.includes("main") || !pushBranches.includes("develop")) {
+    throw new Error(`${file}: push routing must include main and develop.`);
   }
   for (const deleted of deletedAlphaBranches) {
     if (pushBranches.includes(deleted)) throw new Error(`${file}: deleted Alpha branch remains a push target: ${deleted}.`);
@@ -73,7 +73,7 @@ for (const file of ["rc-manifest-integrity.yml", "rc-evidence-assemble.yml", "rc
 const manifestIntegrityWorkflow = fs.readFileSync(path.join(workflowDirectory, "rc-manifest-integrity.yml"), "utf8");
 for (const file of ["rc-manifest-integrity.yml", "rc-artifact-build.yml"]) {
   const pushBranches = parsedWorkflows.get(file)?.on?.push?.branches ?? [];
-  if (!pushBranches.includes("develop/sdk-v2") || !pushBranches.includes("release/sdk-v2-rc2-final-validation")) {
+  if (!pushBranches.includes("develop") || !pushBranches.includes("release/sdk-v2-rc2-final-validation")) {
     throw new Error(`${file}: post-merge develop and exact Candidate push gates are both required.`);
   }
 }
