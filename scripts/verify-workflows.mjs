@@ -71,10 +71,13 @@ for (const file of ["rc-manifest-integrity.yml", "rc-evidence-assemble.yml", "rc
 }
 
 const manifestIntegrityWorkflow = fs.readFileSync(path.join(workflowDirectory, "rc-manifest-integrity.yml"), "utf8");
-for (const file of ["rc-manifest-integrity.yml", "rc-artifact-build.yml"]) {
-  const pushBranches = parsedWorkflows.get(file)?.on?.push?.branches ?? [];
-  if (!pushBranches.includes("develop") || !pushBranches.includes("release/sdk-v2-rc2-final-validation")) {
-    throw new Error(`${file}: post-merge develop and exact Candidate push gates are both required.`);
+const rcCandidateBranch = "release/sdk-v2-rc2-final-validation";
+for (const file of ["rc-manifest-integrity.yml", "rc-artifact-build.yml", "rc-reproducibility.yml", "rc-security.yml"]) {
+  for (const event of ["pull_request", "push"]) {
+    const branches = parsedWorkflows.get(file)?.on?.[event]?.branches ?? [];
+    if (branches.length !== 1 || branches[0] !== rcCandidateBranch) {
+      throw new Error(`${file}: ${event} must target only the frozen RC Candidate branch, not post-release develop.`);
+    }
   }
 }
 for (const legacy of ["release/rc1/rc1-candidate-manifest.json", "release/rc2/rc2-candidate-manifest.json"]) {
