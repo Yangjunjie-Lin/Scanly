@@ -208,7 +208,7 @@ describe("RC2 detached Release Manifest integrity", () => {
     for (const workflow of [integrity, evidence, artifacts]) expect(workflow).toContain("rc:manifest:verify");
     expect(integrity).toContain("--require-candidate-tag");
     expect(integrity).toContain("--require-exact-candidate-head");
-    expect(integrity).toContain("branches: [develop/sdk-v2, release/sdk-v2-rc2-final-validation]");
+    expect(integrity).toContain("branches: [develop, release/sdk-v2-rc2-final-validation]");
     expect(evidence).not.toContain("rc2-candidate-manifest.template.json");
     expect(evidence.match(/--require-exact-candidate-head/g)).toHaveLength(2);
     expect(evidence).toContain("npm run rc:sbom -- --verify");
@@ -217,7 +217,7 @@ describe("RC2 detached Release Manifest integrity", () => {
     expect(artifacts).toContain("Record isolated CI rebuild identities without rewriting frozen evidence");
     expect(artifacts).toContain("rc:artifacts:verify-canonical");
     expect(artifacts).toContain("--require-exact-candidate-head");
-    expect(artifacts).toContain("branches: [develop/sdk-v2, release/sdk-v2-rc2-final-validation]");
+    expect(artifacts).toContain("branches: [develop, release/sdk-v2-rc2-final-validation]");
     expect(stable).toContain("stable:manifest:verify");
     expect(stable).toContain("--require-go");
     expect(stable).toContain("POST_RELEASE_VALIDATION_PENDING");

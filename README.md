@@ -139,8 +139,8 @@ Known limitations include hardware-dependent camera capabilities, difficult or o
 ## Branch and release status
 
 - `main` contains the current v2.0.0 Stable line.
-- `develop/sdk-v2` is the integration branch for post-v2 maintenance and the next patch/minor line.
-- Feature and fix branches start from `develop/sdk-v2`.
+- `develop` is the integration branch for post-v2 maintenance and the next patch/minor line.
+- Feature and fix branches start from `develop`.
 - Historical release branches and immutable RC/Stable tags preserve qualification ancestry; `release/sdk-v2-v2.0.0` is not a development base.
 
 Detailed Alpha, Beta, and RC development evidence is preserved in [development history](docs/history/sdk-v2-development-history.md) and under `release/`.
