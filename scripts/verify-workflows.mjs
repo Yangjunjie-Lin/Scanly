@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import yaml from "js-yaml";
+import { load } from "js-yaml";
 
 const workflowDirectory = path.resolve(".github", "workflows");
 const workflowFiles = fs.readdirSync(workflowDirectory)
@@ -11,7 +11,7 @@ const parsedWorkflows = new Map();
 for (const file of workflowFiles) {
   const filePath = path.join(workflowDirectory, file);
   try {
-    const document = yaml.load(fs.readFileSync(filePath, "utf8"));
+    const document = load(fs.readFileSync(filePath, "utf8"));
     if (!document || typeof document !== "object" || Array.isArray(document)) {
       throw new Error("workflow root must be a mapping");
     }
