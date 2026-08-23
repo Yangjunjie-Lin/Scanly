@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BrowserCaptureSession, type BrowserCaptureSessionOptions, type BrowserScanFileOptions } from "@scanly/browser";
 import type { ScanOutcome } from "@scanly/core";
 
@@ -17,22 +17,54 @@ export function useScanly(options: BrowserCaptureSessionOptions = {}): UseScanly
   const [session] = useState(() => new BrowserCaptureSession(options));
   const [outcome, setOutcome] = useState<ScanOutcome | null>(null);
   const [scanning, setScanning] = useState(false);
+  const mounted = useRef(true);
+  const stateEpoch = useRef(0);
+  const nextCallId = useRef(0);
+  const latestCallId = useRef(0);
+  const activeCalls = useRef(new Map<number, number>());
   useEffect(() => {
+    const calls = activeCalls.current;
+    mounted.current = true;
     session.initialize();
     session.start();
-    return () => { void session.dispose(); };
+    return () => {
+      mounted.current = false;
+      stateEpoch.current += 1;
+      calls.clear();
+      void session.dispose();
+    };
   }, [session]);
   const scanFile = useCallback(async (file: File, scanOptions: BrowserScanFileOptions = {}) => {
-    setScanning(true);
+    const callId = ++nextCallId.current;
+    const epoch = stateEpoch.current;
+    latestCallId.current = callId;
+    activeCalls.current.set(callId, epoch);
+    if (mounted.current) setScanning(true);
     try {
       const next = await session.scanFile(file, scanOptions);
-      setOutcome(next);
+      if (mounted.current && stateEpoch.current === epoch && latestCallId.current === callId) setOutcome(next);
       return next;
     } finally {
-      setScanning(false);
+      if (stateEpoch.current === epoch) {
+        activeCalls.current.delete(callId);
+        if (mounted.current) setScanning(activeCalls.current.size > 0);
+      }
     }
   }, [session]);
-  const cancel = useCallback(() => { session.cancel(); setScanning(false); }, [session]);
-  const reset = useCallback(() => { session.cancel(); setScanning(false); setOutcome(null); }, [session]);
+  const cancel = useCallback(() => {
+    stateEpoch.current += 1;
+    activeCalls.current.clear();
+    session.cancel();
+    if (mounted.current) setScanning(false);
+  }, [session]);
+  const reset = useCallback(() => {
+    stateEpoch.current += 1;
+    activeCalls.current.clear();
+    session.cancel();
+    if (mounted.current) {
+      setScanning(false);
+      setOutcome(null);
+    }
+  }, [session]);
   return { session, outcome, scanning, scanFile, cancel, reset };
 }

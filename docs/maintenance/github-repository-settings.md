@@ -7,7 +7,7 @@ This is the auditable baseline for the published Stable repository.
 - Default branch: `main`
 - Automatically delete head branches after merge: enabled
 - Preserve signed Stable and RC tags; never force-update or delete them
-- Dependabot targets `develop/sdk-v2` and owns its active update branches
+- Dependabot targets `develop` and owns its active update branches
 
 ## `main` protection
 
@@ -18,7 +18,7 @@ This is the auditable baseline for the published Stable repository.
 - Require ordinary PR checks: `CI`, `Package Tarball`, `Public API`, and applicable Native/Browser checks exposed by the current workflows
 - Do not require scheduled/manual-only full benchmark or extended soak jobs on every documentation or metadata PR
 
-## `develop/sdk-v2` protection
+## `develop` protection
 
 - Require pull requests for normal integration work
 - Block force pushes and branch deletion
