@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { sdkError, type ScanOutcome } from "@scanly/core";
 
 const reactHarness = vi.hoisted(() => {
-  type EffectSlot = { dependencies?: readonly unknown[]; cleanup?: () => void };
+  type EffectSlot = {
+    dependencies?: readonly unknown[];
+    setup: () => void | (() => void);
+    cleanup?: () => void;
+  };
   let stateSlots: unknown[] = [];
   let refSlots: Array<{ current: unknown }> = [];
   let effectSlots: EffectSlot[] = [];
@@ -45,7 +49,14 @@ const reactHarness = vi.hoisted(() => {
       if (!changed) return;
       previous?.cleanup?.();
       const cleanup = effect();
-      effectSlots[index] = { dependencies, ...(cleanup ? { cleanup } : {}) };
+      effectSlots[index] = { dependencies, setup: effect, ...(cleanup ? { cleanup } : {}) };
+    },
+    strictModeReplayEffects() {
+      for (const effect of effectSlots) effect.cleanup?.();
+      for (const effect of effectSlots) {
+        const cleanup = effect.setup();
+        effect.cleanup = cleanup ?? undefined;
+      }
     },
     unmount() {
       mounted = false;
@@ -62,7 +73,12 @@ const browserHarness = vi.hoisted(() => ({
   scanFile: vi.fn(),
   cancel: vi.fn(),
   dispose: vi.fn(),
+  lifecycle: "idle" as "idle" | "initialized" | "running" | "disposed",
 }));
+
+function sessionDisposed(): Error {
+  return Object.assign(new Error("Browser capture session has been disposed."), { code: "session_disposed" });
+}
 
 vi.mock("react", () => ({
   useState: reactHarness.useState,
@@ -73,11 +89,26 @@ vi.mock("react", () => ({
 
 vi.mock("@scanly/browser", () => ({
   BrowserCaptureSession: class {
-    initialize(): void { browserHarness.initialize(); }
-    start(): void { browserHarness.start(); }
-    scanFile(file: File, options: unknown): Promise<ScanOutcome> { return browserHarness.scanFile(file, options); }
+    initialize(): void {
+      if (browserHarness.lifecycle === "disposed") throw sessionDisposed();
+      browserHarness.initialize();
+      browserHarness.lifecycle = "initialized";
+    }
+    start(): void {
+      if (browserHarness.lifecycle === "disposed") throw sessionDisposed();
+      browserHarness.start();
+      browserHarness.lifecycle = "running";
+    }
+    scanFile(file: File, options: unknown): Promise<ScanOutcome> {
+      if (browserHarness.lifecycle === "disposed") return Promise.reject(sessionDisposed());
+      return browserHarness.scanFile(file, options);
+    }
     cancel(): void { browserHarness.cancel(); }
-    dispose(): Promise<void> { return browserHarness.dispose(); }
+    dispose(): Promise<void> {
+      if (browserHarness.lifecycle === "disposed") return Promise.resolve();
+      browserHarness.lifecycle = "disposed";
+      return browserHarness.dispose();
+    }
   },
 }));
 
@@ -100,6 +131,10 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
+async function flushMicrotasks(): Promise<void> {
+  await Promise.resolve();
+}
+
 function HookHarness() {
   reactHarness.beginRender();
   return useScanly();
@@ -112,6 +147,7 @@ beforeEach(() => {
   browserHarness.scanFile.mockReset();
   browserHarness.cancel.mockReset();
   browserHarness.dispose.mockReset().mockResolvedValue(undefined);
+  browserHarness.lifecycle = "idle";
 });
 
 describe("useScanly operation ownership", () => {
@@ -206,10 +242,147 @@ describe("useScanly operation ownership", () => {
     const scan = hook.scanFile(file);
 
     reactHarness.unmount();
+    await flushMicrotasks();
     expect(browserHarness.dispose).toHaveBeenCalledOnce();
     pending.resolve(success("late-unmount"));
     await scan;
 
+    expect(reactHarness.staleWrites()).toBe(0);
+  });
+});
+
+describe("useScanly StrictMode effect replay", () => {
+  it("replays setup after transient cleanup without disposing the live session", async () => {
+    HookHarness();
+
+    expect(() => reactHarness.strictModeReplayEffects()).not.toThrow();
+    await flushMicrotasks();
+
+    expect(browserHarness.lifecycle).toBe("running");
+    expect(browserHarness.initialize).toHaveBeenCalledTimes(2);
+    expect(browserHarness.start).toHaveBeenCalledTimes(2);
+    expect(browserHarness.cancel).toHaveBeenCalledOnce();
+    expect(browserHarness.dispose).not.toHaveBeenCalled();
+  });
+
+  it("keeps scanFile usable after replay", async () => {
+    browserHarness.scanFile.mockResolvedValueOnce(success("after-replay"));
+    let hook = HookHarness();
+    reactHarness.strictModeReplayEffects();
+    await flushMicrotasks();
+
+    const result = await hook.scanFile(file);
+    hook = HookHarness();
+
+    expect(result.frameId).toBe("after-replay");
+    expect(hook.outcome?.frameId).toBe("after-replay");
+    expect(hook.scanning).toBe(false);
+  });
+
+  it("finally disposes exactly once on real unmount after replay", async () => {
+    HookHarness();
+    reactHarness.strictModeReplayEffects();
+    await flushMicrotasks();
+    expect(browserHarness.dispose).not.toHaveBeenCalled();
+
+    reactHarness.unmount();
+    await flushMicrotasks();
+
+    expect(browserHarness.dispose).toHaveBeenCalledOnce();
+    expect(browserHarness.lifecycle).toBe("disposed");
+  });
+
+  it("suppresses a pending completion after real unmount following replay", async () => {
+    const pending = deferred<ScanOutcome>();
+    browserHarness.scanFile.mockReturnValueOnce(pending.promise);
+    const hook = HookHarness();
+    reactHarness.strictModeReplayEffects();
+    const scan = hook.scanFile(file);
+
+    reactHarness.unmount();
+    await flushMicrotasks();
+    pending.resolve(success("late-real-unmount"));
+    await scan;
+
+    expect(browserHarness.dispose).toHaveBeenCalledOnce();
+    expect(reactHarness.staleWrites()).toBe(0);
+  });
+
+  it("invalidates an active scan across transient cleanup and accepts the next scan", async () => {
+    const first = deferred<ScanOutcome>();
+    browserHarness.scanFile.mockReturnValueOnce(first.promise).mockResolvedValueOnce(success("second"));
+    let hook = HookHarness();
+    const firstScan = hook.scanFile(file);
+    hook = HookHarness();
+    expect(hook.scanning).toBe(true);
+
+    reactHarness.strictModeReplayEffects();
+    await flushMicrotasks();
+    hook = HookHarness();
+    expect(hook.scanning).toBe(false);
+    expect(browserHarness.cancel).toHaveBeenCalledOnce();
+    first.resolve(success("stale-first"));
+    await firstScan;
+    hook = HookHarness();
+    expect(hook.outcome).toBeNull();
+
+    const second = await hook.scanFile(file);
+    hook = HookHarness();
+    expect(second.frameId).toBe("second");
+    expect(hook.outcome?.frameId).toBe("second");
+    expect(hook.scanning).toBe(false);
+  });
+
+  it("keeps cancel and reset deterministic after replay", async () => {
+    const cancelled = deferred<ScanOutcome>();
+    const reset = deferred<ScanOutcome>();
+    browserHarness.scanFile.mockReturnValueOnce(cancelled.promise).mockReturnValueOnce(reset.promise);
+    let hook = HookHarness();
+    reactHarness.strictModeReplayEffects();
+    await flushMicrotasks();
+
+    const cancelledScan = hook.scanFile(file);
+    hook = HookHarness();
+    hook.cancel();
+    cancelled.resolve(success("late-cancel-after-replay"));
+    await cancelledScan;
+    hook = HookHarness();
+    expect(hook.scanning).toBe(false);
+    expect(hook.outcome).toBeNull();
+
+    const resetScan = hook.scanFile(file);
+    hook = HookHarness();
+    hook.reset();
+    reset.resolve(success("late-reset-after-replay"));
+    await resetScan;
+    hook = HookHarness();
+    expect(hook.scanning).toBe(false);
+    expect(hook.outcome).toBeNull();
+  });
+
+  it("survives repeated replays without double disposal or stale publication", async () => {
+    const pending = deferred<ScanOutcome>();
+    browserHarness.scanFile.mockReturnValueOnce(pending.promise).mockResolvedValueOnce(success("usable"));
+    let hook = HookHarness();
+    const staleScan = hook.scanFile(file);
+
+    expect(() => reactHarness.strictModeReplayEffects()).not.toThrow();
+    expect(() => reactHarness.strictModeReplayEffects()).not.toThrow();
+    expect(() => reactHarness.strictModeReplayEffects()).not.toThrow();
+    await flushMicrotasks();
+    pending.resolve(success("stale-after-replays"));
+    await staleScan;
+    hook = HookHarness();
+    expect(hook.outcome).toBeNull();
+
+    await hook.scanFile(file);
+    hook = HookHarness();
+    expect(hook.outcome?.frameId).toBe("usable");
+    expect(browserHarness.dispose).not.toHaveBeenCalled();
+
+    reactHarness.unmount();
+    await flushMicrotasks();
+    expect(browserHarness.dispose).toHaveBeenCalledOnce();
     expect(reactHarness.staleWrites()).toBe(0);
   });
 });

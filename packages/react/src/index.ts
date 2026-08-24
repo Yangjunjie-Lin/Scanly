@@ -22,16 +22,23 @@ export function useScanly(options: BrowserCaptureSessionOptions = {}): UseScanly
   const nextCallId = useRef(0);
   const latestCallId = useRef(0);
   const activeCalls = useRef(new Map<number, number>());
+  const lifecycleGeneration = useRef(0);
   useEffect(() => {
     const calls = activeCalls.current;
+    lifecycleGeneration.current += 1;
     mounted.current = true;
+    setScanning(calls.size > 0);
     session.initialize();
     session.start();
     return () => {
       mounted.current = false;
       stateEpoch.current += 1;
       calls.clear();
-      void session.dispose();
+      session.cancel();
+      const cleanupGeneration = ++lifecycleGeneration.current;
+      queueMicrotask(() => {
+        if (lifecycleGeneration.current === cleanupGeneration) void session.dispose();
+      });
     };
   }, [session]);
   const scanFile = useCallback(async (file: File, scanOptions: BrowserScanFileOptions = {}) => {
