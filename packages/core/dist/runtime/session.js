@@ -77,14 +77,22 @@ export class CaptureSession {
         this.activeController = controller;
         const onAbort = () => controller.abort();
         options.signal?.addEventListener("abort", onAbort, { once: true });
+        if (options.signal?.aborted)
+            controller.abort();
         try {
+            if (controller.signal.aborted)
+                return this.lifecycleFailure(frame, "cancelled", "Capture cancelled before Router execution.", true);
             const outcome = await this.router.scan(frame, { signal: controller.signal });
+            if (controller.signal.aborted)
+                return this.lifecycleFailure(frame, "cancelled", "Capture cancelled.");
             if (owner !== this.ownership)
                 return this.lifecycleFailure(frame, "cancelled", "Result belongs to a superseded session job.");
             const continuous = this.source === "camera" || this.source === "video-frame" || this.source === "hardware-scanner";
             return continuous && this.applyDuplicateSuppression ? this.duplicatePolicy.filter(outcome) : outcome;
         }
         catch (error) {
+            if (controller.signal.aborted)
+                return this.lifecycleFailure(frame, "cancelled", "Capture cancelled.");
             this.state = "error";
             return this.lifecycleFailure(frame, "internal_invariant_failure", error instanceof Error ? error.message : String(error));
         }
