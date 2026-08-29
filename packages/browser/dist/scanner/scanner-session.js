@@ -172,6 +172,17 @@ function geometryFor(result, frame) {
 function isNoResult(outcome) {
     return !outcome.ok && ["no_symbol_found", "timeout", "cancelled", "unsupported_format"].includes(outcome.error.code);
 }
+const scannerSessionTerminalLifecycles = new WeakMap();
+function terminalLifecycleFor(session) {
+    const lifecycle = scannerSessionTerminalLifecycles.get(session);
+    if (!lifecycle)
+        throw new Error("Scanner session terminal lifecycle is unavailable.");
+    return lifecycle;
+}
+function assertScannerSessionNotDisposed(session) {
+    if (terminalLifecycleFor(session).disposed)
+        throw new SdkException(sdkError("session_disposed", "Scanner session has been disposed."));
+}
 export class ScannerSession {
     state = "idle";
     source;
@@ -214,6 +225,7 @@ export class ScannerSession {
         cameraTrackEndings: 0, cameraGenerationInvalidations: 0,
     };
     constructor(options) {
+        scannerSessionTerminalLifecycles.set(this, { disposed: false, disposePromise: null });
         this.source = options.source;
         this.decoder = options.decoder ?? new BrowserScannerFrameDecoder(options.decoderOptions);
         this.ownsDecoder = !options.decoder;
@@ -239,6 +251,7 @@ export class ScannerSession {
     }
     getState() { return this.state; }
     async start() {
+        assertScannerSessionNotDisposed(this);
         if (this.state === "scanning" || this.state === "starting")
             return;
         if (this.state === "stopping")
@@ -287,6 +300,7 @@ export class ScannerSession {
         this.setState("scanning");
     }
     async switchSource(source, capabilityController) {
+        assertScannerSessionNotDisposed(this);
         const restart = this.state === "scanning" || this.state === "paused" || this.state === "starting";
         await this.stop();
         // stop() drains the active scheduler task. A decoder may complete after
@@ -346,6 +360,7 @@ export class ScannerSession {
         }
     }
     reset() {
+        assertScannerSessionNotDisposed(this);
         if (this.state === "scanning" || this.state === "starting" || this.state === "paused")
             throw new Error("Stop the scanner session before reset().");
         this.lifecycleGeneration += 1;
@@ -368,8 +383,33 @@ export class ScannerSession {
         this.counters = { capturedFrames: 0, admittedFrames: 0, droppedFrames: 0, qualityRejectedFrames: 0, periodicProbeFrames: 0, fastAttempts: 0, balancedAttempts: 0, robustAttempts: 0, decodeSuccesses: 0, confirmedEvents: 0, emittedEvents: 0, suppressedRepeats: 0, staleResultsDiscarded: 0, staleEvents: 0, lostEvents: 0, cameraTrackEndings: 0, cameraGenerationInvalidations: 0 };
         this.setState("idle");
     }
-    async dispose() { await this.stop(); if (this.ownsDecoder)
-        await this.decoder.dispose(); this.resultListeners.clear(); this.observationSetListeners.clear(); this.stateListeners.clear(); this.diagnosticListeners.clear(); }
+    async dispose() {
+        const lifecycle = terminalLifecycleFor(this);
+        if (lifecycle.disposePromise) {
+            await lifecycle.disposePromise;
+            return;
+        }
+        lifecycle.disposed = true;
+        const operation = (async () => {
+            try {
+                await this.stop();
+            }
+            finally {
+                try {
+                    if (this.ownsDecoder)
+                        await this.decoder.dispose();
+                }
+                finally {
+                    this.resultListeners.clear();
+                    this.observationSetListeners.clear();
+                    this.stateListeners.clear();
+                    this.diagnosticListeners.clear();
+                }
+            }
+        })();
+        lifecycle.disposePromise = operation;
+        await operation;
+    }
     getStatistics() {
         const scheduler = this.scheduler.getStatistics();
         const decoder = this.decoder.getStatistics?.();
@@ -600,7 +640,7 @@ export class ScannerSession {
     event(type, barcode, frameId, timestamp, observationCount, geometry, physicalInstanceId, suppressionReason) {
         return { id: `scan-event-${++this.eventSequence}`, type, barcode, frameId, timestamp, observationCount, ...(geometry ? { geometry } : {}), ...(physicalInstanceId ? { physicalInstanceId } : {}), ...(suppressionReason ? { suppressionReason } : {}) };
     }
-    canPublishGeneration(generation) { return generation === this.generation && (this.state === "starting" || this.state === "scanning"); }
+    canPublishGeneration(generation) { return !terminalLifecycleFor(this).disposed && generation === this.generation && (this.state === "starting" || this.state === "scanning"); }
     emitObservationSet(set) {
         if (!this.canPublishGeneration(set.generation))
             return;
@@ -749,13 +789,15 @@ export class ScannerSession {
         this.emitDiagnostic({ type: "error", timestamp: Date.now(), error });
     }
     setState(state) { if (this.state === state)
-        return; this.state = state; for (const listener of this.stateListeners) {
+        return; this.state = state; if (terminalLifecycleFor(this).disposed)
+        return; for (const listener of this.stateListeners) {
         try {
             listener(state);
         }
         catch { /* listener failures do not own session state */ }
     } }
-    emitDiagnostic(diagnostic) { for (const listener of this.diagnosticListeners) {
+    emitDiagnostic(diagnostic) { if (terminalLifecycleFor(this).disposed)
+        return; for (const listener of this.diagnosticListeners) {
         try {
             listener(diagnostic);
         }

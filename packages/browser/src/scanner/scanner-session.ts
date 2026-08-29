@@ -251,6 +251,23 @@ function isNoResult(outcome: ScanOutcome): boolean {
   return !outcome.ok && ["no_symbol_found", "timeout", "cancelled", "unsupported_format"].includes(outcome.error.code);
 }
 
+interface ScannerSessionTerminalLifecycle {
+  disposed: boolean;
+  disposePromise: Promise<void> | null;
+}
+
+const scannerSessionTerminalLifecycles = new WeakMap<object, ScannerSessionTerminalLifecycle>();
+
+function terminalLifecycleFor(session: object): ScannerSessionTerminalLifecycle {
+  const lifecycle = scannerSessionTerminalLifecycles.get(session);
+  if (!lifecycle) throw new Error("Scanner session terminal lifecycle is unavailable.");
+  return lifecycle;
+}
+
+function assertScannerSessionNotDisposed(session: object): void {
+  if (terminalLifecycleFor(session).disposed) throw new SdkException(sdkError("session_disposed", "Scanner session has been disposed."));
+}
+
 export class ScannerSession {
   private state: ScannerSessionState = "idle";
   private source: CameraFrameSource;
@@ -294,6 +311,7 @@ export class ScannerSession {
   };
 
   constructor(options: ScannerSessionOptions) {
+    scannerSessionTerminalLifecycles.set(this, { disposed: false, disposePromise: null });
     this.source = options.source;
     this.decoder = options.decoder ?? new BrowserScannerFrameDecoder(options.decoderOptions);
     this.ownsDecoder = !options.decoder;
@@ -321,6 +339,7 @@ export class ScannerSession {
   getState(): ScannerSessionState { return this.state; }
 
   async start(): Promise<void> {
+    assertScannerSessionNotDisposed(this);
     if (this.state === "scanning" || this.state === "starting") return;
     if (this.state === "stopping") throw new Error("Scanner session is stopping.");
     if (this.state === "failed" || this.state === "stopped") this.reset();
@@ -358,6 +377,7 @@ export class ScannerSession {
   }
 
   async switchSource(source: CameraFrameSource, capabilityController?: CameraCapabilityController): Promise<void> {
+    assertScannerSessionNotDisposed(this);
     const restart = this.state === "scanning" || this.state === "paused" || this.state === "starting";
     await this.stop();
     // stop() drains the active scheduler task. A decoder may complete after
@@ -401,6 +421,7 @@ export class ScannerSession {
   }
 
   reset(): void {
+    assertScannerSessionNotDisposed(this);
     if (this.state === "scanning" || this.state === "starting" || this.state === "paused") throw new Error("Stop the scanner session before reset().");
     this.lifecycleGeneration += 1; this.generation += 1; this.candidates.reset(); this.repeats.reset(); this.roi.reset(); this.trackingRuntime?.reset(); this.escalation.reset(); this.quality.reset(); this.scheduler.reset(); this.cameraRecovery.reset(); this.backgroundPaused = false;
     this.decodeLatencies = []; this.firstDecodeAt = undefined; this.firstConfirmedAt = undefined; this.startedAt = 0; this.peakControlledMemory = 0; this.currentWorkerMemory = 0;
@@ -408,7 +429,24 @@ export class ScannerSession {
     this.setState("idle");
   }
 
-  async dispose(): Promise<void> { await this.stop(); if (this.ownsDecoder) await this.decoder.dispose(); this.resultListeners.clear(); this.observationSetListeners.clear(); this.stateListeners.clear(); this.diagnosticListeners.clear(); }
+  async dispose(): Promise<void> {
+    const lifecycle = terminalLifecycleFor(this);
+    if (lifecycle.disposePromise) { await lifecycle.disposePromise; return; }
+    lifecycle.disposed = true;
+    const operation = (async () => {
+      try {
+        await this.stop();
+      } finally {
+        try {
+          if (this.ownsDecoder) await this.decoder.dispose();
+        } finally {
+          this.resultListeners.clear(); this.observationSetListeners.clear(); this.stateListeners.clear(); this.diagnosticListeners.clear();
+        }
+      }
+    })();
+    lifecycle.disposePromise = operation;
+    await operation;
+  }
 
   getStatistics(): ScannerSessionStatistics {
     const scheduler = this.scheduler.getStatistics(); const decoder = this.decoder.getStatistics?.();
@@ -588,7 +626,7 @@ export class ScannerSession {
   private event(type: ScanEvent["type"], barcode: DecodedBarcode, frameId: number, timestamp: number, observationCount: number, geometry?: BarcodeGeometry, physicalInstanceId?: string, suppressionReason?: string): ScanEvent {
     return { id: `scan-event-${++this.eventSequence}`, type, barcode, frameId, timestamp, observationCount, ...(geometry ? { geometry } : {}), ...(physicalInstanceId ? { physicalInstanceId } : {}), ...(suppressionReason ? { suppressionReason } : {}) };
   }
-  private canPublishGeneration(generation: number): boolean { return generation === this.generation && (this.state === "starting" || this.state === "scanning"); }
+  private canPublishGeneration(generation: number): boolean { return !terminalLifecycleFor(this).disposed && generation === this.generation && (this.state === "starting" || this.state === "scanning"); }
   private emitObservationSet(set: BarcodeObservationSet): void {
     if (!this.canPublishGeneration(set.generation)) return;
     this.trackingRuntime?.observe(set);
@@ -685,8 +723,8 @@ export class ScannerSession {
     this.setState("failed"); this.activeDecodeController?.abort(); this.decoder.cancel(); void this.scheduler.stop(); void this.source.stop();
     this.emitDiagnostic({ type: "error", timestamp: Date.now(), error });
   }
-  private setState(state: ScannerSessionState): void { if (this.state === state) return; this.state = state; for (const listener of this.stateListeners) { try { listener(state); } catch { /* listener failures do not own session state */ } } }
-  private emitDiagnostic(diagnostic: ScannerDiagnostic): void { for (const listener of this.diagnosticListeners) { try { listener(diagnostic); } catch { /* diagnostics are observational */ } } }
+  private setState(state: ScannerSessionState): void { if (this.state === state) return; this.state = state; if (terminalLifecycleFor(this).disposed) return; for (const listener of this.stateListeners) { try { listener(state); } catch { /* listener failures do not own session state */ } } }
+  private emitDiagnostic(diagnostic: ScannerDiagnostic): void { if (terminalLifecycleFor(this).disposed) return; for (const listener of this.diagnosticListeners) { try { listener(diagnostic); } catch { /* diagnostics are observational */ } } }
 }
 
 function releaseFrame(frame: NormalizedFrame): void { frame.dispose?.(); }
