@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "scanly-stable-release-policy-1",
+  "version": "2.0.1",
+  "featureFreeze": true,
+  "allowedChanges": [
+    "RELEASE_BLOCKER",
+    "SECURITY_FIX",
+    "PACKAGING_FIX",
+    "SIGNING_FIX",
+    "REGISTRY_FIX",
+    "DOCUMENTATION_FIX",
+    "MANIFEST_FIX"
+  ],
+  "requiredGates": [
+    "SOFTWARE_GO",
+    "MANIFEST_INTEGRITY_GO",
+    "API_ABI_GO",
+    "SECURITY_GO",
+    "SBOM_GO",
+    "LICENSE_GO",
+    "ARTIFACT_GO",
+    "REPRODUCIBILITY_GO",
+    "SIGNING_GO",
+    "REQUIRED_PUBLICATION_CREDENTIALS_GO"
+  ],
+  "physicalValidation": {
+    "requiredForPublication": false,
+    "status": "POST_RELEASE_VALIDATION_PENDING"
+  },
+  "requiredPublicationChannels": [
+    "github-release",
+    "npm",
+    "swift-package-manager",
+    "android-aar-github-release"
+  ],
+  "optionalPublicationChannels": [
+    "cocoapods",
+    "maven-central",
+    "app-store",
+    "google-play"
+  ]
+}
