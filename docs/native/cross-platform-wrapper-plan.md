@@ -1,6 +1,6 @@
 # React Native and Flutter wrapper plan
 
-Scanly v2.0.0 does not publish React Native or Flutter adapters. The Native APIs are
+Scanly v2.0.1 does not publish React Native or Flutter adapters. The Native APIs are
 kept wrapper-friendly by using immutable value results, typed platform errors,
 explicit decoder/session disposal, bounded multiple-result arrays, and the
 stable C ABI beneath both platforms.
@@ -16,4 +16,4 @@ with destroy and must copy borrowed result views before freeing the result set.
 
 Before either publication: freeze native API snapshots, run the unified shared
 fixture vectors, add wrapper lifecycle/memory soak, and complete physical
-validation. No wrapper publication is part of v2.0.0.
+validation. No wrapper publication is part of v2.0.1.

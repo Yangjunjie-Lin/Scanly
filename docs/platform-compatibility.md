@@ -1,6 +1,6 @@
 # Platform compatibility matrix
 
-Scanly v2.0.0 is already published. The physical matrix below is a post-release qualification program, not a publication gate.
+Scanly v2.0.1 is the current Stable software line. The physical matrix below remains the post-release v2.0.0 qualification program tracked by Issue #13, not a publication gate and not a physical PASS claim for v2.0.1.
 
 Allowed runtime statuses are `verified`, `partially-verified`, `unsupported`, `unavailable`, and `not-tested`. `verified` means automated evidence unless a row explicitly identifies an admitted physical session.
 

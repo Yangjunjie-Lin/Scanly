@@ -1,13 +1,13 @@
-# ScanlySDK v2.0.0 for iOS
+# ScanlySDK v2.0.1 for iOS
 
-ScanlySDK v2.0.0 is a Stable Swift Package Manager source package for iOS 13+. CocoaPods is not a v2.0.0 distribution channel.
+ScanlySDK v2.0.1 is a Stable Swift Package Manager source package for iOS 13+. CocoaPods is not a v2.0.1 distribution channel.
 
 ## Install from the immutable tag
 
-The package manifest lives at `native/ios/Package.swift`, not the repository root. Swift Package Manager cannot resolve this repository as a remote versioned dependency using the root Git URL. For v2.0.0, check out the immutable tag and add the subdirectory as a local package:
+The package manifest lives at `native/ios/Package.swift`, not the repository root. Swift Package Manager cannot resolve this repository as a remote versioned dependency using the root Git URL. For v2.0.1, check out the immutable tag and add the subdirectory as a local package:
 
 ```bash
-git clone --branch v2.0.0 --depth 1 https://github.com/Yangjunjie-Lin/Scanly.git
+git clone --branch v2.0.1 --depth 1 https://github.com/Yangjunjie-Lin/Scanly.git
 ```
 
 In Xcode choose **File → Add Package Dependencies → Add Local** and select `Scanly/native/ios`, then add the `ScanlySDK` product to the app target. A Package.swift-based host can use a local path:
@@ -18,7 +18,7 @@ dependencies: [
 ]
 ```
 
-The checked-out `v2.0.0` tag is the version pin. Standard remote root-URL resolution such as `.package(url: ..., from: "2.0.0")` requires a root package manifest and is tracked as a post-release packaging improvement; do not use it for the published layout.
+The checked-out `v2.0.1` tag is the version pin. Standard remote root-URL resolution such as `.package(url: ..., from: "2.0.1")` requires a root package manifest and is not supported by this repository layout.
 
 ## Decode
 

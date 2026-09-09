@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { IndustrialRecoveryPipeline, createRgbaFrame, sdkError, type RecoveryDecodeExecutor, type ScanOutcome, type ScanResult } from "@scanly/core";
+import { IndustrialRecoveryPipeline, SDK_VERSION, createRgbaFrame, sdkError, type RecoveryDecodeExecutor, type ScanOutcome, type ScanResult } from "@scanly/core";
 
 const iterations = integerArgument("--iterations=", 5_000);
 const output = stringArgument("--output=") ?? path.join("benchmark-results", "industrial", "industrial-soak.json");
@@ -30,7 +30,7 @@ async function main(): Promise<void> {
     iterations, successes, peakTemporaryBytes, peakBuffers, maximumAttempts, maximumProcessedPixels,
     finalTemporaryBuffers: 0, finalRouteState: 0, finalNativeResultCount: 0, finalPendingScannerFrames: 0, finalControlledMemory: 0,
   };
-  const report = { schemaVersion: "beta3-industrial-soak-1", kind: "industrial-recovery-core-soak", sdkVersion: "2.0.0", sourceCommit, sourceTree, repositoryDirty, workerEvidence: "not-applicable-core-soak", observed, failureReasons: failures.slice(0, 100), pass: failures.length === 0 };
+  const report = { schemaVersion: "beta3-industrial-soak-1", kind: "industrial-recovery-core-soak", sdkVersion: SDK_VERSION, sourceCommit, sourceTree, repositoryDirty, workerEvidence: "not-applicable-core-soak", observed, failureReasons: failures.slice(0, 100), pass: failures.length === 0 };
   const absolute = path.join(process.cwd(), output); fs.mkdirSync(path.dirname(absolute), { recursive: true }); fs.writeFileSync(absolute, `${JSON.stringify(report, null, 2)}\n`);
   process.stdout.write(`${JSON.stringify({ output, pass: report.pass, observed }, null, 2)}\n`);
   if (!report.pass) process.exitCode = 1;

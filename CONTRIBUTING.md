@@ -1,6 +1,6 @@
 # Contributing
 
-Thank you for helping maintain Scanly's focused, local-first barcode scanning SDK scope. The public v2.0.0 format set is QR Code, Data Matrix, PDF417, Code 128, EAN-13, EAN-8, UPC-A, and UPC-E.
+Thank you for helping maintain Scanly's focused, local-first barcode scanning SDK scope. The public v2.0.1 format set is QR Code, Data Matrix, PDF417, Code 128, EAN-13, EAN-8, UPC-A, and UPC-E.
 
 ## Setup
 

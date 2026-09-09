@@ -70,7 +70,7 @@ try {
     }
   `;
   execFileSync(process.execPath, ["--input-type=module", "--eval", decodeProbe], { cwd: temporary, stdio: "pipe" });
-  console.log(`Tarball verification passed for ${workspaces.length} publishable packages (${tarballs.length} installed tarballs), including v2.0.0 multi-symbology decode.`);
+  console.log(`Tarball verification passed for ${workspaces.length} publishable packages (${tarballs.length} installed tarballs), including v2.0.1 multi-symbology decode.`);
 } finally {
   fs.rmSync(temporary, { recursive: true, force: true });
 }

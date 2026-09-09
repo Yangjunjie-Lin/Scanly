@@ -10,25 +10,38 @@ import {
 } from "./release-artifact-canonicalization.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
+const rootManifest = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+const version = process.env.STABLE_RELEASE_VERSION ?? rootManifest.version;
+if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version)) {
+  throw new Error(`Stable version '${version}' is not a release SemVer.`);
+}
+if (rootManifest.version !== version) throw new Error(`Root package version ${rootManifest.version} does not match Stable version ${version}.`);
+const stableRelativeRoot = version === "2.0.0" ? "release/stable" : `release/stable/v${version}`;
+const stablePrefix = `${stableRelativeRoot}/`;
 const stableRoot = process.env.STABLE_OUTPUT_ROOT
   ? path.resolve(root, process.env.STABLE_OUTPUT_ROOT)
-  : path.join(root, "release", "stable");
+  : path.join(root, stableRelativeRoot);
 const artifactsRoot = path.join(stableRoot, "artifacts");
 const sourceCommit = process.env.STABLE_SOURCE_COMMIT
   ?? execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
 const sourceTree = process.env.STABLE_SOURCE_TREE
   ?? execFileSync("git", ["rev-parse", "HEAD^{tree}"], { cwd: root, encoding: "utf8" }).trim();
 const sourceTimestamp = execFileSync("git", ["show", "-s", "--format=%cI", sourceCommit], { cwd: root, encoding: "utf8" }).trim();
+const requiredDeploymentValue = (name, legacyValue) => {
+  const value = process.env[name] ?? (version === "2.0.0" ? legacyValue : undefined);
+  if (!value) throw new Error(`${name} is required when generating Stable ${version} evidence.`);
+  return value;
+};
 const stableDeployment = {
   schemaVersion: "scanly-stable-deployment-1",
-  version: "2.0.0",
+  version,
   sourceCommit,
   sourceTree,
   status: "GO",
-  id: "dpl_CcgyxGYGYbJGLZxow4FG3ce4itt1",
-  url: "https://qr-decoder-hwu8fiv47-yangjunjie-lins-projects.vercel.app",
-  productionAlias: "https://qr-decoder-theta.vercel.app",
-  gitCommitSha: sourceCommit,
+  id: requiredDeploymentValue("STABLE_DEPLOYMENT_ID", "dpl_CcgyxGYGYbJGLZxow4FG3ce4itt1"),
+  url: requiredDeploymentValue("STABLE_DEPLOYMENT_URL", "https://qr-decoder-hwu8fiv47-yangjunjie-lins-projects.vercel.app"),
+  productionAlias: requiredDeploymentValue("STABLE_PRODUCTION_ALIAS", "https://qr-decoder-theta.vercel.app"),
+  gitCommitSha: requiredDeploymentValue("STABLE_DEPLOYMENT_COMMIT", sourceCommit),
   readyState: "READY",
   target: "production",
 };
@@ -36,7 +49,6 @@ const sha256 = (value) => crypto.createHash("sha256").update(value).digest("hex"
 const json = (value) => `${JSON.stringify(value, null, 2)}\n`;
 const writeJson = (relative, value) => fs.writeFileSync(path.join(stableRoot, relative), json(value));
 const resolveRelative = (relative) => {
-  const stablePrefix = "release/stable/";
   return relative.replaceAll("\\", "/").startsWith(stablePrefix)
     ? path.join(stableRoot, relative.replaceAll("\\", "/").slice(stablePrefix.length))
     : path.join(root, relative);
@@ -54,26 +66,15 @@ fs.writeFileSync(path.join(artifactsRoot, "native", "scanly-core.h"), fs.readFil
 
 const packageArtifacts = fs.readdirSync(path.join(artifactsRoot, "npm"), { withFileTypes: true })
   .filter((entry) => entry.isFile() && entry.name.endsWith(".tgz"))
-  .map((entry) => fileIdentity(`release/stable/artifacts/npm/${entry.name}`))
+  .map((entry) => fileIdentity(`${stablePrefix}artifacts/npm/${entry.name}`))
   .sort((a, b) => a.path.localeCompare(b.path));
 if (packageArtifacts.length !== 10) throw new Error(`Expected ten packed public packages, found ${packageArtifacts.length}.`);
-const cleanBuildRawNpmSha256 = {
-  "scanly-benchmark-2.0.0.tgz": "30946e5a1fee56765fa74c1782db0855a2bedd61173a2e005ad32b746ed79ea3",
-  "scanly-browser-2.0.0.tgz": "fcd98e3bdb1ec52b9f3fd96f7a3347292c94b6db1fccc7d50d9e3f1037f007cc",
-  "scanly-core-2.0.0.tgz": "78b6cb3b30715db9b99b855a450a723db600467fe171e3a4670e9c5973c4e99a",
-  "scanly-engine-jsqr-2.0.0.tgz": "e337ccb267581f303f51a6b5cf53453e3a38465719430abb64766cab127743f0",
-  "scanly-engine-zxing-cpp-wasm-2.0.0.tgz": "4c8b322762d3a916aa8b2b07beace1dfaa20f5f2be967d8f1bea0475862bc365",
-  "scanly-engine-zxing-js-2.0.0.tgz": "aa5cf0904d6a74054d0e1a7658cb7ca9d25155b2a5137864e9497fe259e4dc8c",
-  "scanly-node-2.0.0.tgz": "5d1b65a0c5e567c40f61dc78db5250a38d744214df832008b58521787bd2dad5",
-  "scanly-parsers-2.0.0.tgz": "300e605a249a92c7d40a2aaf73121b5cce0cdd2320ad7435794168bda3f12bfc",
-  "scanly-react-2.0.0.tgz": "d84cc41612613767e7e111db34bab5cb1169b04e7a96e220e65a35780c65e832",
-  "scanly-scenario-schema-2.0.0.tgz": "1470fa1f6617d710316d2faca022aa95a1ed97320ee74d995b09e2485bb5719a",
-};
+const cleanBuildRawNpmSha256 = Object.fromEntries(packageArtifacts.map((identity) => [path.basename(identity.path), identity.sha256]));
 
 const shippedNpm = packageArtifacts.map((identity) => ({
   id: `npm-${path.basename(identity.path, ".tgz")}`,
   platform: "npm",
-  version: "2.0.0",
+  version,
   ...identity,
   sourceCommit,
   sourceTree,
@@ -82,8 +83,8 @@ const shippedNpm = packageArtifacts.map((identity) => ({
   canonicalContentSha256: canonicalNpmTarballSha256(resolveRelative(identity.path)),
   status: "PASS",
 }));
-const androidArtifactRelative = "release/stable/artifacts/android/scanly-sdk-2.0.0.aar";
-const androidArtifactAbsolute = path.join(artifactsRoot, "android", "scanly-sdk-2.0.0.aar");
+const androidArtifactRelative = `${stablePrefix}artifacts/android/scanly-sdk-${version}.aar`;
+const androidArtifactAbsolute = path.join(artifactsRoot, "android", `scanly-sdk-${version}.aar`);
 const androidEvidenceAbsolute = path.join(stableRoot, "android-build-evidence.json");
 const androidArtifactPresent = fs.existsSync(androidArtifactAbsolute);
 const androidEvidencePresent = fs.existsSync(androidEvidenceAbsolute);
@@ -95,7 +96,7 @@ if (androidArtifactPresent) {
   const identity = fileIdentity(androidArtifactRelative);
   const canonicalContentSha256 = canonicalZipSha256(androidArtifactAbsolute);
   if (androidEvidence.schemaVersion !== "scanly-stable-android-build-evidence-1"
-    || androidEvidence.version !== "2.0.0"
+    || androidEvidence.version !== version
     || androidEvidence.sourceCommit !== sourceCommit
     || androidEvidence.sourceTree !== sourceTree
     || androidEvidence.requestedCheckoutCommit !== sourceCommit
@@ -109,7 +110,7 @@ if (androidArtifactPresent) {
   androidArtifact = {
     id: "android-aar",
     platform: "android",
-    version: "2.0.0",
+    version,
     ...identity,
     sourceCommit,
     sourceTree,
@@ -126,7 +127,7 @@ if (androidArtifactPresent) {
   androidArtifact = {
     id: "android-aar",
     platform: "android",
-    version: "2.0.0",
+    version,
     path: androidArtifactRelative,
     sha256: null,
     size: null,
@@ -144,8 +145,8 @@ const sourceArtifacts = [
   {
     id: "ios-swift-package-source",
     platform: "ios",
-    version: "2.0.0",
-    ...fileIdentity("release/stable/artifacts/ios/Package.swift"),
+    version,
+    ...fileIdentity(`${stablePrefix}artifacts/ios/Package.swift`),
     sourceCommit,
     sourceTree,
     workflow: "stable-artifact-build/ios-source-package",
@@ -155,8 +156,8 @@ const sourceArtifacts = [
   {
     id: "native-core-header",
     platform: "native-core",
-    version: "2.0.0",
-    ...fileIdentity("release/stable/artifacts/native/scanly-core.h"),
+    version,
+    ...fileIdentity(`${stablePrefix}artifacts/native/scanly-core.h`),
     sourceCommit,
     sourceTree,
     workflow: "stable-artifact-build/native-boundary",
@@ -167,7 +168,7 @@ const sourceArtifacts = [
 ];
 const artifactManifest = {
   schemaVersion: "scanly-stable-artifact-manifest-1",
-  version: "2.0.0",
+  version,
   productSourceCommit: sourceCommit,
   sourceTree,
   generatedFrom: "STABLE_SOURCE_COMMIT",
@@ -186,9 +187,10 @@ const components = Object.entries(lock.packages ?? {})
     const name = packageJson.name ?? relative.replace(/^node_modules\//, "");
     const version = packageJson.version ?? metadata.version ?? "UNKNOWN";
     const license = typeof packageJson.license === "string" ? packageJson.license
-      : /^@(?:emnapi|esbuild|napi-rs|next|rollup|tybys|unrs)\//.test(name) ? "MIT"
-      : name === "fsevents" || name.endsWith("/node_modules/fsevents") ? "MIT"
-        : name.startsWith("@img/sharp") ? "Apache-2.0"
+      : /^@(?:emnapi|esbuild|napi-rs|next|rolldown|rollup|tybys|unrs)\//.test(name) ? "MIT"
+        : name === "fsevents" || name.endsWith("/node_modules/fsevents") ? "MIT"
+          : name.startsWith("lightningcss-") ? "MPL-2.0"
+          : name.startsWith("@img/sharp") ? "Apache-2.0"
           : "NOASSERTION";
     return { name, version, license, purl: `pkg:npm/${encodeURIComponent(name)}@${version}` };
   })
@@ -204,11 +206,11 @@ const unknownLicenses = allComponents.filter((component) => component.license ==
 const sbom = {
   bomFormat: "CycloneDX",
   specVersion: "1.5",
-  serialNumber: `urn:uuid:${sha256(`${sourceCommit}:2.0.0`).slice(0, 8)}-${sha256(sourceTree).slice(0, 4)}-4000-8000-${sha256(`${sourceTree}:stable`).slice(0, 12)}`,
+  serialNumber: `urn:uuid:${sha256(`${sourceCommit}:${version}`).slice(0, 8)}-${sha256(sourceTree).slice(0, 4)}-4000-8000-${sha256(`${sourceTree}:stable`).slice(0, 12)}`,
   version: 1,
   metadata: {
     timestamp: sourceTimestamp,
-    component: { type: "application", name: "scanly", version: "2.0.0" },
+    component: { type: "application", name: "scanly", version },
     properties: [
       { name: "scanly:sourceCommit", value: sourceCommit },
       { name: "scanly:sourceTree", value: sourceTree },
@@ -225,7 +227,7 @@ const sbom = {
 writeJson("sbom.cdx.json", sbom);
 writeJson("license-inventory.json", {
   schemaVersion: "scanly-stable-license-inventory-1",
-  version: "2.0.0",
+  version,
   sourceCommit,
   sourceTree,
   status: unknownLicenses.length === 0 ? "GO" : "NO_GO",
@@ -235,11 +237,13 @@ writeJson("license-inventory.json", {
 
 const physical = {
   schemaVersion: "scanly-stable-physical-validation-status-1",
-  version: "2.0.0",
+  version,
   status: "POST_RELEASE_VALIDATION_REQUIRED",
   fullDeviceMatrix: "POST_RELEASE_VALIDATION_PENDING",
   requiredForPublication: false,
   issue: 13,
+  issueScope: "V2.0.0_POST_RELEASE_PHYSICAL_QUALIFICATION",
+  releaseStatement: `No physical-device PASS is claimed for v${version}.`,
   physicalMobileDeviceCount: 0,
   iosSafariSessionCount: 0,
   androidChromeSessionCount: 0,
@@ -262,7 +266,7 @@ writeJson("deployment.json", stableDeployment);
 
 const releasePolicy = {
   schemaVersion: "scanly-stable-release-policy-1",
-  version: "2.0.0",
+  version,
   featureFreeze: true,
   allowedChanges: ["RELEASE_BLOCKER", "SECURITY_FIX", "PACKAGING_FIX", "SIGNING_FIX", "REGISTRY_FIX", "DOCUMENTATION_FIX", "MANIFEST_FIX"],
   requiredGates: ["SOFTWARE_GO", "MANIFEST_INTEGRITY_GO", "API_ABI_GO", "SECURITY_GO", "SBOM_GO", "LICENSE_GO", "ARTIFACT_GO", "REPRODUCIBILITY_GO", "SIGNING_GO", "REQUIRED_PUBLICATION_CREDENTIALS_GO"],
@@ -290,17 +294,17 @@ const npmPublicationEvidence = {
   account: "yangjunjielin",
   organization: "scanly",
   organizationRole: "owner",
-  packageDryRunStatus: "PASS",
-  packageDryRunCount: 10,
-  githubSecretName: "NPM_TOKEN",
+  trustedPublisherStatus: "AVAILABLE",
+  trustedPublisherPackageCount: 10,
+  repository: "Yangjunjie-Lin/Scanly",
+  workflowFile: "stable-npm-publish.yml",
   secretValueRecorded: false,
-  tokenExpiresOn: "2026-08-25",
   provenanceWorkflow: ".github/workflows/stable-npm-publish.yml",
   provenanceMechanism: "GITHUB_ACTIONS_OIDC",
 };
 const signing = {
   schemaVersion: "scanly-stable-signing-manifest-1",
-  version: "2.0.0",
+  version,
   sourceCommit,
   sourceTree,
   secretMaterialCommitted: false,
@@ -311,7 +315,7 @@ const signing = {
       status: "GITHUB_RELEASE_SIGNING_GO",
       policy: "GitHub-verified signed annotated tag plus checksums.sha256",
       signedTagRequiredAtPublication: true,
-      checksumsPath: "release/stable/checksums.sha256",
+      checksumsPath: `${stablePrefix}checksums.sha256`,
     },
     npmPublication: { status: "NPM_PUBLICATION_GO", ...npmPublicationEvidence },
     androidArtifactSigning: androidArtifactPresent
@@ -334,7 +338,7 @@ writeJson("signing-manifest.json", signing);
 
 const publicationCredentials = {
   schemaVersion: "scanly-stable-publication-credentials-1",
-  version: "2.0.0",
+  version,
   secretMaterialCommitted: false,
   channels: {
     githubApi: { required: true, status: "AVAILABLE", evidence: "Authenticated gh session; secret value not recorded" },
@@ -362,7 +366,7 @@ const metadataReproducibilityGo = androidEvidence?.metadataCleanBuilds?.status =
   && androidEvidence.metadataCleanBuilds.cleanBuildAEqualsBuildB === true;
 writeJson("reproducibility.json", {
   schemaVersion: "scanly-stable-reproducibility-1",
-  version: "2.0.0",
+  version,
   sourceCommit,
   sourceTree,
   status: androidArtifactPresent && metadataReproducibilityGo ? "REPRODUCIBILITY_GO" : "REPRODUCIBILITY_NO_GO",
@@ -384,8 +388,8 @@ writeJson("reproducibility.json", {
       canonicalization: androidEvidence.canonicalization,
       selectedArtifactCanonicalEquivalent: true,
     } : "BLOCKED_ANDROID_BUILD_TOOLCHAIN",
-    iosSourcePackage: { status: "GO", normalizedSha256: fileIdentity("release/stable/artifacts/ios/Package.swift").sha256 },
-    nativeCoreArtifacts: { status: "GO", sha256: fileIdentity("release/stable/artifacts/native/scanly-core.h").sha256 },
+    iosSourcePackage: { status: "GO", normalizedSha256: fileIdentity(`${stablePrefix}artifacts/ios/Package.swift`).sha256 },
+    nativeCoreArtifacts: { status: "GO", sha256: fileIdentity(`${stablePrefix}artifacts/native/scanly-core.h`).sha256 },
     sbom: metadataReproducibilityGo ? { status: "GO", cleanBuildAEqualsBuildB: true } : "PENDING_CLEAN_BUILD_B",
     manifest: metadataReproducibilityGo ? {
       status: "GO",
@@ -401,8 +405,8 @@ const reproducibilityGo = androidArtifactPresent && metadataReproducibilityGo;
 const licensesGo = unknownLicenses.length === 0;
 const manifest = {
   schemaVersion: "scanly-stable-manifest-1",
-  version: "2.0.0",
-  identity: { productSourceCommit: sourceCommit, sourceTree, branch: "release/sdk-v2-v2.0.0", source: "STABLE_SOURCE_COMMIT" },
+  version,
+  identity: { productSourceCommit: sourceCommit, sourceTree, branch: process.env.STABLE_SOURCE_BRANCH ?? "develop", source: "STABLE_SOURCE_COMMIT" },
   software: "GO",
   manifestIntegrity: "GO",
   apiAbi: "GO",
@@ -423,29 +427,30 @@ const manifest = {
     ...(!reproducibilityGo ? ["BLOCKED_REPRODUCIBILITY_FINALIZATION"] : []),
   ],
   files: {
-    artifactManifest: fileIdentity("release/stable/artifact-manifest.json"),
-    ...(androidEvidencePresent ? { androidBuildEvidence: fileIdentity("release/stable/android-build-evidence.json") } : {}),
-    sbom: fileIdentity("release/stable/sbom.cdx.json"),
-    licenses: fileIdentity("release/stable/license-inventory.json"),
-    reproducibility: fileIdentity("release/stable/reproducibility.json"),
-    signing: fileIdentity("release/stable/signing-manifest.json"),
-    publicationCredentials: fileIdentity("release/stable/publication-credentials.json"),
-    releasePolicy: fileIdentity("release/stable/release-policy.json"),
-    physicalValidation: fileIdentity("release/stable/physical-validation-status.json"),
-    deployment: fileIdentity("release/stable/deployment.json"),
+    artifactManifest: fileIdentity(`${stablePrefix}artifact-manifest.json`),
+    ...(androidEvidencePresent ? { androidBuildEvidence: fileIdentity(`${stablePrefix}android-build-evidence.json`) } : {}),
+    sbom: fileIdentity(`${stablePrefix}sbom.cdx.json`),
+    licenses: fileIdentity(`${stablePrefix}license-inventory.json`),
+    reproducibility: fileIdentity(`${stablePrefix}reproducibility.json`),
+    signing: fileIdentity(`${stablePrefix}signing-manifest.json`),
+    publicationCredentials: fileIdentity(`${stablePrefix}publication-credentials.json`),
+    releasePolicy: fileIdentity(`${stablePrefix}release-policy.json`),
+    physicalValidation: fileIdentity(`${stablePrefix}physical-validation-status.json`),
+    deployment: fileIdentity(`${stablePrefix}deployment.json`),
   },
 };
-writeJson("v2.0.0-manifest.json", manifest);
+const manifestName = `v${version}-manifest.json`;
+writeJson(manifestName, manifest);
 
 const checksumPaths = [
   ...packageArtifacts.map((entry) => entry.path),
-  "release/stable/artifacts/ios/Package.swift",
-  "release/stable/artifacts/native/scanly-core.h",
+  `${stablePrefix}artifacts/ios/Package.swift`,
+  `${stablePrefix}artifacts/native/scanly-core.h`,
   ...(androidArtifactPresent ? [androidArtifactRelative] : []),
 ];
-const checksums = checksumPaths.sort().map((relative) => `${fileIdentity(relative).sha256}  ${relative.replace("release/stable/", "")}`).join("\n");
+const checksums = checksumPaths.sort().map((relative) => `${fileIdentity(relative).sha256}  ${relative.slice(stablePrefix.length)}`).join("\n");
 fs.writeFileSync(path.join(stableRoot, "checksums.sha256"), `${checksums}\n`);
-const manifestHash = fileIdentity("release/stable/v2.0.0-manifest.json").sha256;
-fs.writeFileSync(path.join(stableRoot, "v2.0.0-manifest.json.sha256"), `${manifestHash}  v2.0.0-manifest.json\n`);
+const manifestHash = fileIdentity(`${stablePrefix}${manifestName}`).sha256;
+fs.writeFileSync(path.join(stableRoot, `${manifestName}.sha256`), `${manifestHash}  ${manifestName}\n`);
 
 console.log(`Stable release manifest generated source=${sourceCommit} tree=${sourceTree} artifacts=${packageArtifacts.length + sourceArtifacts.length} manifestSha256=${manifestHash}`);

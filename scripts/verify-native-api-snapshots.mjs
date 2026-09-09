@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const root = path.resolve(import.meta.dirname, "..");
+const sdkVersion = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")).version;
 const snapshotPath = path.join(root, "api-snapshots/native-api.json");
 const sources = [
   "native/core/include/scanly/core.h",
@@ -18,7 +19,7 @@ const sources = [
 const hash = (value) => crypto.createHash("sha256").update(value.replaceAll("\r\n", "\n")).digest("hex");
 const snapshot = {
   schemaVersion: "stable-native-api-snapshot-1",
-  sdkVersion: "2.0.0",
+  sdkVersion,
   classification: "stable-breaking-changes-forbidden-with-explicit-compatibility-review",
   files: Object.fromEntries(sources.map((relative) => [relative, hash(fs.readFileSync(path.join(root, relative), "utf8"))])),
 };

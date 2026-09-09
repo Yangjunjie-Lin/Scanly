@@ -14,7 +14,7 @@ int main(void)
     options.backend = SCANLY_BACKEND_FIXTURE;
     assert(scanly_context_create(&options, &context) == SCANLY_STATUS_OK);
     assert(context != NULL);
-    assert(strcmp(scanly_core_version(), "2.0.0-native-core.1") == 0);
+    assert(strcmp(scanly_core_version(), "2.0.1-native-core.1") == 0);
     scanly_context_destroy(context);
     scanly_context_destroy(NULL);
     scanly_result_set_destroy(NULL);

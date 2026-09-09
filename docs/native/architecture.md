@@ -1,6 +1,6 @@
 # Native mobile architecture
 
-Scanly SDK v2.0.0 uses one shared ZXing-C++ decode implementation behind a
+Scanly SDK v2.0.1 uses one shared ZXing-C++ decode implementation behind a
 stable C ABI. The web runtime continues to use the pinned ZXing-C++ WASM
 adapter; Swift and Kotlin do not select independent decoder libraries.
 
@@ -29,7 +29,7 @@ and typed failures. Complex C++ types never cross the ABI.
 
 ## Session strategy
 
-v2.0.0 uses the platform-wrapper strategy for frame scheduling, lifecycle,
+v2.0.1 uses the platform-wrapper strategy for frame scheduling, lifecycle,
 latest-frame admission, repeat suppression, and stale-result discard. The
 portable C++ boundary remains decode-only. Cross-platform session behavior is
 constrained by deterministic contracts and may be converged further in a future minor release;

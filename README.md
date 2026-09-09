@@ -1,8 +1,8 @@
-# Scanly SDK v2.0.0
+# Scanly SDK v2.0.1
 
 Privacy-first, local-only barcode scanning SDK for Web, Node.js, React, iOS, and Android.
 
-[![SDK 2.0.0](https://img.shields.io/badge/SDK-2.0.0-green)](https://github.com/Yangjunjie-Lin/Scanly/releases/tag/v2.0.0)
+[![SDK 2.0.1](https://img.shields.io/badge/SDK-2.0.1-green)](https://github.com/Yangjunjie-Lin/Scanly/releases/tag/v2.0.1)
 [![npm latest](https://img.shields.io/badge/npm-latest-CB3837)](https://www.npmjs.com/package/@scanly/browser)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -27,8 +27,8 @@ Advanced engine composition can use `@scanly/core` directly:
 npm install @scanly/core
 ```
 
-- **iOS:** v2.0.0 ships a Swift Package Manager source package under `native/ios`. Because the manifest is not at the repository root, check out tag `v2.0.0` and add `native/ios` as a local package. See the [iOS guide](docs/native/ios-getting-started.md).
-- **Android:** download `scanly-sdk-2.0.0.aar` from the [v2.0.0 GitHub Release](https://github.com/Yangjunjie-Lin/Scanly/releases/tag/v2.0.0). Maven Central is not a v2.0.0 distribution channel. See the [Android guide](docs/native/android-getting-started.md).
+- **iOS:** v2.0.1 ships a Swift Package Manager source package under `native/ios`. Because the manifest is not at the repository root, check out tag `v2.0.1` and add `native/ios` as a local package. See the [iOS guide](docs/native/ios-getting-started.md).
+- **Android:** download `scanly-sdk-2.0.1.aar` from the [v2.0.1 GitHub Release](https://github.com/Yangjunjie-Lin/Scanly/releases/tag/v2.0.1). Maven Central is not a v2.0.1 distribution channel. See the [Android guide](docs/native/android-getting-started.md).
 
 ## Quick start
 
@@ -130,18 +130,18 @@ Scanly decodes locally and remains offline-capable after code and WASM assets ar
 
 ## Platform status
 
-v2.0.0 is the published Stable software line. Automated browser, Node, simulator, emulator, API/ABI, security, package, and artifact checks are verified. Automated coverage is not physical-device qualification.
+v2.0.1 is the current Stable software line. It hardens cancellation, React concurrency, camera error handling, and the terminal lifecycle of `ScannerSession`. Automated browser, Node, simulator, emulator, API/ABI, security, package, and artifact checks are verified. Automated coverage is not physical-device qualification.
 
 Physical Web iOS/Android, Native iOS/Android, 30-minute and 60-minute camera soaks, and the complete hardware matrix remain `POST_RELEASE_VALIDATION_PENDING` under [Issue #13](https://github.com/Yangjunjie-Lin/Scanly/issues/13). No all-device-verified claim is made.
 
-Known limitations include hardware-dependent camera capabilities, difficult or occluded symbols, experimental DPM recovery, unsupported Android `armeabi-v7a`, no Maven Central or CocoaPods distribution for v2.0.0, and the pending physical-device matrix.
+Known limitations include hardware-dependent camera capabilities, difficult or occluded symbols, experimental DPM recovery, unsupported Android `armeabi-v7a`, no Maven Central or CocoaPods distribution for v2.0.1, and the pending physical-device matrix.
 
 ## Branch and release status
 
-- `main` contains the current v2.0.0 Stable line.
+- `main` contains the current v2.0.1 Stable line.
 - `develop` is the integration branch for post-v2 maintenance and the next patch/minor line.
 - Feature and fix branches start from `develop`.
-- Historical release branches and immutable RC/Stable tags preserve qualification ancestry; `release/sdk-v2-v2.0.0` is not a development base.
+- Immutable RC/Stable tags and versioned evidence preserve qualification ancestry. Only `main` and `develop` are retained as long-lived branches.
 
 Detailed Alpha, Beta, and RC development evidence is preserved in [development history](docs/history/sdk-v2-development-history.md) and under `release/`.
 
@@ -157,14 +157,16 @@ Detailed Alpha, Beta, and RC development evidence is preserved in [development h
 
 ## Release integrity
 
+- [v2.0.1 release notes](docs/releases/v2.0.1.md)
+- [v2.0.1 qualification manifest](release/stable/v2.0.1/v2.0.1-manifest.json)
+- [v2.0.1 checksums](release/stable/v2.0.1/checksums.sha256)
+- [v2.0.1 SBOM](release/stable/v2.0.1/sbom.cdx.json)
 - [v2.0.0 release notes](docs/releases/v2.0.0.md)
 - [Changelog](CHANGELOG.md)
-- [Qualification manifest](release/stable/v2.0.0-manifest.json)
-- [Publication record](release/stable/v2.0.0-publication-record.json)
-- [SBOM](release/stable/sbom.cdx.json)
+- [v2.0.0 publication record](release/stable/v2.0.0-publication-record.json)
 - [Third-party notices](THIRD_PARTY_NOTICES)
 
-Published v2.0.0 artifacts, tags, and historical qualification evidence are immutable. Later documentation and maintenance changes do not replace those bytes.
+Published v2.0.0 artifacts, tags, and historical qualification evidence remain immutable. Each later Stable release uses its own `release/stable/vX.Y.Z/` evidence directory and never replaces earlier bytes.
 
 ## Contributing, security, and license
 

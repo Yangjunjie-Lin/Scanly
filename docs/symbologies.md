@@ -1,6 +1,6 @@
 # Supported barcode formats
 
-Scanly SDK v2.0.0 exposes an explicit eight-format public contract. The default scenario remains `formats: ["qr_code"]` for compatibility; applications opt into additional formats or select a multi-format scenario.
+Scanly SDK v2.0.1 exposes an explicit eight-format public contract. The default scenario remains `formats: ["qr_code"]` for compatibility; applications opt into additional formats or select a multi-format scenario.
 
 | Format | Public ID | Class | Default engine support | Notes |
 | --- | --- | --- | --- | --- |
@@ -21,7 +21,7 @@ const router = createNodeCaptureRouter({
 });
 ```
 
-Deferred formats—including Micro QR, rMQR, Aztec, Micro PDF417, DotCode, MaxiCode, GS1 DataBar/Composite, postal codes, Codabar, Code 39, Code 93, and ITF—are not part of the v2.0.0 public union. Upstream ZXing support does not make a format public.
+Deferred formats—including Micro QR, rMQR, Aztec, Micro PDF417, DotCode, MaxiCode, GS1 DataBar/Composite, postal codes, Codabar, Code 39, Code 93, and ITF—are not part of the v2.0.x public union. Upstream ZXing support does not make a format public.
 
 Direct Part Mark Data Matrix uses the opt-in `dpm-experimental` recovery profile. It is not DPM or industrial certification. Difficult, occluded, low-contrast, or strongly distorted symbols can still fail.
 

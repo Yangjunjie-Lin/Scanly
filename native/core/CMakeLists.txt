@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(scanly_native_core VERSION 2.0.0 LANGUAGES C CXX)
+project(scanly_native_core VERSION 2.0.1 LANGUAGES C CXX)
 
 option(SCANLY_BUILD_TESTS "Build Scanly native core contract tests" ON)
 option(SCANLY_BUILD_FUZZ "Build the standalone malformed-input fuzz harness" OFF)

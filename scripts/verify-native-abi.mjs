@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const root = path.resolve(import.meta.dirname, "..");
+const sdkVersion = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")).version;
 const headerPath = path.join(root, "native/core/include/scanly/core.h");
 const snapshotPath = path.join(root, "api-snapshots/native-abi.json");
 const header = fs.readFileSync(headerPath, "utf8").replaceAll("\r\n", "\n");
@@ -19,7 +20,7 @@ const structHashes = Object.fromEntries([...header.matchAll(/typedef\s+struct\s+
 
 const snapshot = {
   schemaVersion: "stable-native-abi-snapshot-1",
-  sdkVersion: "2.0.0",
+  sdkVersion,
   abiVersion,
   exportedSymbols,
   enumValues,

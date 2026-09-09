@@ -35,8 +35,8 @@ for (const [specifier, expectedExport] of expectedExports) {
 }
 
 const core = await import("@scanly/core");
-if (core.SDK_VERSION !== "2.0.0") {
-  throw new Error(`Installed @scanly/core version is ${core.SDK_VERSION}, expected 2.0.0.`);
+if (core.SDK_VERSION !== "2.0.1") {
+  throw new Error(`Installed @scanly/core version is ${core.SDK_VERSION}, expected 2.0.1.`);
 }
 for (const format of publicFormats) {
   if (!core.PUBLIC_BARCODE_FORMATS.includes(format)) {
@@ -61,4 +61,4 @@ const engine = wasm.createZxingCppWasmEngine();
 await engine.initialize();
 await engine.dispose();
 
-console.log(`Native ESM import smoke passed for ${expectedExports.length} public entry points and the v2.0.0 eight-format surface.`);
+console.log(`Native ESM import smoke passed for ${expectedExports.length} public entry points and the v2.0.1 eight-format surface.`);

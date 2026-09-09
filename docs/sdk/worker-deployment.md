@@ -1,6 +1,6 @@
 # Worker and WASM deployment
 
-`@scanly/browser` v2.0.0 creates a module Worker with a relative ESM asset URL. The package emits `dist/worker/decode-worker.js`; bundlers must copy or chunk the Worker and the packaged ZXing-C++ WASM asset into the application deployment.
+`@scanly/browser` v2.0.1 creates a module Worker with a relative ESM asset URL. The package emits `dist/worker/decode-worker.js`; bundlers must copy or chunk the Worker and the packaged ZXing-C++ WASM asset into the application deployment.
 
 The default Browser composition is jsQR → lazy ZXing-C++ WASM → ZXing-JS. Worker ownership is persistent across scans and releases when the session is disposed. Terminating a Worker rejects pending work, prevents stale delivery, and releases its WASM realm; cancellation during synchronous native execution suppresses late delivery rather than preempting native code.
 

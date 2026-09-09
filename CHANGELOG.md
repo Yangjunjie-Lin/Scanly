@@ -4,20 +4,29 @@ All notable changes follow semantic versioning.
 
 ## Unreleased
 
-### Documentation
+No changes yet.
 
-- Converged README, SDK, Native, security, maintenance, migration, and package documentation on the published v2.0.0 Stable state.
-- Moved detailed Alpha/Beta/RC navigation to the development-history index while preserving historical evidence.
+## 2.0.1 — Scanner lifecycle and runtime hardening
 
-### Maintenance
+### Correctness
 
-- Normalized metadata for all ten publishable packages and documented the post-v2 branch and repository-governance policy.
-- Added Stable documentation and package-metadata consistency gates.
+- Made `ScannerSession.dispose()` a permanent terminal lifecycle boundary without adding a public `disposed` state variant. `start()`, `reset()`, and `switchSource()` now reject with `session_disposed` after disposal.
+- Preserved restart after `stop()`, idempotent concurrent disposal, injected-decoder ownership, and authoritative cancellation/draining of pending start, scheduled frames, and active decode work.
+- Suppressed stale state, result, observation, diagnostic, and listener publication after terminal disposal.
+- Hardened pre-aborted capture calls, React replace/reject concurrency, stale reset/cancel completion, React StrictMode effect replay, and browser camera `DOMException` mapping.
 
-### Release engineering
+### Security and compatibility
 
-- Generalized Stable npm publication around the signed tag and artifact manifest while retaining the isolated legacy v2.0.0 recovery path.
-- Added the immutable v2.0.0 post-publication record and verifier without rewriting the qualification manifest.
+- Updated vulnerable build dependencies without changing the supported Node.js, TypeScript, React, barcode-format, or public state vocabularies.
+- Repaired cross-platform npm lock metadata for optional Rolldown/OpenHarmony bindings and retained deterministic Windows `npm ci` behavior.
+
+### Release engineering and documentation
+
+- Migrated future npm publication to OIDC Trusted Publishing with provenance; v2.0.1 does not use a long-lived npm publication token.
+- Added versioned Stable evidence directories so v2.0.0 qualification, artifacts, and publication records remain immutable.
+- Kept the Issue #13 evidence verifier bound to the frozen v2.0.0 qualification manifest after the repository package version advanced to 2.0.1.
+- Updated SDK, Native, migration, security, maintenance, lifecycle, packaging, and release documentation for v2.0.1.
+- Physical Web and Native device qualification remains `POST_RELEASE_VALIDATION_PENDING` under Issue #13 with all physical evidence counts unchanged at zero.
 
 ## 2.0.0 — Stable software release
 

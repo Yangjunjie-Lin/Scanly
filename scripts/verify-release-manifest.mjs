@@ -132,7 +132,7 @@ assert(!Object.prototype.hasOwnProperty.call(manifest.identity ?? {}, "manifestS
 
 const identity = manifest.identity ?? {};
 const currentPackage = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
-const stablePromotionHead = currentPackage.version === "2.0.0";
+const stablePromotionHead = /^2\.0\.\d+$/.test(currentPackage.version ?? "");
 assert(identity.version === "2.0.0-rc.2", "Manifest SDK version is not 2.0.0-rc.2.");
 assert(commitExists(identity.productSourceCommit), "Product Source commit is missing or invalid.");
 assert(git("show", "-s", "--format=%T", identity.productSourceCommit) === identity.sourceTree, "Product Source Tree does not match Product Source commit.");

@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
 const root = process.cwd();
@@ -148,11 +148,25 @@ function statusForFoundationFixtures(): Json {
 }
 
 function runVerifier(): string {
-  return execFileSync(process.execPath, ["--import", "tsx", "scripts/verify-device-evidence.ts"], {
+  const result = spawnSync(process.execPath, ["--import", "tsx", "scripts/verify-device-evidence.ts"], {
     cwd: root,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   });
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    // Keep the child process' tsx loader stack out of Vitest's source-map
+    // parser. tsx contains a literal sourceMappingURL template that older
+    // convert-source-map releases can mistake for an inline source map.
+    const diagnostics = result.stderr
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+    const diagnostic = diagnostics.find((line) => line.startsWith("Error:"))
+      ?? diagnostics.find((line) => !line.startsWith("at "));
+    throw new Error(`Device evidence verifier exited with status ${result.status}: ${diagnostic ?? "no diagnostic"}`);
+  }
+  return result.stdout;
 }
 
 function expectVerifierFailure(evidence: Json): void {
