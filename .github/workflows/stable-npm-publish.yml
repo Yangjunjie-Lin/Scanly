@@ -35,6 +35,8 @@ jobs:
           node-version: 24
           cache: npm
           registry-url: https://registry.npmjs.org
+      - name: Install npm with Trusted Publishing support
+        run: npm install --global npm@11.5.1
       - run: npm ci
       - name: Resolve and verify signed Stable release identity
         env:
@@ -107,17 +109,13 @@ jobs:
           else
             npm run package:metadata:verify
           fi
-      - name: Verify npm production identity and registry access
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Verify npm Trusted Publishing prerequisites
         run: |
           set -euo pipefail
-          test -n "${NODE_AUTH_TOKEN:-}"
-          test "$(npm whoami --registry=https://registry.npmjs.org/)" = "yangjunjielin"
+          test "$(npm --version)" = "11.5.1"
+          test -z "${NODE_AUTH_TOKEN:-}"
           npm ping --registry=https://registry.npmjs.org/ > /dev/null
       - name: Publish manifest-driven npm packages with provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           set -euo pipefail
           while IFS=$'\t' read -r package tarball; do
@@ -132,7 +130,10 @@ jobs:
               npm_cli="$(readlink -f "$(command -v npm)")"
               npm_internal_modules="$(dirname "$(dirname "$npm_cli")")/node_modules"
               test -d "$npm_internal_modules/pacote" -a -d "$npm_internal_modules/libnpmpublish"
-              NODE_PATH="$npm_internal_modules" node --input-type=commonjs - "$tarball" "$package" <<'NODE'
+              # Historical v2.0.0 recovery remains token-backed because its
+              # immutable tarballs require a low-level Registry manifest
+              # override. Future releases use OIDC in the npm publish branch.
+              NPM_LEGACY_TOKEN="${{ secrets.NPM_TOKEN }}" NODE_PATH="$npm_internal_modules" node --input-type=commonjs - "$tarball" "$package" <<'NODE'
           const fs = require("node:fs");
           const path = require("node:path");
           const pacote = require("pacote");
@@ -140,8 +141,8 @@ jobs:
 
           const tarballPath = path.resolve(process.argv[2]);
           const expectedPackage = process.argv[3];
-          const token = process.env.NODE_AUTH_TOKEN;
-          if (!token) throw new Error("NODE_AUTH_TOKEN is required.");
+          const token = process.env.NPM_LEGACY_TOKEN;
+          if (!token) throw new Error("NPM_LEGACY_TOKEN is required for v2.0.0 recovery.");
 
           (async () => {
             const tarballData = fs.readFileSync(tarballPath);
@@ -166,6 +167,8 @@ jobs:
           })().catch((error) => { console.error(error); process.exitCode = 1; });
           NODE
             else
+              # No Registry token is supplied here. npm exchanges the GitHub
+              # Actions OIDC identity with the configured Trusted Publisher.
               npm publish "$tarball" --access public --provenance --tag latest
             fi
           done < stable-npm-publication-plan.tsv

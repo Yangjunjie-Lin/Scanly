@@ -24,7 +24,7 @@ describe("benchmark workflow contracts", () => {
     expect(workflow).toContain("needs: [prepare, symbologies, profile, comparison]");
     expect(workflow).toContain("path: benchmark-artifacts/${{ needs.prepare.outputs.workflow-mode }}");
     expect(workflow).toContain("pull_request:");
-    expect(workflow).toContain("- develop/sdk-v2");
+    expect(workflow).toContain("- develop");
     expect(workflow).not.toContain("    paths:");
     expect(workflow).toContain("npx tsx scripts/select-benchmark-gate-mode.ts --runtime-family=node24-win32-x64 --registry=benchmark-results/baselines/registry.json");
     expect(workflow).toContain("--github-output=\"$env:GITHUB_OUTPUT\"");
@@ -57,7 +57,7 @@ describe("benchmark workflow contracts", () => {
       expect(workflow).toContain("workflow_dispatch:");
       expect(workflow).toContain("pull_request:");
       expect(workflow).toContain("- main");
-      expect(workflow).toContain("- develop/sdk-v2");
+      expect(workflow).toContain("- develop");
       for (const deleted of [
         "architecture/sdk-v2-alpha3-industrial-validation",
         "architecture/sdk-v2-alpha4-zxing-cpp-wasm",
@@ -179,7 +179,7 @@ describe("benchmark workflow contracts", () => {
     expect(extended).toContain("workflow_dispatch:");
     expect(extended).toContain("types: [labeled]");
     expect(extended).toContain("scanner-extended-soak");
-    expect(extended).toContain("inputs.ref || 'develop/sdk-v2'");
+    expect(extended).toContain("inputs.ref || 'develop'");
     expect(extended).toContain("npm run test:scanner:worker-wasm-soak:extended");
     expect(extended).toContain("r.observed.iterations!==10000");
     const simulator = fs.readFileSync(path.join(process.cwd(), "tests", "browser-benchmark", "scanner-runtime.spec.ts"), "utf8");

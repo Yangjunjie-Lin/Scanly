@@ -69,9 +69,10 @@ if (publicationCredentials.requiredCredentialsStatus === "GO") {
 const stableNpmWorkflowPath = ".github/workflows/stable-npm-publish.yml";
 if (!exists(stableNpmWorkflowPath)) fail("Stable npm provenance publication workflow is missing.");
 const stableNpmWorkflow = fs.readFileSync(path.join(root, stableNpmWorkflowPath), "utf8");
-for (const marker of ["id-token: write", "secrets.NPM_TOKEN", "provenance: true", "libnpmpublish", "npm_internal_modules", "error?.statusCode === 409", "Waiting for Registry propagation", "git+https://github.com/Yangjunjie-Lin/Scanly.git", "v2.0.0", "stable:manifest:verify -- --require-go"]) {
+for (const marker of ["id-token: write", "node-version: 24", "npm install --global npm@11.5.1", "test -z \"${NODE_AUTH_TOKEN:-}\"", "NPM_LEGACY_TOKEN=\"${{ secrets.NPM_TOKEN }}\"", "process.env.NPM_LEGACY_TOKEN", "npm publish \"$tarball\"", "provenance: true", "libnpmpublish", "npm_internal_modules", "error?.statusCode === 409", "Waiting for Registry propagation", "git+https://github.com/Yangjunjie-Lin/Scanly.git", "v2.0.0", "stable:manifest:verify -- --require-go"]) {
   if (!stableNpmWorkflow.includes(marker)) fail(`Stable npm provenance workflow is missing '${marker}'.`);
 }
+if (/^\s*NODE_AUTH_TOKEN:\s/m.test(stableNpmWorkflow)) fail("Stable npm provenance workflow must not inject NODE_AUTH_TOKEN into future publications.");
 if ((manifest.reproducibility === "GO") !== (reproducibility.status === "REPRODUCIBILITY_GO")) fail("Stable reproducibility gate and report disagree.");
 if (deployment.status !== "GO" || deployment.sourceCommit !== sourceCommit || deployment.sourceTree !== sourceTree || deployment.gitCommitSha !== sourceCommit || deployment.readyState !== "READY" || deployment.target !== "production" || !/^https:\/\//.test(deployment.url ?? "")) fail("Stable production deployment provenance is incomplete or source-mismatched.");
 

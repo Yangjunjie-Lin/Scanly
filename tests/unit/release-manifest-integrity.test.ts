@@ -198,17 +198,22 @@ describe("RC2 detached Release Manifest integrity", () => {
     expect(result.stderr).toContain("Stable promotion blocked: publication=NO_GO");
   }, 90_000);
 
-  it("wires the verifier into RC assembly, artifact build, and the future Stable gate", () => {
+  it("keeps historical RC verification on the Candidate route and the future Stable gate separate", () => {
     const read = (file: string) => fs.readFileSync(path.join(root, ".github", "workflows", file), "utf8");
     const integrity = read("rc-manifest-integrity.yml");
     const evidence = read("rc-evidence-assemble.yml");
     const artifacts = read("rc-artifact-build.yml");
+    const reproducibility = read("rc-reproducibility.yml");
+    const security = read("rc-security.yml");
     const stable = read("stable-release-gate.yml");
 
     for (const workflow of [integrity, evidence, artifacts]) expect(workflow).toContain("rc:manifest:verify");
     expect(integrity).toContain("--require-candidate-tag");
     expect(integrity).toContain("--require-exact-candidate-head");
-    expect(integrity).toContain("branches: [develop/sdk-v2, release/sdk-v2-rc2-final-validation]");
+    for (const workflow of [integrity, artifacts, reproducibility, security]) {
+      expect(workflow).toContain("branches: [release/sdk-v2-rc2-final-validation]");
+      expect(workflow).not.toContain("branches: [develop");
+    }
     expect(evidence).not.toContain("rc2-candidate-manifest.template.json");
     expect(evidence.match(/--require-exact-candidate-head/g)).toHaveLength(2);
     expect(evidence).toContain("npm run rc:sbom -- --verify");
@@ -217,7 +222,6 @@ describe("RC2 detached Release Manifest integrity", () => {
     expect(artifacts).toContain("Record isolated CI rebuild identities without rewriting frozen evidence");
     expect(artifacts).toContain("rc:artifacts:verify-canonical");
     expect(artifacts).toContain("--require-exact-candidate-head");
-    expect(artifacts).toContain("branches: [develop/sdk-v2, release/sdk-v2-rc2-final-validation]");
     expect(stable).toContain("stable:manifest:verify");
     expect(stable).toContain("--require-go");
     expect(stable).toContain("POST_RELEASE_VALIDATION_PENDING");
