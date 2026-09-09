@@ -72,7 +72,7 @@ jobs:
         with: { name: rc2-npm-artifacts, path: "${{ runner.temp }}/rc2-artifacts/npm" }
       - uses: actions/upload-artifact@v4
         with: { name: rc2-artifact-rebuild-manifest, path: "${{ runner.temp }}/rc2-artifact-rebuild-manifest.json" }
-      - uses: actions/attest-build-provenance@v2
+      - uses: actions/attest-build-provenance@v4
         with: { subject-path: "${{ runner.temp }}/rc2-artifacts/npm/*.tgz" }
 
   native-boundary:
