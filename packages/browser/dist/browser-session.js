@@ -64,7 +64,11 @@ export class BrowserCaptureSession {
         this.controller = controller;
         const onAbort = () => controller.abort();
         options.signal?.addEventListener("abort", onAbort, { once: true });
+        if (options.signal?.aborted)
+            controller.abort();
         try {
+            if (controller.signal.aborted)
+                return this.failure(frameId, "cancelled", "Decode cancelled before image loading.");
             options.onStage?.("Loading image...");
             const pixels = await loadPixelBufferFromFile(file);
             if (controller.signal.aborted)
@@ -112,6 +116,8 @@ export class BrowserCaptureSession {
                 outcome = await this.decodeOnMain(frame, this.scenario, controller.signal);
                 options.onProgress?.({ attemptCount: outcome.attemptCount });
             }
+            if (controller.signal.aborted)
+                return this.failure(frameId, "cancelled", "Decode cancelled.");
             if (owner !== this.owner)
                 return this.failure(frameId, "cancelled", "Result belongs to a superseded browser job.");
             return outcome;

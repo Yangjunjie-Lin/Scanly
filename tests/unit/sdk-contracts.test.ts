@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   BoundedFrameArtifactStore,
   CaptureRouter,
@@ -20,6 +20,14 @@ class DelayedRouter extends CaptureRouter {
   readonly resolvers: Array<() => void> = [];
   override async scan(frame: Parameters<CaptureRouter["scan"]>[0]): Promise<ScanOutcome> {
     await new Promise<void>((resolve) => this.resolvers.push(resolve));
+    return success(frame.id);
+  }
+}
+
+class CountingRouter extends CaptureRouter {
+  calls = 0;
+  override async scan(frame: Parameters<CaptureRouter["scan"]>[0]): Promise<ScanOutcome> {
+    this.calls += 1;
     return success(frame.id);
   }
 }
@@ -102,5 +110,75 @@ describe("capture session lifecycle", () => {
     if (!rejected.ok) expect(rejected.error.code).toBe("concurrent_call_rejected");
     router.resolvers[0]();
     await first;
+  });
+
+  it("fails closed before Router work for a pre-aborted signal and releases an owned frame exactly once", async () => {
+    const router = new CountingRouter();
+    const session = new CaptureSession({ router });
+    const controller = new AbortController();
+    const dispose = vi.fn();
+    const addAbortListener = vi.spyOn(controller.signal, "addEventListener");
+    const removeAbortListener = vi.spyOn(controller.signal, "removeEventListener");
+    session.start("upload");
+    controller.abort();
+
+    const outcome = await session.scan(createRgbaFrame(new Uint8ClampedArray(4), 1, 1, { ownership: "owned", dispose }), { signal: controller.signal });
+
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.error.code).toBe("cancelled");
+    expect(router.calls).toBe(0);
+    expect(dispose).toHaveBeenCalledOnce();
+    expect(addAbortListener).toHaveBeenCalledOnce();
+    expect(removeAbortListener).toHaveBeenCalledOnce();
+  });
+
+  it("preserves a borrowed frame when its pre-aborted scan is cancelled", async () => {
+    const router = new CountingRouter();
+    const session = new CaptureSession({ router });
+    const controller = new AbortController();
+    const dispose = vi.fn();
+    session.start("upload");
+    controller.abort();
+
+    const outcome = await session.scan(createRgbaFrame(new Uint8ClampedArray(4), 1, 1, { ownership: "borrowed", dispose }), { signal: controller.signal });
+
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.error.code).toBe("cancelled");
+    expect(router.calls).toBe(0);
+    expect(dispose).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when an external signal aborts while its listener is being registered", async () => {
+    const router = new CountingRouter();
+    const session = new CaptureSession({ router });
+    const controller = new AbortController();
+    const addEventListener = controller.signal.addEventListener.bind(controller.signal);
+    vi.spyOn(controller.signal, "addEventListener").mockImplementation(((type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions) => {
+      addEventListener(type, listener, options);
+      controller.abort();
+    }) as AbortSignal["addEventListener"]);
+    session.start("upload");
+
+    const outcome = await session.scan(createRgbaFrame(new Uint8ClampedArray(4), 1, 1, { ownership: "borrowed" }), { signal: controller.signal });
+
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.error.code).toBe("cancelled");
+    expect(router.calls).toBe(0);
+  });
+
+  it("keeps cancellation authoritative when the signal aborts after Router work starts", async () => {
+    const router = new DelayedRouter();
+    const session = new CaptureSession({ router });
+    const controller = new AbortController();
+    session.start("upload");
+
+    const pending = session.scan(createRgbaFrame(new Uint8ClampedArray(4), 1, 1, { ownership: "borrowed" }), { signal: controller.signal });
+    await Promise.resolve();
+    controller.abort();
+    router.resolvers[0]();
+    const outcome = await pending;
+
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.error.code).toBe("cancelled");
   });
 });

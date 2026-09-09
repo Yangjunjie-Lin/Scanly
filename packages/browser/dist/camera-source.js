@@ -4,8 +4,14 @@ import { createBrowserCaptureRouter } from "./runtime.js";
 import { DecodeWorkerClient, markDecodePath, markWorkerRecovery } from "./worker/worker-client.js";
 import { CameraEscalationController } from "./camera-strategy.js";
 function cameraFailure(frameId, scenarioId, error) {
-    const message = (error instanceof Error ? error.message : String(error)).slice(0, 2_048);
-    const code = /NotAllowedError|permission denied/i.test(message) ? "camera_permission_denied" : /NotFoundError|DevicesNotFound|Requested device not found|no.*device/i.test(message) ? "camera_unavailable" : "source_disconnected";
+    const browserError = error;
+    const name = browserError?.name ?? "";
+    const message = (browserError?.message || String(error)).slice(0, 2_048);
+    const code = name === "NotAllowedError" || name === "SecurityError" || /NotAllowedError|permission denied/i.test(message)
+        ? "camera_permission_denied"
+        : name === "NotFoundError" || name === "DevicesNotFoundError" || /NotFoundError|DevicesNotFound|Requested device not found|no.*device/i.test(message)
+            ? "camera_unavailable"
+            : "source_disconnected";
     return { ok: false, error: sdkError(code, message), frameId, scenarioId, attemptCount: 0, timing: { totalMs: 0 } };
 }
 function orientation() {
