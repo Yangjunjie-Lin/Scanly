@@ -39,8 +39,14 @@ export interface CameraStartOptions {
 export interface BrowserCameraSourceOptions { router?: CaptureRouter; disposeRouter?: boolean; workerFactory?: DecodeWorkerFactory }
 
 function cameraFailure(frameId: string, scenarioId: string, error: unknown): ScanFailure {
-  const message = (error instanceof Error ? error.message : String(error)).slice(0, 2_048);
-  const code = /NotAllowedError|permission denied/i.test(message) ? "camera_permission_denied" : /NotFoundError|DevicesNotFound|Requested device not found|no.*device/i.test(message) ? "camera_unavailable" : "source_disconnected";
+  const browserError = error as { name?: string; message?: string } | undefined;
+  const name = browserError?.name ?? "";
+  const message = (browserError?.message || String(error)).slice(0, 2_048);
+  const code = name === "NotAllowedError" || name === "SecurityError" || /NotAllowedError|permission denied/i.test(message)
+    ? "camera_permission_denied"
+    : name === "NotFoundError" || name === "DevicesNotFoundError" || /NotFoundError|DevicesNotFound|Requested device not found|no.*device/i.test(message)
+      ? "camera_unavailable"
+      : "source_disconnected";
   return { ok: false, error: sdkError(code, message), frameId, scenarioId, attemptCount: 0, timing: { totalMs: 0 } };
 }
 

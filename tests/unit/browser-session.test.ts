@@ -129,4 +129,59 @@ describe("BrowserCaptureSession", () => {
     release();
     await first;
   });
+
+  it("does not load pixels, create a Worker, or route a pre-aborted file scan", async () => {
+    vi.stubGlobal("Worker", class {});
+    const router = new TestRouter();
+    const routerSpy = vi.spyOn(router, "scan");
+    const worker = {
+      onmessage: null as ((event: MessageEvent) => void) | null,
+      onerror: null,
+      postMessage: vi.fn(function (this: { onmessage: ((event: MessageEvent) => void) | null }, message: { type: string; jobId?: string; generation?: number; frame?: { id: string } }) {
+        if (message.type !== "scan") return;
+        queueMicrotask(() => this.onmessage?.({ data: { type: "result", jobId: message.jobId, generation: message.generation, outcome: success(message.frame!.id) } } as MessageEvent));
+      }),
+      terminate: vi.fn(),
+    };
+    const workerFactory = vi.fn(() => worker);
+    const session = new BrowserCaptureSession({ router, workerFactory });
+    const controller = new AbortController();
+    const addAbortListener = vi.spyOn(controller.signal, "addEventListener");
+    const removeAbortListener = vi.spyOn(controller.signal, "removeEventListener");
+    session.start();
+    loadPixelBufferFromFile.mockResolvedValue(pixels);
+    controller.abort();
+
+    const outcome = await session.scanFile(file, { signal: controller.signal });
+
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.error.code).toBe("cancelled");
+    expect(loadPixelBufferFromFile).not.toHaveBeenCalled();
+    expect(routerSpy).not.toHaveBeenCalled();
+    expect(workerFactory).not.toHaveBeenCalled();
+    expect(addAbortListener).toHaveBeenCalledOnce();
+    expect(removeAbortListener).toHaveBeenCalledOnce();
+    await session.dispose();
+  });
+
+  it("keeps cancellation authoritative when a file scan aborts after loading starts", async () => {
+    const router = new TestRouter();
+    const routerSpy = vi.spyOn(router, "scan");
+    const session = new BrowserCaptureSession({ router });
+    const controller = new AbortController();
+    let release!: (value: typeof pixels) => void;
+    loadPixelBufferFromFile.mockImplementation(() => new Promise((resolve) => { release = resolve; }));
+    session.start();
+
+    const pending = session.scanFile(file, { forceMainThread: true, signal: controller.signal });
+    await vi.waitFor(() => expect(loadPixelBufferFromFile).toHaveBeenCalledOnce());
+    controller.abort();
+    release(pixels);
+    const outcome = await pending;
+
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.error.code).toBe("cancelled");
+    expect(routerSpy).not.toHaveBeenCalled();
+    await session.dispose();
+  });
 });

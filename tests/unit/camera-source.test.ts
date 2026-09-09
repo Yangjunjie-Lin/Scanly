@@ -132,4 +132,26 @@ describe("Router camera source", () => {
     expect(onError.mock.calls[0][0].error.code).toBe("camera_permission_denied");
     expect([...listeners.values()].every((set) => set.size === 0)).toBe(true);
   });
+
+  it("maps a DOMException permission name even when its message has no permission keywords", async () => {
+    vi.stubGlobal("navigator", { mediaDevices: { getUserMedia: vi.fn().mockRejectedValue(new DOMException("The user declined camera access.", "NotAllowedError")), enumerateDevices: vi.fn() } });
+    const onError = vi.fn();
+    const source = new BrowserCameraSource({ router: new TestRouter() });
+
+    await expect(source.start(video(), { onResult: vi.fn(), onError })).rejects.toThrow(/declined camera access/);
+
+    expect(onError.mock.calls[0][0].error.code).toBe("camera_permission_denied");
+    expect([...listeners.values()].every((set) => set.size === 0)).toBe(true);
+  });
+
+  it("maps a DOMException not-found name to the compatibility camera_unavailable code", async () => {
+    vi.stubGlobal("navigator", { mediaDevices: { getUserMedia: vi.fn().mockRejectedValue(new DOMException("No matching input is attached.", "NotFoundError")), enumerateDevices: vi.fn() } });
+    const onError = vi.fn();
+    const source = new BrowserCameraSource({ router: new TestRouter() });
+
+    await expect(source.start(video(), { onResult: vi.fn(), onError })).rejects.toThrow(/matching input/);
+
+    expect(onError.mock.calls[0][0].error.code).toBe("camera_unavailable");
+    expect([...listeners.values()].every((set) => set.size === 0)).toBe(true);
+  });
 });
