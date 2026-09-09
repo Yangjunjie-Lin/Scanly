@@ -125,13 +125,19 @@ const stableReleaseWorkflow = fs.readFileSync(path.join(workflowDirectory, "stab
 if (!stableReleaseWorkflow.includes("stable:manifest:verify") || !stableReleaseWorkflow.includes("--require-go") || !stableReleaseWorkflow.includes("POST_RELEASE_VALIDATION") || stableReleaseWorkflow.includes("device:evidence:verify") || stableReleaseWorkflow.includes("--require-exact-candidate-head")) {
   throw new Error("stable-release-gate.yml: Stable Manifest policy and post-release Physical status gates are incomplete.");
 }
-for (const marker of ["secrets.NPM_TOKEN", "npm whoami", "npm ping --registry=https://registry.npmjs.org/"]) {
-  if (!stableReleaseWorkflow.includes(marker)) throw new Error(`stable-release-gate.yml: missing publication credential preflight '${marker}'.`);
+for (const marker of ["node-version: 24", "npm install --global npm@11.5.1", "test -z \"${NODE_AUTH_TOKEN:-}\"", "npm ping --registry=https://registry.npmjs.org/"]) {
+  if (!stableReleaseWorkflow.includes(marker)) throw new Error(`stable-release-gate.yml: missing Trusted Publishing prerequisite '${marker}'.`);
+}
+for (const forbidden of ["secrets.NPM_TOKEN", "npm whoami"]) {
+  if (stableReleaseWorkflow.includes(forbidden)) throw new Error(`stable-release-gate.yml: token credential preflight must not require '${forbidden}'.`);
 }
 
 const stableNpmPublishWorkflow = fs.readFileSync(path.join(workflowDirectory, "stable-npm-publish.yml"), "utf8");
-for (const marker of ["release:", "types: [published]", "id-token: write", "secrets.NPM_TOKEN", "--provenance", "provenance: true", "libnpmpublish", "Legacy v2.0.0 recovery only", "npm_internal_modules", "error?.statusCode", "Waiting for Registry propagation", "git+https://github.com/Yangjunjie-Lin/Scanly.git", "verification.verified", "release/stable/artifact-manifest.json", "stable-npm-publication-plan.tsv", "manifest.version !== version", "packageJson.version !== version", "npm run package:metadata:verify", "stable:manifest:verify -- --require-go"]) {
+for (const marker of ["release:", "types: [published]", "id-token: write", "node-version: 24", "npm install --global npm@11.5.1", "test -z \"${NODE_AUTH_TOKEN:-}\"", "NPM_LEGACY_TOKEN=\"${{ secrets.NPM_TOKEN }}\"", "process.env.NPM_LEGACY_TOKEN", "npm publish \"$tarball\"", "--provenance", "provenance: true", "libnpmpublish", "Legacy v2.0.0 recovery only", "npm_internal_modules", "error?.statusCode", "Waiting for Registry propagation", "git+https://github.com/Yangjunjie-Lin/Scanly.git", "verification.verified", "release/stable/artifact-manifest.json", "stable-npm-publication-plan.tsv", "manifest.version !== version", "packageJson.version !== version", "npm run package:metadata:verify", "stable:manifest:verify -- --require-go"]) {
   if (!stableNpmPublishWorkflow.includes(marker)) throw new Error(`stable-npm-publish.yml: missing required production publication control '${marker}'.`);
+}
+if (/^\s*NODE_AUTH_TOKEN:\s/m.test(stableNpmPublishWorkflow)) {
+  throw new Error("stable-npm-publish.yml: future npm publication must not inject NODE_AUTH_TOKEN.");
 }
 for (const forbidden of ["test \"$RELEASE_TAG\" = \"v2.0.0\"", "group: stable-npm-v2.0.0", "@scanly/parsers|release/stable/artifacts/npm/"]) {
   if (stableNpmPublishWorkflow.includes(forbidden)) throw new Error(`stable-npm-publish.yml: future-version workflow retains hard-coded publication control '${forbidden}'.`);
