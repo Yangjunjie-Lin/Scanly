@@ -158,6 +158,9 @@ Detailed Alpha, Beta, and RC development evidence is preserved in [development h
 ## Release integrity
 
 - [v2.0.1 release notes](docs/releases/v2.0.1.md)
+- [v2.0.1 qualification manifest](release/stable/v2.0.1/v2.0.1-manifest.json)
+- [v2.0.1 checksums](release/stable/v2.0.1/checksums.sha256)
+- [v2.0.1 SBOM](release/stable/v2.0.1/sbom.cdx.json)
 - [v2.0.0 release notes](docs/releases/v2.0.0.md)
 - [Changelog](CHANGELOG.md)
 - [v2.0.0 publication record](release/stable/v2.0.0-publication-record.json)

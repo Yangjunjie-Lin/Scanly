@@ -41,6 +41,9 @@
 - [Benchmark methodology](benchmarking/methodology.md)
 - [Benchmark provenance](benchmarking/provenance.md)
 - [v2.0.1 release notes](releases/v2.0.1.md)
+- [v2.0.1 qualification manifest](../release/stable/v2.0.1/v2.0.1-manifest.json)
+- [v2.0.1 checksums](../release/stable/v2.0.1/checksums.sha256)
+- [v2.0.1 SBOM](../release/stable/v2.0.1/sbom.cdx.json)
 - [v2.0.0 publication record](../release/stable/v2.0.0-publication-record.json)
 - [SDK v2 development history](history/sdk-v2-development-history.md)
 

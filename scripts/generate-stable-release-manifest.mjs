@@ -187,9 +187,10 @@ const components = Object.entries(lock.packages ?? {})
     const name = packageJson.name ?? relative.replace(/^node_modules\//, "");
     const version = packageJson.version ?? metadata.version ?? "UNKNOWN";
     const license = typeof packageJson.license === "string" ? packageJson.license
-      : /^@(?:emnapi|esbuild|napi-rs|next|rollup|tybys|unrs)\//.test(name) ? "MIT"
-      : name === "fsevents" || name.endsWith("/node_modules/fsevents") ? "MIT"
-        : name.startsWith("@img/sharp") ? "Apache-2.0"
+      : /^@(?:emnapi|esbuild|napi-rs|next|rolldown|rollup|tybys|unrs)\//.test(name) ? "MIT"
+        : name === "fsevents" || name.endsWith("/node_modules/fsevents") ? "MIT"
+          : name.startsWith("lightningcss-") ? "MPL-2.0"
+          : name.startsWith("@img/sharp") ? "Apache-2.0"
           : "NOASSERTION";
     return { name, version, license, purl: `pkg:npm/${encodeURIComponent(name)}@${version}` };
   })

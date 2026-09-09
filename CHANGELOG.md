@@ -24,6 +24,7 @@ No changes yet.
 
 - Migrated future npm publication to OIDC Trusted Publishing with provenance; v2.0.1 does not use a long-lived npm publication token.
 - Added versioned Stable evidence directories so v2.0.0 qualification, artifacts, and publication records remain immutable.
+- Kept the Issue #13 evidence verifier bound to the frozen v2.0.0 qualification manifest after the repository package version advanced to 2.0.1.
 - Updated SDK, Native, migration, security, maintenance, lifecycle, packaging, and release documentation for v2.0.1.
 - Physical Web and Native device qualification remains `POST_RELEASE_VALIDATION_PENDING` under Issue #13 with all physical evidence counts unchanged at zero.
 

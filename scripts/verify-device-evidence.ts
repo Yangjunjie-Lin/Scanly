@@ -159,8 +159,8 @@ for (const name of sessionFiles) {
   counts[evidence.evidenceType as EvidenceType] += 1;
 
   assert(
-    evidence.sdkVersion === packageJson.version || evidence.sdkVersion === "2.0.0-rc.2" || evidence.sdkVersion === "2.0.0-beta.5",
-    `${name}: sdkVersion is neither the Stable package version nor an explicitly retained RC2/Beta 5 historical version.`,
+    evidence.sdkVersion === stableManifest.version || evidence.sdkVersion === "2.0.0-rc.2" || evidence.sdkVersion === "2.0.0-beta.5",
+    `${name}: sdkVersion is neither the frozen Stable physical-qualification version nor an explicitly retained RC2/Beta 5 historical version.`,
   );
   assert(existsCommit(evidence.sourceCommit), `${name}: sourceCommit is not a repository commit.`);
   assert(git("show", "-s", "--format=%T", evidence.sourceCommit) === evidence.sourceTree, `${name}: sourceTree does not match sourceCommit.`);

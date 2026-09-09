@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 const root = process.cwd();
 const verifier = path.join(root, "scripts", "verify-release-manifest.mjs");
 const stableVerifier = path.join(root, "scripts", "verify-stable-manifest.mjs");
+const stableVersion = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")).version as string;
 const manifest = path.join(root, "release", "rc2", "rc2-candidate-manifest.v2.json");
 const sidecar = `${manifest}.sha256`;
 const expectedCandidateTag = JSON.parse(fs.readFileSync(manifest, "utf8")).identity.candidateTag as string;
@@ -180,14 +181,16 @@ describe("RC2 detached Release Manifest integrity", () => {
   it("keeps incomplete software or publication gates fail-closed", () => {
     const repository = clonedRepository();
     const repositoryStableVerifier = path.join(repository, "scripts", "verify-stable-manifest.mjs");
-    const repositoryStableManifest = path.join(repository, "release", "stable", "v2.0.0-manifest.json");
+    const repositoryStableManifest = stableVersion === "2.0.0"
+      ? path.join(repository, "release", "stable", `v${stableVersion}-manifest.json`)
+      : path.join(repository, "release", "stable", `v${stableVersion}`, `v${stableVersion}-manifest.json`);
     const repositoryStableSidecar = `${repositoryStableManifest}.sha256`;
     const value = JSON.parse(fs.readFileSync(repositoryStableManifest, "utf8"));
     value.publication = "NO_GO";
     value.stable = "V2_STABLE_RELEASE_NO_GO";
     fs.writeFileSync(repositoryStableManifest, `${JSON.stringify(value, null, 2)}\n`, "utf8");
     const digest = crypto.createHash("sha256").update(fs.readFileSync(repositoryStableManifest)).digest("hex");
-    fs.writeFileSync(repositoryStableSidecar, `${digest}  v2.0.0-manifest.json\n`, "utf8");
+    fs.writeFileSync(repositoryStableSidecar, `${digest}  v${stableVersion}-manifest.json\n`, "utf8");
 
     const policy = execFileSync(process.execPath, [repositoryStableVerifier], { cwd: repository, encoding: "utf8" });
     expect(policy).toContain("physical=POST_RELEASE_VALIDATION_REQUIRED");
