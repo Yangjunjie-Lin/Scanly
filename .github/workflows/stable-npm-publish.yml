@@ -46,8 +46,15 @@ jobs:
           set -euo pipefail
           [[ "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
           VERSION="${RELEASE_TAG#v}"
+          if [ "$VERSION" = "2.0.0" ]; then
+            STABLE_RELEASE_ROOT="release/stable"
+          else
+            STABLE_RELEASE_ROOT="release/stable/v${VERSION}"
+          fi
           echo "RELEASE_TAG=$RELEASE_TAG" >> "$GITHUB_ENV"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "STABLE_RELEASE_ROOT=$STABLE_RELEASE_ROOT" >> "$GITHUB_ENV"
+          echo "STABLE_RELEASE_VERSION=$VERSION" >> "$GITHUB_ENV"
           test "$(git describe --tags --exact-match HEAD)" = "$RELEASE_TAG"
           test "$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" --jq '.tag_name')" = "$RELEASE_TAG"
           test "$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" --jq '.draft')" = "false"
@@ -66,12 +73,14 @@ jobs:
           const path = require("node:path");
 
           const version = process.env.VERSION;
-          const manifest = JSON.parse(fs.readFileSync("release/stable/artifact-manifest.json", "utf8"));
+          const stableRoot = process.env.STABLE_RELEASE_ROOT;
+          if (!stableRoot) throw new Error("STABLE_RELEASE_ROOT is missing.");
+          const manifest = JSON.parse(fs.readFileSync(path.join(stableRoot, "artifact-manifest.json"), "utf8"));
           if (manifest.version !== version) throw new Error(`Artifact Manifest ${manifest.version} does not match tag version ${version}.`);
           const artifacts = manifest.artifacts.filter((artifact) => artifact.platform === "npm");
           if (!artifacts.length) throw new Error("Artifact Manifest contains no npm packages.");
           const records = artifacts.map((artifact) => {
-            if (!artifact.path.startsWith("release/stable/artifacts/npm/") || path.isAbsolute(artifact.path)) throw new Error(`Unsafe npm artifact path: ${artifact.path}`);
+            if (!artifact.path.startsWith(`${stableRoot}/artifacts/npm/`) || path.isAbsolute(artifact.path)) throw new Error(`Unsafe npm artifact path: ${artifact.path}`);
             const bytes = fs.readFileSync(artifact.path);
             const digest = crypto.createHash("sha256").update(bytes).digest("hex");
             if (digest !== artifact.sha256 || bytes.length !== artifact.size) throw new Error(`Artifact identity mismatch: ${artifact.path}`);
@@ -104,9 +113,11 @@ jobs:
           console.log(`Prepared ${ordered.length} manifest-driven npm publications for ${version}.`);
           NODE
           if [ "$VERSION" = "2.0.0" ]; then
-            npm run stable:manifest:verify -- --require-go
+            STABLE_RELEASE_VERSION="$VERSION" npm run stable:manifest:verify -- --require-go
             (cd release/stable && sha256sum --check checksums.sha256)
           else
+            STABLE_RELEASE_VERSION="$VERSION" npm run stable:manifest:verify -- --require-go
+            (cd "$STABLE_RELEASE_ROOT" && sha256sum --check checksums.sha256)
             npm run package:metadata:verify
           fi
       - name: Verify npm Trusted Publishing prerequisites

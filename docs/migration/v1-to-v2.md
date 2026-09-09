@@ -1,6 +1,6 @@
-# Migrating from Scanly v1 to v2.0.0
+# Migrating from Scanly v1 to v2.0.1
 
-Scanly v2.0.0 has shipped as the current Stable SDK. Migrate by selecting the runtime package instead of importing repository-internal v1 modules.
+Scanly v2.0.1 is the current Stable SDK. Migrate by selecting the runtime package instead of importing repository-internal v1 modules.
 
 ## Install a public package
 
@@ -14,7 +14,7 @@ Direct `@scanly/core` use is intended for advanced engine or operator compositio
 
 ## Import ownership
 
-| v1 internal path or ownership | v2.0.0 owner |
+| v1 internal path or ownership | v2 owner |
 | --- | --- |
 | `lib/qr/decode-pipeline` | engine-agnostic adapter in `@scanly/core/qr`; default Node composition in `@scanly/node` |
 | `lib/qr/worker/*` | `@scanly/browser` |
@@ -40,7 +40,7 @@ Camera composition uses `BrowserCameraSource` and the ScannerSession runtime. Ca
 
 ## Formats and scenarios
 
-v2.0.0 supports QR Code, Data Matrix, PDF417, Code 128, EAN-13, EAN-8, UPC-A, and UPC-E. The default remains QR-only for compatibility; opt into additional formats explicitly or use a multi-format built-in scenario.
+v2.0.1 supports QR Code, Data Matrix, PDF417, Code 128, EAN-13, EAN-8, UPC-A, and UPC-E. The default remains QR-only for compatibility; opt into additional formats explicitly or use a multi-format built-in scenario.
 
 ```ts
 const router = createNodeCaptureRouter({
@@ -52,7 +52,7 @@ The lower-level `decodePixelBuffer` adapter requires a caller-supplied engine ex
 
 ## Native availability
 
-- iOS 13+: `ScanlySDK` source package under `native/ios` at tag `v2.0.0`.
-- Android API 24+: `scanly-sdk-2.0.0.aar` from the v2.0.0 GitHub Release for `arm64-v8a` and `x86_64`.
+- iOS 13+: `ScanlySDK` source package under `native/ios` at tag `v2.0.1`.
+- Android API 24+: `scanly-sdk-2.0.1.aar` from the v2.0.1 GitHub Release for `arm64-v8a` and `x86_64`.
 
 See the [iOS](../native/ios-getting-started.md) and [Android](../native/android-getting-started.md) guides. Physical-device qualification remains pending under Issue #13 and is not implied by automated simulator/emulator coverage.

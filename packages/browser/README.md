@@ -1,6 +1,6 @@
 # @scanly/browser
 
-Browser upload, module Worker, camera, ScannerSession, tracking, batch, and default engine composition for Scanly SDK v2.0.0. The optional ZXing-C++ WASM backend is included and loaded lazily.
+Browser upload, module Worker, camera, ScannerSession, tracking, batch, and default engine composition for Scanly SDK v2.0.1. The optional ZXing-C++ WASM backend is included and loaded lazily.
 
 ```bash
 npm install @scanly/browser
@@ -33,4 +33,6 @@ The Worker is self-hosted through `new URL(..., import.meta.url)`. Deployments m
 
 This is the standard public Browser package. React users may install `@scanly/react`, which depends on it.
 
-Version: 2.0.0 · [Browser usage and deployment](https://github.com/Yangjunjie-Lin/Scanly/blob/main/docs/sdk/usage.md)
+Version: 2.0.1 · [Browser usage and deployment](https://github.com/Yangjunjie-Lin/Scanly/blob/main/docs/sdk/usage.md)
+
+`ScannerSession.stop()` remains restartable. `ScannerSession.dispose()` is terminal: subsequent `start()`, `reset()`, and `switchSource()` calls reject with `session_disposed`, pending work is drained, and an injected decoder remains caller-owned.

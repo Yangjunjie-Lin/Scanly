@@ -115,8 +115,8 @@ const evidenceEligibleForQualification = (evidence: Json): boolean =>
 const ajv = new Ajv({ allErrors: true, strict: false }); addFormats(ajv);
 const validate = ajv.compile(schema);
 
-assert(packageJson.version === "2.0.0", "Repository SDK version is not Stable 2.0.0.");
-assert(stableManifest.version === packageJson.version, "Stable release source identity does not match the repository SDK version.");
+assert(packageJson.version === "2.0.1", "Repository SDK version is not Stable 2.0.1.");
+assert(stableManifest.version === "2.0.0", "Issue #13 must remain bound to the frozen v2.0.0 Stable source identity.");
 assert(manifest.schemaVersion === "beta4-device-manifest-1" && manifest.status === "DEVICE_MATRIX_PARTIAL", "Device manifest identity/status failed.");
 assert(manifest.groundTruthPolicy === "decoder-independent-fixed-before-scan", "Device manifest Ground Truth policy failed.");
 assert(exactArray((manifest.scenarios as Json[]).map((entry) => entry.id), SCENARIO_IDS), "Device protocol must contain exact P1-P12+N1 order.");

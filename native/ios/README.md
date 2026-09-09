@@ -2,7 +2,7 @@
 
 See [iOS getting started](../../docs/native/ios-getting-started.md), [Native
 architecture](../../docs/native/architecture.md), and [memory
-ownership](../../docs/native/memory-model.md). v2.0.0 is the Stable Swift
+ownership](../../docs/native/memory-model.md). v2.0.1 is the Stable Swift
 Package Manager source artifact; physical validation remains
 `POST_RELEASE_VALIDATION_PENDING` and is not represented as PASS.
 

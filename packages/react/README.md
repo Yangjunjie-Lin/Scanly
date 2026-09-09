@@ -1,6 +1,6 @@
 # @scanly/react
 
-Thin React adapter over `@scanly/browser` for Scanly SDK v2.0.0. Decoding, Worker ownership, camera runtime, tracking, and memory management remain outside React.
+Thin React adapter over `@scanly/browser` for Scanly SDK v2.0.1. Decoding, Worker ownership, camera runtime, tracking, and memory management remain outside React.
 
 ```bash
 npm install @scanly/react
@@ -27,4 +27,4 @@ export function UploadScanner() {
 
 This is the standard public React package for React 18 and 19-compatible peer ranges (`>=18 <20`).
 
-Version: 2.0.0 · [React usage](https://github.com/Yangjunjie-Lin/Scanly/blob/main/docs/sdk/usage.md)
+Version: 2.0.1 · [React usage](https://github.com/Yangjunjie-Lin/Scanly/blob/main/docs/sdk/usage.md)

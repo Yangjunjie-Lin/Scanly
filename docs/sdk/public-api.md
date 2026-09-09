@@ -2,7 +2,7 @@
 
 ## Version policy
 
-- SDK package version: `2.0.0` (Stable software release; physical validation pending)
+- SDK package version: `2.0.1` (Stable patch release; physical validation pending)
 
 ## Camera platform surface
 
@@ -85,7 +85,7 @@ Historical real-time development evidence uses 20 scenario-specific Ground Truth
 
 `npm run api:snapshot` and `npm run api:diff` validate the package-root declarations. Their presence here does not assert that a particular GitHub PR head has passed the Public API workflow.
 
-The v2.0.0 Stable APIs follow semantic versioning. Supported deprecated APIs receive at least one minor-release migration window unless a security fix requires removal.
+The v2.0.1 Stable APIs follow semantic versioning. Supported deprecated APIs receive at least one minor-release migration window unless a security fix requires removal.
 
 ## Authoritative execution API
 
@@ -102,6 +102,8 @@ any non-disposed state -> disposed
 ```
 
 `cancel()` and `stop()` are idempotent. `dispose()` is asynchronous and idempotent; an owned Router waits for engine disposal before its promise resolves. Calling `scan()` before start returns `session_not_running`; using a disposed core session throws `SdkException` containing a typed `SdkError`. The default concurrent policy is `replace`; `reject` returns `concurrent_call_rejected`. Configuration and source changes cancel active work and clear stream duplicate state.
+
+For `ScannerSession`, `stop()` is restartable but `dispose()` is a permanent lifecycle boundary. After disposal, `start()`, `reset()`, and `switchSource()` reject with `session_disposed`, regardless of whether the decoder was created by the session or injected by the application. Disposal cancels and drains starting, scheduled, and active decode work before cleanup completes; late source/decode completions cannot restore `scanning` or publish state, result, observation, or diagnostic events. Injected decoders remain caller-owned and are not disposed by the session.
 
 ## Error taxonomy
 
@@ -126,6 +128,6 @@ When `output.includeAttempts` is enabled, `attempts` contains a bounded, payload
 
 ## Supported capability versus vocabulary
 
-Scanly SDK v2.0.0 publicly supports `qr_code`, `data_matrix`, `pdf417`, `code_128`, `ean_13`, `ean_8`, `upc_a`, and `upc_e`. Deferred ZXing formats are not in the public union. jsQR and ZXing-JS report QR-only capabilities; the pinned ZXing-C++ WASM engine reports the eight verified mappings. A scenario requesting a format with no registered engine returns `unsupported_format` during compilation.
+Scanly SDK v2.0.1 publicly supports `qr_code`, `data_matrix`, `pdf417`, `code_128`, `ean_13`, `ean_8`, `upc_a`, and `upc_e`. Deferred ZXing formats are not in the public union. jsQR and ZXing-JS report QR-only capabilities; the pinned ZXing-C++ WASM engine reports the eight verified mappings. A scenario requesting a format with no registered engine returns `unsupported_format` during compilation.
 
 `FormatSelection` accepts a non-empty list, normalizes duplicates, rejects deferred/unknown formats, and is propagated through Router, Worker, Node, and native decode options. QR-only remains the default when no explicit selection or non-QR scenario is supplied.

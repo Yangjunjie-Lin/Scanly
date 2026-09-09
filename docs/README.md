@@ -36,13 +36,12 @@
 
 ## Migration, benchmarking, and release integrity
 
-- [Migrate from v1 to v2.0.0](migration/v1-to-v2.md)
+- [Migrate from v1 to v2.0.1](migration/v1-to-v2.md)
 - [Post-release Physical Device Validation](physical-device-validation.md)
 - [Benchmark methodology](benchmarking/methodology.md)
 - [Benchmark provenance](benchmarking/provenance.md)
-- [v2.0.0 release notes](releases/v2.0.0.md)
-- [Stable qualification manifest](../release/stable/v2.0.0-manifest.json)
-- [Stable publication record](../release/stable/v2.0.0-publication-record.json)
+- [v2.0.1 release notes](releases/v2.0.1.md)
+- [v2.0.0 publication record](../release/stable/v2.0.0-publication-record.json)
 - [SDK v2 development history](history/sdk-v2-development-history.md)
 
 Current physical validation status is tracked by

@@ -3,7 +3,11 @@ import fs from "node:fs";
 import path from "node:path";
 
 const root = path.resolve(import.meta.dirname, "..");
-const stableRoot = path.join(root, "release", "stable");
+const rootManifest = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+const version = process.env.STABLE_RELEASE_VERSION ?? rootManifest.version;
+if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version)) throw new Error(`Stable version '${version}' is not a release SemVer.`);
+const stableRelativeRoot = version === "2.0.0" ? "release/stable" : `release/stable/v${version}`;
+const stableRoot = process.env.STABLE_OUTPUT_ROOT ? path.resolve(root, process.env.STABLE_OUTPUT_ROOT) : path.join(root, stableRelativeRoot);
 const values = Object.fromEntries(process.argv.slice(2).map((argument) => {
   const equals = argument.indexOf("=");
   if (!argument.startsWith("--") || equals < 3) throw new Error(`Invalid argument '${argument}'.`);
@@ -23,12 +27,18 @@ const comparedFiles = [
   "publication-credentials.json",
   "deployment.json",
   "reproducibility.json",
-  "v2.0.0-manifest.json",
-  "v2.0.0-manifest.json.sha256",
+  `v${version}-manifest.json`,
+  `v${version}-manifest.json.sha256`,
   "checksums.sha256",
   "artifacts/ios/Package.swift",
   "artifacts/native/scanly-core.h",
 ];
+const npmArtifacts = fs.readdirSync(path.join(directoryA, "artifacts", "npm"), { withFileTypes: true })
+  .filter((entry) => entry.isFile() && entry.name.endsWith(".tgz"))
+  .map((entry) => `artifacts/npm/${entry.name}`)
+  .sort();
+if (npmArtifacts.length !== 10) throw new Error(`Expected ten clean-build npm artifacts, found ${npmArtifacts.length}.`);
+comparedFiles.push(...npmArtifacts);
 const digest = (file) => crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
 for (const relative of comparedFiles) {
   const fileA = path.join(directoryA, relative);

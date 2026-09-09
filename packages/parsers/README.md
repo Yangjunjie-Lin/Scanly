@@ -1,6 +1,6 @@
 # @scanly/parsers
 
-Local-only, side-effect-free semantic barcode payload parsers for Scanly SDK v2.0.0.
+Local-only, side-effect-free semantic barcode payload parsers for Scanly SDK v2.0.1.
 
 ```bash
 npm install @scanly/parsers
@@ -17,4 +17,4 @@ Parsers never replace or mutate raw decode text and never execute URLs, Wi-Fi jo
 
 This is an advanced public package. Most applications receive parsed metadata through Browser or Node scan results and do not need to install it directly.
 
-Version: 2.0.0 · [Repository and documentation](https://github.com/Yangjunjie-Lin/Scanly)
+Version: 2.0.1 · [Repository and documentation](https://github.com/Yangjunjie-Lin/Scanly)

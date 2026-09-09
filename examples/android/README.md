@@ -1,6 +1,6 @@
 # Scanly Android CameraX example
 
-This source sketch consumes the v2.0.0 Stable AAR/module. It performs no analytics or
+This source sketch consumes the v2.0.1 Stable AAR/module. It performs no analytics or
 uploads.
 
 ```kotlin

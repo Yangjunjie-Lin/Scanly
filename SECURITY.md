@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-v2.0.0 is the current Stable release.
+v2.0.1 is the current Stable release.
 
 | Version | Security support |
 | --- | --- |

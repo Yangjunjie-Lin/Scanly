@@ -9,7 +9,11 @@ import {
 } from "./release-artifact-canonicalization.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
-const stableRoot = path.join(root, "release", "stable");
+const rootManifest = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+const version = process.env.STABLE_RELEASE_VERSION ?? rootManifest.version;
+if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version)) throw new Error(`Stable version '${version}' is not a release SemVer.`);
+const stableRelativeRoot = version === "2.0.0" ? "release/stable" : `release/stable/v${version}`;
+const stableRoot = process.env.STABLE_OUTPUT_ROOT ? path.resolve(root, process.env.STABLE_OUTPUT_ROOT) : path.join(root, stableRelativeRoot);
 const argumentsByName = Object.fromEntries(process.argv.slice(2).map((argument) => {
   const equals = argument.indexOf("=");
   if (!argument.startsWith("--") || equals < 3) throw new Error(`Invalid argument '${argument}'.`);
@@ -30,7 +34,7 @@ if (!/^\d+$/.test(runA) || !/^\d+$/.test(runB) || !/^[a-f0-9]{40}$/.test(workflo
   throw new Error("Run IDs or commit identities are malformed.");
 }
 
-const stableManifest = JSON.parse(fs.readFileSync(path.join(stableRoot, "v2.0.0-manifest.json"), "utf8"));
+const stableManifest = JSON.parse(fs.readFileSync(path.join(stableRoot, `v${version}-manifest.json`), "utf8"));
 const sourceCommit = stableManifest.identity?.productSourceCommit;
 const sourceTree = stableManifest.identity?.sourceTree;
 if (requestedSourceCommit !== sourceCommit) throw new Error("Android workflow source does not match STABLE_SOURCE_COMMIT.");
@@ -67,7 +71,7 @@ if (identityA.canonicalContentSha256 !== identityB.canonicalContentSha256) {
   throw new Error("Android Clean Build A/B normalized contents do not match.");
 }
 
-const destination = path.join(stableRoot, "artifacts", "android", "scanly-sdk-2.0.0.aar");
+const destination = path.join(stableRoot, "artifacts", "android", `scanly-sdk-${version}.aar`);
 fs.mkdirSync(path.dirname(destination), { recursive: true });
 fs.copyFileSync(buildA, destination);
 const selectedIdentity = inspectAar(destination);
@@ -75,7 +79,7 @@ if (selectedIdentity.sha256 !== identityA.sha256) throw new Error("Selected Stab
 
 const evidence = {
   schemaVersion: "scanly-stable-android-build-evidence-1",
-  version: "2.0.0",
+  version,
   sourceCommit,
   sourceTree,
   workflow: "Native Mobile",
@@ -97,7 +101,7 @@ const evidence = {
   normalizedBuildAEqualsBuildB: true,
   selectedArtifact: {
     build: "A",
-    path: "release/stable/artifacts/android/scanly-sdk-2.0.0.aar",
+    path: `${stableRelativeRoot}/artifacts/android/scanly-sdk-${version}.aar`,
     ...selectedIdentity,
   },
   canonicalization: ZIP_CANONICALIZATION_POLICY,

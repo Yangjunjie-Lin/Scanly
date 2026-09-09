@@ -1,4 +1,4 @@
-export const BROWSER_SDK_VERSION = "2.0.0";
+export const BROWSER_SDK_VERSION = "2.0.1";
 export * from "./browser-session.js";
 export * from "./camera-source.js";
 export * from "./image-loader.js";

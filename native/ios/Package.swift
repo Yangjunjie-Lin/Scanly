@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    // Scanly SDK v2.0.0 Stable; package manifests do not carry semantic versions.
+    // Scanly SDK v2.0.1 Stable; package manifests do not carry semantic versions.
     name: "ScanlySDK",
     platforms: [.iOS(.v13), .macOS(.v13)],
     products: [.library(name: "ScanlySDK", targets: ["ScanlySDK"])],

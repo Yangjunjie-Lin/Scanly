@@ -1,6 +1,6 @@
-# Scanly SDK v2.0.0 usage
+# Scanly SDK v2.0.1 usage
 
-Scanly SDK v2.0.0 packages are published Stable packages. Browser, Node, and React packages declare all required Scanly dependencies; install only the public runtime package your application uses.
+Scanly SDK v2.0.1 packages are published Stable packages. Browser, Node, and React packages declare all required Scanly dependencies; install only the public runtime package your application uses.
 
 ## Browser
 
