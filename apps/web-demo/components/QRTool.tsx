@@ -11,7 +11,7 @@ import {
 } from "@scanly/browser";
 import type { BatchState, TrackOverlayModel } from "@scanly/browser";
 import { isSafeActionUrl, parseSemanticPayload } from "@scanly/parsers";
-import { UrlSafetyClient, UrlSafetyController, type UrlSafetyPrivacyMode, type UrlSafetyState } from "@scanly/url-safety";
+import { UrlSafetyClient, UrlSafetyController, structuredUrl, type UrlSafetyPrivacyMode, type UrlSafetyState } from "@scanly/url-safety";
 import { UrlSafetyEvidence } from "./UrlSafetyEvidence";
 import type { ScanResult, SdkErrorCode } from "@scanly/core";
 import { getBuiltinScenario, type ScenarioPresetId } from "@scanly/scenario-schema";
@@ -96,6 +96,7 @@ export default function QRTool() {
   const [safetyMode, setSafetyMode] = useState<"disabled" | UrlSafetyPrivacyMode>("disabled");
   const [safetyState, setSafetyState] = useState<UrlSafetyState & { owner?: string }>({ status: "idle" });
   const safetyRef = useRef<UrlSafetyController | null>(null);
+  const safetyOwnerRef = useRef<string | undefined>(undefined);
   const safetyClient = useMemo(() => new UrlSafetyClient({ endpoint: "/api/url-safety" }), []);
   const [lastError, setLastError] = useState<string>("");
   const [errorReason, setErrorReason] = useState<SdkErrorCode | "">("");
@@ -126,6 +127,8 @@ export default function QRTool() {
   const batchSessionRef = useRef<BatchScanSession | null>(null);
 
   const primaryResult = results[0];
+  const safetyUrl = structuredUrl(primaryResult?.structuredPayload) ?? undefined;
+  const primarySafetyState = safetyState.owner === safetyUrl ? safetyState : { status: "idle" as const };
   const primary = primaryResult?.rawText ?? "";
   const isUrl = primary ? isSafeActionUrl(primary) : false;
   const retail = retailMetadata(primaryResult);
@@ -139,13 +142,16 @@ export default function QRTool() {
   const activeScenario = useMemo(() => getBuiltinScenario(scenarioPreset(preset)), [preset]);
 
   useEffect(() => {
-    const owner = primaryResult?.rawText;
-    const controller = new UrlSafetyController(safetyClient, (state) => setSafetyState({ ...state, owner }));
+    const controller = new UrlSafetyController(safetyClient, (state) => setSafetyState({ ...state, owner: safetyOwnerRef.current }));
     safetyRef.current = controller;
     controller.configure(safetyMode === "disabled" ? undefined : safetyMode);
-    controller.accept(primaryResult?.structuredPayload);
     return () => { controller.dispose(); safetyRef.current = null; };
-  }, [safetyClient, safetyMode, primaryResult]);
+  }, [safetyClient, safetyMode]);
+
+  useEffect(() => {
+    safetyOwnerRef.current = safetyUrl;
+    safetyRef.current?.accept(primaryResult?.structuredPayload);
+  }, [primaryResult, safetyMode, safetyUrl]);
 
   useEffect(() => () => safetyClient.dispose(), [safetyClient]);
 
@@ -459,7 +465,7 @@ export default function QRTool() {
     const url = new URL(text);
     if (url.protocol !== "http:" && url.protocol !== "https:") return;
     if (safetyMode !== "disabled") {
-      const risk = text === primary && safetyState.owner === primary ? safetyState.analysis?.riskLevel : undefined;
+      const risk = text === primary ? primarySafetyState.analysis?.riskLevel : undefined;
       if (risk !== "low" && !window.confirm(risk === "high" || risk === "critical" ? "High-risk URL. Do not enter credentials. Open anyway?" : "This URL is unverified or has risk indicators. Verify the domain before proceeding. Open with caution?")) return;
     }
     window.open(url.href, "_blank", "noopener,noreferrer");
@@ -774,7 +780,7 @@ export default function QRTool() {
             aria-label="Open decoded URL"
             data-testid="open-link-button"
           >
-            {safetyMode !== "disabled" && ["high", "critical"].includes(safetyState.analysis?.riskLevel ?? "") ? "Open anyway" : "Open Link"}
+            {safetyMode !== "disabled" && ["high", "critical"].includes(primarySafetyState.analysis?.riskLevel ?? "") ? "Open anyway" : "Open Link"}
           </button>
         </div>
       </div>
@@ -824,7 +830,7 @@ export default function QRTool() {
         </>
       )}
 
-      <UrlSafetyEvidence mode={safetyMode} onMode={setSafetyMode} state={safetyState.owner === primary ? safetyState : { status: "idle" }} />
+      <UrlSafetyEvidence mode={safetyMode} onMode={setSafetyMode} state={primarySafetyState} />
 
       {results.length > 1 && (
         <ul className="small" style={{ marginTop: 10, paddingLeft: 18 }} data-testid="multi-results">
