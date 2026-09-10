@@ -1,6 +1,6 @@
 # @scanly/core
 
-`@scanly/core` is the framework-independent core for Scanly SDK v2.0.1. It provides frame/result/error contracts, engine and operator registries, `CaptureRouter`, sessions, tracking, batch, and bounded industrial recovery without React or Next.js dependencies.
+`@scanly/core` is the framework-independent core for Scanly SDK v2.1.0. It provides frame/result/error contracts, engine and operator registries, `CaptureRouter`, sessions, tracking, batch, and bounded industrial recovery without React or Next.js dependencies.
 
 ```bash
 npm install @scanly/core @scanly/engine-zxing-cpp-wasm
@@ -22,4 +22,4 @@ The public format contract contains QR Code, Data Matrix, PDF417, Code 128, EAN-
 
 This is an advanced public package. Prefer `@scanly/browser`, `@scanly/node`, or `@scanly/react` for standard applications.
 
-Version: 2.0.1 · [SDK documentation](https://github.com/Yangjunjie-Lin/Scanly/blob/main/docs/sdk/usage.md)
+Version: 2.1.0 · [SDK documentation](https://github.com/Yangjunjie-Lin/Scanly/blob/main/docs/sdk/usage.md)

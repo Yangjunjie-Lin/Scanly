@@ -7,6 +7,7 @@ import { canonicalZipSha256 } from "./release-artifact-canonicalization.mjs";
 const root = path.resolve(import.meta.dirname, "..");
 const rootManifest = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 const version = process.env.STABLE_RELEASE_VERSION ?? rootManifest.version;
+const expectedPublicPackageCount = version === "2.0.0" || version === "2.0.1" ? 10 : 11;
 if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version)) throw new Error(`Stable version '${version}' is not a release SemVer.`);
 const stableRelativeRoot = version === "2.0.0" ? "release/stable" : `release/stable/v${version}`;
 const stableRoot = process.env.STABLE_OUTPUT_ROOT ? path.resolve(root, process.env.STABLE_OUTPUT_ROOT) : path.join(root, stableRelativeRoot);
@@ -68,7 +69,7 @@ if (publicationCredentials.requiredCredentialsStatus === "GO") {
   const npmEvidence = publicationCredentials.channels.npmRegistry.evidence;
   if (npmEvidence?.account !== "yangjunjielin" || npmEvidence?.organization !== "scanly"
     || npmEvidence?.organizationRole !== "owner" || npmEvidence?.trustedPublisherStatus !== "AVAILABLE"
-    || npmEvidence?.trustedPublisherPackageCount !== 10 || npmEvidence?.repository !== "Yangjunjie-Lin/Scanly"
+    || npmEvidence?.trustedPublisherPackageCount !== expectedPublicPackageCount || npmEvidence?.repository !== "Yangjunjie-Lin/Scanly"
     || npmEvidence?.workflowFile !== "stable-npm-publish.yml"
     || npmEvidence?.provenanceMechanism !== "GITHUB_ACTIONS_OIDC"
     || npmEvidence?.secretValueRecorded !== false) fail("npm publication credential evidence is incomplete.");

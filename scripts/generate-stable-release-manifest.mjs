@@ -26,6 +26,26 @@ const sourceCommit = process.env.STABLE_SOURCE_COMMIT
   ?? execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
 const sourceTree = process.env.STABLE_SOURCE_TREE
   ?? execFileSync("git", ["rev-parse", "HEAD^{tree}"], { cwd: root, encoding: "utf8" }).trim();
+const historicalVersion = version === "2.0.0" || version === "2.0.1";
+const expectedPublicPackageCount = historicalVersion ? 10 : 11;
+// Never carry legacy hardcoded qualification/signing/credential claims into a
+// new minor release. Require exact-source, content-addressed evidence BEFORE
+// creating any artifact or metadata file.
+let qualification;
+if (!historicalVersion) {
+  if (!process.env.STABLE_QUALIFICATION_RECORD) throw new Error("STABLE_QUALIFICATION_RECORD is required for new releases; legacy GO claims cannot be inherited.");
+  qualification = JSON.parse(fs.readFileSync(path.resolve(root, process.env.STABLE_QUALIFICATION_RECORD), "utf8"));
+  if (qualification.schemaVersion !== "scanly-release-qualification-1" || qualification.version !== version || qualification.sourceCommit !== sourceCommit || qualification.sourceTree !== sourceTree) throw new Error("Release qualification source identity mismatch.");
+  for (const gate of ["software", "apiAbi", "security", "sbom", "licenses", "native", "npmReproducibility", "signing", "publicationCredentials", "deployment"]) {
+    const evidence = qualification.gates?.[gate];
+    if (evidence?.status !== "PASS" || evidence.sourceCommit !== sourceCommit || !/^[a-f0-9]{64}$/.test(evidence.sha256 ?? "") || typeof evidence.path !== "string") throw new Error(`Release qualification ${gate} is not an evidenced PASS.`);
+    const evidencePath = path.resolve(root, evidence.path);
+    if (!evidencePath.startsWith(root + path.sep) || !fs.existsSync(evidencePath) || crypto.createHash("sha256").update(fs.readFileSync(evidencePath)).digest("hex") !== evidence.sha256) throw new Error(`Release qualification ${gate} evidence integrity failed.`);
+  }
+  if (!qualification.signingEvidence?.localSmokeTest?.sshSignatureBlockPresent || qualification.signingEvidence?.localSmokeTest?.status !== "PASS") throw new Error("Fresh signing evidence is required.");
+  if (qualification.npmPublicationEvidence?.trustedPublisherStatus !== "AVAILABLE" || qualification.npmPublicationEvidence?.trustedPublisherPackageCount !== expectedPublicPackageCount || qualification.npmPublicationEvidence?.secretValueRecorded !== false) throw new Error("Fresh 11-package Trusted Publishing credential evidence is required.");
+  if (!qualification.npmReproducibility?.cleanBuildA || !qualification.npmReproducibility?.cleanBuildB || qualification.npmReproducibility.cleanBuildRunA === qualification.npmReproducibility.cleanBuildRunB) throw new Error("Two independent npm reproducibility builds are required.");
+}
 const sourceTimestamp = execFileSync("git", ["show", "-s", "--format=%cI", sourceCommit], { cwd: root, encoding: "utf8" }).trim();
 const requiredDeploymentValue = (name, legacyValue) => {
   const value = process.env[name] ?? (version === "2.0.0" ? legacyValue : undefined);
@@ -68,8 +88,14 @@ const packageArtifacts = fs.readdirSync(path.join(artifactsRoot, "npm"), { withF
   .filter((entry) => entry.isFile() && entry.name.endsWith(".tgz"))
   .map((entry) => fileIdentity(`${stablePrefix}artifacts/npm/${entry.name}`))
   .sort((a, b) => a.path.localeCompare(b.path));
-if (packageArtifacts.length !== 10) throw new Error(`Expected ten packed public packages, found ${packageArtifacts.length}.`);
+if (packageArtifacts.length !== expectedPublicPackageCount) throw new Error(`Expected ${expectedPublicPackageCount} packed public packages, found ${packageArtifacts.length}.`);
 const cleanBuildRawNpmSha256 = Object.fromEntries(packageArtifacts.map((identity) => [path.basename(identity.path), identity.sha256]));
+if (qualification) {
+  for (const name of ["cleanBuildA", "cleanBuildB"]) {
+    const actual = qualification.npmReproducibility[name];
+    if (Object.keys(actual).length !== packageArtifacts.length || !Object.entries(cleanBuildRawNpmSha256).every(([file, hash]) => actual[file] === hash)) throw new Error(`${name} npm artifact hashes do not match the selected artifact set.`);
+  }
+}
 
 const shippedNpm = packageArtifacts.map((identity) => ({
   id: `npm-${path.basename(identity.path, ".tgz")}`,
@@ -186,7 +212,7 @@ const components = Object.entries(lock.packages ?? {})
     const packageJson = fs.existsSync(packagePath) ? JSON.parse(fs.readFileSync(packagePath, "utf8")) : {};
     const name = packageJson.name ?? relative.replace(/^node_modules\//, "");
     const version = packageJson.version ?? metadata.version ?? "UNKNOWN";
-    const license = typeof packageJson.license === "string" ? packageJson.license
+    const license = typeof metadata.license === "string" ? metadata.license : typeof packageJson.license === "string" ? packageJson.license
       : /^@(?:emnapi|esbuild|napi-rs|next|rolldown|rollup|tybys|unrs)\//.test(name) ? "MIT"
         : name === "fsevents" || name.endsWith("/node_modules/fsevents") ? "MIT"
           : name.startsWith("lightningcss-") ? "MPL-2.0"
@@ -221,7 +247,7 @@ const sbom = {
     name: component.name,
     version: component.version,
     purl: component.purl,
-    licenses: component.license === "NOASSERTION" ? [] : [{ license: { id: component.license } }],
+    licenses: component.license === "NOASSERTION" ? [] : [{ expression: component.license }],
   })),
 };
 writeJson("sbom.cdx.json", sbom);
@@ -276,7 +302,7 @@ const releasePolicy = {
 };
 writeJson("release-policy.json", releasePolicy);
 
-const productionSigningEvidence = {
+const productionSigningEvidence = qualification?.signingEvidence ?? {
   scheme: "SSH_ED25519",
   githubAccount: "Yangjunjie-Lin",
   githubSigningKeyId: 1118906,
@@ -289,7 +315,7 @@ const productionSigningEvidence = {
     temporaryTagDeleted: true,
   },
 };
-const npmPublicationEvidence = {
+const npmPublicationEvidence = qualification?.npmPublicationEvidence ?? {
   registry: "https://registry.npmjs.org/",
   account: "yangjunjielin",
   organization: "scanly",
@@ -373,8 +399,8 @@ writeJson("reproducibility.json", {
   checks: {
     npmTarballs: {
       status: "GO",
-      cleanBuildA: cleanBuildRawNpmSha256,
-      cleanBuildB: cleanBuildRawNpmSha256,
+      cleanBuildA: qualification?.npmReproducibility.cleanBuildA ?? cleanBuildRawNpmSha256,
+      cleanBuildB: qualification?.npmReproducibility.cleanBuildB ?? cleanBuildRawNpmSha256,
       rawBuildAEqualsBuildB: true,
       stableArtifactsCanonicalEquivalent: true,
       canonicalization: NPM_CANONICALIZATION_POLICY,

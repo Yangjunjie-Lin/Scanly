@@ -12,7 +12,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reportsDirectory: "coverage",
-      include: ["packages/core/src/**/*.ts", "packages/browser/src/**/*.ts", "packages/node/src/**/*.ts", "engines/*/src/**/*.ts", "packages/scenario-schema/src/**/*.ts", "packages/parsers/src/**/*.ts", "packages/benchmark/src/**/*.ts"],
+      include: ["packages/core/src/**/*.ts", "packages/browser/src/**/*.ts", "packages/node/src/**/*.ts", "engines/*/src/**/*.ts", "packages/scenario-schema/src/**/*.ts", "packages/parsers/src/**/*.ts", "packages/benchmark/src/**/*.ts", "packages/url-safety/src/**/*.ts"],
       exclude: [
         "packages/**/src/index.ts",
         "packages/**/src/types.ts",
@@ -31,6 +31,8 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      "@scanly/url-safety/server": path.resolve(__dirname, "packages/url-safety/src/server/index.ts"),
+      "@scanly/url-safety": path.resolve(__dirname, "packages/url-safety/src/index.ts"),
       "@scanly/core/qr": path.resolve(__dirname, "packages/core/src/qr/index.ts"),
       "@scanly/core": path.resolve(__dirname, "packages/core/src/index.ts"),
       "@scanly/node": path.resolve(__dirname, "packages/node/src/index.ts"),

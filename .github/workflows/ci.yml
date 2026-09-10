@@ -75,6 +75,17 @@ jobs:
       - name: SDK package builds
         run: npm run build:packages
 
+      - name: URL Safety Security Gate
+        run: npm run url-safety:security
+
+      - name: URL Safety Benchmark
+        run: npm run benchmark:url-safety
+
+      - name: URL Safety API and dependency inventory
+        run: |
+          npm run url-safety:api
+          npm run url-safety:sbom
+
       - name: Native ESM package import smoke
         run: npm run packages:smoke
 
@@ -129,6 +140,11 @@ jobs:
             benchmark-results/development/smoke-balanced.csv
             benchmark-results/development/external-open-license-validation.json
             benchmark-results/ci/bundle-cost.json
+            benchmark-results/development/url-safety-security.json
+            benchmark-results/development/url-safety-tests.json
+            benchmark-results/development/url-safety-benchmark.json
+            benchmark-results/development/url-safety-sbom.cdx.json
+            benchmark-results/development/url-safety-licenses.json
 
   multisymbology-unit:
     name: Multi-Symbology Unit Tests

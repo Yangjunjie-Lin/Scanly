@@ -10,7 +10,9 @@ import {
   createTrackOverlayModels,
 } from "@scanly/browser";
 import type { BatchState, TrackOverlayModel } from "@scanly/browser";
-import { isSafeActionUrl } from "@scanly/parsers";
+import { isSafeActionUrl, parseSemanticPayload } from "@scanly/parsers";
+import { UrlSafetyClient, UrlSafetyController, structuredUrl, type UrlSafetyPrivacyMode, type UrlSafetyState } from "@scanly/url-safety";
+import { UrlSafetyEvidence } from "./UrlSafetyEvidence";
 import type { ScanResult, SdkErrorCode } from "@scanly/core";
 import { getBuiltinScenario, type ScenarioPresetId } from "@scanly/scenario-schema";
 
@@ -48,7 +50,7 @@ function resultFromScannerEvent(event: import("@scanly/browser").ScanEvent): Sca
     ...(event.barcode.rawBytes ? { rawBytes: event.barcode.rawBytes } : {}),
     ...(event.barcode.cornerPoints ? { cornerPoints: [...event.barcode.cornerPoints] } : {}),
     engine: { id: event.barcode.engineId, version: event.barcode.engineVersion ?? "unknown" },
-    preprocessingPath: [], frameId: String(event.frameId), structuredPayload: null,
+    preprocessingPath: [], frameId: String(event.frameId), structuredPayload: parseSemanticPayload(event.barcode.text).structured,
     validation: { valid: true, validatorIds: [], messages: [] }, warnings: [], timing: { totalMs: 0 },
   };
 }
@@ -91,6 +93,11 @@ export default function QRTool() {
   const [mode, setMode] = useState<Mode>("camera");
   const [status, setStatus] = useState<string>("Idle");
   const [results, setResults] = useState<ScanResult[]>([]);
+  const [safetyMode, setSafetyMode] = useState<"disabled" | UrlSafetyPrivacyMode>("disabled");
+  const [safetyState, setSafetyState] = useState<UrlSafetyState & { owner?: string }>({ status: "idle" });
+  const safetyRef = useRef<UrlSafetyController | null>(null);
+  const safetyOwnerRef = useRef<string | undefined>(undefined);
+  const safetyClient = useMemo(() => new UrlSafetyClient({ endpoint: "/api/url-safety" }), []);
   const [lastError, setLastError] = useState<string>("");
   const [errorReason, setErrorReason] = useState<SdkErrorCode | "">("");
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
@@ -120,6 +127,8 @@ export default function QRTool() {
   const batchSessionRef = useRef<BatchScanSession | null>(null);
 
   const primaryResult = results[0];
+  const safetyUrl = structuredUrl(primaryResult?.structuredPayload) ?? undefined;
+  const primarySafetyState = safetyState.owner === safetyUrl ? safetyState : { status: "idle" as const };
   const primary = primaryResult?.rawText ?? "";
   const isUrl = primary ? isSafeActionUrl(primary) : false;
   const retail = retailMetadata(primaryResult);
@@ -132,7 +141,22 @@ export default function QRTool() {
   const recoveryDiagnostics = process.env.NODE_ENV !== "production" ? primaryResult?.metadata?.scannerDiagnostics : undefined;
   const activeScenario = useMemo(() => getBuiltinScenario(scenarioPreset(preset)), [preset]);
 
+  useEffect(() => {
+    const controller = new UrlSafetyController(safetyClient, (state) => setSafetyState({ ...state, owner: safetyOwnerRef.current }));
+    safetyRef.current = controller;
+    controller.configure(safetyMode === "disabled" ? undefined : safetyMode);
+    return () => { controller.dispose(); safetyRef.current = null; };
+  }, [safetyClient, safetyMode]);
+
+  useEffect(() => {
+    safetyOwnerRef.current = safetyUrl;
+    safetyRef.current?.accept(primaryResult?.structuredPayload);
+  }, [primaryResult, safetyMode, safetyUrl]);
+
+  useEffect(() => () => safetyClient.dispose(), [safetyClient]);
+
   async function disposeCameraRuntime(): Promise<void> {
+    safetyRef.current?.cancel();
     const batch = batchSessionRef.current;
     const scanner = scannerSessionRef.current;
     batchSessionRef.current = null;
@@ -296,6 +320,7 @@ export default function QRTool() {
   }
 
   function stopScan() {
+    safetyRef.current?.cancel();
     if (batchSessionRef.current) void batchSessionRef.current.stop();
     else void scannerSessionRef.current?.stop();
     // Stop any leftover media tracks
@@ -312,6 +337,7 @@ export default function QRTool() {
   }
 
   function pauseScan() {
+    safetyRef.current?.cancel();
     if (batchSessionRef.current) batchSessionRef.current.pause();
     else scannerSessionRef.current?.pause();
     setScannerState("paused");
@@ -438,6 +464,10 @@ export default function QRTool() {
     if (!isSafeActionUrl(text)) return;
     const url = new URL(text);
     if (url.protocol !== "http:" && url.protocol !== "https:") return;
+    if (safetyMode !== "disabled") {
+      const risk = text === primary ? primarySafetyState.analysis?.riskLevel : undefined;
+      if (risk !== "low" && !window.confirm(risk === "high" || risk === "critical" ? "High-risk URL. Do not enter credentials. Open anyway?" : "This URL is unverified or has risk indicators. Verify the domain before proceeding. Open with caution?")) return;
+    }
     window.open(url.href, "_blank", "noopener,noreferrer");
   }
 
@@ -744,13 +774,13 @@ export default function QRTool() {
           </button>
           <button
             type="button"
-            className="btn primary"
+            className={safetyMode === "disabled" ? "btn primary" : "btn"}
             onClick={() => openIfUrl()}
             disabled={!primary || !isUrl}
             aria-label="Open decoded URL"
             data-testid="open-link-button"
           >
-            Open Link
+            {safetyMode !== "disabled" && ["high", "critical"].includes(primarySafetyState.analysis?.riskLevel ?? "") ? "Open anyway" : "Open Link"}
           </button>
         </div>
       </div>
@@ -800,6 +830,8 @@ export default function QRTool() {
         </>
       )}
 
+      <UrlSafetyEvidence mode={safetyMode} onMode={setSafetyMode} state={primarySafetyState} />
+
       {results.length > 1 && (
         <ul className="small" style={{ marginTop: 10, paddingLeft: 18 }} data-testid="multi-results">
           {results.map((r, i) => (
@@ -825,7 +857,7 @@ export default function QRTool() {
               {isSafeActionUrl(r.rawText) && (
                 <button
                   type="button"
-                  className="btn primary"
+                  className="btn"
                   style={{ padding: "4px 8px", marginLeft: 6 }}
                   onClick={() => openIfUrl(r.rawText)}
                   data-testid="result-open-link-button"
