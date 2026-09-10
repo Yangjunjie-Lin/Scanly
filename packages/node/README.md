@@ -1,6 +1,6 @@
 # @scanly/node
 
-Node.js image loading and default local engine composition for Scanly SDK v2.0.1. `sharp` is isolated here and never enters Core or Browser dependency graphs.
+Node.js image loading and default local engine composition for Scanly SDK v2.1.0. `sharp` is isolated here and never enters Core or Browser dependency graphs.
 
 ```bash
 npm install @scanly/node
@@ -20,4 +20,4 @@ The default composition is jsQR → lazy ZXing-C++ WASM → ZXing-JS. Pass `zxin
 
 This is the standard public Node package. Lower-level pixel-buffer and industrial recovery helpers are advanced APIs.
 
-Version: 2.0.1 · [Node usage](https://github.com/Yangjunjie-Lin/Scanly/blob/main/docs/sdk/usage.md)
+Version: 2.1.0 · [Node usage](https://github.com/Yangjunjie-Lin/Scanly/blob/main/docs/sdk/usage.md)

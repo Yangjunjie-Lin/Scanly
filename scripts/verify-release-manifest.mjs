@@ -132,7 +132,11 @@ assert(!Object.prototype.hasOwnProperty.call(manifest.identity ?? {}, "manifestS
 
 const identity = manifest.identity ?? {};
 const currentPackage = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
-const stablePromotionHead = /^2\.0\.\d+$/.test(currentPackage.version ?? "");
+// Newer 2.x development heads may inspect immutable RC2 evidence, but only
+// integrity mode may do so. This never qualifies the newer product source:
+// its promotion remains subject to its own Stable manifest and release gates.
+const stablePromotionHead = /^2\.0\.\d+$/.test(currentPackage.version ?? "")
+  || (mode === "integrity" && /^2\.\d+\.\d+$/.test(currentPackage.version ?? ""));
 assert(identity.version === "2.0.0-rc.2", "Manifest SDK version is not 2.0.0-rc.2.");
 assert(commitExists(identity.productSourceCommit), "Product Source commit is missing or invalid.");
 assert(git("show", "-s", "--format=%T", identity.productSourceCommit) === identity.sourceTree, "Product Source Tree does not match Product Source commit.");

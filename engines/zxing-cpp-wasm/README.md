@@ -1,6 +1,6 @@
 # @scanly/engine-zxing-cpp-wasm
 
-Optional, lazy ZXing-C++ WebAssembly engine for Scanly SDK v2.0.1. It implements the public QR Code, Data Matrix, PDF417, Code 128, EAN-13, EAN-8, UPC-A, and UPC-E format mappings.
+Optional, lazy ZXing-C++ WebAssembly engine for Scanly SDK v2.1.0. It implements the public QR Code, Data Matrix, PDF417, Code 128, EAN-13, EAN-8, UPC-A, and UPC-E format mappings.
 
 ```bash
 npm install @scanly/engine-zxing-cpp-wasm
@@ -21,4 +21,4 @@ The shipped asset is standard WASM. SIMD selection is implemented, but no SIMD p
 
 This is an advanced public engine package. Browser and Node use it automatically unless `zxingCppWasm: false` is configured.
 
-Version: 2.0.1 · [WASM deployment documentation](https://github.com/Yangjunjie-Lin/Scanly/blob/main/docs/wasm-engine.md)
+Version: 2.1.0 · [WASM deployment documentation](https://github.com/Yangjunjie-Lin/Scanly/blob/main/docs/wasm-engine.md)

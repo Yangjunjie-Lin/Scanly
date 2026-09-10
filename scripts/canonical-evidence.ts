@@ -263,7 +263,7 @@ function sourceFields(report: BenchmarkRunSummary | ComparisonReport) {
   };
 }
 
-const ACCEPTED_BENCHMARK_SDK_VERSIONS = new Set(["2.0.1", "2.0.0", "2.0.0-beta.5"]);
+const ACCEPTED_BENCHMARK_SDK_VERSIONS = new Set(["2.1.0", "2.0.1", "2.0.0", "2.0.0-beta.5"]);
 
 export function validateProfileReport(report: Partial<BenchmarkRunSummary>, profile: ProfileKey): string[] {
   const failures: string[] = [];
@@ -363,7 +363,7 @@ export function validateSymbologyReport(
   const failures: string[] = [];
   if (!report || typeof report !== "object") return ["symbology report is missing"];
   if (report.schemaVersion !== "alpha5-symbology-evidence-1") failures.push("symbology schema version is incompatible");
-  if (!["2.0.1", "2.0.0"].includes(report.sdkVersion ?? "")) failures.push("symbology SDK version is not a supported Stable 2.0.x release");
+  if (!["2.1.0", "2.0.1", "2.0.0"].includes(report.sdkVersion ?? "")) failures.push("symbology SDK version is not a supported 2.x release line");
   if (!report.sourceIdentity || report.sourceIdentity.repositoryDirty !== false) failures.push("symbology source repository is dirty or provenance is missing");
   if (!report.sourceIdentity?.commitSha || !report.sourceIdentity?.treeSha) failures.push("symbology source commit/tree is missing");
   if (!/^[a-f0-9]{64}$/.test(report.sourceIdentity?.symbologyManifestHash ?? "")) failures.push("symbology manifest hash is missing or invalid");

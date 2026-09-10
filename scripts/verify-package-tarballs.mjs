@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { build } from "esbuild";
 
 const root = path.resolve(import.meta.dirname, "..");
 const packageRoots = ["packages", "engines"];
@@ -34,7 +35,7 @@ try {
     const importableExports = Object.entries(manifest.exports ?? { ".": {} })
       .filter(([, target]) => {
         if (typeof target === "string") return target.endsWith(".js");
-        const selected = target?.import;
+        const selected = target?.import ?? target?.node;
         return typeof selected === "string" ? selected.endsWith(".js") : typeof selected?.default === "string" && selected.default.endsWith(".js");
       })
       .map(([entry]) => entry);
@@ -45,6 +46,20 @@ try {
   runNpm(["install", "--ignore-scripts", "--no-audit", "--no-fund", "--no-package-lock", ...tarballs], { cwd: temporary, stdio: "pipe" });
   const probe = expectedExports.flatMap(([name, exports]) => exports.map((entry) => entry === "." ? name : `${name}${entry.slice(1)}`));
   execFileSync(process.execPath, ["--input-type=module", "--eval", `for (const id of ${JSON.stringify(probe)}) await import(id);`], { cwd: temporary, stdio: "pipe" });
+  const typeProbe = path.join(temporary, "url-safety-types.ts");
+  fs.writeFileSync(typeProbe, `import { UrlSafetyClient, UrlSafetyController, type UrlSafetyAnalysis } from '@scanly/url-safety';
+    import { createUrlSafetyAnalyzer, SafeRemoteFetcher, JsonLlmSafetyProvider } from '@scanly/url-safety/server';
+    const client = new UrlSafetyClient({endpoint:'/api/url-safety'});
+    const result: Promise<UrlSafetyAnalysis> = client.analyze('https://example.com');
+    const analyzer = createUrlSafetyAnalyzer({remoteFetcher:new SafeRemoteFetcher()});
+    const controller = new UrlSafetyController(analyzer, state => { console.log(state.status); });
+    void [result, controller, JsonLlmSafetyProvider];`);
+  execFileSync(process.execPath, [path.join(root, "node_modules/typescript/bin/tsc"), "--noEmit", "--strict", "--module", "NodeNext", "--moduleResolution", "NodeNext", "--target", "ES2022", "--lib", "ES2022,DOM", typeProbe], { cwd: temporary, stdio: "pipe" });
+  const browserBundle = await build({ stdin: { contents: 'export * from "@scanly/url-safety";', resolveDir: temporary }, bundle: true, platform: "browser", format: "esm", write: false, metafile: true });
+  if (Object.keys(browserBundle.metafile.inputs).some((name) => /url-safety[\\/]dist[\\/]server|ipaddr|parse5|node:dns/.test(name))) throw new Error("Installed browser tarball import leaks the server graph.");
+  let serverBlocked = false;
+  try { await build({ stdin: { contents: 'export * from "@scanly/url-safety/server";', resolveDir: temporary }, bundle: true, platform: "browser", write: false, logLevel: "silent" }); } catch { serverBlocked = true; }
+  if (!serverBlocked) throw new Error("Installed server subpath is importable in a browser bundle.");
 
   const fixture = path.join(root, "fixtures", "alpha5", "generated", "data-matrix-01.png");
   if (!fs.existsSync(fixture)) throw new Error("The Data Matrix fixture is missing for installed-package decode verification.");
@@ -70,7 +85,8 @@ try {
     }
   `;
   execFileSync(process.execPath, ["--input-type=module", "--eval", decodeProbe], { cwd: temporary, stdio: "pipe" });
-  console.log(`Tarball verification passed for ${workspaces.length} publishable packages (${tarballs.length} installed tarballs), including v2.0.1 multi-symbology decode.`);
+  console.log(`Tarball verification passed for ${workspaces.length} publishable packages (${tarballs.length} installed tarballs), including v2.1.0 multi-symbology decode.`);
 } finally {
+  if (!fs.realpathSync(temporary).toLowerCase().startsWith(`${fs.realpathSync(os.tmpdir()).toLowerCase()}${path.sep}scanly-pack-`)) throw new Error("Unsafe temporary cleanup target.");
   fs.rmSync(temporary, { recursive: true, force: true });
 }

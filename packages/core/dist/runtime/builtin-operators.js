@@ -32,7 +32,7 @@ const MAX_MESSAGE_LENGTH = 512;
 function descriptor(id, accepts, produces, cpu = "low") {
     return {
         id,
-        version: "2.0.1",
+        version: "2.1.0",
         accepts,
         produces,
         configurationSchemaId: "https://scanly.dev/schema/scenario/2.1",

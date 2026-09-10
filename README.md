@@ -1,8 +1,9 @@
-# Scanly SDK v2.0.1
+# Scanly SDK v2.1.0 — Link Intelligence (development)
 
 Privacy-first, local-only barcode scanning SDK for Web, Node.js, React, iOS, and Android.
 
 [![SDK 2.0.1](https://img.shields.io/badge/SDK-2.0.1-green)](https://github.com/Yangjunjie-Lin/Scanly/releases/tag/v2.0.1)
+[![Source 2.1.0](https://img.shields.io/badge/SDK-2.1.0-green)](docs/releases/v2.1.0.md)
 [![npm latest](https://img.shields.io/badge/npm-latest-CB3837)](https://www.npmjs.com/package/@scanly/browser)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -13,6 +14,8 @@ Privacy-first, local-only barcode scanning SDK for Web, Node.js, React, iOS, and
 
 ## Install
 
+This branch develops 2.1.0. The published Stable release remains 2.0.1 until the new release qualification and publication gates pass.
+
 Choose the package for your runtime. Browser, Node, and React packages already include their required Scanly workspace dependencies.
 
 ```bash
@@ -20,6 +23,26 @@ npm install @scanly/browser
 npm install @scanly/node
 npm install @scanly/react
 ```
+
+## AI-Assisted URL Safety
+
+Barcode decoding remains local. Remote URL intelligence is optional and disabled by default; no barcode image or camera frame is sent to AI or reputation providers. Link Intelligence is an independent asynchronous second stage, using the existing structured payload parser.
+
+```ts
+import { UrlSafetyClient } from "@scanly/url-safety";
+
+const safetyClient = new UrlSafetyClient({ endpoint: "/api/url-safety" });
+const outcome = await router.scan(frame);
+if (outcome.ok && outcome.primary.structuredPayload?.kind === "url") {
+  const analysis = await safetyClient.analyze(
+    outcome.primary.structuredPayload.fields.href as string,
+    { mode: "local-only" }, // no network; choose other modes only with explicit consent
+  );
+  // Display evidence. Never automatically open the destination.
+}
+```
+
+`@scanly/url-safety/server` provides self-hosted SSRF-protected inspection, optional Google Web Risk / VirusTotal lookup adapters, and a vendor-neutral JSON LLM adapter. LLM is advisory evidence, not an authority. No verdict guarantees a URL is safe. See [URL safety architecture, integration, privacy and configuration](docs/url-safety.md).
 
 Advanced engine composition can use `@scanly/core` directly:
 
