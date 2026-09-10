@@ -84,7 +84,7 @@ export class LocalUrlAnalyzer {
         const ipLiteral = /^\d+\.\d+\.\d+\.\d+$/.test(host) || host.startsWith("[");
         if (ipLiteral)
             add("ip_literal", "medium", "URL uses an IP address instead of a domain.");
-        const privateLike = host === "localhost" || !host.includes(".") || /\.(localhost|local|internal|lan|home|test|invalid)$/.test(host) || /^(127\.|10\.|0\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host) || /^\[(::|f[cd]|fe[89ab])/i.test(host);
+        const privateLike = host === "localhost" || (!ipLiteral && !host.includes(".")) || /\.(localhost|local|internal|lan|home|test|invalid)$/.test(host) || /^(127\.|10\.|0\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host) || /^\[(::|f[cd]|fe[89ab])/i.test(host);
         if (privateLike)
             add("private_network_target", "high", "Local or private-network-like target; remote inspection is blocked.");
         if (url.port && url.port !== "80" && url.port !== "443")

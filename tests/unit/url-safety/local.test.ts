@@ -32,6 +32,11 @@ describe("URL canonicalization and local-only evidence", () => {
     expect(new UrlRiskEngine().aggregate(local.analyze("https://example.zip")).riskLevel).toBe("low");
     expect(local.analyze("https://example.com/%zz").signals).toEqual([]);
   });
+  it("does not mistake a public IPv6 literal for an unqualified private hostname", () => {
+    const result = local.analyze("https://[2606:4700:4700::1111]/");
+    expect(result.remoteAllowed).toBe(true);
+    expect(result.signals.map((signal) => signal.id)).toEqual(["ip_literal"]);
+  });
   it("redacts all query values, userinfo, fragment and free-text secrets", () => {
     const url = redactUrl("https://alice:password@example.com/path?token=secret&email=x&token=other#frag");
     expect(url).not.toMatch(/alice|password|secret|other|frag/); expect(new URL(url).searchParams.getAll("token")).toEqual(["[REDACTED]", "[REDACTED]"]);
