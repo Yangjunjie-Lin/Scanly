@@ -46,9 +46,13 @@ jobs:
     name: Publish npm packages with provenance
     if: >-
       (github.event_name == 'workflow_dispatch' && !inputs.qualify_only) ||
-      (github.event.release.prerelease == false && github.event.release.draft == false)
+      (github.event_name == 'release' && github.event.release.prerelease == false && github.event.release.draft == false)
     runs-on: ubuntu-latest
     steps:
+      - name: Assert publication mode before any release checkout
+        env:
+          QUALIFY_ONLY: ${{ inputs.qualify_only }}
+        run: test "$QUALIFY_ONLY" != "true"
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
