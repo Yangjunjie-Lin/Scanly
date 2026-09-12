@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import {
   canonicalZipSha256,
   validatedZipEntries,
@@ -34,10 +35,26 @@ if (!/^\d+$/.test(runA) || !/^\d+$/.test(runB) || !/^[a-f0-9]{40}$/.test(workflo
   throw new Error("Run IDs or commit identities are malformed.");
 }
 
-const stableManifest = JSON.parse(fs.readFileSync(path.join(stableRoot, `v${version}-manifest.json`), "utf8"));
-const sourceCommit = stableManifest.identity?.productSourceCommit;
-const sourceTree = stableManifest.identity?.sourceTree;
+const manifestPath = path.join(stableRoot, `v${version}-manifest.json`);
+const stableManifest = fs.existsSync(manifestPath) ? JSON.parse(fs.readFileSync(manifestPath, "utf8")) : undefined;
+// Initial artifact qualification must precede the final Stable manifest.
+// Derive the source tree from the exact requested commit; never invent a GO
+// manifest merely to satisfy this recorder's input dependency.
+const sourceCommit = stableManifest?.identity?.productSourceCommit ?? requestedSourceCommit;
+const sourceTree = stableManifest?.identity?.sourceTree ?? execFileSync("git", ["show", "-s", "--format=%T", requestedSourceCommit], { cwd: root, encoding: "utf8" }).trim();
 if (requestedSourceCommit !== sourceCommit) throw new Error("Android workflow source does not match STABLE_SOURCE_COMMIT.");
+if (version === "2.1.0") {
+  const sourcePackage = JSON.parse(execFileSync("git", ["show", `${sourceCommit}:package.json`], { cwd: root, encoding: "utf8" }));
+  if (sourcePackage.version !== version || workflowHeadSha !== sourceCommit) throw new Error("Native source version or workflow definition identity mismatch.");
+  if (runA === runB) throw new Error("Independent Native workflow runs are required.");
+  for (const [label, id] of [["a", runA], ["b", runB]]) {
+    const run = JSON.parse(fs.readFileSync(path.resolve(root, requiredArgument(`run-${label}-evidence`)), "utf8"));
+    if (String(run.databaseId) !== id || run.headSha !== sourceCommit || run.status !== "completed" || run.conclusion !== "success" || run.workflowName !== "Native Mobile") throw new Error(`Native build ${label} workflow evidence is not an exact-source success.`);
+    for (const name of ["Native Core", "iOS SDK", "Android SDK", "Native Memory", "Native Fixture Parity", "Native Artifact Validation"]) {
+      if (!run.jobs?.some((job) => job.name === name && job.conclusion === "success")) throw new Error(`Native build ${label} is missing passing ${name} evidence.`);
+    }
+  }
+}
 const sha256 = (file) => crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
 const inspectAar = (file) => {
   if (!fs.statSync(file).isFile()) throw new Error(`${file}: AAR is missing.`);

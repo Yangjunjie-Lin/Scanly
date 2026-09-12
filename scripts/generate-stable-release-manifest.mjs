@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { validateStableNpmCredentials } from "./stable-npm-credential-policy.mjs";
 import {
   canonicalNpmTarballSha256,
   canonicalZipSha256,
@@ -27,12 +28,24 @@ const sourceCommit = process.env.STABLE_SOURCE_COMMIT
 const sourceTree = process.env.STABLE_SOURCE_TREE
   ?? execFileSync("git", ["rev-parse", "HEAD^{tree}"], { cwd: root, encoding: "utf8" }).trim();
 const historicalVersion = version === "2.0.0" || version === "2.0.1";
+const prepareArtifactsOnly = process.argv.includes("--prepare-artifacts");
+if (prepareArtifactsOnly && version !== "2.1.0") throw new Error("Artifact preparation is restricted to the new 2.1.0 candidate.");
 const expectedPublicPackageCount = historicalVersion ? 10 : 11;
+if (execFileSync("git", ["show", "-s", "--format=%T", sourceCommit], { cwd: root, encoding: "utf8" }).trim() !== sourceTree) throw new Error("Source commit/tree mismatch.");
+if (!historicalVersion) {
+  const productPaths = ["apps", "packages", "engines", "native", "package-lock.json", "api-snapshots"];
+  execFileSync("git", ["diff", "--exit-code", sourceCommit, "HEAD", "--", ...productPaths], { cwd: root, stdio: "pipe" });
+  execFileSync("git", ["diff", "--exit-code", "HEAD", "--", ...productPaths], { cwd: root, stdio: "pipe" });
+  const sourcePackage = JSON.parse(execFileSync("git", ["show", `${sourceCommit}:package.json`], { cwd: root, encoding: "utf8" }));
+  const qualifiedPackage = structuredClone(rootManifest);
+  if (!sourcePackage.scripts?.["stable:bootstrap"] && qualifiedPackage.scripts?.["stable:bootstrap"] === "node scripts/publish-v2.1-bootstrap.mjs") delete qualifiedPackage.scripts["stable:bootstrap"];
+  if (JSON.stringify(sourcePackage) !== JSON.stringify(qualifiedPackage)) throw new Error("Product package metadata changed beyond the approved release bootstrap tooling command.");
+}
 // Never carry legacy hardcoded qualification/signing/credential claims into a
 // new minor release. Require exact-source, content-addressed evidence BEFORE
 // creating any artifact or metadata file.
 let qualification;
-if (!historicalVersion) {
+if (!historicalVersion && !prepareArtifactsOnly) {
   if (!process.env.STABLE_QUALIFICATION_RECORD) throw new Error("STABLE_QUALIFICATION_RECORD is required for new releases; legacy GO claims cannot be inherited.");
   qualification = JSON.parse(fs.readFileSync(path.resolve(root, process.env.STABLE_QUALIFICATION_RECORD), "utf8"));
   if (qualification.schemaVersion !== "scanly-release-qualification-1" || qualification.version !== version || qualification.sourceCommit !== sourceCommit || qualification.sourceTree !== sourceTree) throw new Error("Release qualification source identity mismatch.");
@@ -43,7 +56,7 @@ if (!historicalVersion) {
     if (!evidencePath.startsWith(root + path.sep) || !fs.existsSync(evidencePath) || crypto.createHash("sha256").update(fs.readFileSync(evidencePath)).digest("hex") !== evidence.sha256) throw new Error(`Release qualification ${gate} evidence integrity failed.`);
   }
   if (!qualification.signingEvidence?.localSmokeTest?.sshSignatureBlockPresent || qualification.signingEvidence?.localSmokeTest?.status !== "PASS") throw new Error("Fresh signing evidence is required.");
-  if (qualification.npmPublicationEvidence?.trustedPublisherStatus !== "AVAILABLE" || qualification.npmPublicationEvidence?.trustedPublisherPackageCount !== expectedPublicPackageCount || qualification.npmPublicationEvidence?.secretValueRecorded !== false) throw new Error("Fresh 11-package Trusted Publishing credential evidence is required.");
+  validateStableNpmCredentials(qualification.npmPublicationEvidence, version, expectedPublicPackageCount, sourceCommit);
   if (!qualification.npmReproducibility?.cleanBuildA || !qualification.npmReproducibility?.cleanBuildB || qualification.npmReproducibility.cleanBuildRunA === qualification.npmReproducibility.cleanBuildRunB) throw new Error("Two independent npm reproducibility builds are required.");
 }
 const sourceTimestamp = execFileSync("git", ["show", "-s", "--format=%cI", sourceCommit], { cwd: root, encoding: "utf8" }).trim();
@@ -52,7 +65,7 @@ const requiredDeploymentValue = (name, legacyValue) => {
   if (!value) throw new Error(`${name} is required when generating Stable ${version} evidence.`);
   return value;
 };
-const stableDeployment = {
+const stableDeployment = prepareArtifactsOnly ? undefined : {
   schemaVersion: "scanly-stable-deployment-1",
   version,
   sourceCommit,
@@ -78,6 +91,13 @@ const fileIdentity = (relative) => {
   const bytes = fs.readFileSync(absolute);
   return { path: relative.replaceAll("\\", "/"), sha256: sha256(bytes), size: bytes.length };
 };
+
+if (qualification?.npmPublicationEvidence.bootstrap) {
+  const bootstrap = qualification.npmPublicationEvidence.bootstrap;
+  if (fileIdentity(bootstrap.artifactPath).sha256 !== bootstrap.artifactSha256 || fileIdentity(bootstrap.provenancePath).sha256 !== bootstrap.provenanceSha256) throw new Error("Bootstrap artifact/provenance bytes do not match qualified evidence.");
+  const bytes = fs.readFileSync(resolveRelative(bootstrap.artifactPath));
+  if (crypto.createHash("sha512").update(bytes).digest("hex") !== bootstrap.artifactSha512) throw new Error("Bootstrap SHA-512 mismatch.");
+}
 
 fs.mkdirSync(path.join(artifactsRoot, "ios"), { recursive: true });
 fs.mkdirSync(path.join(artifactsRoot, "native"), { recursive: true });
@@ -210,15 +230,16 @@ const components = Object.entries(lock.packages ?? {})
   .map(([relative, metadata]) => {
     const packagePath = path.join(root, relative, "package.json");
     const packageJson = fs.existsSync(packagePath) ? JSON.parse(fs.readFileSync(packagePath, "utf8")) : {};
-    const name = packageJson.name ?? relative.replace(/^node_modules\//, "");
+    const name = packageJson.name ?? relative.slice(relative.lastIndexOf("node_modules/") + "node_modules/".length);
     const version = packageJson.version ?? metadata.version ?? "UNKNOWN";
     const license = typeof metadata.license === "string" ? metadata.license : typeof packageJson.license === "string" ? packageJson.license
-      : /^@(?:emnapi|esbuild|napi-rs|next|rolldown|rollup|tybys|unrs)\//.test(name) ? "MIT"
+      : !historicalVersion ? "NOASSERTION"
+        : /^@(?:emnapi|esbuild|napi-rs|next|rolldown|rollup|tybys|unrs)\//.test(name) ? "MIT"
         : name === "fsevents" || name.endsWith("/node_modules/fsevents") ? "MIT"
           : name.startsWith("lightningcss-") ? "MPL-2.0"
           : name.startsWith("@img/sharp") ? "Apache-2.0"
           : "NOASSERTION";
-    return { name, version, license, purl: `pkg:npm/${encodeURIComponent(name)}@${version}` };
+    return { name, version, license, purl: `pkg:npm/${name.split("/").map(encodeURIComponent).join("/")}@${version}` };
   })
   .sort((a, b) => `${a.name}@${a.version}`.localeCompare(`${b.name}@${b.version}`));
 const nativeComponents = [
@@ -227,7 +248,7 @@ const nativeComponents = [
   { name: "androidx.lifecycle", version: "2.9.2", license: "Apache-2.0", purl: "pkg:maven/androidx.lifecycle/lifecycle-runtime-ktx@2.9.2" },
   { name: "androidx.core", version: "1.17.0", license: "Apache-2.0", purl: "pkg:maven/androidx.core/core-ktx@1.17.0" },
 ];
-const allComponents = [...components, ...nativeComponents];
+const allComponents = [...new Map([...components, ...nativeComponents].map((component) => [component.purl, component])).values()];
 const unknownLicenses = allComponents.filter((component) => component.license === "NOASSERTION");
 const sbom = {
   bomFormat: "CycloneDX",
@@ -260,6 +281,11 @@ writeJson("license-inventory.json", {
   unknownLicenseCount: unknownLicenses.length,
   components: allComponents,
 });
+if (prepareArtifactsOnly) {
+  if (unknownLicenses.length) throw new Error("Unresolved licenses in candidate inventory.");
+  console.log(`Prepared ${packageArtifacts.length} npm artifacts, Native identities, SBOM and licenses for ${sourceCommit}; no Stable GO manifest or publication was created.`);
+  process.exit(0);
+}
 
 const physical = {
   schemaVersion: "scanly-stable-physical-validation-status-1",
@@ -453,6 +479,10 @@ const manifest = {
     ...(!reproducibilityGo ? ["BLOCKED_REPRODUCIBILITY_FINALIZATION"] : []),
   ],
   files: {
+    ...(qualification ? {
+      qualification: fileIdentity(`${stablePrefix}qualification-input.json`),
+      ...Object.fromEntries(Object.entries(qualification.gates).map(([gate, evidence]) => [`qualification_${gate}`, fileIdentity(evidence.path)])),
+    } : {}),
     artifactManifest: fileIdentity(`${stablePrefix}artifact-manifest.json`),
     ...(androidEvidencePresent ? { androidBuildEvidence: fileIdentity(`${stablePrefix}android-build-evidence.json`) } : {}),
     sbom: fileIdentity(`${stablePrefix}sbom.cdx.json`),
@@ -470,6 +500,7 @@ writeJson(manifestName, manifest);
 
 const checksumPaths = [
   ...packageArtifacts.map((entry) => entry.path),
+  ...(qualification?.npmPublicationEvidence.bootstrap ? [qualification.npmPublicationEvidence.bootstrap.provenancePath] : []),
   `${stablePrefix}artifacts/ios/Package.swift`,
   `${stablePrefix}artifacts/native/scanly-core.h`,
   ...(androidArtifactPresent ? [androidArtifactRelative] : []),
