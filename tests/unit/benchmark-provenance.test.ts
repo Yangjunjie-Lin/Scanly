@@ -23,7 +23,10 @@ function identity(root: string, scenario: unknown, version = "1") {
   return collectSourceIdentity({ root, scenario, engines: [{ id: "engine", version, capabilities: { formats: ["qr_code"] } }], manifestPath: path.join(root, "fixtures/manifest.json"), fixtureFiles: ["fixtures/a.bin"], runnerPath: path.join(root, "scripts/runner.ts") });
 }
 
-describe("benchmark source provenance", () => {
+// These are Git/filesystem integrity fixtures, not product latency benchmarks.
+// Windows process startup/antivirus can exceed the runner's 5s default; keep a
+// bounded suite budget without changing decoder or security timeout assertions.
+describe("benchmark source provenance", { timeout: 30_000 }, () => {
   it("normalizes checkout-specific line endings in reproducibility hashes", async () => {
     expect(sha256Text("lock\nfile\n")).toBe(sha256Text("lock\r\nfile\r\n"));
     const left = repository();
@@ -57,7 +60,7 @@ describe("benchmark source provenance", () => {
   });
 });
 
-describe("baseline registry", () => {
+describe("baseline registry", { timeout: 30_000 }, () => {
   it("never overwrites an immutable baseline", () => {
     const repo = repository();
     const file = path.join(repo.root, "baselines", "v2-alpha3-r1-fast-node24-windows-x64.json");
@@ -89,7 +92,7 @@ describe("baseline registry", () => {
   });
 });
 
-describe("source/evidence commit policy", () => {
+describe("source/evidence commit policy", { timeout: 30_000 }, () => {
   it("allows only canonical aliases, versioned baselines, registry, and evidence documentation", () => {
     expect(verifyEvidenceOnlyPaths([
       "benchmark-results/latest-fast.json", "benchmark-results/latest-fast.csv", "benchmark-results/latest.json", "benchmark-results/latest.csv",
@@ -148,7 +151,7 @@ describe("source/evidence commit policy", () => {
   });
 });
 
-describe("physical device source/evidence policy", () => {
+describe("physical device source/evidence policy", { timeout: 30_000 }, () => {
   it("allows a clean source followed only by physical evidence and status documentation", () => {
     const repo = repository();
     const source = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repo.root, encoding: "utf8" }).trim();

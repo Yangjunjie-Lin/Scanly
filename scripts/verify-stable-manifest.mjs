@@ -3,10 +3,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { canonicalZipSha256 } from "./release-artifact-canonicalization.mjs";
+import { validateStableNpmCredentials } from "./stable-npm-credential-policy.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const rootManifest = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 const version = process.env.STABLE_RELEASE_VERSION ?? rootManifest.version;
+const expectedPublicPackageCount = version === "2.0.0" || version === "2.0.1" ? 10 : 11;
 if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version)) throw new Error(`Stable version '${version}' is not a release SemVer.`);
 const stableRelativeRoot = version === "2.0.0" ? "release/stable" : `release/stable/v${version}`;
 const stableRoot = process.env.STABLE_OUTPUT_ROOT ? path.resolve(root, process.env.STABLE_OUTPUT_ROOT) : path.join(root, stableRelativeRoot);
@@ -66,12 +68,15 @@ if (publicationCredentials.requiredCredentialsStatus === "GO") {
   }
   if (publicationCredentials.blocker) fail("Publication credential GO cannot retain a blocker.");
   const npmEvidence = publicationCredentials.channels.npmRegistry.evidence;
-  if (npmEvidence?.account !== "yangjunjielin" || npmEvidence?.organization !== "scanly"
-    || npmEvidence?.organizationRole !== "owner" || npmEvidence?.trustedPublisherStatus !== "AVAILABLE"
-    || npmEvidence?.trustedPublisherPackageCount !== 10 || npmEvidence?.repository !== "Yangjunjie-Lin/Scanly"
-    || npmEvidence?.workflowFile !== "stable-npm-publish.yml"
-    || npmEvidence?.provenanceMechanism !== "GITHUB_ACTIONS_OIDC"
-    || npmEvidence?.secretValueRecorded !== false) fail("npm publication credential evidence is incomplete.");
+  validateStableNpmCredentials(npmEvidence, version, expectedPublicPackageCount, sourceCommit);
+  if (npmEvidence.bootstrap) {
+    const bootstrap = npmEvidence.bootstrap;
+    if (!exists(bootstrap.provenancePath) || !exists(bootstrap.artifactPath) || sha256(bootstrap.provenancePath) !== bootstrap.provenanceSha256 || sha256(bootstrap.artifactPath) !== bootstrap.artifactSha256) fail("Bootstrap file identities do not match qualified evidence.");
+    const bundle = readJson(bootstrap.provenancePath);
+    const statement = JSON.parse(Buffer.from(bundle.dsseEnvelope?.payload ?? "", "base64").toString("utf8"));
+    if (statement.subject?.length !== 1 || statement.subject[0]?.name !== "pkg:npm/%40scanly/url-safety@2.1.0" || statement.subject[0]?.digest?.sha512 !== bootstrap.artifactSha512 || statement.predicateType !== "https://slsa.dev/provenance/v1" || statement.predicate?.buildDefinition?.externalParameters?.source_commit !== sourceCommit) fail("Bootstrap provenance subject or source mismatch.");
+    if (!Array.isArray(bundle.dsseEnvelope?.signatures) || !bundle.dsseEnvelope.signatures.length || !bundle.verificationMaterial?.tlogEntries?.length) fail("Bootstrap provenance lacks signatures or transparency-log evidence.");
+  }
 }
 const stableNpmWorkflowPath = ".github/workflows/stable-npm-publish.yml";
 if (!exists(stableNpmWorkflowPath)) fail("Stable npm provenance publication workflow is missing.");
@@ -117,6 +122,16 @@ if (androidArtifact?.status === "PASS") {
 }
 for (const file of Object.values(manifest.files ?? {})) {
   if (!exists(file.path) || sha256(file.path) !== file.sha256 || fs.statSync(path.join(root, file.path)).size !== file.size) fail(`Stable Manifest file identity mismatch: ${file.path}`);
+}
+if (version === "2.1.0") {
+  if (manifest.files.qualification?.path !== stablePath("qualification-input.json")) fail("Stable 2.1.0 must bind its exact-source qualification inputs.");
+  const qualification = readJson(manifest.files.qualification.path);
+  if (qualification.sourceCommit !== sourceCommit || qualification.sourceTree !== sourceTree || qualification.version !== version) fail("Bound qualification source mismatch.");
+  for (const gate of ["software", "apiAbi", "security", "sbom", "licenses", "native", "npmReproducibility", "signing", "publicationCredentials", "deployment"]) {
+    const evidence = qualification.gates?.[gate];
+    const bound = manifest.files[`qualification_${gate}`];
+    if (evidence?.status !== "PASS" || evidence.sourceCommit !== sourceCommit || bound?.path !== evidence.path || bound.sha256 !== evidence.sha256) fail(`Qualification gate ${gate} is not bound to passing evidence.`);
+  }
 }
 const manifestName = `v${version}-manifest.json`;
 if (!exists(stablePath("checksums.sha256")) || !exists(stablePath(`${manifestName}.sha256`))) fail("Stable checksum files are missing.");

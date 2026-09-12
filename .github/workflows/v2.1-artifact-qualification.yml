@@ -1,0 +1,81 @@
+name: v2.1 Artifact Qualification
+
+on:
+  pull_request:
+    branches: [develop]
+    paths:
+      - .github/workflows/v2.1-artifact-qualification.yml
+      - scripts/prepare-v2.1-npm-artifacts.mjs
+  workflow_dispatch:
+    inputs:
+      source_commit:
+        description: Exact qualified develop product source (40-character commit)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  clean-build:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    name: Clean npm build ${{ matrix.build }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        build: [A, B]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: tools
+          fetch-depth: 0
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_commit || github.event.pull_request.base.sha }}
+          path: product
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Install pinned npm
+        run: npm install --global npm@11.12.1
+      - name: Verify source identity and install without dependency cache
+        working-directory: product
+        env:
+          SOURCE_COMMIT: ${{ inputs.source_commit || github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_COMMIT" =~ ^[a-f0-9]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
+          test -z "${NODE_AUTH_TOKEN:-}"
+          test -z "${NPM_TOKEN:-}"
+          npm ci
+      - name: Build and verify public packages
+        working-directory: product
+        run: |
+          npm run build:packages
+          npm run api:snapshot
+          npm run native:api
+          npm run native:abi
+          npm run packages:smoke
+          npm run packages:tarball
+          npm run url-safety:security
+          git diff --exit-code -- packages engines package-lock.json api-snapshots
+      - name: Pack exact artifacts and sign detached provenance (no publication)
+        working-directory: product
+        env:
+          SOURCE_COMMIT: ${{ inputs.source_commit || github.event.pull_request.base.sha }}
+          BUILD_LABEL: ${{ matrix.build }}
+        run: |
+          export NPM_CLI_PATH="$(readlink -f "$(command -v npm)")"
+          node ../tools/scripts/prepare-v2.1-npm-artifacts.mjs --root=. --output=../artifacts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v2.1-npm-${{ matrix.build }}
+          path: artifacts
+          if-no-files-found: error
+          retention-days: 90

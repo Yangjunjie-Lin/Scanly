@@ -63,7 +63,9 @@ for (const recordPath of recordPaths) {
     const base = path.basename(artifact.path, ".tgz").replace(suffix, "");
     return `@scanly/${base.replace(/^scanly-/, "")}`;
   }));
-  if (record.npm.length !== expectedPackages.size || record.npm.length !== 10) fail(`${version}: npm publication set must contain exactly ten packages.`);
+  const packageCount = version === "2.0.0" || version === "2.0.1" ? 10 : 11;
+  if (record.npm.length !== expectedPackages.size || record.npm.length !== packageCount) fail(`${version}: npm publication set must contain exactly ${packageCount} packages.`);
+  if (packageCount === 11 && !expectedPackages.has("@scanly/url-safety")) fail(`${version}: Link Intelligence package is missing.`);
   for (const publication of record.npm) {
     if (!expectedPackages.delete(publication.name)) fail(`${version}: unexpected or duplicate npm package '${publication.name}'.`);
     if (publication.version !== version || publication.distTag !== "latest" || publication.distTagVersion !== version || publication.registry !== "https://registry.npmjs.org/" || publication.published !== true) fail(`${publication.name}@${version}: publication identity is invalid.`);

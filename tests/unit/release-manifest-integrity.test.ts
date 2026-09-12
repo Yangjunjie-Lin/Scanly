@@ -8,7 +8,10 @@ import { afterEach, describe, expect, it } from "vitest";
 const root = process.cwd();
 const verifier = path.join(root, "scripts", "verify-release-manifest.mjs");
 const stableVerifier = path.join(root, "scripts", "verify-stable-manifest.mjs");
-const stableVersion = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")).version as string;
+// These tests exercise the immutable published record, not an unpublished
+// minor feature's package version. The default release gate stays fail-closed.
+const stableVersion = JSON.parse(fs.readFileSync(path.join(root, "release/stable/v2.0.1/v2.0.1-manifest.json"), "utf8")).version as string;
+const stableEnv = { ...process.env, STABLE_RELEASE_VERSION: stableVersion };
 const manifest = path.join(root, "release", "rc2", "rc2-candidate-manifest.v2.json");
 const sidecar = `${manifest}.sha256`;
 const expectedCandidateTag = JSON.parse(fs.readFileSync(manifest, "utf8")).identity.candidateTag as string;
@@ -41,7 +44,17 @@ afterEach(() => {
   for (const directory of temporaryDirectories.splice(0)) fs.rmSync(directory, { recursive: true, force: true });
 });
 
-describe("RC2 detached Release Manifest integrity", () => {
+// Includes real Git subprocesses and archived-artifact hashing; this is not a
+// runtime response deadline. Preserve every integrity assertion on slow hosts.
+describe("RC2 detached Release Manifest integrity", { timeout: 30_000 }, () => {
+  it("requires fresh qualification before generating new Stable metadata", () => {
+    const output = path.join(root, "release/stable/v2.1.0");
+    const existed = fs.existsSync(output);
+    const result = spawnSync(process.execPath, [path.join(root, "scripts/generate-stable-release-manifest.mjs")], { cwd: root, encoding: "utf8", env: { ...process.env, STABLE_RELEASE_VERSION: "2.1.0", STABLE_QUALIFICATION_RECORD: "" } });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("STABLE_QUALIFICATION_RECORD is required");
+    expect(fs.existsSync(output)).toBe(existed);
+  });
   it("verifies raw bytes and classifies both historical manifests without upgrading their claims", () => {
     const output = execFileSync(process.execPath, [verifier], { cwd: root, encoding: "utf8" });
     expect(output).toContain("RC2_MANIFEST_INTEGRITY_GO");
@@ -169,11 +182,11 @@ describe("RC2 detached Release Manifest integrity", () => {
   });
 
   it("allows Physical pending when all software and publication gates are GO", () => {
-    const policy = execFileSync(process.execPath, [stableVerifier], { cwd: root, encoding: "utf8" });
+    const policy = execFileSync(process.execPath, [stableVerifier], { cwd: root, encoding: "utf8", env: stableEnv });
     expect(policy).toContain("physical=POST_RELEASE_VALIDATION_REQUIRED");
     expect(policy).toContain("stable=V2_STABLE_RELEASE_GO");
 
-    const result = spawnSync(process.execPath, [stableVerifier, "--require-go"], { cwd: root, encoding: "utf8" });
+    const result = spawnSync(process.execPath, [stableVerifier, "--require-go"], { cwd: root, encoding: "utf8", env: stableEnv });
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("stable=V2_STABLE_RELEASE_GO");
   });
@@ -192,11 +205,11 @@ describe("RC2 detached Release Manifest integrity", () => {
     const digest = crypto.createHash("sha256").update(fs.readFileSync(repositoryStableManifest)).digest("hex");
     fs.writeFileSync(repositoryStableSidecar, `${digest}  v${stableVersion}-manifest.json\n`, "utf8");
 
-    const policy = execFileSync(process.execPath, [repositoryStableVerifier], { cwd: repository, encoding: "utf8" });
+    const policy = execFileSync(process.execPath, [repositoryStableVerifier], { cwd: repository, encoding: "utf8", env: stableEnv });
     expect(policy).toContain("physical=POST_RELEASE_VALIDATION_REQUIRED");
     expect(policy).toContain("stable=V2_STABLE_RELEASE_NO_GO");
 
-    const result = spawnSync(process.execPath, [repositoryStableVerifier, "--require-go"], { cwd: repository, encoding: "utf8" });
+    const result = spawnSync(process.execPath, [repositoryStableVerifier, "--require-go"], { cwd: repository, encoding: "utf8", env: stableEnv });
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("Stable promotion blocked: publication=NO_GO");
   }, 90_000);

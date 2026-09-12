@@ -1,8 +1,8 @@
-# Scanly SDK v2.0.1
+# Scanly SDK v2.1.0 — Link Intelligence
 
 Privacy-first, local-only barcode scanning SDK for Web, Node.js, React, iOS, and Android.
 
-[![SDK 2.0.1](https://img.shields.io/badge/SDK-2.0.1-green)](https://github.com/Yangjunjie-Lin/Scanly/releases/tag/v2.0.1)
+[![SDK 2.1.0](https://img.shields.io/badge/SDK-2.1.0-green)](docs/releases/v2.1.0.md)
 [![npm latest](https://img.shields.io/badge/npm-latest-CB3837)](https://www.npmjs.com/package/@scanly/browser)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -13,6 +13,8 @@ Privacy-first, local-only barcode scanning SDK for Web, Node.js, React, iOS, and
 
 ## Install
 
+The 2.1.0 release line is software-qualified. Registry publication is finalized separately through the signed release workflow; see the [release notes](docs/releases/v2.1.0.md) and versioned release records below.
+
 Choose the package for your runtime. Browser, Node, and React packages already include their required Scanly workspace dependencies.
 
 ```bash
@@ -21,14 +23,34 @@ npm install @scanly/node
 npm install @scanly/react
 ```
 
+## AI-Assisted URL Safety
+
+Barcode decoding remains local. Remote URL intelligence is optional and disabled by default; no barcode image or camera frame is sent to AI or reputation providers. Link Intelligence is an independent asynchronous second stage, using the existing structured payload parser.
+
+```ts
+import { UrlSafetyClient } from "@scanly/url-safety";
+
+const safetyClient = new UrlSafetyClient({ endpoint: "/api/url-safety" });
+const outcome = await router.scan(frame);
+if (outcome.ok && outcome.primary.structuredPayload?.kind === "url") {
+  const analysis = await safetyClient.analyze(
+    outcome.primary.structuredPayload.fields.href as string,
+    { mode: "local-only" }, // no network; choose other modes only with explicit consent
+  );
+  // Display evidence. Never automatically open the destination.
+}
+```
+
+`@scanly/url-safety/server` provides self-hosted SSRF-protected inspection, optional Google Web Risk / VirusTotal lookup adapters, and a vendor-neutral JSON LLM adapter. LLM is advisory evidence, not an authority. No verdict guarantees a URL is safe. See [URL safety architecture, integration, privacy and configuration](docs/url-safety.md).
+
 Advanced engine composition can use `@scanly/core` directly:
 
 ```bash
 npm install @scanly/core
 ```
 
-- **iOS:** v2.0.1 ships a Swift Package Manager source package under `native/ios`. Because the manifest is not at the repository root, check out tag `v2.0.1` and add `native/ios` as a local package. See the [iOS guide](docs/native/ios-getting-started.md).
-- **Android:** download `scanly-sdk-2.0.1.aar` from the [v2.0.1 GitHub Release](https://github.com/Yangjunjie-Lin/Scanly/releases/tag/v2.0.1). Maven Central is not a v2.0.1 distribution channel. See the [Android guide](docs/native/android-getting-started.md).
+- **iOS:** v2.1.0 provides a Swift Package Manager source package under `native/ios`. Because the manifest is not at the repository root, check out tag `v2.1.0` and add `native/ios` as a local package. See the [iOS guide](docs/native/ios-getting-started.md).
+- **Android:** use `scanly-sdk-2.1.0.aar` from the [v2.1.0 GitHub Release](https://github.com/Yangjunjie-Lin/Scanly/releases/tag/v2.1.0). Maven Central is not a v2.1.0 distribution channel. See the [Android guide](docs/native/android-getting-started.md).
 
 ## Quick start
 
@@ -126,19 +148,19 @@ Industrial recovery is not an industrial, warehouse, or DPM certification. The `
 
 ## Privacy
 
-Scanly decodes locally and remains offline-capable after code and WASM assets are loaded. The SDK does not upload images or payloads and contains no analytics, remote logging, account, or cloud-decoder service. Host applications remain responsible for their own telemetry, storage, and privacy disclosures.
+Barcode decoding remains local and offline-capable after code and WASM assets are loaded. No scanning image or camera frame is uploaded. The separate URL intelligence module is disabled by default and shares decoded URLs or sanitized page evidence only after explicit opt-in. There is no built-in analytics or remote logging. Host applications remain responsible for their own telemetry, storage, service configuration and privacy disclosures.
 
 ## Platform status
 
-v2.0.1 is the current Stable software line. It hardens cancellation, React concurrency, camera error handling, and the terminal lifecycle of `ScannerSession`. Automated browser, Node, simulator, emulator, API/ABI, security, package, and artifact checks are verified. Automated coverage is not physical-device qualification.
+v2.1.0 adds opt-in Link Intelligence on top of the v2.0.1 cancellation, React concurrency, camera error handling and terminal `ScannerSession` lifecycle guarantees. Automated browser, Node, simulator, emulator, API/ABI, security, package and artifact checks are verified. Automated coverage is not physical-device qualification.
 
 Physical Web iOS/Android, Native iOS/Android, 30-minute and 60-minute camera soaks, and the complete hardware matrix remain `POST_RELEASE_VALIDATION_PENDING` under [Issue #13](https://github.com/Yangjunjie-Lin/Scanly/issues/13). No all-device-verified claim is made.
 
-Known limitations include hardware-dependent camera capabilities, difficult or occluded symbols, experimental DPM recovery, unsupported Android `armeabi-v7a`, no Maven Central or CocoaPods distribution for v2.0.1, and the pending physical-device matrix.
+Known limitations include hardware-dependent camera capabilities, difficult or occluded symbols, experimental DPM recovery, unsupported Android `armeabi-v7a`, no Maven Central or CocoaPods distribution for v2.1.0, and the pending physical-device matrix. URL risk verdicts are advisory observations, not safety guarantees.
 
 ## Branch and release status
 
-- `main` contains the current v2.0.1 Stable line.
+- `main` is the Stable release branch; immutable versioned publication records identify completed releases.
 - `develop` is the integration branch for post-v2 maintenance and the next patch/minor line.
 - Feature and fix branches start from `develop`.
 - Immutable RC/Stable tags and versioned evidence preserve qualification ancestry. Only `main` and `develop` are retained as long-lived branches.
@@ -157,6 +179,10 @@ Detailed Alpha, Beta, and RC development evidence is preserved in [development h
 
 ## Release integrity
 
+- [v2.1.0 release notes](docs/releases/v2.1.0.md)
+- [v2.1.0 qualification manifest](release/stable/v2.1.0/v2.1.0-manifest.json)
+- [v2.1.0 checksums](release/stable/v2.1.0/checksums.sha256)
+- [v2.1.0 SBOM](release/stable/v2.1.0/sbom.cdx.json)
 - [v2.0.1 release notes](docs/releases/v2.0.1.md)
 - [v2.0.1 qualification manifest](release/stable/v2.0.1/v2.0.1-manifest.json)
 - [v2.0.1 checksums](release/stable/v2.0.1/checksums.sha256)

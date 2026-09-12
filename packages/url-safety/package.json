@@ -1,0 +1,21 @@
+{
+  "name": "@scanly/url-safety",
+  "version": "2.1.0",
+  "description": "Opt-in URL risk intelligence with local analysis and hardened server inspection for Scanly",
+  "keywords": ["scanly", "url", "security", "phishing", "privacy"],
+  "repository": { "type": "git", "url": "git+https://github.com/Yangjunjie-Lin/Scanly.git", "directory": "packages/url-safety" },
+  "homepage": "https://github.com/Yangjunjie-Lin/Scanly#readme",
+  "bugs": { "url": "https://github.com/Yangjunjie-Lin/Scanly/issues" },
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    "./server": { "types": "./dist/server/index.d.ts", "browser": null, "node": "./dist/server/index.js" }
+  },
+  "files": ["dist", "README.md"],
+  "scripts": { "build": "tsc -p tsconfig.build.json" },
+  "dependencies": { "@scanly/parsers": "2.1.0", "ajv": "^8.17.1", "ipaddr.js": "2.2.0", "parse5": "7.3.0", "punycode": "2.3.1" }
+}

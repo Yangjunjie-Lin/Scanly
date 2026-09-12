@@ -1,0 +1,87 @@
+{
+  "schemaVersion": "scanly-stable-signing-manifest-1",
+  "version": "2.1.0",
+  "sourceCommit": "6b017b53a4404f4feab776ac111b0ea9dacf2734",
+  "sourceTree": "c72430a2ab0a2d47e7cd095325088f1e053a5c41",
+  "secretMaterialCommitted": false,
+  "phase": "QUALIFIED_FOR_PUBLICATION",
+  "channels": {
+    "gitTagSigning": {
+      "status": "GIT_TAG_SIGNING_GO",
+      "scheme": "SSH_ED25519",
+      "githubAccount": "Yangjunjie-Lin",
+      "githubSigningKeyId": 1118906,
+      "publicKeyFingerprint": "SHA256:1odyhkHV3hKHFlE8QrELlBGMM/qlM5ftmiiVym/M6ck",
+      "publicKeyRegisteredAt": "2026-08-18T01:00:29.903+01:00",
+      "localSmokeTest": {
+        "status": "PASS",
+        "annotatedTagObjectCreated": true,
+        "sshSignatureBlockPresent": true,
+        "temporaryTagDeleted": true,
+        "tagObject": "60d17d680d457103be803e2e0f789320b1a00521"
+      }
+    },
+    "githubReleaseSigning": {
+      "status": "GITHUB_RELEASE_SIGNING_GO",
+      "policy": "GitHub-verified signed annotated tag plus checksums.sha256",
+      "signedTagRequiredAtPublication": true,
+      "checksumsPath": "release/stable/v2.1.0/checksums.sha256"
+    },
+    "npmPublication": {
+      "status": "NPM_PUBLICATION_GO",
+      "registry": "https://registry.npmjs.org/",
+      "account": "yangjunjielin",
+      "organization": "scanly",
+      "organizationRole": "owner",
+      "trustedPublisherStatus": "AVAILABLE_WITH_QUALIFIED_BOOTSTRAP",
+      "trustedPublisherPackageCount": 10,
+      "trustedPublisherPackages": [
+        "@scanly/parsers",
+        "@scanly/scenario-schema",
+        "@scanly/benchmark",
+        "@scanly/core",
+        "@scanly/engine-jsqr",
+        "@scanly/engine-zxing-js",
+        "@scanly/engine-zxing-cpp-wasm",
+        "@scanly/browser",
+        "@scanly/node",
+        "@scanly/react"
+      ],
+      "repository": "Yangjunjie-Lin/Scanly",
+      "workflowFile": "stable-npm-publish.yml",
+      "secretValueRecorded": false,
+      "provenanceWorkflow": ".github/workflows/stable-npm-publish.yml",
+      "provenanceMechanism": "GITHUB_ACTIONS_OIDC",
+      "qualificationRun": 34723767114,
+      "bootstrap": {
+        "package": "@scanly/url-safety",
+        "version": "2.1.0",
+        "sourceCommit": "6b017b53a4404f4feab776ac111b0ea9dacf2734",
+        "method": "INTERACTIVE_NPM_PROVENANCE_FILE",
+        "cliAuthenticatedAccount": "yangjunjielin",
+        "interactiveTwoFactorRequired": true,
+        "npmCredentialSharedWithCI": false,
+        "provenanceVerified": true,
+        "signedReleaseTagRequired": true,
+        "placeholderVersionAllowed": false,
+        "artifactPath": "release/stable/v2.1.0/artifacts/npm/scanly-url-safety-2.1.0.tgz",
+        "provenancePath": "release/stable/v2.1.0/artifacts/provenance/scanly-url-safety-2.1.0.tgz.sigstore.json",
+        "artifactSha256": "72bbd5974b2a0b0c2c1ded6098c249084df0fbffe50a937ef96e68902b914a87",
+        "artifactSha512": "269e2f2ed7dbb71926b1eaf33e06df8ed17cf1a0aa16b741252fa2c59a3929588d7549e5aa6655d142bff1b19803db8ad5bf3949562df4d65eba53a84d531c5e",
+        "provenanceSha256": "d1dbb1347fad221ca90770d8bfbd681f6813a7b70b6237e79f983d1ffc47eb87"
+      }
+    },
+    "androidArtifactSigning": {
+      "status": "ANDROID_ARTIFACT_SIGNING_GO",
+      "distribution": "ANDROID_AAR_GITHUB_RELEASE_ONLY",
+      "signedTagRequiredAtPublication": true,
+      "artifactSha256": "44297a5a8b89762a68ccdde61cf107661c8dc7e2b6eb1117f534ce1c67c5098b"
+    },
+    "iosSpmRelease": {
+      "status": "IOS_SPM_RELEASE_GO",
+      "distribution": "SIGNED_GIT_TAG_AND_SWIFT_PACKAGE_MANAGER",
+      "signedTagRequiredAtPublication": true
+    }
+  },
+  "status": "STABLE_SIGNING_GO"
+}

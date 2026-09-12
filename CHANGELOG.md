@@ -2,9 +2,13 @@
 
 All notable changes follow semantic versioning.
 
-## Unreleased
+## 2.1.0 — Link Intelligence
 
-No changes yet.
+- Added optional `@scanly/url-safety` with local URL signals, canonicalization, redaction, cache, cancellation, confirmed-event integration and deterministic scoring.
+- Added a Node-only server entry with pinned public-IP connections, per-hop SSRF validation, bounded inspection, reputation lookup adapters and schema-validated advisory LLM evidence.
+- Added explicit privacy modes and a default-disabled demo, with a same-origin rate/size/time-limited backend.
+- Existing barcode decoding remains local and independent of network analysis. Published 2.0.0 and 2.0.1 artifacts and historical evidence are unchanged.
+- Added source-bound independent npm and Native artifact rebuilds, detached CI provenance for the new package's 2FA-protected first publication, and immutable versioned qualification records. Actual publication is verified separately from qualification.
 
 ## 2.0.1 — Scanner lifecycle and runtime hardening
 

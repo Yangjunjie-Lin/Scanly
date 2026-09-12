@@ -4,7 +4,7 @@ import path from "node:path";
 
 const root = path.resolve(__dirname, "..");
 const snapshotPath = path.join(root, "api-snapshots", "public-api.json");
-const packageRoots = ["packages/core", "packages/browser", "packages/node", "packages/react", "packages/scenario-schema", "packages/parsers", "packages/benchmark", "engines/jsqr", "engines/zxing-js"];
+const packageRoots = ["packages/core", "packages/browser", "packages/node", "packages/react", "packages/scenario-schema", "packages/parsers", "packages/benchmark", "engines/jsqr", "engines/zxing-js", "packages/url-safety"];
 
 function files(directory: string): string[] {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => entry.isDirectory() ? files(path.join(directory, entry.name)) : entry.name.endsWith(".d.ts") ? [path.join(directory, entry.name)] : []);

@@ -7,6 +7,7 @@ const canonicalRepository = "git+https://github.com/Yangjunjie-Lin/Scanly.git";
 const canonicalHomepage = "https://github.com/Yangjunjie-Lin/Scanly#readme";
 const canonicalBugs = "https://github.com/Yangjunjie-Lin/Scanly/issues";
 const expectedPackages = new Set([
+  "@scanly/url-safety",
   "@scanly/parsers",
   "@scanly/scenario-schema",
   "@scanly/benchmark",
