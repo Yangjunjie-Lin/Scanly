@@ -123,6 +123,16 @@ if (androidArtifact?.status === "PASS") {
 for (const file of Object.values(manifest.files ?? {})) {
   if (!exists(file.path) || sha256(file.path) !== file.sha256 || fs.statSync(path.join(root, file.path)).size !== file.size) fail(`Stable Manifest file identity mismatch: ${file.path}`);
 }
+if (version === "2.1.0") {
+  if (manifest.files.qualification?.path !== stablePath("qualification-input.json")) fail("Stable 2.1.0 must bind its exact-source qualification inputs.");
+  const qualification = readJson(manifest.files.qualification.path);
+  if (qualification.sourceCommit !== sourceCommit || qualification.sourceTree !== sourceTree || qualification.version !== version) fail("Bound qualification source mismatch.");
+  for (const gate of ["software", "apiAbi", "security", "sbom", "licenses", "native", "npmReproducibility", "signing", "publicationCredentials", "deployment"]) {
+    const evidence = qualification.gates?.[gate];
+    const bound = manifest.files[`qualification_${gate}`];
+    if (evidence?.status !== "PASS" || evidence.sourceCommit !== sourceCommit || bound?.path !== evidence.path || bound.sha256 !== evidence.sha256) fail(`Qualification gate ${gate} is not bound to passing evidence.`);
+  }
+}
 const manifestName = `v${version}-manifest.json`;
 if (!exists(stablePath("checksums.sha256")) || !exists(stablePath(`${manifestName}.sha256`))) fail("Stable checksum files are missing.");
 const checksumLines = fs.readFileSync(path.join(stableRoot, "checksums.sha256"), "utf8").trim().split(/\r?\n/);

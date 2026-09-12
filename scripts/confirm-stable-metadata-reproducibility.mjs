@@ -33,6 +33,11 @@ const comparedFiles = [
   "artifacts/ios/Package.swift",
   "artifacts/native/scanly-core.h",
 ];
+if (version === "2.1.0") {
+  comparedFiles.push("qualification-input.json", "artifacts/provenance/scanly-url-safety-2.1.0.tgz.sigstore.json");
+  const visit = (directory) => fs.readdirSync(path.join(directoryA, directory), { withFileTypes: true }).flatMap((entry) => entry.isDirectory() ? visit(`${directory}/${entry.name}`) : [`${directory}/${entry.name}`]);
+  comparedFiles.push(...visit("evidence").sort());
+}
 const npmArtifacts = fs.readdirSync(path.join(directoryA, "artifacts", "npm"), { withFileTypes: true })
   .filter((entry) => entry.isFile() && entry.name.endsWith(".tgz"))
   .map((entry) => `artifacts/npm/${entry.name}`)

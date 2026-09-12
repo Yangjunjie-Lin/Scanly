@@ -159,7 +159,21 @@ jobs:
           while IFS=$'\t' read -r package tarball; do
             test -n "$package" -a -f "$tarball"
             published="$(npm view "${package}@${VERSION}" version --json 2>/dev/null | tr -d '"' || true)"
+            if [ "$VERSION" = "2.1.0" ] && [ "$package" = "@scanly/url-safety" ] && [ "$published" != "$VERSION" ]; then
+              node --input-type=commonjs - "$STABLE_RELEASE_ROOT" <<'BOOTSTRAP'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const credentials = JSON.parse(fs.readFileSync(path.join(process.argv[2], 'publication-credentials.json'), 'utf8'));
+          const bootstrap = credentials.channels.npmRegistry.evidence.bootstrap;
+          if (bootstrap?.package !== '@scanly/url-safety' || bootstrap.version !== '2.1.0' || bootstrap.method !== 'INTERACTIVE_NPM_PROVENANCE_FILE' || !bootstrap.interactiveTwoFactorRequired || !bootstrap.signedReleaseTagRequired || !bootstrap.provenanceVerified) throw new Error('No qualified first-publication bootstrap');
+          fs.writeFileSync('stable-npm-bootstrap-pending.txt', '@scanly/url-safety@2.1.0 requires interactive publication with its qualified CI provenance bundle. No release completion is claimed.\n');
+          BOOTSTRAP
+              echo "Deferring the explicitly qualified new package; publishing its dependencies first."
+              continue
+            fi
             if [ "$published" = "$VERSION" ]; then
+              expected_integrity="$(node -e 'const fs=require("fs"),c=require("crypto"); process.stdout.write("sha512-"+c.createHash("sha512").update(fs.readFileSync(process.argv[1])).digest("base64"))' "$tarball")"
+              test "$(npm view "${package}@${VERSION}" dist.integrity --json | tr -d '"')" = "$expected_integrity"
               echo "${package}@${VERSION} already exists; verifying and continuing"
             elif [ "$VERSION" = "2.0.0" ]; then
               # Legacy v2.0.0 recovery only: immutable tarballs predate npm's
@@ -214,6 +228,7 @@ jobs:
           for attempt in {1..60}; do
             pending=0
             while IFS=$'\t' read -r package tarball; do
+              if [ -f stable-npm-bootstrap-pending.txt ] && [ "$package" = "@scanly/url-safety" ]; then continue; fi
               verified="$(npm view "${package}@${VERSION}" version --json 2>/dev/null | tr -d '"' || true)"
               if [ "$verified" != "$VERSION" ]; then
                 echo "Waiting for Registry propagation: ${package}@${VERSION} (${attempt}/60)"
@@ -226,6 +241,16 @@ jobs:
           test "$pending" -eq 0
 
           while IFS=$'\t' read -r package tarball; do
+            if [ -f stable-npm-bootstrap-pending.txt ] && [ "$package" = "@scanly/url-safety" ]; then continue; fi
             test "$(npm view "$package" dist-tags.latest --json | tr -d '"')" = "$VERSION"
             test "$(npm view "${package}@${VERSION}" dist.attestations.provenance.predicateType --json | tr -d '"')" = "https://slsa.dev/provenance/v1"
           done < stable-npm-publication-plan.tsv
+          if [ -f stable-npm-bootstrap-pending.txt ]; then
+            echo "::notice title=Publication incomplete::Existing packages are verified; the new URL Safety package still requires its approved interactive bootstrap."
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stable-npm-bootstrap-status
+          path: stable-npm-bootstrap-pending.txt
+          if-no-files-found: ignore
