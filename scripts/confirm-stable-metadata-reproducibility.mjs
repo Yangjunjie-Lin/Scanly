@@ -37,7 +37,8 @@ const npmArtifacts = fs.readdirSync(path.join(directoryA, "artifacts", "npm"), {
   .filter((entry) => entry.isFile() && entry.name.endsWith(".tgz"))
   .map((entry) => `artifacts/npm/${entry.name}`)
   .sort();
-if (npmArtifacts.length !== 10) throw new Error(`Expected ten clean-build npm artifacts, found ${npmArtifacts.length}.`);
+const expectedNpmCount = version === "2.0.0" || version === "2.0.1" ? 10 : 11;
+if (npmArtifacts.length !== expectedNpmCount) throw new Error(`Expected ${expectedNpmCount} clean-build npm artifacts, found ${npmArtifacts.length}.`);
 comparedFiles.push(...npmArtifacts);
 const digest = (file) => crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
 for (const relative of comparedFiles) {

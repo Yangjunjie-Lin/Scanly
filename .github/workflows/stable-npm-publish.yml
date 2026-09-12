@@ -9,6 +9,11 @@ on:
         description: Exact signed Stable SemVer tag to publish (for example v2.0.1)
         required: true
         type: string
+      qualify_only:
+        description: Verify existing OIDC grants without publishing, modifying packages, or creating tags
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -19,10 +24,28 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  credential-qualification:
+    name: Verify existing npm OIDC grants (no publication)
+    if: github.event_name == 'workflow_dispatch' && inputs.qualify_only
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Exchange existing trusted identities without publishing
+        run: node scripts/probe-stable-npm-oidc.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: npm-oidc-qualification
+          path: release-dist/npm-oidc-qualification.json
+          if-no-files-found: error
+          retention-days: 90
   publish:
     name: Publish npm packages with provenance
     if: >-
-      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_dispatch' && !inputs.qualify_only) ||
       (github.event.release.prerelease == false && github.event.release.draft == false)
     runs-on: ubuntu-latest
     steps:

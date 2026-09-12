@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { canonicalZipSha256 } from "./release-artifact-canonicalization.mjs";
+import { validateStableNpmCredentials } from "./stable-npm-credential-policy.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const rootManifest = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
@@ -67,12 +68,15 @@ if (publicationCredentials.requiredCredentialsStatus === "GO") {
   }
   if (publicationCredentials.blocker) fail("Publication credential GO cannot retain a blocker.");
   const npmEvidence = publicationCredentials.channels.npmRegistry.evidence;
-  if (npmEvidence?.account !== "yangjunjielin" || npmEvidence?.organization !== "scanly"
-    || npmEvidence?.organizationRole !== "owner" || npmEvidence?.trustedPublisherStatus !== "AVAILABLE"
-    || npmEvidence?.trustedPublisherPackageCount !== expectedPublicPackageCount || npmEvidence?.repository !== "Yangjunjie-Lin/Scanly"
-    || npmEvidence?.workflowFile !== "stable-npm-publish.yml"
-    || npmEvidence?.provenanceMechanism !== "GITHUB_ACTIONS_OIDC"
-    || npmEvidence?.secretValueRecorded !== false) fail("npm publication credential evidence is incomplete.");
+  validateStableNpmCredentials(npmEvidence, version, expectedPublicPackageCount, sourceCommit);
+  if (npmEvidence.bootstrap) {
+    const bootstrap = npmEvidence.bootstrap;
+    if (!exists(bootstrap.provenancePath) || !exists(bootstrap.artifactPath) || sha256(bootstrap.provenancePath) !== bootstrap.provenanceSha256 || sha256(bootstrap.artifactPath) !== bootstrap.artifactSha256) fail("Bootstrap file identities do not match qualified evidence.");
+    const bundle = readJson(bootstrap.provenancePath);
+    const statement = JSON.parse(Buffer.from(bundle.dsseEnvelope?.payload ?? "", "base64").toString("utf8"));
+    if (statement.subject?.length !== 1 || statement.subject[0]?.name !== "pkg:npm/%40scanly/url-safety@2.1.0" || statement.subject[0]?.digest?.sha512 !== bootstrap.artifactSha512 || statement.predicateType !== "https://slsa.dev/provenance/v1" || statement.predicate?.buildDefinition?.externalParameters?.source_commit !== sourceCommit) fail("Bootstrap provenance subject or source mismatch.");
+    if (!Array.isArray(bundle.dsseEnvelope?.signatures) || !bundle.dsseEnvelope.signatures.length || !bundle.verificationMaterial?.tlogEntries?.length) fail("Bootstrap provenance lacks signatures or transparency-log evidence.");
+  }
 }
 const stableNpmWorkflowPath = ".github/workflows/stable-npm-publish.yml";
 if (!exists(stableNpmWorkflowPath)) fail("Stable npm provenance publication workflow is missing.");

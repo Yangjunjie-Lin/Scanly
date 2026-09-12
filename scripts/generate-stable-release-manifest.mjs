@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { validateStableNpmCredentials } from "./stable-npm-credential-policy.mjs";
 import {
   canonicalNpmTarballSha256,
   canonicalZipSha256,
@@ -43,7 +44,7 @@ if (!historicalVersion) {
     if (!evidencePath.startsWith(root + path.sep) || !fs.existsSync(evidencePath) || crypto.createHash("sha256").update(fs.readFileSync(evidencePath)).digest("hex") !== evidence.sha256) throw new Error(`Release qualification ${gate} evidence integrity failed.`);
   }
   if (!qualification.signingEvidence?.localSmokeTest?.sshSignatureBlockPresent || qualification.signingEvidence?.localSmokeTest?.status !== "PASS") throw new Error("Fresh signing evidence is required.");
-  if (qualification.npmPublicationEvidence?.trustedPublisherStatus !== "AVAILABLE" || qualification.npmPublicationEvidence?.trustedPublisherPackageCount !== expectedPublicPackageCount || qualification.npmPublicationEvidence?.secretValueRecorded !== false) throw new Error("Fresh 11-package Trusted Publishing credential evidence is required.");
+  validateStableNpmCredentials(qualification.npmPublicationEvidence, version, expectedPublicPackageCount, sourceCommit);
   if (!qualification.npmReproducibility?.cleanBuildA || !qualification.npmReproducibility?.cleanBuildB || qualification.npmReproducibility.cleanBuildRunA === qualification.npmReproducibility.cleanBuildRunB) throw new Error("Two independent npm reproducibility builds are required.");
 }
 const sourceTimestamp = execFileSync("git", ["show", "-s", "--format=%cI", sourceCommit], { cwd: root, encoding: "utf8" }).trim();
@@ -78,6 +79,13 @@ const fileIdentity = (relative) => {
   const bytes = fs.readFileSync(absolute);
   return { path: relative.replaceAll("\\", "/"), sha256: sha256(bytes), size: bytes.length };
 };
+
+if (qualification?.npmPublicationEvidence.bootstrap) {
+  const bootstrap = qualification.npmPublicationEvidence.bootstrap;
+  if (fileIdentity(bootstrap.artifactPath).sha256 !== bootstrap.artifactSha256 || fileIdentity(bootstrap.provenancePath).sha256 !== bootstrap.provenanceSha256) throw new Error("Bootstrap artifact/provenance bytes do not match qualified evidence.");
+  const bytes = fs.readFileSync(resolveRelative(bootstrap.artifactPath));
+  if (crypto.createHash("sha512").update(bytes).digest("hex") !== bootstrap.artifactSha512) throw new Error("Bootstrap SHA-512 mismatch.");
+}
 
 fs.mkdirSync(path.join(artifactsRoot, "ios"), { recursive: true });
 fs.mkdirSync(path.join(artifactsRoot, "native"), { recursive: true });
@@ -470,6 +478,7 @@ writeJson(manifestName, manifest);
 
 const checksumPaths = [
   ...packageArtifacts.map((entry) => entry.path),
+  ...(qualification?.npmPublicationEvidence.bootstrap ? [qualification.npmPublicationEvidence.bootstrap.provenancePath] : []),
   `${stablePrefix}artifacts/ios/Package.swift`,
   `${stablePrefix}artifacts/native/scanly-core.h`,
   ...(androidArtifactPresent ? [androidArtifactRelative] : []),
