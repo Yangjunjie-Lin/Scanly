@@ -2,9 +2,11 @@
 
 ## Version policy
 
-- SDK package version: `2.0.1` (Stable patch release; physical validation pending)
+- SDK package version: `2.1.0` (Stable minor release; physical validation pending)
 
 ## Camera platform surface
+
+The optional `@scanly/url-safety` package provides local analysis, a deterministic risk engine, client/cache/controller APIs, and a separate Node-only `/server` analyzer with provider adapters and safe fetching. It is not part of the scanner's default decode pipeline. See the [URL Safety API and integration guide](../url-safety.md).
 
 `@scanly/browser` exports `CameraConstraintPolicy`, `DeviceDiagnostics`, `CameraRecoveryPolicy`, and `CameraRecoveryController`. Constraint negotiation requests ideal facing mode, resolution, and frame rate, then removes optional preferences through a bounded fallback sequence. An explicit device ID remains exact unless the caller deliberately chooses ideal matching.
 
@@ -85,7 +87,7 @@ Historical real-time development evidence uses 20 scenario-specific Ground Truth
 
 `npm run api:snapshot` and `npm run api:diff` validate the package-root declarations. Their presence here does not assert that a particular GitHub PR head has passed the Public API workflow.
 
-The v2.0.1 Stable APIs follow semantic versioning. Supported deprecated APIs receive at least one minor-release migration window unless a security fix requires removal.
+The v2.1.0 Stable APIs follow semantic versioning. Supported deprecated APIs receive at least one minor-release migration window unless a security fix requires removal.
 
 ## Authoritative execution API
 
@@ -128,6 +130,6 @@ When `output.includeAttempts` is enabled, `attempts` contains a bounded, payload
 
 ## Supported capability versus vocabulary
 
-Scanly SDK v2.0.1 publicly supports `qr_code`, `data_matrix`, `pdf417`, `code_128`, `ean_13`, `ean_8`, `upc_a`, and `upc_e`. Deferred ZXing formats are not in the public union. jsQR and ZXing-JS report QR-only capabilities; the pinned ZXing-C++ WASM engine reports the eight verified mappings. A scenario requesting a format with no registered engine returns `unsupported_format` during compilation.
+Scanly SDK v2.1.0 publicly supports `qr_code`, `data_matrix`, `pdf417`, `code_128`, `ean_13`, `ean_8`, `upc_a`, and `upc_e`. Deferred ZXing formats are not in the public union. jsQR and ZXing-JS report QR-only capabilities; the pinned ZXing-C++ WASM engine reports the eight verified mappings. A scenario requesting a format with no registered engine returns `unsupported_format` during compilation.
 
 `FormatSelection` accepts a non-empty list, normalizes duplicates, rejects deferred/unknown formats, and is propagated through Router, Worker, Node, and native decode options. QR-only remains the default when no explicit selection or non-QR scenario is supplied.

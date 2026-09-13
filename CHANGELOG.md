@@ -9,6 +9,7 @@ All notable changes follow semantic versioning.
 - Added explicit privacy modes and a default-disabled demo, with a same-origin rate/size/time-limited backend.
 - Existing barcode decoding remains local and independent of network analysis. Published 2.0.0 and 2.0.1 artifacts and historical evidence are unchanged.
 - Added source-bound independent npm and Native artifact rebuilds, detached CI provenance for the new package's 2FA-protected first publication, and immutable versioned qualification records. Actual publication is verified separately from qualification.
+- Completed all 11 npm 2.1.0 publications with exact downloaded-byte and cryptographic provenance verification. Preserved the initial Registry provenance rejection and its independently rebuilt, additive correction without changing the signed tag or frozen artifacts; appended the actual publication record.
 
 ## 2.0.1 — Scanner lifecycle and runtime hardening
 

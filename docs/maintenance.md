@@ -1,6 +1,6 @@
 # Maintenance policy
 
-Scanly v2.0.1 is the current Stable SDK line. Maintenance prioritizes security, correctness, compatibility, performance, physical qualification, bug fixes, patch releases, and carefully scoped minor releases. New work must preserve the local-only privacy boundary and the public eight-format contract.
+Scanly v2.1.0 is the current Stable SDK line. Maintenance prioritizes security, correctness, compatibility, performance, physical qualification, bug fixes, patch releases, and carefully scoped minor releases. New work must preserve local barcode decoding, the separate opt-in URL Intelligence boundary, and the public eight-format contract.
 
 ## Supported toolchain
 
@@ -18,12 +18,12 @@ Scanly v2.0.1 is the current Stable SDK line. Maintenance prioritizes security, 
 - Release qualification is recorded in versioned evidence committed through `develop`; only `main` and `develop` are retained as long-lived branches.
 - Immutable tags and evidence preserve released history; never move or rebuild a published tag.
 
-For a normal v2.0.1 bug fix:
+For a normal bug fix to the 2.1 line:
 
 ```text
 develop -> fix branch -> PR to develop
 -> versioned qualification evidence -> PR from develop to main
--> signed v2.0.1 tag -> GitHub Release -> npm / Native publication
+-> signed next-patch tag -> GitHub Release -> npm / Native publication
 -> synchronize main back into develop
 ```
 
@@ -61,7 +61,7 @@ Dependabot opens small npm and GitHub Actions groups. Merge security patches pro
 
 ## Physical qualification
 
-Automated browser, simulator, and emulator coverage is not physical-device qualification. The v2.0.0 physical validation program remains `POST_RELEASE_VALIDATION_PENDING` under Issue #13; v2.0.1 does not claim physical PASS or reinterpret those zero evidence counts.
+Automated browser, simulator, and emulator coverage is not physical-device qualification. The v2.0.0 physical validation program remains `POST_RELEASE_VALIDATION_PENDING` under Issue #13; neither v2.0.1 nor v2.1.0 claims physical PASS or reinterprets those zero evidence counts.
 
 When that program completes, do not modify v2.0.0 binaries or the qualification/publication records. Add `release/stable/v2.0.0-physical-qualification-record.json` containing the released artifact hashes, real device matrix, 30/60-minute soak evidence, and false-positive gate. The release evidence chain is Qualification → Publication → Physical Qualification.
 
