@@ -42,6 +42,24 @@ describe("immutable publication provenance recovery reference", () => {
     expect(() => verifyPublicationRecovery(publication(), qualification, (file: string) => file.includes("provenance-B/") ? Buffer.from("changed") : readBytes(file))).toThrow(/evidence changed/);
     expect(() => verifyPublicationRecovery(publication(), qualification, (file: string) => { if (file.includes("provenance-A/")) throw new Error("ENOENT"); return readBytes(file); })).toThrow();
   });
+  it.each(["changed", "missing"])("rejects a %s original proof outside the replacement directory", (mode) => {
+    const originalPath = `${root}/artifacts/provenance/scanly-url-safety-2.1.0.tgz.sigstore.json`;
+    expect(() => verifyPublicationRecovery(publication(), qualification, (file: string) => {
+      if (file !== originalPath) return readBytes(file);
+      if (mode === "missing") throw new Error("ENOENT");
+      return Buffer.from("changed");
+    })).toThrow();
+  });
+  it.each(["originalProvenance", "replacementProvenance", "artifact"])("rejects substituted %s paths even with an updated record digest", (key) => {
+    const record = publication(); const recovery = JSON.parse(readBytes(record.provenanceRecovery.path).toString());
+    recovery[key].path = "substituted";
+    const bytes = Buffer.from(JSON.stringify(recovery)); record.provenanceRecovery.sha256 = crypto.createHash("sha256").update(bytes).digest("hex");
+    expect(() => verifyPublicationRecovery(record, qualification, (file: string) => file === record.provenanceRecovery.path ? bytes : readBytes(file))).toThrow();
+  });
+  it("binds the recovery tarball to the published Registry integrity", () => {
+    const record = publication(); record.npm.find((entry: { name: string }) => entry.name === "@scanly/url-safety").integrity = "sha512-substituted";
+    expect(() => verifyPublicationRecovery(record, qualification, readBytes)).toThrow(/published integrity/);
+  });
   it("rejects an evidence reference outside the versioned recovery directory", () => {
     const record = publication(); const recovery = JSON.parse(readBytes(record.provenanceRecovery.path).toString());
     recovery.evidence[0].path = "release/stable/v2.1.0/publication-recovery/../../outside.json";

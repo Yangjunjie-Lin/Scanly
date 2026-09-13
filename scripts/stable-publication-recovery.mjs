@@ -25,6 +25,22 @@ export function verifyPublicationRecovery(record, qualification, readBytes) {
   const publication = record.npm.find((entry) => entry.name === recovery.package);
   assert.equal(publication?.provenanceIdentity?.invocationId, `https://github.com/Yangjunjie-Lin/Scanly/actions/runs/${reference.runId}/attempts/${recovery.runAttempt}`, "Published provenance does not identify the recovery run");
   assert.equal(recovery.npmCredentialsUsedByCI, false);
+  // The original proof is outside the replacement evidence directory and is
+  // deliberately not replaced. Preserve both sides of the additive audit trail.
+  for (const [key, expected] of [
+    ["originalProvenance", "release/stable/v2.1.0/artifacts/provenance/scanly-url-safety-2.1.0.tgz.sigstore.json"],
+    ["replacementProvenance", "release/stable/v2.1.0/publication-recovery/provenance-A/scanly-url-safety-2.1.0.tgz.sigstore.json"],
+  ]) {
+    assert.equal(recovery[key]?.path, expected, `${key} must retain its exact versioned path`);
+    assert.match(recovery[key].sha256 ?? "", /^[a-f0-9]{64}$/);
+    assert.equal(crypto.createHash("sha256").update(readBytes(expected)).digest("hex"), recovery[key].sha256, `${key} SHA-256 changed`);
+  }
+  assert.equal(recovery.originalProvenance.registryAccepted, false);
+  assert.equal(recovery.artifact?.path, "release/stable/v2.1.0/artifacts/npm/scanly-url-safety-2.1.0.tgz");
+  const artifactBytes = readBytes(recovery.artifact.path);
+  assert.equal(crypto.createHash("sha256").update(artifactBytes).digest("hex"), recovery.artifact.sha256, "Recovered artifact SHA-256 changed");
+  assert.equal(crypto.createHash("sha512").update(artifactBytes).digest("hex"), recovery.artifact.sha512, "Recovered artifact SHA-512 changed");
+  assert.equal(publication.integrity, `sha512-${Buffer.from(recovery.artifact.sha512, "hex").toString("base64")}`, "Recovered artifact does not match the published integrity");
   assert.ok(Array.isArray(recovery.evidence) && recovery.evidence.length === 26, "Recovery must retain both build reports, 22 proofs, workflow evidence and reproducibility report");
   const seen = new Set();
   for (const evidence of recovery.evidence) {
