@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
+import { npmBuildDependencies, validateNpmBuildIdentity } from "./npm-provenance-identity.mjs";
 
 const args = Object.fromEntries(process.argv.slice(2).map((arg) => {
   const separator = arg.indexOf("=");
@@ -38,6 +39,7 @@ const workflowRef = process.env.GITHUB_WORKFLOW_REF;
 assert.ok(workflowRef?.startsWith("Yangjunjie-Lin/Scanly/.github/workflows/v2.1-artifact-qualification.yml@"));
 const workflowPath = ".github/workflows/v2.1-artifact-qualification.yml";
 const workflowGitRef = workflowRef.slice(workflowRef.indexOf("@") + 1);
+assert.equal(workflowGitRef, process.env.GITHUB_REF, "The non-reusable workflow and OIDC source refs must agree");
 const invocationId = `https://github.com/Yangjunjie-Lin/Scanly/actions/runs/${process.env.GITHUB_RUN_ID}/attempts/${process.env.GITHUB_RUN_ATTEMPT}`;
 
 for (const folder of ["packages", "engines"]) {
@@ -63,14 +65,12 @@ for (const folder of ["packages", "engines"]) {
           buildType: "https://slsa-framework.github.io/github-actions-buildtypes/workflow/v1",
           externalParameters: { workflow: { ref: workflowGitRef, repository: "https://github.com/Yangjunjie-Lin/Scanly", path: workflowPath }, source_commit: sourceCommit },
           internalParameters: { github: { event_name: process.env.GITHUB_EVENT_NAME, repository_id: process.env.GITHUB_REPOSITORY_ID, repository_owner_id: process.env.GITHUB_REPOSITORY_OWNER_ID } },
-          resolvedDependencies: [
-            { uri: `git+https://github.com/Yangjunjie-Lin/Scanly@${sourceCommit}`, digest: { gitCommit: sourceCommit } },
-            { uri: `git+https://github.com/Yangjunjie-Lin/Scanly@${workflowGitRef}`, digest: { gitCommit: process.env.GITHUB_SHA } },
-          ],
+          resolvedDependencies: npmBuildDependencies(sourceCommit, process.env.GITHUB_SHA, process.env.GITHUB_REF),
         },
         runDetails: { builder: { id: "https://github.com/actions/runner/github-hosted" }, metadata: { invocationId } },
       },
     };
+    validateNpmBuildIdentity(statement, { sourceCommit, workflowCommit: process.env.GITHUB_SHA, workflowRef: process.env.GITHUB_REF });
     const bundle = await sigstore.attest(Buffer.from(JSON.stringify(statement)), "application/vnd.in-toto+json");
     await sigstore.verify(bundle);
     const provenanceFile = `${packed.filename}.sigstore.json`;
