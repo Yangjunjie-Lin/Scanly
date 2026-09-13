@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { execFileSync } from "node:child_process";
+import { validateNpmBuildIdentity } from "./npm-provenance-identity.mjs";
 
 const args = Object.fromEntries(process.argv.slice(2).map((arg) => {
   const separator = arg.indexOf("=");
@@ -41,6 +42,7 @@ for (let i = 0; i < reports.length; i++) {
   assert.equal(report.published, false);
   assert.equal(report.buildLabel, label);
   assert.equal(report.runId, run.databaseId);
+  assert.equal(report.workflowDefinitionCommit, run.headSha);
   assert.equal(report.artifacts.length, 11);
   assert.ok(report.workflowRef.startsWith("Yangjunjie-Lin/Scanly/.github/workflows/v2.1-artifact-qualification.yml@"));
   const job = run.jobs.find((entry) => entry.name === `Clean npm build ${label}`);
@@ -70,6 +72,14 @@ for (let i = 0; i < reports.length; i++) {
     assert.equal(statement.predicateType, "https://slsa.dev/provenance/v1");
     assert.equal(statement.predicate.buildDefinition.externalParameters.source_commit, sourceCommit);
     assert.ok(statement.predicate.buildDefinition.resolvedDependencies.some((dependency) => dependency.digest.gitCommit === sourceCommit));
+    if (args["npm-compatible"] === "true") {
+      validateNpmBuildIdentity(statement, { sourceCommit, workflowCommit: run.headSha, workflowRef: report.workflowRef.split("@")[1] });
+    }
+    if (args["frozen-artifacts"]) {
+      const frozen = read(args["frozen-artifacts"]).artifacts.find((entry) => path.basename(entry.path) === artifact.filename);
+      assert.ok(frozen, `Missing frozen artifact ${artifact.filename}`);
+      assert.equal(frozen.sha256, artifact.sha256, "Fresh builds must match the frozen release bytes");
+    }
     if (i === 0) { names.add(artifact.name); provenances.push({ package: artifact.name, file: path.relative(root, file).replaceAll("\\", "/"), sha256: artifact.provenanceSha256, artifactSha256: artifact.sha256, artifactSha512: artifact.sha512, certificateIdentity: `https://github.com/${report.workflowRef}`, verified: true }); }
   }
   maps.push(hashes);
@@ -80,6 +90,7 @@ assert.equal(names.size, 11);
 assert.ok(names.has("@scanly/url-safety"));
 const result = { schemaVersion: "scanly-v2.1-npm-reproducibility-1", version: "2.1.0", sourceCommit, sourceTree, status: "PASS", independentBuildJobs: jobs, runId: run.databaseId, cleanBuildRunA: `https://github.com/Yangjunjie-Lin/Scanly/actions/runs/${run.databaseId}/job/${jobs[0]}`, cleanBuildRunB: `https://github.com/Yangjunjie-Lin/Scanly/actions/runs/${run.databaseId}/job/${jobs[1]}`, cleanBuildA: maps[0], cleanBuildB: maps[1], rawBuildAEqualsBuildB: true, detachedProvenanceVerified: provenances, packageCount: names.size, published: false };
 const output = path.resolve(args.output);
+assert.ok(!fs.existsSync(output), "Never overwrite qualification evidence");
 fs.mkdirSync(path.dirname(output), { recursive: true });
 fs.writeFileSync(output, JSON.stringify(result, null, 2) + "\n");
 console.log("V2_1_NPM_ARTIFACT_REPRODUCIBILITY_GO: 11 byte-identical tarballs; 22 issuer/identity/subject-bound provenance bundles verified. No publication performed.");
