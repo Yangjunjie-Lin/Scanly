@@ -13,7 +13,7 @@ Privacy-first, local-only barcode scanning SDK for Web, Node.js, React, iOS, and
 
 ## Install
 
-The 2.1.0 release line is software-qualified. Registry publication is finalized separately through the signed release workflow; see the [release notes](docs/releases/v2.1.0.md) and versioned release records below.
+All 11 public SDK packages are published at 2.1.0 with verified provenance and exact frozen artifact hashes. See the [release notes](docs/releases/v2.1.0.md) and [immutable publication record](release/stable/v2.1.0/v2.1.0-publication-record.json).
 
 Choose the package for your runtime. Browser, Node, and React packages already include their required Scanly workspace dependencies.
 
@@ -181,6 +181,8 @@ Detailed Alpha, Beta, and RC development evidence is preserved in [development h
 
 - [v2.1.0 release notes](docs/releases/v2.1.0.md)
 - [v2.1.0 qualification manifest](release/stable/v2.1.0/v2.1.0-manifest.json)
+- [v2.1.0 publication record](release/stable/v2.1.0/v2.1.0-publication-record.json)
+- [v2.1.0 additive provenance correction](release/stable/v2.1.0/v2.1.0-provenance-recovery.json)
 - [v2.1.0 checksums](release/stable/v2.1.0/checksums.sha256)
 - [v2.1.0 SBOM](release/stable/v2.1.0/sbom.cdx.json)
 - [v2.0.1 release notes](docs/releases/v2.0.1.md)

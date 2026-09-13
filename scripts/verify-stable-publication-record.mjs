@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { verifyPublicationRecovery } from "./stable-publication-recovery.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const stableRoot = path.join(root, "release", "stable");
@@ -43,6 +44,7 @@ for (const recordPath of recordPaths) {
 
   if (sha256(qualificationPath) !== record.qualificationManifest.sha256) fail(`${version}: qualification manifest hash changed.`);
   if (qualification.version !== version || qualification.stable !== "V2_STABLE_RELEASE_GO") fail(`${version}: qualification identity is not the frozen Stable GO record.`);
+  verifyPublicationRecovery(record, qualification, (relative) => fs.readFileSync(path.join(root, relative)));
 
   const tagObject = git("rev-parse", record.gitTag.name);
   const tagTarget = git("rev-parse", `${record.gitTag.name}^{}`);

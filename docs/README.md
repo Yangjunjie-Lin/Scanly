@@ -10,6 +10,7 @@
 ## API and capabilities
 
 - [Public API](sdk/public-api.md)
+- [Opt-in Link Intelligence / URL Safety](url-safety.md)
 - [API stability](sdk/api-stability.md)
 - [Error catalog](sdk/error-catalog.md)
 - [Cross-platform contract](sdk/cross-platform-contract.md)
@@ -36,10 +37,15 @@
 
 ## Migration, benchmarking, and release integrity
 
-- [Migrate from v1 to v2.0.1](migration/v1-to-v2.md)
+- [Migrate from v1 to v2.1.0](migration/v1-to-v2.md)
 - [Post-release Physical Device Validation](physical-device-validation.md)
 - [Benchmark methodology](benchmarking/methodology.md)
 - [Benchmark provenance](benchmarking/provenance.md)
+- [v2.1.0 release notes](releases/v2.1.0.md)
+- [v2.1.0 qualification manifest](../release/stable/v2.1.0/v2.1.0-manifest.json)
+- [v2.1.0 publication record](../release/stable/v2.1.0/v2.1.0-publication-record.json)
+- [v2.1.0 checksums](../release/stable/v2.1.0/checksums.sha256)
+- [v2.1.0 SBOM](../release/stable/v2.1.0/sbom.cdx.json)
 - [v2.0.1 release notes](releases/v2.0.1.md)
 - [v2.0.1 qualification manifest](../release/stable/v2.0.1/v2.0.1-manifest.json)
 - [v2.0.1 checksums](../release/stable/v2.0.1/checksums.sha256)
