@@ -2,10 +2,11 @@ name: v2.1 Artifact Qualification
 
 on:
   pull_request:
-    branches: [develop]
+    branches: [develop, main]
     paths:
       - .github/workflows/v2.1-artifact-qualification.yml
       - scripts/prepare-v2.1-npm-artifacts.mjs
+      - scripts/npm-provenance-identity.mjs
   workflow_dispatch:
     inputs:
       source_commit:
