@@ -1,20 +1,20 @@
-# Scanly SDK v2.0.1 for Android
+# Scanly SDK v2.1.0 for Android
 
-Scanly SDK v2.0.1 is distributed as `scanly-sdk-2.0.1.aar` on the [v2.0.1 GitHub Release](https://github.com/Yangjunjie-Lin/Scanly/releases/tag/v2.0.1). Maven Central is **not published and not required for v2.0.1**; do not use `implementation("io.scanly:scanly-sdk:2.0.1")`.
+Scanly SDK v2.1.0 is distributed as `scanly-sdk-2.1.0.aar` on the [v2.1.0 GitHub Release](https://github.com/Yangjunjie-Lin/Scanly/releases/tag/v2.1.0). Maven Central is **not published and not required for v2.1.0**; do not use `implementation("io.scanly:scanly-sdk:2.1.0")`.
 
 ## Install the AAR
 
-1. Download `scanly-sdk-2.0.1.aar` from the GitHub Release.
-2. Place it at `app/libs/scanly-sdk-2.0.1.aar`.
+1. Download `scanly-sdk-2.1.0.aar` from the GitHub Release.
+2. Place it at `app/libs/scanly-sdk-2.1.0.aar`.
 3. Add the file dependency:
 
 ```kotlin
 dependencies {
-    implementation(files("libs/scanly-sdk-2.0.1.aar"))
+    implementation(files("libs/scanly-sdk-2.1.0.aar"))
 }
 ```
 
-Verify the AAR against `release/stable/v2.0.1/checksums.sha256` or the checksum attached to the GitHub Release before integration.
+Verify the AAR against `release/stable/v2.1.0/checksums.sha256` or the checksum attached to the GitHub Release before integration.
 
 ## CameraX quick start
 

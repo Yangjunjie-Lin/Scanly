@@ -2,15 +2,16 @@
 
 ## Supported versions
 
-v2.0.1 is the current Stable release.
+v2.1.0 is the current Stable release.
 
 | Version | Security support |
 | --- | --- |
+| 2.1.x | Supported; current Stable line |
 | 2.0.x | Supported |
 | 1.x | Best-effort security fixes only |
 | Alpha, Beta, and RC builds | Unsupported historical development builds |
 
-Security fixes normally target the latest supported patch in the 2.0 line. Support does not expand the public API or physical-device qualification claims of a released version.
+Security fixes normally target the latest supported patch in the 2.1 line, with applicable fixes considered for supported 2.0.x releases. Support does not expand the public API or physical-device qualification claims of a released version.
 
 ## Reporting a vulnerability
 
@@ -33,5 +34,7 @@ Dependency audit results are recorded rather than hidden. Breaking forced upgrad
 ## Privacy and diagnostics
 
 The shipped SDK has no analytics, remote tracking, image upload, remote logging, or diagnostic endpoint. Image pixels and decoded content must not be logged by default. Any future diagnostics must be opt-in and redact both classes of data.
+
+The separate `@scanly/url-safety` module is disabled by default. Network analysis may share only an already-decoded HTTP(S) URL after explicit opt-in; scanner images and frames remain local. Remote inspection is server-only and SSRF-controlled. Provider secrets stay on the server, sensitive query values are redacted from diagnostics and LLM evidence, and LLM output cannot override authoritative threat intelligence. See [URL Safety security and privacy boundaries](docs/url-safety.md).
 
 See the [threat model](docs/security/threat-model.md) and [secure integration guide](docs/security/secure-integration.md).
